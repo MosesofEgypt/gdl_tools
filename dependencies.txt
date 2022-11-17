@@ -1,0 +1,7 @@
+arbytmap
+binilla
+numpy
+pypng
+pycollada
+scipy
+supyr_struct
