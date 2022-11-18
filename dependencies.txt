@@ -5,3 +5,4 @@ pypng
 pycollada
 scipy
 supyr_struct
+pyyaml
