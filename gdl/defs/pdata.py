@@ -4,83 +4,65 @@ from ..field_types import *
 
 def get(): return pdata_def
 
-lump_kw = {SIZE:lump_size, POINTER:lump_pointer}
+player_datas_lump = Lump('player_datas',
+    SUB_STRUCT=Container('player_data',
+        SInt16('num_sfx'),
+        SInt16('num_damage'),
+        Pointer32('plyr_sfx'),
+        Pointer32('plyr_damage'),
 
-#############################
-'''individual lump structs'''
-#############################
+        SInt16('turbo_a_close'),
+        SInt16('turbo_a_low'),
+        SInt16('turbo_a_step'),
+        SInt16('turbo_a_360'),
+        SInt16('turbo_a_throw'),
+        SInt16('turbo_b'),
+        SInt16('turbo_c1'),
+        SInt16('turbo_c2'),
+        SInt16('combo1'),
+        SInt16('combo2'),
+        SInt16('combo_hit'),
+        SInt16('victory'),
+        SInt32('init_flag'),
 
-player_data = Container('player data',
-    SInt16('num sfx'),
-    SInt16('num damage'),
-    Pointer32('plyr sfx'),
-    Pointer32('plyr damage'),
+        QStruct('strength', INCLUDE=stat_range),
+        QStruct('speed', INCLUDE=stat_range),
+        QStruct('armor', INCLUDE=stat_range),
+        QStruct('magic', INCLUDE=stat_range),
 
-    SInt16('turbo a close'),
-    SInt16('turbo a low'),
-    SInt16('turbo a step'),
-    SInt16('turbo a 360'),
-    SInt16('turbo a throw'),
-    SInt16('turbo b'),
-    SInt16('turbo c1'),
-    SInt16('turbo c2'),
-    SInt16('combo1'),
-    SInt16('combo2'),
-    SInt16('combo hit'),
-    SInt16('victory'),
-    SInt32('init flag'),
-
-    QStruct('strength', INCLUDE=stat),
-    QStruct('speed', INCLUDE=stat),
-    QStruct('armor', INCLUDE=stat),
-    QStruct('magic', INCLUDE=stat),
-
-    Float('height'),
-    Float('width'),
-    Float('attny'),
-    Float('coly'),
-    Float('powerup time'),
-    QStruct('weapon offset',   INCLUDE=xyz_float),
-    Array('weapon fx offsets',
-          SIZE=10, SUB_STRUCT=Struct("weapon fx offset", INCLUDE=xyz_float)
-          ),
-    Array('weapon fx scales',
-          SIZE=10, SUB_STRUCT=Struct("weapon fx scale", INCLUDE=xyz_float)
-          ),
-    QStruct('turbo a offset', INCLUDE=xyz_float),
-    QStruct('familiar offset', INCLUDE=xyz_float),
-    QStruct('familiar proj offset', INCLUDE=xyz_float),
-    LFloat('streak fwd mul'),
+        Float('height'),
+        Float('width'),
+        Float('attny'),
+        Float('coly'),
+        Float('powerup_time'),
+        QStruct('weapon_offset',   INCLUDE=xyz_float),
+        Array('weapon_fx_offsets',
+              SIZE=10, SUB_STRUCT=Struct("weapon_fx_offset", INCLUDE=xyz_float)
+              ),
+        Array('weapon_fx_scales',
+              SIZE=10, SUB_STRUCT=Struct("weapon_fx_scale", INCLUDE=xyz_float)
+              ),
+        QStruct('turbo_a_offset', INCLUDE=xyz_float),
+        QStruct('familiar_offset', INCLUDE=xyz_float),
+        QStruct('familiar_proj_offset', INCLUDE=xyz_float),
+        LFloat('streak_fwd_mul'),
+        ),
     )
 
-
-'''lump block arrays'''
-effects = Lump('effects',
-    SUB_STRUCT=effect, **lump_kw
+pdata_lump_headers = lump_headers(
+    {NAME:'sfxx', VALUE:lump_fcc('SFXX'), GUI_NAME:'sound/visual fx'},
+    {NAME:'damg', VALUE:lump_fcc('DAMG'), GUI_NAME:'attack damage'},
+    {NAME:'pdat', VALUE:lump_fcc('PDAT'), GUI_NAME:'player data'},
     )
-damages = Lump('damages',
-    SUB_STRUCT=damage, **lump_kw
-    )
-player_datas = Lump('player datas',
-    SUB_STRUCT=player_data, **lump_kw
+pdata_lumps_array = lumps_array(
+    sfxx = effects_lump,
+    damg = damages_lump,
+    pdat = player_datas_lump,
     )
 
 pdata_def = TagDef("pdata",
-    QStruct('wad header',
-        UInt32('lump headers pointer'),
-        UInt32('lump count', DEFAULT=3),
-        Pad(8),
-        VISIBLE=False,
-        ),
-    lump_headers,
-
-    #these need to be in a container to have the same index
-    #ordering as their headers in the lump_headers array
-    Container('lumps',
-        effects,
-        damages,
-        player_datas,
-        ),
-
+    wad_header,
+    pdata_lump_headers,
+    pdata_lumps_array,
     ext=".wad",
     )

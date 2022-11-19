@@ -10,10 +10,9 @@ from . import util
 
 def compile_metadata(data_dir, by_asset_name=False):
     all_assets = util.locate_metadata(data_dir)
-    all_bitmaps,  all_objects  = [], []
-    seen_bitmaps, seen_objects = set(), set()
+    meta_type_lists = {}
+    meta_type_seen  = {}
 
-    # TODO: factor this to make it generic(not only work for bitmaps and objects)
     for metadata_name in sorted(all_assets):
         asset_filepath = all_assets[metadata_name]
         try:
@@ -27,8 +26,10 @@ def compile_metadata(data_dir, by_asset_name=False):
             else:
                 raise ValueError("Unknown metadata asset type '%s'" % asset_type)
 
-            for typ, lst, seen in (("bitmaps", all_bitmaps, seen_bitmaps),
-                                   ("objects", all_objects, seen_objects)):
+            for typ in metadata:
+                typ  = typ.lower()
+                lst  = meta_type_lists.setdefault(typ, [])
+                seen = meta_type_seen.setdefault(typ, set())
                 src_lst = metadata.get(typ, ())
                 for i in range(len(src_lst)):
                     name = src_lst[i].get("name")
@@ -42,17 +43,18 @@ def compile_metadata(data_dir, by_asset_name=False):
             print(format_exc())
             print(f"Could not load metadata file '{asset_filepath}'")
 
-    all_metadata = dict(objects=all_objects, bitmaps=all_bitmaps)
     if by_asset_name:
         all_metadata = _split_metadata_by_asset_name(
             group_singletons=False,
-            metadata_by_type=all_metadata
+            metadata_by_type=meta_type_lists
             )
+    else:
+        all_metadata = meta_type_lists
 
     return all_metadata
 
 
-def decompile_metadata(
+def decompile_objects_metadata(
         objects_tag, data_dir,
         asset_types=c.METADATA_ASSET_EXTENSIONS[0],
         overwrite=False, individual_meta=True

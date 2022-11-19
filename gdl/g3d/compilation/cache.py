@@ -74,7 +74,7 @@ def decompile_cache_files(
             )
 
     if meta_asset_types:
-        metadata.decompile_metadata(
+        metadata.decompile_objects_metadata(
             objects_tag, data_dir, overwrite=overwrite,
             asset_types=meta_asset_types, individual_meta=individual_meta,
             )

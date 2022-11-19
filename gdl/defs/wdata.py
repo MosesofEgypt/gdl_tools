@@ -4,29 +4,23 @@ from ..field_types import *
 
 def get(): return wdata_def
 
-lump_kw = {SIZE:lump_size, POINTER:lump_pointer}
-
-#############################
-'''individual lump structs'''
-#############################
-
-'''lump block arrays'''
-player_datas = Lump('',
-    SUB_STRUCT=None, **lump_kw
+wdata_lump_headers = lump_headers(
+    {NAME:'enmy', VALUE:lump_fcc('ENMY'), GUI_NAME:'enemy type'},
+    {NAME:'bcam', VALUE:lump_fcc('BCAM'), GUI_NAME:'boss camera'},
+    {NAME:'cams', VALUE:lump_fcc('CAMS'), GUI_NAME:'cameras'},
+    {NAME:'snds', VALUE:lump_fcc('SNDS'), GUI_NAME:'sounds'},
+    {NAME:'auds', VALUE:lump_fcc('AUDS'), GUI_NAME:'audio streams'},
+    {NAME:'maps', VALUE:lump_fcc('MAPS'), GUI_NAME:'maps'},
+    {NAME:'levl', VALUE:lump_fcc('LEVL'), GUI_NAME:'level details'},
+    {NAME:'wrld', VALUE:lump_fcc('WRLD'), GUI_NAME:'world description'},
+    )
+wdata_lumps_array = lumps_array(
+    SUB_STRUCT=Void("empty"),
     )
 
 wdata_def = TagDef("wdata",
-    QStruct('wad header',
-        UInt32('lump headers pointer'),
-        UInt32('lump count', DEFAULT=8),
-        Pad(8),
-        VISIBLE=False,
-        ),
-    lump_headers,
-
-    #these need to be in a container to have the same index
-    #ordering as their headers in the lump_headers array
-    Container('lumps'),
-
+    wad_header,
+    wdata_lump_headers,
+    wdata_lumps_array,
     ext=".wad"
     )

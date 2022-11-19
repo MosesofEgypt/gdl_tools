@@ -10,4 +10,4 @@ class GdlWidgetPicker(WidgetPicker):
 
 def_gdl_widget_picker = dgdlwp = GdlWidgetPicker()
 
-dgdlwp.copy_widget(Lump, Array)
+dgdlwp.copy_widget(LumpArray, Array)

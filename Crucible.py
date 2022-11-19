@@ -186,7 +186,7 @@ class CrucibleApp(Tk):
         return crucible.Crucible(**kwargs)
 
     def select_folder(self):
-        folderpath = filedialog.askdirectory(
+        folderpath = tkinter.filedialog.askdirectory(
             initialdir=self.curr_dir, title="Select the folder containing objects.ps2/ngc")
         if folderpath:
             self.curr_dir = folderpath.replace('/','\\')

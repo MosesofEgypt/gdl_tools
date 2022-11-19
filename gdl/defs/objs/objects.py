@@ -210,7 +210,7 @@ class ObjectsPs2Tag(GdlTag):
         if min_lm_index > max_lm_index:
             min_lm_index = max_lm_index
             
-        self.data.header.lm_tex_first = min_lm_index
-        self.data.header.lm_tex_num   = max_lm_index + 1 - min_lm_index
+        self.data.header.lm_tex_first = max(0, min_lm_index)
+        self.data.header.lm_tex_num   = max(0, max_lm_index + 1 - min_lm_index)
 
         return GdlTag.serialize(self, **kwargs)

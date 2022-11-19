@@ -155,7 +155,7 @@ def import_textures(objects_tag, data_dir, target_ngc=False, use_force_index_hac
 
     if use_force_index_hack and all_metadata:  # hack
         max_forced_bitmap_index = max(
-            meta.get("force_index", 0) for meta in all_metadata["bitmaps"]
+            meta.get("force_index", -1) for meta in all_metadata["bitmaps"]
             )
         bitmaps.extend(1 + max_forced_bitmap_index)
         all_metadata = dict(combined=all_metadata)
@@ -199,6 +199,8 @@ def import_textures(objects_tag, data_dir, target_ngc=False, use_force_index_hac
         bitmap      = bitmaps[i]
         meta        = sorted_bitm_meta[i]
         g3d_texture = gtx_textures[i]
+        if not meta:
+            continue
 
         bitmap.frame_count = meta.get("frame_count", 0)
         bitmap.tex_pointer = tex_pointer
