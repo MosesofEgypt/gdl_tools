@@ -1,4 +1,5 @@
 from supyr_struct.defs.tag_def import TagDef
+from .objs.wad import WadTag
 try:
     from binilla.field_widgets import TextFrame
 except Exception:
@@ -84,5 +85,5 @@ shop_def = TagDef("shop",
     wad_header,
     shop_lump_headers,
     shop_lumps_array,
-    ext=".wad"
+    ext=".wad", endian="<", tag_cls=WadTag
     )

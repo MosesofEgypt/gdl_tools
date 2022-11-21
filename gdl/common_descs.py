@@ -9,8 +9,8 @@ def lump_fcc(value):
 
 
 def _get_lump_context(
-        node=None, parent=None, attr_index=None, rawdata=None, new_value=None,
-        *args, **kwargs):
+        *args, node=None, parent=None, attr_index=None, rawdata=None,
+        new_value=None, **kwargs):
     if node and parent is None:
         parent = node.parent
 
@@ -44,21 +44,32 @@ def get_lump_size(*args, new_value=None, **kwargs):
     lump_headers[i].lump_size2 = new_value
 
 
-def get_lump_rawdata_size(*args, rawdata=None, new_value=None, **kwargs):
+def get_lump_rawdata_size(
+        *args, parent=None, attr_index=None, rawdata=None,
+        new_value=None, **kwargs
+        ):
     if new_value is not None:
         # open-ended lump data doesnt have its size stored anywhere
         return None
-    elif kwargs["parent"]:
-        kwargs["node"]   = kwargs["parent"]
-        kwargs["parent"] = kwargs["parent"].parent
-
-    del kwargs["attr_index"]
+    elif None in (parent, attr_index) or parent[attr_index] is None:
+        # need to check the parent of the parent to determine the size
+        kwargs["node"] = parent
+        parent = parent.parent
+        attr_index = None
+    else:
+        # lumps rawdata exists, so return its size
+        node = parent[attr_index]
+        return getattr(node, 'itemsize', 1) * len(node)
 
     i, lump_headers = _get_lump_context(*args, **kwargs)
     if None in (i, lump_headers):
         return 0
 
     start = lump_headers[i].lump_array_pointer
+    if start == lump_headers.parent.wad_header.lump_headers_pointer:
+        # weird edge case for lumps without data
+        return 0
+
     end   = 0x100000000 # use a high start value to reduce from that'll get
     #                     masked off to 0 if no lumps end after this one
     for lump_header in lump_headers:

@@ -144,17 +144,18 @@ def decompile_objects_metadata(
             )
 
     for set_name in metadata_sets:
-        filepath = os.path.join(data_dir, "%s.%s" % (set_name, asset_type))
-        if os.path.isfile(filepath) and not overwrite:
-            continue
-        elif asset_type in ("yaml", "yml"):
-            with open(filepath, 'w') as f:
-                yaml.dump(metadata_sets[set_name], f)
-        elif asset_type in ("json"):
-            with open(filepath, 'w') as f:
-                json.dump(
-                    metadata_sets[set_name], f, sort_keys=True, indent=2
-                    )
+        for asset_type in asset_types:
+            filepath = os.path.join(data_dir, "%s.%s" % (set_name, asset_type))
+            if os.path.isfile(filepath) and not overwrite:
+                continue
+            elif asset_type in ("yaml", "yml"):
+                with open(filepath, 'w') as f:
+                    yaml.safe_dump(metadata_sets[set_name], f)
+            elif asset_type in ("json"):
+                with open(filepath, 'w') as f:
+                    json.dump(
+                        metadata_sets[set_name], f, sort_keys=True, indent=2
+                        )
 
 
 def _split_metadata_by_asset_name(group_singletons, metadata_by_type):

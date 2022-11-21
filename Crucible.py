@@ -6,6 +6,7 @@ import time
 from tkinter import *
 from traceback import format_exc
 from gdl import crucible
+from gdl.defs.rom import rom_def
 
 BUILD_TARGETS = {
     "PlayStation2": "ps2",
@@ -257,3 +258,15 @@ class CrucibleApp(Tk):
 
 if __name__ == '__main__':
     CrucibleApp().mainloop()
+
+#from gdl.metadata.messages import decompile_messages_metadata
+#test = rom_def.build(filepath="C:/Users/Moses/Desktop/gauntlet_modding/ps2_data/TEXT/JAPANESE.ROM")
+#decompile_messages_metadata(
+#    test, "C:/Users/Moses/Desktop/gauntlet_modding/ps2_data/TEXT/JAPANESE", overwrite=True
+#    )
+#asdf = rom_def.build()
+#asdf.filepath = "C:/Users/Moses/Desktop/gauntlet_modding/ps2_data/TEXT/TEST.ROM"
+#asdf.add_fonts(test.get_fonts())
+#asdf.add_messages(test.get_messages())
+#asdf.add_message_lists(test.get_message_lists())
+#asdf.serialize(temp=False)

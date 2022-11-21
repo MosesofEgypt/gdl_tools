@@ -1,4 +1,5 @@
 from supyr_struct.defs.tag_def import TagDef
+from .objs.wad import WadTag
 from ..common_descs import *
 from ..field_types import *
 
@@ -22,5 +23,5 @@ wdata_def = TagDef("wdata",
     wad_header,
     wdata_lump_headers,
     wdata_lumps_array,
-    ext=".wad"
+    ext=".wad", endian="<", tag_cls=WadTag
     )

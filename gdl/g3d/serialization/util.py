@@ -1,8 +1,5 @@
 from supyr_struct.buffer import BytearrayBuffer
-
-
-def calculate_padding(buffer_len, stride):
-    return (stride-(buffer_len%stride)) % stride
+from ...util import *
 
 
 class FixedBytearrayBuffer(BytearrayBuffer):

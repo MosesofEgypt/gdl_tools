@@ -1,4 +1,5 @@
 from supyr_struct.defs.tag_def import TagDef
+from .objs.rom import RomTag
 from ..common_descs import *
 from ..field_types import *
 
@@ -13,7 +14,7 @@ font_lump = Lump('fonts',
     )
 
 string_data_lump = Lump('string_data',
-    SUB_STRUCT=StrRawAscii('data',
+    SUB_STRUCT=StrRawLatin1('data',
         SIZE=get_lump_rawdata_size, WIDGET=TextFrame
         )
     )
@@ -84,5 +85,5 @@ rom_def = TagDef("rom",
     wad_header,
     rom_lump_headers,
     rom_lumps_array,
-    ext=".rom"
+    ext=".rom", endian="<", tag_cls=RomTag
     )

@@ -1,4 +1,5 @@
 from supyr_struct.defs.tag_def import TagDef
+from .objs.wad import WadTag
 from ..common_descs import *
 from ..field_types import *
 
@@ -15,11 +16,13 @@ critter_lump_headers = lump_headers(
     {NAME:'type', VALUE:lump_fcc('TYPE'), GUI_NAME:'????'},
     )
 critter_lumps_array = lumps_array(
+    sfxx = effects_lump,
+    damg = damages_lump,
     )
 
 critter_def = TagDef("critter",
     wad_header,
     critter_lump_headers,
     critter_lumps_array,
-    ext=".wad"
+    ext=".wad", endian="<", tag_cls=WadTag
     )
