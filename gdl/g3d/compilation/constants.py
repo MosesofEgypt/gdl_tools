@@ -1,5 +1,8 @@
 from ..serialization.constants import *
 
+
+PS2_EXTENSION = 'ps2'
+NGC_EXTENSION = 'ngc'
 ANIMATION_CACHE_EXTENSION   = "g4d"
 MODEL_CACHE_EXTENSION       = "g3d"
 TEXTURE_CACHE_EXTENSION_PS2 = "gtx"
@@ -33,18 +36,15 @@ DATA_FOLDERNAME   = 'assets'
 IMPORT_FOLDERNAME = 'cache'
 EXPORT_FOLDERNAME = 'source'
 
-ANIM_FOLDERNAME       = 'animations'
-MOD_FOLDERNAME        = 'objects'
-TEX_FOLDERNAME        = 'bitmaps'
-SHARED_TEX_FOLDERNAME = 'shared_textures'
+ANIM_FOLDERNAME   = 'animations'
+MOD_FOLDERNAME    = 'models'
+TEX_FOLDERNAME    = 'bitmaps'
 
-PS2_OBJECTS_FILENAME = 'objects.ps2'
-NGC_OBJECTS_FILENAME = 'objects.ngc'
-PS2_TEXTURES_FILENAME = 'textures.ps2'
-NGC_TEXTURES_FILENAME = 'textures.ngc'
-OBJECTS_FILENAME   = PS2_TEXTURES_FILENAME
-TEXTURES_FILENAME  = PS2_TEXTURES_FILENAME
-TEXDEF_FILENAME    = 'texdef.ps2'
+ANIMATIONS_FILENAME = 'anim'
+OBJECTS_FILENAME    = 'objects'
+TEXTURES_FILENAME   = 'textures'
+TEXDEF_FILENAME     = 'texdef'
+
 MISSING_ASSET_NAME = "__MISSING"
 UNNAMED_ASSET_NAME = "__UNNAMED"
 LIGHTMAP_NAME      = "LIGHTMAP"

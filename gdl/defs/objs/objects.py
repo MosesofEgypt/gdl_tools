@@ -14,7 +14,11 @@ class ObjectsPs2Tag(GdlTag):
 
     def load_texdef_names(self, filepath=None):
         if filepath is None:
-            filepath = os.path.join(os.path.dirname(self.filepath), c.TEXDEF_FILENAME)
+            filepath = os.path.join(
+                os.path.dirname(self.filepath), "%s.%s" % (
+                    c.TEXDEF_FILENAME, c.PS2_EXTENSION
+                    )
+                )
 
         texdef_tag = texdef_ps2_def.build(filepath=filepath)
         bitmap_defs = texdef_tag.data.bitmap_defs

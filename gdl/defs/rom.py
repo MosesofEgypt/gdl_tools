@@ -3,7 +3,7 @@ from .objs.rom import RomTag
 from ..common_descs import *
 from ..field_types import *
 
-def get(): return rom_def
+def get(): return rom_def, rom_old_def
 
 
 font_lump = Lump('fonts',
@@ -58,7 +58,7 @@ message_list_def_offsets_lump = Lump('message_list_def_offsets',
     SUB_STRUCT=LUInt32('offset'),
     )
 
-rom_lump_headers = lump_headers(
+lump_types = (
     {NAME:'font', VALUE:lump_fcc('FONT'), GUI_NAME:'font'},
     {NAME:'text', VALUE:lump_fcc('TEXT'), GUI_NAME:'string data'},
     {NAME:'toff', VALUE:lump_fcc('TOFF'), GUI_NAME:'string offsets'},
@@ -69,6 +69,8 @@ rom_lump_headers = lump_headers(
     {NAME:'sdef', VALUE:lump_fcc('SDEF'), GUI_NAME:'message def offsets'},
     {NAME:'ldef', VALUE:lump_fcc('LDEF'), GUI_NAME:'message list def offsets'},
     )
+rom_lump_headers = lump_headers(*lump_types)
+rom_lump_headers_old = lump_headers(*lump_types, extra_size_field=False)
 rom_lumps_array = lumps_array(**{
     "font": font_lump,
     "text": string_data_lump,
@@ -84,6 +86,13 @@ rom_lumps_array = lumps_array(**{
 rom_def = TagDef("rom",
     wad_header,
     rom_lump_headers,
+    rom_lumps_array,
+    ext=".rom", endian="<", tag_cls=RomTag
+    )
+
+rom_old_def = TagDef("rom_old",
+    wad_header,
+    rom_lump_headers_old,
     rom_lumps_array,
     ext=".rom", endian="<", tag_cls=RomTag
     )

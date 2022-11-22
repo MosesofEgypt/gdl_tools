@@ -296,20 +296,17 @@ def decompile_textures(
     assets_dir = os.path.join(data_dir, c.EXPORT_FOLDERNAME, c.TEX_FOLDERNAME)
     cache_dir  = os.path.join(data_dir, c.IMPORT_FOLDERNAME, c.TEX_FOLDERNAME)
     tag_dir = os.path.dirname(objects_tag.filepath)
+    textures_ext = os.path.splitext(objects_tag.filepath)[-1].strip(".")
 
     bitmaps = objects_tag.data.bitmaps
     _, bitmap_assets = objects_tag.get_cache_names()
 
-    ps2_textures_path = os.path.join(tag_dir, c.PS2_TEXTURES_FILENAME)
-    ngc_textures_path = os.path.join(tag_dir, c.NGC_TEXTURES_FILENAME)
+    is_ngc = (textures_ext.lower() == c.NGC_EXTENSION.lower())
+    textures_filepath = os.path.join(
+        tag_dir, "%s.%s" % (c.TEXTURES_FILENAME, textures_ext)
+        )
 
-    if os.path.isfile(ps2_textures_path):
-        textures_filepath = ps2_textures_path
-        is_ngc = False
-    elif os.path.isfile(ngc_textures_path):
-        textures_filepath = ngc_textures_path
-        is_ngc = True
-    else:
+    if not os.path.isfile(textures_filepath):
         print("No textures cache to extract from.")
         return
 

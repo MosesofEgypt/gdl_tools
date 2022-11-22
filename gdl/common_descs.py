@@ -41,7 +41,8 @@ def get_lump_size(*args, new_value=None, **kwargs):
         return lump_headers[i].lump_size
 
     lump_headers[i].lump_size  = new_value
-    lump_headers[i].lump_size2 = new_value
+    if hasattr(lump_headers[i], "lump_size2"):
+        lump_headers[i].lump_size2 = new_value
 
 
 def get_lump_rawdata_size(
@@ -119,21 +120,20 @@ wad_header = QStruct('wad header',
     VISIBLE=False,
     )
 
-def lump_headers(*lump_ids):
-    lump_header = Struct('lump_header',
+def lump_headers(*lump_ids, extra_size_field=True):
+    header_fields = (
         UEnum32('lump_id', *lump_ids),
         Pointer32('lump_array_pointer'),
         UInt32('lump_size'),
-        UInt32('lump_size2'),
         )
+    if extra_size_field:
+        header_fields += (UInt32('lump_size2'), )
 
-    lump_headers = Array('lump_headers',
+    return Array('lump_headers',
         POINTER='.wad_header.lump_headers_pointer',
-        SIZE='.wad_header.lump_count', SUB_STRUCT=lump_header,
-        VISIBLE=False,
+        SIZE='.wad_header.lump_count', VISIBLE=False,
+        SUB_STRUCT=Struct('lump_header', *header_fields)
         )
-    return lump_headers
-
 
 def lumps_array(**cases):
     lump_switch = Switch("lump",

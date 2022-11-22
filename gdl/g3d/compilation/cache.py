@@ -20,7 +20,10 @@ def compile_cache_files(
     texdef_tag  = None
 
     objects_tag.filepath = os.path.join(
-        objects_dir, c.NGC_OBJECTS_FILENAME if target_ngc else c.PS2_OBJECTS_FILENAME
+        objects_dir, "%s.%s" % (
+            c.OBJECTS_FILENAME,
+            c.NGC_EXTENSION if target_ngc else c.PS2_EXTENSION
+            )
         )
     objects_tag.data.version_header.dir_name = (
         os.path.join(objects_dir, "").replace("\\", "/")[-32:]
@@ -100,8 +103,10 @@ def serialize_textures_cache(
         ):
     if not output_filepath:
         objects_dir     = os.path.dirname(objects_tag.filepath)
-        textures_filename = (c.NGC_TEXTURES_FILENAME if target_ngc else
-                             c.PS2_TEXTURES_FILENAME)
+        textures_filename = "%s.%s" % (
+            c.TEXTURES_FILENAME,
+            c.NGC_EXTENSION if target_ngc else c.PS2_EXTENSION
+            )
         output_filepath = os.path.join(objects_dir, textures_filename)
 
     temppath = output_filepath + ".temp"
@@ -135,7 +140,7 @@ def compile_texdef_cache(objects_tag):
 
     texdef_tag = texdef_ps2_def.build()
     objects_dir         = os.path.dirname(objects_tag.filepath)
-    texdef_tag.filepath = os.path.join(objects_dir, c.TEXDEF_FILENAME)
+    texdef_tag.filepath = os.path.join(objects_dir, "%s.%s" % (c.TEXDEF_FILENAME, c.PS2_EXTENSION))
 
     object_bitmaps     = objects_tag.data.bitmaps
     texdef_bitmaps     = texdef_tag.data.bitmaps
