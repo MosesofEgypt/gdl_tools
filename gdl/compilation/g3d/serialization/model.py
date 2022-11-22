@@ -9,7 +9,7 @@ from sys import byteorder
 from math import sqrt
 from traceback import format_exc
 
-from ..stripify import Stripifier
+from .stripify import Stripifier
 from . import constants as c
 from . import util
 

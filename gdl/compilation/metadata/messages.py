@@ -4,9 +4,8 @@ import yaml
 
 from traceback import format_exc
 
-from ..g3d.compilation import constants as c
-from ..g3d.compilation import util
-from ..g3d.compilation.metadata import *
+from ..g3d import constants as c, util
+from ..g3d.metadata import *
 
 
 def decompile_messages_metadata(

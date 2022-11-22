@@ -1,10 +1,10 @@
 import os
 
 from .defs.objects import objects_ps2_def
-from .g3d.compilation import model as model_comp
-from .g3d.compilation import texture as texture_comp
-from .g3d.compilation import cache as cache_comp
-from .g3d.compilation import constants as c
+from .compilation.g3d import model as model_comp
+from .compilation.g3d import texture as texture_comp
+from .compilation.g3d import cache as cache_comp
+from .compilation.g3d import constants as c
 
 class Crucible:
     target_dir = "."

@@ -3,7 +3,7 @@ import os
 import traceback
 
 from . import constants as c
-from ..serialization.util import *
+from .serialization.util import *
 
 
 def locate_metadata(data_dir):

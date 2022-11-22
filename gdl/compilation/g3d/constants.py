@@ -1,4 +1,4 @@
-from ..serialization.constants import *
+from .serialization.constants import *
 
 
 PS2_EXTENSION = 'ps2'

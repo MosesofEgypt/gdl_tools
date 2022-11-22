@@ -3,7 +3,7 @@ import math
 import os
 
 from traceback import format_exc
-from ..serialization.texture import G3DTexture, ROMTEX_HEADER_STRUCT
+from .serialization.texture import G3DTexture, ROMTEX_HEADER_STRUCT
 from . import constants as c
 from . import metadata
 from . import util

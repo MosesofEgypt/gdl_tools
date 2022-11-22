@@ -2,7 +2,7 @@ import hashlib
 import os
 
 from traceback import format_exc
-from ..serialization.model import G3DModel,\
+from .serialization.model import G3DModel,\
      OBJECT_HEADER_STRUCT, SUBOBJ_HEADER_STRUCT
 from . import constants as c
 from . import metadata

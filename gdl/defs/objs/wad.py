@@ -1,5 +1,5 @@
 from .tag import GdlTag
-from ...util import calculate_padding
+from ...compilation.util import calculate_padding
 
 
 class WadTag(GdlTag):

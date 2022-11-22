@@ -4,8 +4,8 @@ from traceback import format_exc
 
 from .tag import GdlTag
 from ..texdef import texdef_ps2_def
-from ...g3d.serialization.util import calculate_padding
-from ...g3d.compilation import constants as c
+from ...compilation.util import calculate_padding
+from ...compilation.g3d import constants as c
 
 
 class ObjectsPs2Tag(GdlTag):
