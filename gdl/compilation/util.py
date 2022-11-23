@@ -2,33 +2,19 @@ import multiprocessing
 import os
 import traceback
 
-from . import constants as c
-from ..serialization.util import *
+from supyr_struct.buffer import BytearrayBuffer
+
+def calculate_padding(buffer_len, stride):
+    return (stride-(buffer_len%stride)) % stride
 
 
-def locate_metadata(data_dir):
-    return _locate_assets(data_dir, c.METADATA_ASSET_EXTENSIONS)
+class FixedBytearrayBuffer(BytearrayBuffer):
+    __slots__ = ('_pos',)
+    def __init__(self, *args):
+        self._pos = 0
 
-def locate_models(data_dir, cache_files=False):
-    return _locate_assets(data_dir,
-        c.MODEL_CACHE_EXTENSION if cache_files else
-        c.MODEL_ASSET_EXTENSIONS
-        )
 
-def locate_textures(data_dir, cache_files=False, target_ngc=False):
-    return _locate_assets(data_dir,
-        c.TEXTURE_ASSET_EXTENSIONS if not cache_files else
-        (c.TEXTURE_CACHE_EXTENSION_NGC, ) if target_ngc else
-        (c.TEXTURE_CACHE_EXTENSION_PS2, )
-        )
-
-def locate_animations(data_dir, cache_files=False):
-    return _locate_assets(data_dir,
-        c.ANIMATION_CACHE_EXTENSION if cache_files else
-        c.ANIMATION_ASSET_EXTENSIONS
-        )
-
-def _locate_assets(data_dir, extensions):
+def locate_assets(data_dir, extensions):
     assets = {}
     for root, dirs, files in os.walk(data_dir):
         for filename in sorted(files):
@@ -61,3 +47,4 @@ def process_jobs(job_function, all_job_args=(), process_count=None):
             job_function(job_args)
         except Exception:
             print(traceback.format_exc())
+

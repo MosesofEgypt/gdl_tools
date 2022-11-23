@@ -5,7 +5,8 @@ from supyr_struct.util import backup_and_rename_temp
 from traceback import format_exc
 from ...defs.objects import objects_ps2_def
 from ...defs.texdef import texdef_ps2_def
-from . import animation, model, texture, metadata
+from ..metadata import objects as objects_metadata
+from . import animation, model, texture
 from . import constants as c
 
 
@@ -20,7 +21,10 @@ def compile_cache_files(
     texdef_tag  = None
 
     objects_tag.filepath = os.path.join(
-        objects_dir, c.NGC_OBJECTS_FILENAME if target_ngc else c.PS2_OBJECTS_FILENAME
+        objects_dir, "%s.%s" % (
+            c.OBJECTS_FILENAME,
+            c.NGC_EXTENSION if target_ngc else c.PS2_EXTENSION
+            )
         )
     objects_tag.data.version_header.dir_name = (
         os.path.join(objects_dir, "").replace("\\", "/")[-32:]
@@ -74,7 +78,7 @@ def decompile_cache_files(
             )
 
     if meta_asset_types:
-        metadata.decompile_metadata(
+        objects_metadata.decompile_objects_metadata(
             objects_tag, data_dir, overwrite=overwrite,
             asset_types=meta_asset_types, individual_meta=individual_meta,
             )
@@ -100,8 +104,10 @@ def serialize_textures_cache(
         ):
     if not output_filepath:
         objects_dir     = os.path.dirname(objects_tag.filepath)
-        textures_filename = (c.NGC_TEXTURES_FILENAME if target_ngc else
-                             c.PS2_TEXTURES_FILENAME)
+        textures_filename = "%s.%s" % (
+            c.TEXTURES_FILENAME,
+            c.NGC_EXTENSION if target_ngc else c.PS2_EXTENSION
+            )
         output_filepath = os.path.join(objects_dir, textures_filename)
 
     temppath = output_filepath + ".temp"
@@ -135,7 +141,7 @@ def compile_texdef_cache(objects_tag):
 
     texdef_tag = texdef_ps2_def.build()
     objects_dir         = os.path.dirname(objects_tag.filepath)
-    texdef_tag.filepath = os.path.join(objects_dir, c.TEXDEF_FILENAME)
+    texdef_tag.filepath = os.path.join(objects_dir, "%s.%s" % (c.TEXDEF_FILENAME, c.PS2_EXTENSION))
 
     object_bitmaps     = objects_tag.data.bitmaps
     texdef_bitmaps     = texdef_tag.data.bitmaps

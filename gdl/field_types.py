@@ -20,7 +20,7 @@ def qword_size(node=None, parent=None, attr_index=None,
     return (parent.qword_count + 1)*16 - 8
 
 
-def lump_array_parser(self, desc, node=None, parent=None, attr_index=None,
+def lump_parser(self, desc, node=None, parent=None, attr_index=None,
                       rawdata=None, root_offset=0, offset=0, **kwargs):
     if node is None:
         node = (desc.get(NODE_CLS, self.node_cls)
@@ -44,4 +44,4 @@ def lump_array_parser(self, desc, node=None, parent=None, attr_index=None,
     return offset
 
 
-Lump = FieldType(base=Array, name='Lump', parser=lump_array_parser)
+LumpArray = FieldType(base=Array, name='LumpArray', parser=lump_parser)

@@ -2,10 +2,10 @@ import hashlib
 import os
 
 from traceback import format_exc
-from ..serialization.model import G3DModel,\
+from ..metadata import objects as objects_metadata
+from .serialization.model import G3DModel,\
      OBJECT_HEADER_STRUCT, SUBOBJ_HEADER_STRUCT
 from . import constants as c
-from . import metadata
 from . import util
 
 
@@ -183,9 +183,9 @@ def import_models(objects_tag, data_dir):
     del object_defs[:]
 
     # get the metadata for all models to import
-    objects_metadata = metadata.compile_metadata(data_dir).get("objects", ())
+    metadata = objects_metadata.compile_objects_metadata(data_dir).get("objects", ())
     objects_metadata_by_name = {
-        meta["name"]: meta for meta in objects_metadata if "name" in meta
+        meta["name"]: meta for meta in metadata if "name" in meta
         }
 
     for name in sorted(objects_metadata_by_name):
@@ -291,7 +291,7 @@ def decompile_models(
         has_lmap       = bool(getattr(flags, "lmap", False))
         has_normals    = bool(getattr(flags, "v_normals", True))
         has_colors     = bool(getattr(flags, "v_colors", True))
-        default_lod_k  = getattr(obj.sub_object_0, "lod_k", c.DEFAULT_LOD_K)
+        default_lod_k  = getattr(obj.sub_object_0, "lod_k", c.DEFAULT_MOD_LOD_K)
         subobjs        = getattr(obj.data, "sub_objects", ())
         subobj_models  = [
             dict(data = model.data, qword_count = model.qword_count)

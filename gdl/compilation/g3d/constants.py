@@ -1,0 +1,76 @@
+from ..constants import *
+
+
+ANIMATION_CACHE_EXTENSION   = "g4d"
+MODEL_CACHE_EXTENSION       = "g3d"
+TEXTURE_CACHE_EXTENSION_PS2 = "gtx"
+TEXTURE_CACHE_EXTENSION_NGC = "gtn"
+TEXTURE_CACHE_EXTENSION  = TEXTURE_CACHE_EXTENSION_PS2
+TEXTURE_CACHE_EXTENSIONS = (
+    TEXTURE_CACHE_EXTENSION_PS2,
+    TEXTURE_CACHE_EXTENSION_NGC
+    )
+
+ANIM_FOLDERNAME   = 'animations'
+MOD_FOLDERNAME    = 'models'
+TEX_FOLDERNAME    = 'bitmaps'
+
+ANIMATIONS_FILENAME = 'anim'
+OBJECTS_FILENAME    = 'objects'
+TEXTURES_FILENAME   = 'textures'
+TEXDEF_FILENAME     = 'texdef'
+
+MISSING_ASSET_NAME = "__MISSING"
+UNNAMED_ASSET_NAME = "__UNNAMED"
+LIGHTMAP_NAME      = "LIGHTMAP"
+
+# these flags map to the ones in the objects.ps2 struct
+G3D_FLAG_NORMALS = 0x0002
+G3D_FLAG_COLORS  = 0x0004
+G3D_FLAG_MESH    = 0x0008
+G3D_FLAG_LMAP    = 0x0020
+G3D_FLAG_ALL     = G3D_FLAG_NORMALS | G3D_FLAG_MESH | G3D_FLAG_COLORS | G3D_FLAG_LMAP
+
+DEFAULT_MOD_LOD_K = -90
+DEFAULT_TEX_LOD_K = -64
+DEFAULT_FORMAT_NAME = "ABGR_8888"
+
+# these flags and format names map to the ones in the objects.ps2 struct
+GTX_FLAG_HAS_ALPHA = 0x0080
+GTX_FLAG_ALL       = GTX_FLAG_HAS_ALPHA
+
+PALETTE_SIZES = {
+    #measured in bytes
+    "ABGR_1555_IDX_4":2,
+    "XBGR_1555_IDX_4":2,
+    "ABGR_1555_IDX_8":2,
+    "XBGR_1555_IDX_8":2,
+    "ABGR_8888_IDX_4":4,
+    "XBGR_8888_IDX_4":4,
+    "ABGR_8888_IDX_8":4,
+    "XBGR_8888_IDX_8":4,
+    "ABGR_1555_IDX_4_NGC":2,
+    "XBGR_1555_IDX_8_NGC":2,
+    }
+
+PIXEL_SIZES = {
+    #measured in bits
+    "ABGR_1555_IDX_4":4,
+    "XBGR_1555_IDX_4":4,
+    "ABGR_8888_IDX_4":4,
+    "XBGR_8888_IDX_4":4,
+    "A_4_IDX_4":4,
+    "I_4_IDX_4":4,
+    "ABGR_1555_IDX_8":8,
+    "XBGR_1555_IDX_8":8,
+    "ABGR_8888_IDX_8":8,
+    "XBGR_8888_IDX_8":8,
+    "A_8_IDX_8":8,
+    "I_8_IDX_8":8,
+    "ABGR_1555":16,
+    "XBGR_1555":16,
+    "ABGR_8888":32,
+    "XBGR_8888":32,
+    "ABGR_1555_IDX_4_NGC":4,
+    "XBGR_1555_IDX_8_NGC":8,
+    }

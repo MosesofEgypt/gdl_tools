@@ -4,8 +4,8 @@ from traceback import format_exc
 
 from .tag import GdlTag
 from ..texdef import texdef_ps2_def
-from ...g3d.serialization.util import calculate_padding
-from ...g3d.compilation import constants as c
+from ...compilation.util import calculate_padding
+from ...compilation.g3d import constants as c
 
 
 class ObjectsPs2Tag(GdlTag):
@@ -14,7 +14,11 @@ class ObjectsPs2Tag(GdlTag):
 
     def load_texdef_names(self, filepath=None):
         if filepath is None:
-            filepath = os.path.join(os.path.dirname(self.filepath), c.TEXDEF_FILENAME)
+            filepath = os.path.join(
+                os.path.dirname(self.filepath), "%s.%s" % (
+                    c.TEXDEF_FILENAME, c.PS2_EXTENSION
+                    )
+                )
 
         texdef_tag = texdef_ps2_def.build(filepath=filepath)
         bitmap_defs = texdef_tag.data.bitmap_defs
@@ -210,7 +214,7 @@ class ObjectsPs2Tag(GdlTag):
         if min_lm_index > max_lm_index:
             min_lm_index = max_lm_index
             
-        self.data.header.lm_tex_first = min_lm_index
-        self.data.header.lm_tex_num   = max_lm_index + 1 - min_lm_index
+        self.data.header.lm_tex_first = max(0, min_lm_index)
+        self.data.header.lm_tex_num   = max(0, max_lm_index + 1 - min_lm_index)
 
         return GdlTag.serialize(self, **kwargs)

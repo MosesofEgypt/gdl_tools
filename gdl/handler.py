@@ -19,7 +19,7 @@ class GdlHandler(Handler):
         filename, ext = filename.lower(), ext.lower()
         filename = filename.split(".")[-1]
         
-        if ext in ('.xbe','.rom'):
+        if ext in ('.xbe','.rom', '.fnt'):
             return ext[1:]
         elif ext in ('.ps2', '.ngc'):
             return filename

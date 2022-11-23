@@ -1,12 +1,12 @@
 import os
 
-from .defs.objects import objects_ps2_def
-from .g3d.compilation import model as model_comp
-from .g3d.compilation import texture as texture_comp
-from .g3d.compilation import cache as cache_comp
-from .g3d.compilation import constants as c
+from ..defs.objects import objects_ps2_def
+from .g3d import cache as cache_comp
+from .g3d import model as model_comp
+from .g3d import texture as texture_comp
+from .g3d import constants as c
 
-class Crucible:
+class ObjectsCompiler:
     target_dir = "."
 
     build_ngc_files = True
@@ -51,7 +51,7 @@ class Crucible:
             parallel_processing=self.parallel_processing,
             )
 
-    def compile_cache(self):
+    def compile(self):
         if not os.path.isdir(self.target_dir):
             return
 
@@ -72,7 +72,7 @@ class Crucible:
 
         return compilation_outputs
 
-    def extract_assets(self, **kwargs):
+    def decompile(self, **kwargs):
         kwargs.setdefault("overwrite", self.overwrite)
         kwargs.setdefault("individual_meta", self.individual_meta)
         kwargs.setdefault("parallel_processing", self.parallel_processing)

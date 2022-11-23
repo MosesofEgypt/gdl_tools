@@ -1,4 +1,5 @@
 from supyr_struct.defs.tag_def import TagDef
+from .objs.wad import WadTag
 try:
     from binilla.field_widgets import TextFrame
 except Exception:
@@ -14,81 +15,75 @@ item_type = UEnum32('type',
     ('key',    1),
     ('potion', 3),
 
-    ('ten strength', 5),
-    ('ten speed', 6),
-    ('ten armor', 7),
-    ('ten magic', 8),
+    ('ten_strength', 5),
+    ('ten_speed', 6),
+    ('ten_armor', 7),
+    ('ten_magic', 8),
 
-    ('reflect shield',  9),
+    ('reflect_shield',  9),
     ('phoenix',        10),
-    ('rapid fire',     11),
-    ('three way shot', 12),
-    ('five way shot',  34),
+    ('rapid_fire',     11),
+    ('three_way_shot', 12),
+    ('five_way_shot',  34),
 
     ('hammer',        13),
-    ('elec shield',   14),
-    ('fire shield',   15),
+    ('elec_shield',   14),
+    ('fire_shield',   15),
 
     ('food',     17),
     ('levitate', 18),
     ('growth',   19),
     ('growth2',  4),
     ('speed', 28),
-    ('enemy shrink', 29),
+    ('enemy_shrink', 29),
 
-    ('fire amulet',  20),
-    ('elec amulet',  21),
-    ('light amulet', 22),
-    ('acid amulet',  23),
+    ('fire_amulet',  20),
+    ('elec_amulet',  21),
+    ('light_amulet', 22),
+    ('acid_amulet',  23),
 
-    ('super shot', 24),
+    ('super_shot', 24),
 
-    ('fire breath', 25),
-    ('lightning breath', 26),
-    ('acid breath',  27),
+    ('fire_breath', 25),
+    ('lightning_breath', 26),
+    ('acid_breath',  27),
 
     ('invisibility', 30),
     ('invulnerable', 31),
-    ('gold invulnerable', 16),
-    ('x-ray',    32),
-    ('gas mask', 33),
+    ('gold_invulnerable', 16),
+    ('x_ray',    32),
+    ('gas_mask', 33),
 
-    ('anti-death', 35),
-    ('hand-of-death', 36),
-    ('health vampire', 37),
-    ('mikey dummy', 38),
+    ('anti_death', 35),
+    ('hand_of_death', 36),
+    ('health_vampire', 37),
+    ('mikey_dummy', 38),
     #the next 20 items after 38 act like exit,
     #so im assuming all other values do as well
     )
 
-item = Struct('item',
-    StrLatin1('icon id',     SIZE=32),
-    StrLatin1('description', SIZE=32, WIDGET=TextFrame),
-    Float('scale', DEFAULT=1.0),
-    item_type,
-    UInt32('price'),
-    UInt32('amount'),
-    SIZE=80,
+item_lump = Lump('items',
+    SUB_STRUCT=Struct('item',
+        StrLatin1('icon_id',     SIZE=32),
+        StrLatin1('description', SIZE=32, WIDGET=TextFrame),
+        Float('scale', DEFAULT=1.0),
+        item_type,
+        UInt32('price'),
+        UInt32('amount'),
+        SIZE=80,
+        )
     )
 
-item_array = Lump('items',
-    SUB_STRUCT=item, SIZE=lump_size, POINTER=lump_pointer
+shop_lump_headers = lump_headers(
+    {NAME:'item', VALUE:lump_fcc('ITEM'), GUI_NAME:'shop items'},
+    )
+shop_lumps_array = lumps_array(
+    item = item_lump,
     )
 
 shop_def = TagDef("shop",
-    Struct('wad header',
-        UInt32('lump headers pointer'),
-        UInt32('lump count', DEFAULT=1),
-        Pad(8),
-        VISIBLE=False,
-        ),
-    lump_headers,
-
-    #these need to be in a container to have the same index
-    #ordering as their headers in the lump_headers array
-    Container('lumps',
-        item_array
-    ),
-
-    ext=".wad"
+    wad_header,
+    shop_lump_headers,
+    shop_lumps_array,
+    ext=".wad", endian="<", tag_cls=WadTag
     )

@@ -3,9 +3,9 @@ import math
 import os
 
 from traceback import format_exc
-from ..serialization.texture import G3DTexture, ROMTEX_HEADER_STRUCT
+from ..metadata import objects as objects_metadata
+from .serialization.texture import G3DTexture, ROMTEX_HEADER_STRUCT
 from . import constants as c
-from . import metadata
 from . import util
 
 
@@ -61,7 +61,7 @@ def compile_textures(
 
     # get the metadata for all bitmaps to import and
     # key it by name to allow matching to asset files
-    all_metadata = metadata.compile_metadata(data_dir)
+    all_metadata = objects_metadata.compile_objects_metadata(data_dir)
     bitmap_metadata = {
         m.get("name"): m
         for m in all_metadata.get("bitmaps", ())
@@ -141,7 +141,7 @@ def import_textures(objects_tag, data_dir, target_ngc=False, use_force_index_hac
     del bitmap_defs[:]
 
     # get the metadata for all bitmaps to import
-    all_metadata = metadata.compile_metadata(
+    all_metadata = objects_metadata.compile_objects_metadata(
         data_dir, by_asset_name=not use_force_index_hack
         )
 
@@ -155,7 +155,7 @@ def import_textures(objects_tag, data_dir, target_ngc=False, use_force_index_hac
 
     if use_force_index_hack and all_metadata:  # hack
         max_forced_bitmap_index = max(
-            meta.get("force_index", 0) for meta in all_metadata["bitmaps"]
+            meta.get("force_index", -1) for meta in all_metadata["bitmaps"]
             )
         bitmaps.extend(1 + max_forced_bitmap_index)
         all_metadata = dict(combined=all_metadata)
@@ -199,6 +199,8 @@ def import_textures(objects_tag, data_dir, target_ngc=False, use_force_index_hac
         bitmap      = bitmaps[i]
         meta        = sorted_bitm_meta[i]
         g3d_texture = gtx_textures[i]
+        if not meta:
+            continue
 
         bitmap.frame_count = meta.get("frame_count", 0)
         bitmap.tex_pointer = tex_pointer
@@ -212,7 +214,7 @@ def import_textures(objects_tag, data_dir, target_ngc=False, use_force_index_hac
                 print("Warning: Could not set bitmap format.")
 
             bitmap.flags.data   = 0
-            bitmap.lod_k        = meta.get("lod_k", c.DEFAULT_LOD_K)
+            bitmap.lod_k        = meta.get("lod_k", c.DEFAULT_TEX_LOD_K)
             bitmap.width        = meta.get("width", 0)
             bitmap.height       = meta.get("height", 0)
             bitmap.mipmap_count = meta.get("mipmap_count", 0)
@@ -294,20 +296,17 @@ def decompile_textures(
     assets_dir = os.path.join(data_dir, c.EXPORT_FOLDERNAME, c.TEX_FOLDERNAME)
     cache_dir  = os.path.join(data_dir, c.IMPORT_FOLDERNAME, c.TEX_FOLDERNAME)
     tag_dir = os.path.dirname(objects_tag.filepath)
+    textures_ext = os.path.splitext(objects_tag.filepath)[-1].strip(".")
 
     bitmaps = objects_tag.data.bitmaps
     _, bitmap_assets = objects_tag.get_cache_names()
 
-    ps2_textures_path = os.path.join(tag_dir, c.PS2_TEXTURES_FILENAME)
-    ngc_textures_path = os.path.join(tag_dir, c.NGC_TEXTURES_FILENAME)
+    is_ngc = (textures_ext.lower() == c.NGC_EXTENSION.lower())
+    textures_filepath = os.path.join(
+        tag_dir, "%s.%s" % (c.TEXTURES_FILENAME, textures_ext)
+        )
 
-    if os.path.isfile(ps2_textures_path):
-        textures_filepath = ps2_textures_path
-        is_ngc = False
-    elif os.path.isfile(ngc_textures_path):
-        textures_filepath = ngc_textures_path
-        is_ngc = True
-    else:
+    if not os.path.isfile(textures_filepath):
         print("No textures cache to extract from.")
         return
 
