@@ -51,10 +51,6 @@ def decompile_objects_metadata(
     if isinstance(asset_types, str):
         asset_types = (asset_types, )
 
-    for asset_type in asset_types:
-        if asset_type not in c.METADATA_ASSET_EXTENSIONS:
-            raise ValueError("Unknown metadata type '%s'" % asset_type)
-
     bitmaps_metadata = []
     objects_metadata = []
 

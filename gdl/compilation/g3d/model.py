@@ -183,9 +183,9 @@ def import_models(objects_tag, data_dir):
     del object_defs[:]
 
     # get the metadata for all models to import
-    objects_metadata = objects_metadata.compile_objects_metadata(data_dir).get("objects", ())
+    metadata = objects_metadata.compile_objects_metadata(data_dir).get("objects", ())
     objects_metadata_by_name = {
-        meta["name"]: meta for meta in objects_metadata if "name" in meta
+        meta["name"]: meta for meta in metadata if "name" in meta
         }
 
     for name in sorted(objects_metadata_by_name):

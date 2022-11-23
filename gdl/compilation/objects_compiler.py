@@ -51,7 +51,7 @@ class ObjectsCompiler:
             parallel_processing=self.parallel_processing,
             )
 
-    def compile_cache(self):
+    def compile(self):
         if not os.path.isdir(self.target_dir):
             return
 
@@ -72,7 +72,7 @@ class ObjectsCompiler:
 
         return compilation_outputs
 
-    def extract_assets(self, **kwargs):
+    def decompile(self, **kwargs):
         kwargs.setdefault("overwrite", self.overwrite)
         kwargs.setdefault("individual_meta", self.individual_meta)
         kwargs.setdefault("parallel_processing", self.parallel_processing)
