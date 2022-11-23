@@ -259,14 +259,17 @@ if __name__ == '__main__':
     CrucibleApp().mainloop()
 
 #from gdl.defs.rom import rom_def
-#from gdl.compilation.metadata.messages import decompile_messages_metadata
+#from gdl.compilation.metadata.messages import decompile_messages_metadata, compile_messages_metadata
 #test = rom_def.build(filepath="C:/Users/Moses/Desktop/gauntlet_modding/ps2_data/TEXT/ENGLISH.ROM")
 #decompile_messages_metadata(
-#    test, "C:/Users/Moses/Desktop/gauntlet_modding/ps2_data/TEXT/JAPANESE", overwrite=True
+#    test, "C:/Users/Moses/Desktop/gauntlet_modding/ps2_data/TEXT/ENGLISH", overwrite=True
+#    )
+#metadata = compile_messages_metadata(
+#    "C:/Users/Moses/Desktop/gauntlet_modding/ps2_data/TEXT/ENGLISH"
 #    )
 #asdf = rom_def.build()
 #asdf.filepath = "C:/Users/Moses/Desktop/gauntlet_modding/ps2_data/TEXT/TEST.ROM"
-#asdf.add_fonts(test.get_fonts())
-#asdf.add_messages(test.get_messages())
-#asdf.add_message_lists(test.get_message_lists())
+#asdf.add_fonts(metadata["fonts"])
+#asdf.add_messages(metadata["messages"])
+#asdf.add_message_lists(metadata["message_lists"])
 #asdf.serialize(temp=False)

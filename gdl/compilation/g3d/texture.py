@@ -3,7 +3,7 @@ import math
 import os
 
 from traceback import format_exc
-from ..metadata import shared as metadata
+from ..metadata import objects as objects_metadata
 from .serialization.texture import G3DTexture, ROMTEX_HEADER_STRUCT
 from . import constants as c
 from . import util
@@ -61,7 +61,7 @@ def compile_textures(
 
     # get the metadata for all bitmaps to import and
     # key it by name to allow matching to asset files
-    all_metadata = metadata.compile_metadata(data_dir)
+    all_metadata = objects_metadata.compile_objects_metadata(data_dir)
     bitmap_metadata = {
         m.get("name"): m
         for m in all_metadata.get("bitmaps", ())
@@ -141,7 +141,7 @@ def import_textures(objects_tag, data_dir, target_ngc=False, use_force_index_hac
     del bitmap_defs[:]
 
     # get the metadata for all bitmaps to import
-    all_metadata = metadata.compile_metadata(
+    all_metadata = objects_metadata.compile_objects_metadata(
         data_dir, by_asset_name=not use_force_index_hack
         )
 

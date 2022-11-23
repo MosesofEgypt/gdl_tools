@@ -2,7 +2,7 @@ import hashlib
 import os
 
 from traceback import format_exc
-from ..metadata import shared as metadata
+from ..metadata import objects as objects_metadata
 from .serialization.model import G3DModel,\
      OBJECT_HEADER_STRUCT, SUBOBJ_HEADER_STRUCT
 from . import constants as c
@@ -183,7 +183,7 @@ def import_models(objects_tag, data_dir):
     del object_defs[:]
 
     # get the metadata for all models to import
-    objects_metadata = metadata.compile_metadata(data_dir).get("objects", ())
+    objects_metadata = objects_metadata.compile_objects_metadata(data_dir).get("objects", ())
     objects_metadata_by_name = {
         meta["name"]: meta for meta in objects_metadata if "name" in meta
         }

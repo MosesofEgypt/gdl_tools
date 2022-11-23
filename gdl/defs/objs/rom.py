@@ -64,6 +64,7 @@ class RomTag(WadTag):
 
     def get_fonts(self):
         fonts_lump = self.get_or_add_lump_of_type('font')
+        # TODO: figure out if the font names should be uppercased
         return tuple(f.description for f in fonts_lump)
 
     def get_message_strings(self):
