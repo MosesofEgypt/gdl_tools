@@ -1,8 +1,6 @@
-from .serialization.constants import *
+from ..constants import *
 
 
-PS2_EXTENSION = 'ps2'
-NGC_EXTENSION = 'ngc'
 ANIMATION_CACHE_EXTENSION   = "g4d"
 MODEL_CACHE_EXTENSION       = "g3d"
 TEXTURE_CACHE_EXTENSION_PS2 = "gtx"
@@ -12,29 +10,6 @@ TEXTURE_CACHE_EXTENSIONS = (
     TEXTURE_CACHE_EXTENSION_PS2,
     TEXTURE_CACHE_EXTENSION_NGC
     )
-
-METADATA_ASSET_EXTENSIONS = (
-    "yaml",
-    "yml",
-    "json",
-    )
-ANIMATION_ASSET_EXTENSIONS = (
-    )
-MODEL_ASSET_EXTENSIONS = (
-    "obj",
-    #"dae",
-    )
-TEXTURE_ASSET_EXTENSIONS = (
-    "tga",
-    "dds",
-    "png",
-    )
-
-# set up the filepaths and foldernames that textures, animations,
-# models, and definitions will be extracted to and imported from.
-DATA_FOLDERNAME   = 'assets'
-IMPORT_FOLDERNAME = 'cache'
-EXPORT_FOLDERNAME = 'source'
 
 ANIM_FOLDERNAME   = 'animations'
 MOD_FOLDERNAME    = 'models'
@@ -49,14 +24,53 @@ MISSING_ASSET_NAME = "__MISSING"
 UNNAMED_ASSET_NAME = "__UNNAMED"
 LIGHTMAP_NAME      = "LIGHTMAP"
 
-OBJECT_FLAG_NAMES = (
-    "tex2", "sharp", "blur", "chrome",
-    "alpha", "sort_a", "sort", "error",
-    "pre_lit", "lmap_lit", "norm_lit", "dyn_lit"
-    )
+# these flags map to the ones in the objects.ps2 struct
+G3D_FLAG_NORMALS = 0x0002
+G3D_FLAG_COLORS  = 0x0004
+G3D_FLAG_MESH    = 0x0008
+G3D_FLAG_LMAP    = 0x0020
+G3D_FLAG_ALL     = G3D_FLAG_NORMALS | G3D_FLAG_MESH | G3D_FLAG_COLORS | G3D_FLAG_LMAP
 
-BITMAP_FLAG_NAMES = (
-    "halfres", "see_alpha", "clamp_u", "clamp_v",
-    "animation", "external", "tex_shift",
-    "has_alpha", "invalid", "dual_tex"
-    )
+DEFAULT_MOD_LOD_K = -90
+DEFAULT_TEX_LOD_K = -64
+DEFAULT_FORMAT_NAME = "ABGR_8888"
+
+# these flags and format names map to the ones in the objects.ps2 struct
+GTX_FLAG_HAS_ALPHA = 0x0080
+GTX_FLAG_ALL       = GTX_FLAG_HAS_ALPHA
+
+PALETTE_SIZES = {
+    #measured in bytes
+    "ABGR_1555_IDX_4":2,
+    "XBGR_1555_IDX_4":2,
+    "ABGR_1555_IDX_8":2,
+    "XBGR_1555_IDX_8":2,
+    "ABGR_8888_IDX_4":4,
+    "XBGR_8888_IDX_4":4,
+    "ABGR_8888_IDX_8":4,
+    "XBGR_8888_IDX_8":4,
+    "ABGR_1555_IDX_4_NGC":2,
+    "XBGR_1555_IDX_8_NGC":2,
+    }
+
+PIXEL_SIZES = {
+    #measured in bits
+    "ABGR_1555_IDX_4":4,
+    "XBGR_1555_IDX_4":4,
+    "ABGR_8888_IDX_4":4,
+    "XBGR_8888_IDX_4":4,
+    "A_4_IDX_4":4,
+    "I_4_IDX_4":4,
+    "ABGR_1555_IDX_8":8,
+    "XBGR_1555_IDX_8":8,
+    "ABGR_8888_IDX_8":8,
+    "XBGR_8888_IDX_8":8,
+    "A_8_IDX_8":8,
+    "I_8_IDX_8":8,
+    "ABGR_1555":16,
+    "XBGR_1555":16,
+    "ABGR_8888":32,
+    "XBGR_8888":32,
+    "ABGR_1555_IDX_4_NGC":4,
+    "XBGR_1555_IDX_8_NGC":8,
+    }

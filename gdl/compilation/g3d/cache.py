@@ -5,7 +5,8 @@ from supyr_struct.util import backup_and_rename_temp
 from traceback import format_exc
 from ...defs.objects import objects_ps2_def
 from ...defs.texdef import texdef_ps2_def
-from . import animation, model, texture, metadata
+from ..metadata import objects as objects_metadata
+from . import animation, model, texture
 from . import constants as c
 
 
@@ -77,7 +78,7 @@ def decompile_cache_files(
             )
 
     if meta_asset_types:
-        metadata.decompile_objects_metadata(
+        objects_metadata.decompile_objects_metadata(
             objects_tag, data_dir, overwrite=overwrite,
             asset_types=meta_asset_types, individual_meta=individual_meta,
             )

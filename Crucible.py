@@ -5,8 +5,7 @@ import time
 
 from tkinter import *
 from traceback import format_exc
-from gdl import crucible
-from gdl.defs.rom import rom_def
+from gdl.compilation import objects_compiler
 
 BUILD_TARGETS = {
     "PlayStation2": "ps2",
@@ -184,7 +183,7 @@ class CrucibleApp(Tk):
             force_recompile = self.force_recompile_cache.get(),
             overwrite = self.overwrite.get(),
             )
-        return crucible.Crucible(**kwargs)
+        return objects_compiler.ObjectsCompiler(**kwargs)
 
     def select_folder(self):
         folderpath = tkinter.filedialog.askdirectory(
@@ -259,8 +258,9 @@ class CrucibleApp(Tk):
 if __name__ == '__main__':
     CrucibleApp().mainloop()
 
-#from gdl.metadata.messages import decompile_messages_metadata
-#test = rom_def.build(filepath="C:/Users/Moses/Desktop/gauntlet_modding/ps2_data/TEXT/JAPANESE.ROM")
+#from gdl.defs.rom import rom_def
+#from gdl.compilation.metadata.messages import decompile_messages_metadata
+#test = rom_def.build(filepath="C:/Users/Moses/Desktop/gauntlet_modding/ps2_data/TEXT/ENGLISH.ROM")
 #decompile_messages_metadata(
 #    test, "C:/Users/Moses/Desktop/gauntlet_modding/ps2_data/TEXT/JAPANESE", overwrite=True
 #    )

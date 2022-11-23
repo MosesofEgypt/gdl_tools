@@ -2,10 +2,8 @@ import os
 import json
 import yaml
 
-from traceback import format_exc
-
-from ..g3d import constants as c, util
-from ..g3d.metadata import *
+from . import constants as c
+from .shared import compile_metadata
 
 
 def decompile_messages_metadata(
@@ -40,4 +38,4 @@ def decompile_messages_metadata(
                 yaml.safe_dump(metadata, f)
         elif asset_type in ("json"):
             with open(filepath, 'w') as f:
-                json(metadata, f, sort_keys=True, indent=2)
+                json.dump(metadata, f, sort_keys=True, indent=2)

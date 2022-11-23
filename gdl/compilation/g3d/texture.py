@@ -3,9 +3,9 @@ import math
 import os
 
 from traceback import format_exc
+from ..metadata import shared as metadata
 from .serialization.texture import G3DTexture, ROMTEX_HEADER_STRUCT
 from . import constants as c
-from . import metadata
 from . import util
 
 
@@ -214,7 +214,7 @@ def import_textures(objects_tag, data_dir, target_ngc=False, use_force_index_hac
                 print("Warning: Could not set bitmap format.")
 
             bitmap.flags.data   = 0
-            bitmap.lod_k        = meta.get("lod_k", c.DEFAULT_LOD_K)
+            bitmap.lod_k        = meta.get("lod_k", c.DEFAULT_TEX_LOD_K)
             bitmap.width        = meta.get("width", 0)
             bitmap.height       = meta.get("height", 0)
             bitmap.mipmap_count = meta.get("mipmap_count", 0)

@@ -2,10 +2,10 @@ import hashlib
 import os
 
 from traceback import format_exc
+from ..metadata import shared as metadata
 from .serialization.model import G3DModel,\
      OBJECT_HEADER_STRUCT, SUBOBJ_HEADER_STRUCT
 from . import constants as c
-from . import metadata
 from . import util
 
 
@@ -291,7 +291,7 @@ def decompile_models(
         has_lmap       = bool(getattr(flags, "lmap", False))
         has_normals    = bool(getattr(flags, "v_normals", True))
         has_colors     = bool(getattr(flags, "v_colors", True))
-        default_lod_k  = getattr(obj.sub_object_0, "lod_k", c.DEFAULT_LOD_K)
+        default_lod_k  = getattr(obj.sub_object_0, "lod_k", c.DEFAULT_MOD_LOD_K)
         subobjs        = getattr(obj.data, "sub_objects", ())
         subobj_models  = [
             dict(data = model.data, qword_count = model.qword_count)

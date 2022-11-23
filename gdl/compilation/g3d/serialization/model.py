@@ -11,7 +11,7 @@ from traceback import format_exc
 
 from .stripify import Stripifier
 from . import constants as c
-from . import util
+from .. import util
 
 OBJECT_HEADER_STRUCT = struct.Struct('<fIIII 12x 16s')
 #   bounding_radius
@@ -78,7 +78,7 @@ class G3DModel():
         self.lm_uvs = []
         self.colors = []
 
-        self.lod_ks   = {c.DEFAULT_INDEX_KEY: c.DEFAULT_LOD_K}
+        self.lod_ks   = {c.DEFAULT_INDEX_KEY: c.DEFAULT_MOD_LOD_K}
         self.all_tris = {c.DEFAULT_INDEX_KEY: []}
         
         self.all_dont_draws   = {}
@@ -163,7 +163,7 @@ class G3DModel():
 
     def import_g3d(
             self, input_buffer, headerless=False, subobj_count=1,
-            stream_len=-1, tex_name="", lm_name="", lod_k=c.DEFAULT_LOD_K
+            stream_len=-1, tex_name="", lm_name="", lod_k=c.DEFAULT_MOD_LOD_K
             ):
 
         if subobj_count > 1 and headerless:
@@ -438,7 +438,7 @@ class G3DModel():
                 # this material doesnt already exist
                 if idx_key not in self.all_tris:
                     self.all_tris[idx_key] = []
-                    self.lod_ks.setdefault(idx_key, c.DEFAULT_LOD_K)
+                    self.lod_ks.setdefault(idx_key, c.DEFAULT_MOD_LOD_K)
                 tris = self.all_tris[idx_key]
             elif line[0:2] == 'vt':
                 line = [v.strip() for v in line[2:].split(' ') if v]
@@ -766,7 +766,7 @@ class G3DModel():
                 continue
 
             tex_name, lm_name = idx_key
-            lod_k = self.lod_ks.get(idx_key, c.DEFAULT_LOD_K)
+            lod_k = self.lod_ks.get(idx_key, c.DEFAULT_MOD_LOD_K)
             if swap_lightmap_and_diffuse:
                 tex_name, lm_name = lm_name, tex_name
 

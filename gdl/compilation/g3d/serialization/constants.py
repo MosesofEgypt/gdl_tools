@@ -1,3 +1,5 @@
+from ..constants import *
+
 DEBUG = False
 
 # MODEL CONSTANTS
@@ -7,18 +9,9 @@ POS_SCALE   = 0x80
 UV_SCALE    = 0x80
 LM_UV_SCALE = 0x8000
 
-# these flags map to the ones in the objects.ps2 struct
-G3D_FLAG_NORMALS = 0x0002
-G3D_FLAG_COLORS  = 0x0004
-G3D_FLAG_MESH    = 0x0008
-G3D_FLAG_LMAP    = 0x0020
-G3D_FLAG_ALL     = G3D_FLAG_NORMALS | G3D_FLAG_MESH | G3D_FLAG_COLORS | G3D_FLAG_LMAP
-
-DEFAULT_MOD_LOD_K = -90
 DEFAULT_TEX_NAME  = "__unnamed_0"
 DEFAULT_LM_NAME   = "__unnamed_0"
 DEFAULT_INDEX_KEY = (DEFAULT_TEX_NAME, DEFAULT_LM_NAME)
-DEFAULT_LOD_K    = DEFAULT_MOD_LOD_K
 
 STREAM_FLAGS_DEFAULT    = 0x80
 STREAM_FLAGS_UV_DEFAULT = 0xC0
@@ -47,16 +40,9 @@ STORAGE_TYPE_UINT16_BITPACKED = 0x6F
 
 
 # TEXTURE CONSTANTS
-
-DEFAULT_TEX_LOD_K = -64
-DEFAULT_FORMAT_NAME = "ABGR_8888"
-
 #i dont imagine there ever being a use for even a 1024 texture
 VALID_DIMS = set(1<<i for i in range(16))
 
-# these flags and format names map to the ones in the objects.ps2 struct
-GTX_FLAG_HAS_ALPHA = 0x0080
-GTX_FLAG_ALL       = GTX_FLAG_HAS_ALPHA
 
 FORMAT_ID_TO_NAME = {
     0: "ABGR_1555",
@@ -84,39 +70,3 @@ FORMAT_NAME_TO_ID = {v: k for k, v in FORMAT_ID_TO_NAME.items()}
 MONOCHROME_FORMATS = set(
     ("A_4_IDX_4", "I_4_IDX_4", "A_8_IDX_8", "I_8_IDX_8")
     )
-
-PALETTE_SIZES = {
-    #measured in bytes
-    "ABGR_1555_IDX_4":2,
-    "XBGR_1555_IDX_4":2,
-    "ABGR_1555_IDX_8":2,
-    "XBGR_1555_IDX_8":2,
-    "ABGR_8888_IDX_4":4,
-    "XBGR_8888_IDX_4":4,
-    "ABGR_8888_IDX_8":4,
-    "XBGR_8888_IDX_8":4,
-    "ABGR_1555_IDX_4_NGC":2,
-    "XBGR_1555_IDX_8_NGC":2,
-    }
-
-PIXEL_SIZES = {
-    #measured in bits
-    "ABGR_1555_IDX_4":4,
-    "XBGR_1555_IDX_4":4,
-    "ABGR_8888_IDX_4":4,
-    "XBGR_8888_IDX_4":4,
-    "A_4_IDX_4":4,
-    "I_4_IDX_4":4,
-    "ABGR_1555_IDX_8":8,
-    "XBGR_1555_IDX_8":8,
-    "ABGR_8888_IDX_8":8,
-    "XBGR_8888_IDX_8":8,
-    "A_8_IDX_8":8,
-    "I_8_IDX_8":8,
-    "ABGR_1555":16,
-    "XBGR_1555":16,
-    "ABGR_8888":32,
-    "XBGR_8888":32,
-    "ABGR_1555_IDX_4_NGC":4,
-    "XBGR_1555_IDX_8_NGC":8,
-    }

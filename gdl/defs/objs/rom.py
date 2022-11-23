@@ -34,7 +34,7 @@ class RomTag(WadTag):
         data = data_lump[0] if data_lump else ''
         offsets = offsets_lump
 
-        if offsets_type.lower() in ("loff", "toff"):
+        if offsets is None or offsets_type.lower() in ("loff", "toff"):
             offsets = offsets[0] if offsets else ()
 
         strings = []
