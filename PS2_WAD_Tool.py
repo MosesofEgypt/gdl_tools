@@ -24,7 +24,7 @@ class Ps2WadCompiler(Tk):
         self.wad_filepath = StringVar(self)
 
         self.use_parallel_processing = BooleanVar(self, True)
-        self.use_wad_hashmap         = BooleanVar(self, True)
+        self.use_internal_names      = BooleanVar(self, True)
         self.overwrite               = BooleanVar(self, False)
 
         self.wad_filepath_frame = LabelFrame(self, text="WAD filepath")
@@ -51,9 +51,9 @@ class Ps2WadCompiler(Tk):
             self.settings_frame, text='Use parallel processing',
             variable=self.use_parallel_processing, onvalue=1, offvalue=0
             )
-        self.use_wad_hashmap_button = Checkbutton(
-            self.settings_frame, text='Use WAD hashmap',
-            variable=self.use_wad_hashmap, onvalue=1, offvalue=0
+        self.use_internal_names_button = Checkbutton(
+            self.settings_frame, text='Use filenames built into WAD',
+            variable=self.use_internal_names, onvalue=1, offvalue=0
             )
         self.overwrite_button = Checkbutton(
             self.settings_frame, text='Overwrite on extract',
@@ -85,7 +85,7 @@ class Ps2WadCompiler(Tk):
         # grid the settings
         y = 0
         for checkbuttons in (
-                (self.parallel_processing_button, self.use_wad_hashmap_button),
+                (self.parallel_processing_button, self.use_internal_names_button),
                 (self.overwrite_button, None),
             ):
             x = 0
@@ -102,7 +102,7 @@ class Ps2WadCompiler(Tk):
             wad_filepath = self.wad_filepath.get(),
             overwrite = self.overwrite.get(),
             parallel_processing = self.use_parallel_processing.get(),
-            use_wad_hashmap = self.use_wad_hashmap.get(),
+            use_internal_names = self.use_internal_names.get(),
             )
         return ps2_wad_compiler.Ps2WadCompiler(**kwargs)
 
@@ -163,17 +163,12 @@ class Ps2WadCompiler(Tk):
         try:
             print('Decompiling...')
             decompiler = self.get_ps2_wad_compiler()
-            decompiler.extract_files()
+            decompiler.extract_files_to_disk()
         except Exception:
             print(format_exc())
 
         print('Finished. Took %s seconds.\n' % (time.time() - start))
 
 
-#if __name__ == '__main__':
-#    Ps2WadCompiler().mainloop()
-
-ps2_wad_compiler.Ps2WadCompiler(
-    wad_filepath="C:/Users/Moses/Desktop/gauntlet_modding/ps2/WAD.BIN",
-    wad_dirpath="C:/Users/Moses/Desktop/gauntlet_modding/ps2/New folder",
-    ).extract_files()
+if __name__ == '__main__':
+    Ps2WadCompiler().mainloop()

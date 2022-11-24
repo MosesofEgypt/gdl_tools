@@ -25,6 +25,7 @@ SOFTWARE.
 INTERNAL_NAMES_FILEPATH = "INTERNAL_NAMES.BIN"
 
 # list of retail names taken from wad_decoder by haekb.
+# a few that were missing have been added by Moses.
 # original source located here:   https://github.com/haekb/gdl_wad_decoder
 RETAIL_NAMES = frozenset((
     INTERNAL_NAMES_FILEPATH,
@@ -1670,6 +1671,8 @@ RETAIL_NAMES = frozenset((
     "PLAYERS\\JAC\\YEL\\TEXTURES.PS2",
     "PLAYERS\\JAC\\YEL\\TEXDEF.PS2",
     "PLAYERS\\JES\\ANIM\\ANIM.PS2",
+    "PLAYERS\\JES\\ANIM\\TEXTURES.PS2",
+    "PLAYERS\\JES\\ANIM\\TEXDEF.PS2",
     "PLAYERS\\JES\\BLU\\ANIM.PS2",
     "PLAYERS\\JES\\BLU\\OBJECTS.PS2",
     "PLAYERS\\JES\\BLU\\TEXTURES.PS2",
