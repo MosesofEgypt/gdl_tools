@@ -1,19 +1,17 @@
 import os
-import struct
+import tempfile
 import zlib
 
 from traceback import format_exc
-from .ps2_wad import constants, util as ps2_wad_util
-from . import util 
-
-INDEX_HEADER_STRUCT = struct.Struct("<iiIi")
+from .ps2_wad import constants as c
+from .ps2_wad import util
 
 
 def _extract_files(kwargs):
     file_buffers = {}
     with open(kwargs["wad_filepath"], "rb") as fin:
         for header in kwargs["file_headers"]:
-            filename = header["filepath"].upper()
+            filename = header["filename"].upper()
             filepath = os.path.join(kwargs["wad_dirpath"], filename)
             if not kwargs["overwrite"] and os.path.isfile(filepath):
                 continue
@@ -27,7 +25,7 @@ def _extract_files(kwargs):
                 else:
                     data = zlib.decompress(fin.read(header["comp_size"]))
 
-                if kwargs["to_file"]:
+                if kwargs["to_disk"]:
                     with open(filepath, "wb") as fout:
                         fout.write(data)
                 else:
@@ -40,6 +38,59 @@ def _extract_files(kwargs):
     return file_buffers
 
 
+def _compile_wad(kwargs):
+    if not kwargs["overwrite"] and os.path.isfile(kwargs["wad_filepath"]):
+        return
+
+    file_headers = [
+        dict(
+            filename=header["filename"], filepath=header["filepath"],
+            compress_level=header.get("compress_level", 0),
+            data_pointer=0, uncomp_size=0, comp_size=-1,
+            path_hash=util.hash_filepath(header.get("filename", "")),
+            )
+        for header in kwargs["file_headers"]
+        ]
+
+    with open(kwargs["wad_filepath"], "wb") as fout:
+        # write the headers to allocate enough space for file index
+        util.write_file_headers(file_headers, fout)
+
+        for header in file_headers:
+            print(f"Compiling file: %s" % header["filename"])
+            try:
+                # read the data, and update the sizes/path hash/pointer
+                header["data_pointer"] = fout.tell()
+                with open(header["filepath"], "rb") as fin:
+                    data = fin.read()
+
+                filename, ext = os.path.splitext(os.path.basename(header["filename"]))
+                ext = ext.lower().strip(".")
+                if ext == c.PS2_WAD_UNKNOWN_EXTENSION:
+                    # unknown files store the path hash in the filename
+                    header["path_hash"] = int(filename)
+                elif ext in c.UNCOMPRESSIBLE_EXTENSIONS:
+                    # do not compress
+                    header["compress_level"] = 0
+
+                # compress the data if needed, and write to file
+                header["uncomp_size"]  = len(data)
+                if header["compress_level"]:  # no compression if (compress_level == 0)
+                    data = zlib.compress(data, header["compress_level"])
+                    header["comp_size"] = len(data)
+                else:
+                    header["comp_size"] = -1
+
+                fout.write(data)
+            except Exception:
+                print(format_exc())
+                print("Failed to compile '%s'" % header["filepath"])
+
+        fout.seek(0)
+        # write the headers again after we've calculated all the offsets, hashes, and sizes
+        util.write_file_headers(file_headers, fout)
+
+
 class Ps2WadCompiler:
     wad_dirpath  = ""
     wad_filepath = ""
@@ -47,6 +98,7 @@ class Ps2WadCompiler:
     overwrite = False
     parallel_processing = False
     use_internal_names = True
+    compression_level = zlib.Z_BEST_COMPRESSION
 
     filepath_hashmap = ()
     file_headers     = ()
@@ -65,24 +117,24 @@ class Ps2WadCompiler:
             wad_filepath = self.wad_filepath
 
         self.filepath_hashmap = {
-            ps2_wad_util.hash_filepath(filepath): filepath
-            for filepath in constants.RETAIL_NAMES
+            util.hash_filepath(filepath): filepath
+            for filepath in c.RETAIL_NAMES
             }
 
         if not(use_internal_names and os.path.isfile(wad_filepath)):
             return
 
         try:
-            internal_names_path_hash = ps2_wad_util.hash_filepath(constants.INTERNAL_NAMES_FILEPATH)
+            internal_names_path_hash = util.hash_filepath(c.INTERNAL_NAMES_FILEPATH)
             for file_header in self.get_file_headers():
                 if file_header["path_hash"] != internal_names_path_hash:
                     continue
 
                 internal_names_data = self.extract_file(file_header)
-                internal_names = ps2_wad_util.read_internal_names(internal_names_data)
+                internal_names = util.read_internal_names(internal_names_data)
 
                 self.filepath_hashmap.update({
-                    ps2_wad_util.hash_filepath(filepath): filepath
+                    util.hash_filepath(filepath): filepath
                     for filepath in internal_names
                     })
                 break
@@ -98,20 +150,8 @@ class Ps2WadCompiler:
             if not os.path.isfile(wad_filepath):
                 return
 
-            file_headers = []
             with open(wad_filepath, "rb") as f:
-                file_count = struct.unpack('<I', f.read(4))[0]
-                for i in range(file_count):
-                    header = INDEX_HEADER_STRUCT.unpack(f.read(16))
-                    uncomp_size, data_pointer, path_hash, comp_size = header
-                    file_headers.append(dict(
-                        uncomp_size  = uncomp_size,
-                        data_pointer = data_pointer,
-                        path_hash    = path_hash,
-                        comp_size    = comp_size
-                        ))
-
-            self.file_headers = file_headers
+                self.file_headers = util.read_file_headers(f)
 
         return self.file_headers
 
@@ -121,33 +161,33 @@ class Ps2WadCompiler:
 
         return self.filepath_hashmap.get(
             file_header["path_hash"],
-            "UNKNOWN/%s" % file_header["path_hash"]
+            c.PS2_WAD_UNKNOWN_FILE_TEMPLATE % file_header["path_hash"]
             )
 
-    def extract_file(self, file_header, overwrite=False):
-        datas = self.extract_files(file_headers=[file_header], overwrite=overwrite)
+    def extract_file(self, file_header):
+        datas = self.extract_files(file_headers=[file_header])
         return datas[0] if datas else None
 
-    def extract_files(self, file_headers=None, overwrite=False):
+    def extract_files(self, file_headers=None):
         if not file_headers:
             file_headers = self.get_file_headers()
 
         return _extract_files(dict(
-            file_headers=file_headers, overwrite=overwrite, to_file=False,
+            file_headers=file_headers, overwrite=self.overwrite, to_disk=False,
             wad_filepath=self.wad_filepath, wad_dirpath=self.wad_dirpath,
             ))
 
-    def extract_file_to_disk(self, file_header, overwrite=False):
-        self.extract_files_to_disk(file_headers=[file_header], overwrite=overwrite)
+    def extract_file_to_disk(self, file_header):
+        self.extract_files_to_disk(file_headers=[file_header])
 
-    def extract_files_to_disk(self, file_headers=None, overwrite=False):
+    def extract_files_to_disk(self, file_headers=None):
         if not file_headers:
             file_headers = self.get_file_headers()
 
         files_to_extract_by_size = {}
         for header in file_headers:
             header = dict(
-                filepath = self.get_filepath_for_file(header).upper(),
+                filename = self.get_filepath_for_file(header).upper(),
                 **header
                 )
             files_to_extract_by_size.setdefault(header["uncomp_size"], []).append(header)
@@ -158,7 +198,7 @@ class Ps2WadCompiler:
 
         all_job_args = [
             dict(
-                file_headers=[], overwrite=overwrite, to_file=True,
+                file_headers=[], overwrite=self.overwrite, to_disk=True,
                 wad_filepath=self.wad_filepath, wad_dirpath=self.wad_dirpath,
                 )
             for i in range(os.cpu_count() if self.parallel_processing else 1)
@@ -170,3 +210,32 @@ class Ps2WadCompiler:
             _extract_files, all_job_args,
             process_count=None if self.parallel_processing else 1
             )
+
+    def compile_wad(self):
+        files_to_compile = util.locate_ps2_wad_files(self.wad_dirpath)
+        file_headers = [
+            dict(
+                filename=os.path.relpath(filepath, self.wad_dirpath),
+                filepath=filepath,
+                compress_level=self.compression_level
+                )
+            for filepath in files_to_compile
+            ]
+
+        all_job_args = [
+            dict(
+                file_headers=file_headers,
+                overwrite=self.overwrite,
+                wad_filepath=self.wad_filepath
+                )
+            #for i in range(os.cpu_count() if self.parallel_processing else 1)
+            ]
+
+        util.process_jobs(
+            _compile_wad, all_job_args,
+            #process_count=None if self.parallel_processing else 1
+            )
+
+        #if self.use_internal_names:
+        #    names_tempfile = tempfile.TemporaryDirectory()
+        #    files_to_compile.append()
