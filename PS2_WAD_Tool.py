@@ -20,7 +20,7 @@ class Ps2WadCompiler(Tk):
         self.minsize(500, 250)
         self.resizable(1, 0)
 
-        self.wad_dirpath = StringVar(self)
+        self.wad_dirpath  = StringVar(self)
         self.wad_filepath = StringVar(self)
 
         self.use_parallel_processing = BooleanVar(self, True)
@@ -33,9 +33,9 @@ class Ps2WadCompiler(Tk):
         self.settings_frame     = LabelFrame(self, text="Settings")
 
         self.wad_dirpath_field = Entry(self.wad_filepath_frame, textvariable=self.wad_dirpath)
-        self.wad_dirpath_field.config(width=46, state=DISABLED)
+        self.wad_dirpath_field.config(width=46)
         self.wad_filepath_field = Entry(self.wad_dirpath_frame, textvariable=self.wad_filepath)
-        self.wad_filepath_field.config(width=46, state=DISABLED)
+        self.wad_filepath_field.config(width=46)
 
         # Add the buttons
         self.btn_compile_wad = Button(
@@ -56,7 +56,7 @@ class Ps2WadCompiler(Tk):
             variable=self.use_internal_names, onvalue=1, offvalue=0
             )
         self.overwrite_button = Checkbutton(
-            self.settings_frame, text='Overwrite on extract',
+            self.settings_frame, text='Overwrite',
             variable=self.overwrite, onvalue=1, offvalue=0
             )
 
@@ -112,51 +112,65 @@ class Ps2WadCompiler(Tk):
             self.wad_dirpath.set(self.curr_dir)
 
     def _compile_wad(self):
-        wad_dirpath = tkinter.filedialog.askdirectory(
-            initialdir=self.curr_dir, title="Select the folder to compile into a WAD"
-            )
+        wad_dirpath = self.wad_dirpath.get()
+        if not wad_dirpath:
+            wad_dirpath = tkinter.filedialog.askdirectory(
+                initialdir=self.curr_dir, title="Select the folder to compile into a WAD"
+                )
+
         if not wad_dirpath:
             return
 
-        self.wad_dirpath.set(wad_dirpath.replace('/','\\'))
+        self.wad_dirpath.set(wad_dirpath)
         self.curr_dir = os.path.dirname(self.wad_dirpath.get())
 
-        wad_filepath = tkinter.filedialog.asksaveasfilename(
-            initialdir=self.curr_dir, title="Select the file to save the WAD to",
-            filetypes=[("PS2 WAD", "*.BIN"), ("all files", "*")]
-            )
+        wad_filepath = self.wad_filepath.get()
+        if not wad_filepath:
+            wad_filepath = tkinter.filedialog.asksaveasfilename(
+                initialdir=self.curr_dir, title="Select the file to save the WAD to",
+                filetypes=[("PS2 WAD", "*.BIN"), ("all files", "*")]
+                )
+
         if not wad_filepath:
             return
 
-        self.wad_filepath.set(wad_filepath.replace('/','\\'))
+        self.wad_filepath.set(wad_filepath)
         self.curr_dir = os.path.dirname(self.wad_filepath.get())
 
         start = time.time()
         try:
             print('Compiling...')
+            compiler = self.get_ps2_wad_compiler()
+            compiler.compile_wad()
         except Exception:
             print(format_exc())
 
         print('Finished. Took %s seconds.\n' % (time.time() - start))
 
     def _decompile_wad(self):
-        wad_filepath = tkinter.filedialog.askopenfilename(
-            initialdir=self.curr_dir, title="Select the WAD to decompile",
-            filetypes=[("PS2 WAD", "*.BIN"), ("all files", "*")]
-            )
+        wad_filepath = self.wad_filepath.get()
+        if not wad_filepath:
+            wad_filepath = tkinter.filedialog.askopenfilename(
+                initialdir=self.curr_dir, title="Select the WAD to decompile",
+                filetypes=[("PS2 WAD", "*.BIN"), ("all files", "*")]
+                )
+
         if not wad_filepath:
             return
 
-        self.wad_filepath.set(wad_filepath.replace('/','\\'))
+        self.wad_filepath.set(wad_filepath)
         self.curr_dir = os.path.dirname(self.wad_filepath.get())
 
-        wad_dirpath = tkinter.filedialog.askdirectory(
-            initialdir=self.curr_dir, title="Select the folder to extract the WAD files to"
-            )
+        wad_dirpath = self.wad_dirpath.get()
+        if not wad_dirpath:
+            wad_dirpath = tkinter.filedialog.askdirectory(
+                initialdir=self.curr_dir, title="Select the folder to extract the WAD files to"
+                )
+
         if not wad_dirpath:
             return
 
-        self.wad_dirpath.set(wad_dirpath.replace('/','\\'))
+        self.wad_dirpath.set(wad_dirpath)
         self.curr_dir = os.path.dirname(self.wad_dirpath.get())
 
         start = time.time()

@@ -2,6 +2,7 @@
 The MIT License (MIT)
 
 Copyright (c) 2016 Housey
+Copyright (c) 2022 Moses
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -23,7 +24,51 @@ SOFTWARE.
 '''
 from ..constants import *
 
-INTERNAL_NAMES_FILEPATH = "INTERNAL_NAMES.BIN"
+PS2_WAD_FILE_CHUNK_SIZE = 0x800  # 2KB chunk size
+PS2_WAD_UNKNOWN_FILE_TEMPLATE = "unknown/%s." + PS2_WAD_UNKNOWN_EXTENSION
+
+PS2_WAD_UNCOMPRESSIBLE_EXTENSIONS = (
+    "ADS",
+    "VBK",
+    PS2_WAD_INTERNAL_NAMES_EXTENSION.upper(),
+    PS2_WAD_UNKNOWN_EXTENSION.upper(),
+    )
+
+# aside from the voice bank and audio stream files, these specific
+# files are not compressed in retail WADs(not sure why). We retain
+# this list to ensure max compatibility when (re)compiling WADs
+PS2_WAD_UNCOMPRESSIBLE_FILEPATHS = (
+    "AUDIO\\AUDATPS2.ROM",
+    "CRITTER\\DJINN.WAD",
+    "CRITTER\\DRAGON.WAD",
+    "CRITTER\\DRIDER.WAD",
+    "CRITTER\\WRAITH.WAD",
+    "LEVELS\\LEVELL1\\ANIM.PS2",
+    "LEVELS\\LEVELL1\\OBJECTS.PS2",
+    "LEVELS\\LEVELL1\\TEXDEF.PS2",
+    "LEVELS\\LEVELL1\\TEXTURES.PS2",
+    "LEVELS\\LEVELL1\\WORLDS.PS2",
+    "MONSTERS\\DJINN\\ANIM.PS2",
+    "MONSTERS\\DJINN\\OBJECTS.PS2",
+    "MONSTERS\\DJINN\\TEXDEF.PS2",
+    "MONSTERS\\DJINN\\TEXTURES.PS2",
+    "MONSTERS\\DRAGON\\ANIM.PS2",
+    "MONSTERS\\DRAGON\\OBJECTS.PS2",
+    "MONSTERS\\DRAGON\\TEXDEF.PS2",
+    "MONSTERS\\DRAGON\\TEXTURES.PS2",
+    "MONSTERS\\DRIDER\\ANIM.PS2",
+    "MONSTERS\\DRIDER\\OBJECTS.PS2",
+    "MONSTERS\\DRIDER\\TEXDEF.PS2",
+    "MONSTERS\\DRIDER\\TEXTURES.PS2",
+    "MONSTERS\\WRAITH\\ANIM.PS2",
+    "MONSTERS\\WRAITH\\OBJECTS.PS2",
+    "MONSTERS\\WRAITH\\TEXDEF.PS2",
+    "MONSTERS\\WRAITH\\TEXTURES.PS2",
+    )
+
+# the name and hash of the file we store the filenames in
+INTERNAL_NAMES_FILEPATH_HASH = 0xF3688121
+INTERNAL_NAMES_FILEPATH = "internal_names.%s" % PS2_WAD_INTERNAL_NAMES_EXTENSION
 
 # list of retail names taken from wad_decoder by haekb.
 # a few that were missing have been added by Moses.

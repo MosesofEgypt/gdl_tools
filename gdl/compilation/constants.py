@@ -5,7 +5,6 @@ PS2_WAD_UNKNOWN_EXTENSION = "unk"
 PS2_WAD_INTERNAL_NAMES_EXTENSION = "names"
 
 PS2_WAD_FILENAME = "wad.bin"
-PS2_WAD_UNKNOWN_FILE_TEMPLATE = "unknown/%s." + PS2_WAD_UNKNOWN_EXTENSION
 
 # set up the filepaths and foldernames that textures, animations,
 # models, and definitions will be extracted to and imported from.
@@ -37,10 +36,5 @@ PS2_WAD_FILE_EXTENSIONS = (
     "rom",
     "vbk",
     "wad",
-    PS2_WAD_UNKNOWN_EXTENSION,
-    )
-UNCOMPRESSIBLE_EXTENSIONS = (
-    "ads",
-    PS2_WAD_INTERNAL_NAMES_EXTENSION,
     PS2_WAD_UNKNOWN_EXTENSION,
     )
