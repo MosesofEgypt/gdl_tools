@@ -138,6 +138,54 @@ def write_file_headers(file_headers, output_buffer):
         )
 
 
-def hash_filepath(dir_str):
-    # TODO: write this
-    return 0
+def _mix_filepath_hash_values(x, y, z):
+    vals = [v & 0xFFffFFff for v in (x, y, z)]
+
+    # loop over the x, y, z values and mix them in 3 passes
+    for i, shift in [
+            (0, 13), (1,  8), (2, 13),
+            (0, 12), (1, 16), (2,  5),
+            (0,  3), (1, 10), (2, 15),
+            ]:
+        v = (vals[(i+2)%3] << shift if i % 2 else
+             vals[(i+2)%3] >> shift)
+
+        vals[i] = (v ^ (vals[i] - vals[(i+1)%3] - vals[(i+2)%3])) & 0xFFffFFff
+
+    return vals
+
+
+def hash_filepath(filepath):
+    filepath = sanitize_filename(filepath)
+    str_len = len(filepath)
+
+    x = c.PS2_WAD_PATHHASH_SEED
+    y = c.PS2_WAD_PATHHASH_SEED
+    z = c.PS2_WAD_PATHHASH_CHUNK_SIZE + 1
+    
+    mix_length_at_end = str_len % c.PS2_WAD_PATHHASH_CHUNK_SIZE == 0
+
+    # hash the filepath string
+    for i in range(0, str_len, c.PS2_WAD_PATHHASH_CHUNK_SIZE):
+        remainder = max(0, min(str_len - i, 12))
+
+        # the first 2 sets of 4 bytes are always mixed the same, but the
+        # third set of 4 changes depending on the remaining filepath length
+        a = 1 if remainder < 12 else 0
+
+        x += sum(ord(filepath[i + j    ]) << (8*j    ) for j in range(max(0, min(remainder,     4))))
+        y += sum(ord(filepath[i + j + 4]) << (8*j    ) for j in range(max(0, min(remainder - 4, 4))))
+        z += sum(ord(filepath[i + j + 8]) << (8*(j+a)) for j in range(max(0, min(remainder - 8, 4))))
+
+        # mix the length into the hash on the last iteration
+        if not mix_length_at_end and i + c.PS2_WAD_PATHHASH_CHUNK_SIZE > str_len:
+            z += str_len
+
+        x, y, z = _mix_filepath_hash_values(x, y, z)
+
+    if mix_length_at_end:
+        # one last mix round
+        z += str_len
+        x, y, z = _mix_filepath_hash_values(x, y, z)
+
+    return z
