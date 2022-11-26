@@ -133,9 +133,6 @@ class Ps2WadCompiler:
 
                 file_header["filename"] = c.INTERNAL_NAMES_FILEPATH
                 data = self.extract_file(file_header)
-                with open("asdf.bin", "wb") as f:
-                    f.write(data)
-
                 internal_names = util.read_names_list(data.decode())
 
                 self.filepath_hashmap.update({
