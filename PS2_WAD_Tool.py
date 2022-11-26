@@ -3,10 +3,19 @@ import os
 import tkinter.filedialog
 import tkinter as tk
 import time
+import zlib
 
 from tkinter import *
 from traceback import format_exc
 from gdl.compilation import ps2_wad_compiler
+
+
+COMPRESSION_LEVELS = {
+    "0 (No compression)":         zlib.Z_NO_COMPRESSION,
+    "1 (fastest, largest size)":  zlib.Z_BEST_SPEED,
+    "6 (best size for speed)":    zlib.Z_DEFAULT_COMPRESSION,
+    "9 (slowest, smallest size)": zlib.Z_BEST_COMPRESSION,
+    }
 
 
 class Ps2WadCompiler(Tk):
@@ -22,9 +31,11 @@ class Ps2WadCompiler(Tk):
 
         self.wad_dirpath  = StringVar(self)
         self.wad_filepath = StringVar(self)
+        self.compression_level = StringVar(self, "0 (No compression)")
 
         self.use_parallel_processing = BooleanVar(self, True)
         self.use_internal_names      = BooleanVar(self, True)
+        self.use_compression_names   = BooleanVar(self, True)
         self.overwrite               = BooleanVar(self, False)
 
         self.wad_filepath_frame = LabelFrame(self, text="WAD filepath")
@@ -32,9 +43,9 @@ class Ps2WadCompiler(Tk):
         self.compile_frame      = LabelFrame(self, text="")
         self.settings_frame     = LabelFrame(self, text="Settings")
 
-        self.wad_dirpath_field = Entry(self.wad_filepath_frame, textvariable=self.wad_dirpath)
+        self.wad_dirpath_field = Entry(self.wad_dirpath_frame, textvariable=self.wad_dirpath)
         self.wad_dirpath_field.config(width=46)
-        self.wad_filepath_field = Entry(self.wad_dirpath_frame, textvariable=self.wad_filepath)
+        self.wad_filepath_field = Entry(self.wad_filepath_frame, textvariable=self.wad_filepath)
         self.wad_filepath_field.config(width=46)
 
         # Add the buttons
@@ -51,13 +62,22 @@ class Ps2WadCompiler(Tk):
             self.settings_frame, text='Use parallel processing',
             variable=self.use_parallel_processing, onvalue=1, offvalue=0
             )
+        self.overwrite_button = Checkbutton(
+            self.settings_frame, text='Overwrite',
+            variable=self.overwrite, onvalue=1, offvalue=0
+            )
         self.use_internal_names_button = Checkbutton(
             self.settings_frame, text='Use filenames built into WAD',
             variable=self.use_internal_names, onvalue=1, offvalue=0
             )
-        self.overwrite_button = Checkbutton(
-            self.settings_frame, text='Overwrite',
-            variable=self.overwrite, onvalue=1, offvalue=0
+        self.use_compression_names_button = Checkbutton(
+            self.settings_frame, text='Use file compress list',
+            variable=self.use_compression_names, onvalue=1, offvalue=0
+            )
+
+        self.compress_level_label = Label(self.settings_frame, text="Compression level")
+        self.compress_level_menu = OptionMenu(
+            self.settings_frame, self.compression_level, *sorted(COMPRESSION_LEVELS.keys())
             )
 
         # pack the outer frames
@@ -70,7 +90,7 @@ class Ps2WadCompiler(Tk):
         for frame, columns in ([self.wad_filepath_frame, 1],
                                [self.wad_dirpath_frame, 1],
                                [self.compile_frame, 2],
-                               [self.settings_frame, 2],
+                               [self.settings_frame, 4],
                                ):
             for i in range(columns):
                 frame.columnconfigure(i, weight=1)
@@ -84,16 +104,18 @@ class Ps2WadCompiler(Tk):
 
         # grid the settings
         y = 0
-        for checkbuttons in (
-                (self.parallel_processing_button, self.use_internal_names_button),
-                (self.overwrite_button, None),
+        for lbl, menu, radio in (
+                (self.compress_level_label, self.compress_level_menu, self.use_compression_names_button),
+                (None, None, self.use_internal_names_button),
+                (None, None, self.parallel_processing_button),
+                (None, None, self.overwrite_button),
             ):
-            x = 0
-            for checkbutton in checkbuttons:
-                if checkbutton:
-                    checkbutton.grid(row=y, column=x, sticky="w", padx=20, pady=0)
-
-                x += 1
+            if lbl:
+                lbl.grid(row=y, column=0, sticky="we", padx=2, pady=5)
+            if menu:
+                menu.grid(row=y, column=1, sticky="we", padx=2, pady=5)
+            if radio:
+                radio.grid(row=y, column=2, sticky="w", padx=20, pady=5)
             y += 1
 
     def get_ps2_wad_compiler(self, **kwargs):
@@ -103,6 +125,7 @@ class Ps2WadCompiler(Tk):
             overwrite = self.overwrite.get(),
             parallel_processing = self.use_parallel_processing.get(),
             use_internal_names = self.use_internal_names.get(),
+            compression_level = COMPRESSION_LEVELS.get(self.compression_level.get(), zlib.Z_NO_COMPRESSION)
             )
         return ps2_wad_compiler.Ps2WadCompiler(**kwargs)
 
@@ -128,7 +151,8 @@ class Ps2WadCompiler(Tk):
         if not wad_filepath:
             wad_filepath = tkinter.filedialog.asksaveasfilename(
                 initialdir=self.curr_dir, title="Select the file to save the WAD to",
-                filetypes=[("PS2 WAD", "*.BIN"), ("all files", "*")]
+                filetypes=[("PS2 WAD", "*.BIN"), ("all files", "*")],
+                defaultextension=".BIN"
                 )
 
         if not wad_filepath:

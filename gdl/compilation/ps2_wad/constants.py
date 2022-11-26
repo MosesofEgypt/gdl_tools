@@ -29,6 +29,15 @@ PS2_WAD_UNKNOWN_FILE_TEMPLATE = "unknown/%s." + PS2_WAD_UNKNOWN_EXTENSION
 PS2_WAD_PATHHASH_CHUNK_SIZE = 12
 PS2_WAD_PATHHASH_SEED = 0x9E3779B9
 
+# the name and hash of the file we store the filenames in
+INTERNAL_NAMES_FILEPATH_HASH = 0x17FFD2F2
+INTERNAL_NAMES_FILEPATH = "internal\\files.%s" % PS2_WAD_INTERNAL_NAMES_EXTENSION
+
+# the name and hash of the file we store the names of files to compress
+COMPRESS_NAMES_FILEPATH_HASH = 0x3881313A
+COMPRESS_NAMES_FILEPATH = "internal\\compress.%s" % PS2_WAD_INTERNAL_NAMES_EXTENSION
+
+
 PS2_WAD_UNCOMPRESSIBLE_EXTENSIONS = (
     "ADS",
     "VBK",
@@ -67,10 +76,6 @@ PS2_WAD_UNCOMPRESSIBLE_FILEPATHS = (
     "MONSTERS\\WRAITH\\TEXDEF.PS2",
     "MONSTERS\\WRAITH\\TEXTURES.PS2",
     )
-
-# the name and hash of the file we store the filenames in
-INTERNAL_NAMES_FILEPATH_HASH = 0xF3688121
-INTERNAL_NAMES_FILEPATH = "internal_names.%s" % PS2_WAD_INTERNAL_NAMES_EXTENSION
 
 # list of retail names taken from wad_decoder by haekb.
 # a few that were missing have been added by Moses.

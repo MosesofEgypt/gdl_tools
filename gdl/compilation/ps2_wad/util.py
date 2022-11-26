@@ -8,7 +8,7 @@ INDEX_HEADER_STRUCT = struct.Struct("<iiIi")
 
 
 def sanitize_filename(filename):
-    return filename.upper().replace("/", "\\")
+    return filename.strip().upper().replace("/", "\\")
 
 
 def is_compressible(filename):
@@ -31,22 +31,23 @@ def locate_ps2_wad_files(wad_dir):
     return wad_files
 
 
-def read_internal_names(input_buffer):
-    filenames = []
-    filename_count = struct.unpack('<I', input_buffer.read(4))[0]
-    for i in range(filename_count):
-        name_len = struct.unpack('<I', input_buffer.read(4))[0]
-        filenames.append(input_buffer.read(name_len).decode("utf8"))
+def read_names_list(input_data):
+    if isinstance(input_data, str):
+        input_data = input_data.splitlines()
 
-    return filenames
+    return [
+        sanitize_filename(filename)
+        for filename in input_data
+        if sanitize_filename(filename)
+        ]
 
 
-def write_internal_names(filenames, output_buffer):
-    output_buffer.write(struct.pack('<I', len(filenames)))
-    for filename in sorted(filenames):
-        encoded_filename = filename.encode("utf8")
-        output_buffer.write(struct.pack('<I', len(encoded_filename)))
-        output_buffer.write(encoded_filename)
+def write_names_list(filenames, output_file):
+    output_file.writelines(
+        sanitize_filename(filename) + "\n"
+        for filename in filenames
+        if sanitize_filename(filename)
+        )
 
 
 def read_file_headers(input_buffer):
@@ -69,6 +70,7 @@ def concat_wad_files(wad_filepath, temp_wad_filepaths):
     # combine mini wads into final wad
     all_file_headers = []
     wad_concat_data = []
+    seen_wad_data_size = 0
     for filepath in temp_wad_filepaths:
         with open(filepath, "rb") as f:
             file_headers = read_file_headers(f)
@@ -80,23 +82,25 @@ def concat_wad_files(wad_filepath, temp_wad_filepaths):
         base_pointer += calculate_padding(base_pointer, c.PS2_WAD_FILE_CHUNK_SIZE)
 
         # adjust pointers to start of data, and add up all file sizes
-        wad_data_size = 0
+        curr_wad_data_size = 0
         for file_header in file_headers:
             file_header["data_pointer"] -= base_pointer
 
-            file_data_size = file_header[
+            file_size = file_header[
                 "uncomp_size" if file_header["comp_size"] < 0 else "comp_size"
                 ]
-            file_data_end = file_header["data_pointer"] + calculate_padding(
-                file_data_size, c.PS2_WAD_FILE_CHUNK_SIZE)
+            file_size += calculate_padding(file_size, c.PS2_WAD_FILE_CHUNK_SIZE)
+            file_end = file_header["data_pointer"] + file_size
 
-            wad_data_size = max(wad_data_size, file_data_end)
+            curr_wad_data_size = max(curr_wad_data_size, file_end)
+            file_header["data_pointer"] += seen_wad_data_size
 
         wad_concat_data.append(dict(
             filepath       = filepath,
             wad_data_start = base_pointer,
-            wad_data_size  = wad_data_size,
+            wad_data_size  = curr_wad_data_size,
             ))
+        seen_wad_data_size += curr_wad_data_size
 
     with open(wad_filepath, "wb") as fout:
         base_pointer = 4 + 16 * len(all_file_headers)
@@ -139,20 +143,24 @@ def write_file_headers(file_headers, output_buffer):
 
 
 def _mix_filepath_hash_values(x, y, z):
-    vals = [v & 0xFFffFFff for v in (x, y, z)]
+    x, y, z = (v & 0xFFffFFff for v in (x, y, z))
 
     # loop over the x, y, z values and mix them in 3 passes
-    for i, shift in [
-            (0, 13), (1,  8), (2, 13),
-            (0, 12), (1, 16), (2,  5),
-            (0,  3), (1, 10), (2, 15),
-            ]:
-        v = (vals[(i+2)%3] << shift if i % 2 else
-             vals[(i+2)%3] >> shift)
+    # NOTE: this CAN be turned into a loop using enumerate
+    # and modulus division, but it looks ugly as sin, so NO 
+    x = (z >> 13 ^ (x-y-z)) & 0xFFffFFff
+    y = (x <<  8 ^ (y-z-x)) & 0xFFffFFff
+    z = (y >> 13 ^ (z-x-y)) & 0xFFffFFff
 
-        vals[i] = (v ^ (vals[i] - vals[(i+1)%3] - vals[(i+2)%3])) & 0xFFffFFff
+    x = (z >> 12 ^ (x-y-z)) & 0xFFffFFff
+    y = (x << 16 ^ (y-z-x)) & 0xFFffFFff
+    z = (y >>  5 ^ (z-x-y)) & 0xFFffFFff
 
-    return vals
+    x = (z >>  3 ^ (x-y-z)) & 0xFFffFFff
+    y = (x << 10 ^ (y-z-x)) & 0xFFffFFff
+    z = (y >> 15 ^ (z-x-y)) & 0xFFffFFff
+
+    return x, y, z
 
 
 def hash_filepath(filepath):

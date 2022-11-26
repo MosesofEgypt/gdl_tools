@@ -21,7 +21,6 @@ def _extract_files(kwargs):
                 print(f"Reading file: %s" % header["filename"])
 
             try:
-                os.makedirs(os.path.dirname(filepath), exist_ok=True)
                 fin.seek(header["data_pointer"])
                 if header["comp_size"] < 0:
                     data = fin.read(header["uncomp_size"])
@@ -29,6 +28,7 @@ def _extract_files(kwargs):
                     data = zlib.decompress(fin.read(header["comp_size"]))
 
                 if kwargs["to_disk"]:
+                    os.makedirs(os.path.dirname(filepath), exist_ok=True)
                     with open(filepath, "wb") as fout:
                         fout.write(data)
                 else:
@@ -42,9 +42,6 @@ def _extract_files(kwargs):
 
 
 def _compile_wad(kwargs):
-    if not kwargs["overwrite"] and os.path.isfile(kwargs["wad_filepath"]):
-        return
-
     file_headers = [
         dict(
             filename=header["filename"], filepath=header["filepath"],
@@ -101,6 +98,7 @@ class Ps2WadCompiler:
     overwrite = False
     parallel_processing = True
     use_internal_names = True
+    use_compression_names = False
     compression_level = zlib.Z_NO_COMPRESSION
 
     filepath_hashmap = ()
@@ -134,8 +132,11 @@ class Ps2WadCompiler:
                     continue
 
                 file_header["filename"] = c.INTERNAL_NAMES_FILEPATH
-                data = util.FixedBytearrayBuffer(self.extract_file(file_header))
-                internal_names = util.read_internal_names(data)
+                data = self.extract_file(file_header)
+                with open("asdf.bin", "wb") as f:
+                    f.write(data)
+
+                internal_names = util.read_names_list(data.decode())
 
                 self.filepath_hashmap.update({
                     util.hash_filepath(filepath): filepath
@@ -227,30 +228,60 @@ class Ps2WadCompiler:
     def compile_wad(self):
         files_to_compile = list(util.locate_ps2_wad_files(self.wad_dirpath))
 
-        file_headers = [
-            dict(
-                filename=os.path.relpath(filepath, self.wad_dirpath),
-                filepath=filepath,
-                compress_level=self.compression_level
-                )
-            for filepath in files_to_compile
-            ]
+        if not self.overwrite and os.path.isfile(self.wad_filepath):
+            return
+
+        explicit_compress_level = self.compression_level
+        default_compress_level  = self.compression_level
+        compress = set()
+
+        # if we're using a list of filenames to control what gets compressed, load it
+        if self.use_compression_names:
+            default_compress_level = zlib.Z_NO_COMPRESSION
+
+            for filepath in files_to_compile:
+                filename = os.path.relpath(filepath, self.wad_dirpath)
+
+                if util.hash_filepath(filename) == c.COMPRESS_NAMES_FILEPATH_HASH:
+                    with open(filepath, "r") as f:
+                        compress.update(
+                            util.hash_filepath(filename)
+                            for filename in util.read_names_list(f)
+                            )
+                    break
+
+        file_headers = []
+        for filepath in files_to_compile:
+            filename = os.path.relpath(filepath, self.wad_dirpath)
+            # don't include the extracted filepaths list
+            if util.hash_filepath(filename) in (c.INTERNAL_NAMES_FILEPATH_HASH,
+                                                c.COMPRESS_NAMES_FILEPATH_HASH):
+                continue
+
+            file_headers.append(dict(
+                filename=filename, filepath=filepath,
+                compress_level=(
+                    default_compress_level if util.hash_filepath(filename) in compress else
+                    explicit_compress_level
+                    )
+                ))
 
         temp_files = []
         if self.use_internal_names:
             # create a temp file to hold the filenames
-            names_tempfile = tempfile.NamedTemporaryFile("wb+", buffering=0, delete=False)
+            names_tempfile = tempfile.NamedTemporaryFile("w+", delete=False)
             temp_files.append(names_tempfile)
 
             file_headers.append(dict(
                 filename=c.INTERNAL_NAMES_FILEPATH,
                 filepath=names_tempfile.name,
-                compress_level=self.compression_level
+                compress_level=explicit_compress_level
                 ))
 
-            util.write_internal_names(
+            util.write_names_list(
                 [h["filename"] for h in file_headers], names_tempfile
                 )
+            names_tempfile.flush()
 
         wad_files = []
         if self.parallel_processing:
@@ -271,9 +302,7 @@ class Ps2WadCompiler:
 
         all_job_args = [
             dict(
-                file_headers=file_headers_by_job[i],
-                wad_filepath=wad_files[i],
-                overwrite=self.overwrite,
+                file_headers=file_headers_by_job[i], wad_filepath=wad_files[i],
                 )
             for i in range(len(wad_files))
             ]
