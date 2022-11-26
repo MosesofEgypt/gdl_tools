@@ -105,8 +105,8 @@ class Ps2WadCompiler(Tk):
         # grid the settings
         y = 0
         for lbl, menu, radio in (
-                (self.compress_level_label, self.compress_level_menu, self.use_compression_names_button),
-                (None, None, self.use_internal_names_button),
+                (self.compress_level_label, self.compress_level_menu, self.use_internal_names_button),
+                #(None, None, self.use_compression_names_button),
                 (None, None, self.parallel_processing_button),
                 (None, None, self.overwrite_button),
             ):
