@@ -157,6 +157,43 @@ v13_object_block = Struct("object",
         )
     )
 
+tex0_struct = BitStruct("tex0",
+    UBitInt("tb_addr",       SIZE=14),
+    UBitInt("tb_width",      SIZE=6),
+    UBitInt("psm",           SIZE=6), # pixel mode
+    UBitInt("tex_width",     SIZE=4),
+    UBitInt("tex_height",    SIZE=4),
+    Bit("tex_cc"),
+    UBitInt("tex_funtion",   SIZE=2),
+    UBitInt("cb_addr",       SIZE=14),
+    UBitInt("clut_pixmode",  SIZE=4),
+    Bit("clut_smode"),
+    UBitInt("clut_offset",   SIZE=5),
+    UBitInt("clut_loadmode", SIZE=3),
+    SIZE=8
+    )
+
+mip_tbp1_struct = BitStruct("mip_tbp1",
+    UBitInt("tb_addr1",  SIZE=14),
+    UBitInt("tb_width1", SIZE=6),
+    UBitInt("tb_addr2",  SIZE=14),
+    UBitInt("tb_width2", SIZE=6),
+    UBitInt("tb_addr3",  SIZE=14),
+    UBitInt("tb_width3", SIZE=6),
+    Pad(4),
+    SIZE=8
+    )
+
+mip_tbp2_struct = BitStruct("mip_tbp2",
+    UBitInt("tb_addr4",  SIZE=14),
+    UBitInt("tb_width4", SIZE=6),
+    UBitInt("tb_addr5",  SIZE=14),
+    UBitInt("tb_width5", SIZE=6),
+    UBitInt("tb_addr6",  SIZE=14),
+    UBitInt("tb_width6", SIZE=6),
+    Pad(4),
+    SIZE=8
+    )
 
 v4_bitmap_block = Struct("bitmap",
     UInt8("mipmap_count", EDITABLE=False),
@@ -236,12 +273,12 @@ v12_bitmap_block = Struct("bitmap",
     #doesnt seem to be used, so ignore it
     LPointer32("bitmap def", VISIBLE=False),
 
-    LUInt32Array("tex_0", SIZE=8, VISIBLE=False),
-    LUInt32Array("mip tbp 1", SIZE=8, VISIBLE=False),
-    LUInt32Array("mip tbp 2", SIZE=8, VISIBLE=False),
+    tex0_struct,
+    mip_tbp1_struct,
+    mip_tbp2_struct,
 
-    LUInt16Array("vram address", SIZE=4, VISIBLE=False),
-    LUInt16Array("clut address", SIZE=4, VISIBLE=False),
+    LUInt16Array("vram_address", SIZE=4, VISIBLE=False),
+    LUInt16Array("clut_address", SIZE=4, VISIBLE=False),
 
     SIZE=64
     )
