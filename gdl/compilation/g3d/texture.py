@@ -238,7 +238,7 @@ def import_textures(objects_tag, data_dir, target_ngc=False, use_force_index_hac
             if target_ngc:
                 bitmap.mipmap_count = meta.get("mipmap_count", 0)
             else:
-                bitmap.mipmap_count = min(0, len(g3d_texture.textures) - 1)
+                bitmap.mipmap_count = max(0, len(g3d_texture.textures) - 1)
 
             bitmap.flags.has_alpha = "A" in g3d_texture.format_name
         else:
