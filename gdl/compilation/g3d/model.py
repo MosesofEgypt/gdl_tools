@@ -12,6 +12,7 @@ from . import util
 def _compile_model(kwargs):
     name           = kwargs.pop("name")
     source_md5     = kwargs.pop("source_md5")
+    optimize       = kwargs.pop("optimize_strips")
     target_ps2     = kwargs.pop("target_ps2")
     target_ngc     = kwargs.pop("target_ngc")
     target_xbox    = kwargs.pop("target_xbox")
@@ -19,7 +20,11 @@ def _compile_model(kwargs):
     asset_filepath = kwargs.pop("asset_filepath")
 
     print("Compiling model: %s" % name)
-    g3d_model = G3DModel(target_ps2=target_ps2, target_ngc=target_ngc, target_xbox=target_xbox)
+    g3d_model = G3DModel(
+        target_ps2=target_ps2 and optimize,
+        target_ngc=target_ngc and optimize,
+        target_xbox=target_xbox and optimize,
+        )
     with open(asset_filepath, "r") as f:
         g3d_model.import_obj(f, source_md5)
 
@@ -86,7 +91,7 @@ def _decompile_model(kwargs):
 
 def compile_models(
         data_dir, force_recompile=False,  parallel_processing=False,
-        target_ps2=False, target_ngc=False, target_xbox=False
+        target_ps2=False, target_ngc=False, target_xbox=False, optimize_strips=True
         ):
     asset_folder    = os.path.join(data_dir, c.EXPORT_FOLDERNAME, c.MOD_FOLDERNAME)
     cache_path_base = os.path.join(data_dir, c.IMPORT_FOLDERNAME, c.MOD_FOLDERNAME)
@@ -126,7 +131,7 @@ def compile_models(
                 continue
 
             all_job_args.append(dict(
-                asset_filepath=asset_filepath, name=name,
+                asset_filepath=asset_filepath, name=name, optimize_strips=optimize_strips,
                 target_ps2=target_ps2, target_ngc=target_ngc, target_xbox=target_xbox,
                 cache_filepath=cache_filepath, source_md5=source_md5
                 ))

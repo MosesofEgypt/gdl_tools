@@ -46,7 +46,7 @@ class CrucibleApp(Tk):
         self.tex_extract_format  = StringVar(self, "PNG")
         self.meta_extract_format = StringVar(self, "YAML")
         self.use_parallel_processing = BooleanVar(self, True)
-        self.optimize_texture_format = BooleanVar(self, True)
+        self.optimize                = BooleanVar(self, True)
         self.force_recompile_cache   = BooleanVar(self, False)
         self.overwrite               = BooleanVar(self, False)
 
@@ -131,9 +131,9 @@ class CrucibleApp(Tk):
             self.settings_frame, text='Use parallel processing',
             variable=self.use_parallel_processing, onvalue=1, offvalue=0
             )
-        self.optimize_texture_format_button = Checkbutton(
-            self.settings_frame, text='Optimize texture formats',
-            variable=self.optimize_texture_format, onvalue=1, offvalue=0
+        self.optimize_button = Checkbutton(
+            self.settings_frame, text='Optimize models and textures',
+            variable=self.optimize, onvalue=1, offvalue=0
             )
         self.force_recompile_button = Checkbutton(
             self.settings_frame, text='Force full recompile',
@@ -179,7 +179,7 @@ class CrucibleApp(Tk):
         y = 0
         for lbl, menu, radio in (
                 (self.build_target_label, self.build_target_menu, self.parallel_processing_button),
-                (self.mod_format_label, self.mod_format_menu, self.optimize_texture_format_button),
+                (self.mod_format_label, self.mod_format_menu, self.optimize_button),
                 (self.tex_format_label, self.tex_format_menu, self.force_recompile_button),
                 (self.meta_format_label, self.meta_format_menu, self.overwrite_button),
             ):
@@ -200,9 +200,10 @@ class CrucibleApp(Tk):
             build_xbox_files    = (build_target == "xbox"),
             build_ps2_files     = (build_target == "ps2"),
             build_texdef_cache  = (build_target == "ps2"),
-            optimize_texture_format = self.optimize_texture_format.get(),
-            force_recompile         = self.force_recompile_cache.get(),
-            overwrite               = self.overwrite.get(),
+            optimize_models     = self.optimize.get(),
+            optimize_textures   = self.optimize.get(),
+            force_recompile     = self.force_recompile_cache.get(),
+            overwrite           = self.overwrite.get(),
             )
         return objects_compiler.ObjectsCompiler(**kwargs)
 

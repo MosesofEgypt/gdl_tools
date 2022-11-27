@@ -16,9 +16,10 @@ class ObjectsCompiler:
     parallel_processing = False
 
     use_force_index_hack = True
-    optimize_texture_format = False
-    swap_lightmap_and_diffuse = False
-    force_recompile = False
+    optimize_models      = True
+    optimize_textures    = True
+    force_recompile      = False
+    swap_lightmap_and_diffuse = False  # debug feature
 
     overwrite = False
     individual_meta = True
@@ -43,7 +44,7 @@ class ObjectsCompiler:
         kwargs = dict(
             parallel_processing=self.parallel_processing,
             force_recompile=self.force_recompile,
-            optimize_format=self.optimize_texture_format
+            optimize_format=self.optimize_textures,
             )
         if self.build_ps2_files:
             texture_comp.compile_textures(asset_dir, target_ps2=True, **kwargs)
@@ -64,6 +65,7 @@ class ObjectsCompiler:
         kwargs = dict(
             force_recompile=self.force_recompile,
             parallel_processing=self.parallel_processing,
+            optimize_strips=self.optimize_models,
             )
         if self.build_ps2_files:
             model_comp.compile_models(asset_dir, target_ps2=True, **kwargs)
