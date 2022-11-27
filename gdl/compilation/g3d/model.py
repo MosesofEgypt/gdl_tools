@@ -205,8 +205,8 @@ def import_models(objects_tag, data_dir):
         # update the bounding radius, vert/tri counts, and the flags
         obj.bnd_rad    = g3d_model_data.get("bnd_rad",    0)
         obj.flags.data = g3d_model_data.get("flags",      0)
-        obj.tri_count  = g3d_model_data.get("vert_count", 0)
-        obj.vert_count = g3d_model_data.get("tri_count",  0)
+        obj.tri_count  = g3d_model_data.get("tri_count",  0)
+        obj.vert_count = g3d_model_data.get("vert_count", 0)
         obj.id_num     = g3d_model_data.get("id_num",     len(objects))
 
         # populate the object def
