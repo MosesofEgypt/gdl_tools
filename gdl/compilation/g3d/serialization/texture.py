@@ -47,7 +47,7 @@ class G3DTexture:
         keep_alpha         = kwargs.pop("keep_alpha", "A" in target_format_name)
         max_mip_count      = max(0, int(
             # min dimension size is 8, which is 2^3, so subtract 3
-            math.ceil(math.log(max(1, arby.width, arby.height), 2)) - 3
+            math.ceil(math.log(max(1, min(arby.width, arby.height)), 2)) - 3
             ))
 
         conv_settings = dict(
