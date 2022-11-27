@@ -83,7 +83,7 @@ class Stripifier():
 
         '''loop over triangles until the length is maxed or
         we reach a triangle without a neighbor on that edge'''
-        while not(tri[3] or id(tri) in seen or strip_len > self.max_strip_len):
+        while not tri[3] and id(tri) not in seen and strip_len < self.max_strip_len:
             # get the index of the vert that will be added to the strip
             v_i = tri[(neighbor_i + 2)%3]
 

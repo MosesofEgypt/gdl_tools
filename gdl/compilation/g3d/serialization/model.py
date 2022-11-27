@@ -62,10 +62,15 @@ class G3DModel():
 
     source_file_hash = b'\x00'*16
 
-    def __init__(self, *args, **kwargs):        
+    def __init__(self, target_ps2=False, target_ngc=False, target_xbox=False):        
         self.stripifier = Stripifier()
-        self.stripifier.max_strip_len = c.MAX_STRIP_LEN
         self.stripifier.degen_link = False
+        self.stripifier.max_strip_len = (
+            c.PS2_MAX_STRIP_LEN if target_ps2 else
+            c.NGC_MAX_STRIP_LEN if target_ngc else
+            c.XBOX_MAX_STRIP_LEN if target_xbox else
+            c.RETAIL_MAX_STRIP_LEN
+            )
 
         #set up the instance variables
         self.clear()
@@ -533,7 +538,9 @@ class G3DModel():
                 stream_data_packer = STREAM_DATA_STRUCTS[(d_type, s_type)].pack
                 pack_g3d_stream_header(geom_buffer, d_type, s_type, c.STREAM_FLAGS_DEFAULT, 1)
                 geom_buffer.write(stream_data_packer(
-                    len(strip), c.UNKNOWN_GEOM_DATA, face_dir, 1.0
+                    len(strip), c.UNKNOWN_GEOM_DATA, face_dir,
+                    -1.0  # not sure why -1.0, but it works for ps2?
+                    #       without it, some triangles dont render..
                     ))
 
                 # write the position data

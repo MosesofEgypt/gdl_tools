@@ -11,9 +11,9 @@ from . import constants as c
 
 
 def compile_cache_files(
-        objects_dir, target_ngc=False, serialize_cache_files=False,
+        objects_dir, target_ngc=False, target_ps2=False, target_xbox=False,
+        serialize_cache_files=False, use_force_index_hack=False,
         build_anim_cache=True, build_texdef_cache=False,
-        use_force_index_hack=False
         ):
     data_dir    = os.path.join(objects_dir, c.DATA_FOLDERNAME)
     objects_tag = objects_ps2_def.build()
@@ -32,9 +32,13 @@ def compile_cache_files(
 
     gtx_textures = texture.import_textures(
         objects_tag, data_dir, target_ngc=target_ngc,
+        target_ps2=target_ps2, target_xbox=target_xbox,
         use_force_index_hack=use_force_index_hack
         )
-    model.import_models(objects_tag, data_dir)
+    model.import_models(
+        objects_tag, data_dir, target_ngc=target_ngc,
+        target_ps2=target_ps2, target_xbox=target_xbox,
+        )
 
     if build_anim_cache:
         anim_tag = animation.import_animations(objects_tag, data_dir)
@@ -68,7 +72,7 @@ def decompile_cache_files(
         objects_tag, data_dir=None, overwrite=False, individual_meta=True,
         meta_asset_types=c.METADATA_ASSET_EXTENSIONS[0],
         tex_asset_types=c.TEXTURE_CACHE_EXTENSIONS,
-        mod_asset_types=(c.MODEL_CACHE_EXTENSION, ),
+        mod_asset_types=c.MODEL_CACHE_EXTENSIONS,
         parallel_processing=False, swap_lightmap_and_diffuse=False, **kwargs
         ):
 

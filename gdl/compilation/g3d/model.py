@@ -12,14 +12,17 @@ from . import util
 def _compile_model(kwargs):
     name           = kwargs.pop("name")
     source_md5     = kwargs.pop("source_md5")
+    target_ps2     = kwargs.pop("target_ps2")
+    target_ngc     = kwargs.pop("target_ngc")
+    target_xbox    = kwargs.pop("target_xbox")
     cache_filepath = kwargs.pop("cache_filepath")
     asset_filepath = kwargs.pop("asset_filepath")
 
     print("Compiling model: %s" % name)
-    g3d_model = G3DModel()
+    g3d_model = G3DModel(target_ps2=target_ps2, target_ngc=target_ngc, target_xbox=target_xbox)
     with open(asset_filepath, "r") as f:
         g3d_model.import_obj(f, source_md5)
-    
+
     g3d_model.make_strips()
 
     os.makedirs(os.path.dirname(cache_filepath), exist_ok=True)
@@ -48,7 +51,7 @@ def _decompile_model(kwargs):
             swap_lightmap_and_diffuse=kwargs["swap_lightmap_and_diffuse"]
             )
         return
-    elif asset_type != c.MODEL_CACHE_EXTENSION:
+    elif asset_type not in c.MODEL_CACHE_EXTENSIONS:
         return
 
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
@@ -81,12 +84,21 @@ def _decompile_model(kwargs):
                 ))
 
 
-def compile_models(data_dir, force_recompile=False,  parallel_processing=False):
+def compile_models(
+        data_dir, force_recompile=False,  parallel_processing=False,
+        target_ps2=False, target_ngc=False, target_xbox=False
+        ):
     asset_folder    = os.path.join(data_dir, c.EXPORT_FOLDERNAME, c.MOD_FOLDERNAME)
     cache_path_base = os.path.join(data_dir, c.IMPORT_FOLDERNAME, c.MOD_FOLDERNAME)
 
     all_job_args = []
     all_assets = util.locate_models(os.path.join(asset_folder))
+
+    asset_type = (
+        c.MODEL_CACHE_EXTENSION_PS2  if target_ps2 else
+        c.MODEL_CACHE_EXTENSION_NGC  if target_ngc else
+        c.MODEL_CACHE_EXTENSION_XBOX
+        )
 
     # loop over all objs, load them, convert them, and write the g3d
     for name in sorted(all_assets):
@@ -94,8 +106,7 @@ def compile_models(data_dir, force_recompile=False,  parallel_processing=False):
             asset_filepath = all_assets[name]
             rel_filepath = os.path.relpath(asset_filepath, asset_folder)
             cache_filepath = os.path.join(cache_path_base, "%s.%s" % (
-                os.path.splitext(rel_filepath)[0],
-                c.MODEL_CACHE_EXTENSION
+                os.path.splitext(rel_filepath)[0], asset_type
                 ))
 
             source_md5 = b'\x00'*16
@@ -116,6 +127,7 @@ def compile_models(data_dir, force_recompile=False,  parallel_processing=False):
 
             all_job_args.append(dict(
                 asset_filepath=asset_filepath, name=name,
+                target_ps2=target_ps2, target_ngc=target_ngc, target_xbox=target_xbox,
                 cache_filepath=cache_filepath, source_md5=source_md5
                 ))
         except Exception:
@@ -131,7 +143,7 @@ def compile_models(data_dir, force_recompile=False,  parallel_processing=False):
         )
 
 
-def import_models(objects_tag, data_dir):
+def import_models(objects_tag, data_dir, target_ps2=False, target_ngc=False, target_xbox=False):
     _, inv_bitmap_names = objects_tag.get_cache_names(by_name=True)
     # we uppercase everything for uniformity. do it here
     inv_bitmap_names = {n.upper(): inv_bitmap_names[n] for n in inv_bitmap_names}
@@ -139,7 +151,7 @@ def import_models(objects_tag, data_dir):
     g3d_models_by_name = {}
     all_asset_filepaths = util.locate_models(
         os.path.join(data_dir, c.IMPORT_FOLDERNAME, c.MOD_FOLDERNAME),
-        cache_files=True
+        cache_files=True, target_ngc=target_ngc, target_xbox=target_xbox
         )
     for name in sorted(all_asset_filepaths):
         try:
@@ -258,7 +270,7 @@ def import_models(objects_tag, data_dir):
 
 def decompile_models(
         objects_tag, data_dir,
-        asset_types=(c.MODEL_CACHE_EXTENSION, ),
+        asset_types=c.MODEL_CACHE_EXTENSIONS,
         parallel_processing=False, overwrite=False,
         swap_lightmap_and_diffuse=False
         ):
@@ -266,11 +278,11 @@ def decompile_models(
         asset_types = (asset_types, )
 
     for asset_type in asset_types:
-        if asset_type not in (c.MODEL_CACHE_EXTENSION, *c.MODEL_ASSET_EXTENSIONS):
+        if asset_type not in (*c.MODEL_CACHE_EXTENSIONS, *c.MODEL_ASSET_EXTENSIONS):
             raise ValueError("Unknown model type '%s'" % asset_type)
 
-    assets_dir = os.path.join(data_dir, c.EXPORT_FOLDERNAME, c.MOD_FOLDERNAME)
-    cache_dir  = os.path.join(data_dir, c.IMPORT_FOLDERNAME, c.MOD_FOLDERNAME)
+    assets_dir     = os.path.join(data_dir, c.EXPORT_FOLDERNAME, c.MOD_FOLDERNAME)
+    cache_dir      = os.path.join(data_dir, c.IMPORT_FOLDERNAME, c.MOD_FOLDERNAME)
     tex_assets_dir = os.path.join(data_dir, c.EXPORT_FOLDERNAME, c.TEX_FOLDERNAME)
 
     texture_assets = util.locate_textures(tex_assets_dir)
@@ -314,7 +326,7 @@ def decompile_models(
                     filename = os.path.join(asset["asset_name"], filename)
 
                 filepath = os.path.join(
-                    cache_dir if asset_type == c.MODEL_CACHE_EXTENSION else assets_dir,
+                    cache_dir if asset_type in c.MODEL_CACHE_EXTENSIONS else assets_dir,
                     filename
                     )
                 if os.path.isfile(filepath) and not overwrite:

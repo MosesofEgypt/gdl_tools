@@ -53,8 +53,9 @@ def _decompile_texture(kwargs):
 
 
 def compile_textures(
-        data_dir, force_recompile=False, target_ngc=False,
-        optimize_format=False, parallel_processing=False
+        data_dir,
+        force_recompile=False, optimize_format=False, parallel_processing=False,
+        target_ps2=False, target_ngc=False, target_xbox=False,
         ):
     asset_folder    = os.path.join(data_dir, c.EXPORT_FOLDERNAME, c.TEX_FOLDERNAME)
     cache_path_base = os.path.join(data_dir, c.IMPORT_FOLDERNAME, c.TEX_FOLDERNAME)
@@ -71,7 +72,11 @@ def compile_textures(
     all_job_args = []
     all_assets = util.locate_textures(os.path.join(asset_folder), cache_files=False)
 
-    ext = c.TEXTURE_CACHE_EXTENSION_NGC if target_ngc else c.TEXTURE_CACHE_EXTENSION
+    asset_type = (
+        c.TEXTURE_CACHE_EXTENSION_PS2  if target_ps2 else
+        c.TEXTURE_CACHE_EXTENSION_NGC  if target_ngc else
+        c.TEXTURE_CACHE_EXTENSION_XBOX
+        )
     for name in sorted(all_assets):
         meta = bitmap_metadata.get(name)
         asset_filepath = all_assets[name]
@@ -81,7 +86,7 @@ def compile_textures(
 
         try:
             filename = os.path.splitext(os.path.relpath(asset_filepath, asset_folder))[0]
-            cache_filepath = os.path.join(cache_path_base, "%s.%s" % (filename, ext))
+            cache_filepath = os.path.join(cache_path_base, "%s.%s" % (filename, asset_type))
 
             source_md5 = b'\x00'*16
             gtx_cached_md5 = b''
@@ -118,12 +123,15 @@ def compile_textures(
         )
 
 
-def import_textures(objects_tag, data_dir, target_ngc=False, use_force_index_hack=False):
+def import_textures(
+        objects_tag, data_dir, use_force_index_hack=False,
+        target_ngc=False, target_ps2=False, target_xbox=False,
+        ):
     # locate and load all assets
     gtx_textures_by_name = {}
     all_asset_filepaths = util.locate_textures(
         os.path.join(data_dir, c.IMPORT_FOLDERNAME, c.TEX_FOLDERNAME),
-        cache_files=True, target_ngc=target_ngc
+        cache_files=True, target_ngc=target_ngc, target_xbox=target_xbox
         )
     for name in sorted(all_asset_filepaths):
         try:
