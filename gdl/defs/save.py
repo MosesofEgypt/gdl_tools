@@ -3,7 +3,8 @@ from array import array
 from supyr_struct.defs.tag_def import TagDef
 from supyr_struct.defs.common_descs import *
 from ..field_types import *
-from . import xbe
+from ..common_descs import cheat_weapon_types,\
+     cheat_armor_types, cheat_special_types
 from .objs.save import GdlSaveTag
 
 def get(): return gdl_savemeta_def
@@ -11,8 +12,8 @@ def get(): return gdl_savemeta_def
 def levels_bool(name, count):
     bools = []
     for i in range(count-1):
-        bools.append('level %s beaten'%(i+1))
-    bools.append('boss beaten')
+        bools.append('level_%s_beaten'%(i+1))
+    bools.append('bos_beaten')
     return Bool8(name, *bools)
 
 help_disp_default = array('B', [0]*256)
@@ -33,31 +34,26 @@ def make_name_map(suffix=''):
         name_map[char_names[i]+suffix] = i
     return name_map
 
-special_flags = xbe.special_types
-armor_flags   = xbe.armor_types
-weapon_flags  = xbe.weapon_types
-no_flags = xbe.no_flags
-
 runes = (
-    'blue 1',
-    'blue 2',
-    'blue 3',
-    'red 1',
-    'red 2',
-    'red 3',
-    'yellow 1',
-    'yellow 2',
-    'yellow 3',
-    'green 1',
-    'green 2',
-    'green 3',
-    'final rune',
+    'blue_1',
+    'blue_2',
+    'blue_3',
+    'red_1',
+    'red_2',
+    'red_3',
+    'yellow_1',
+    'yellow_2',
+    'yellow_3',
+    'green_1',
+    'green_2',
+    'green_3',
+    'final',
     )
 
 legend_items = (
     Pad(1),
     'scimitar',
-    'ice axe',
+    'ice_axe',
     'lamp',
     'bellows',
     'savior',
@@ -69,29 +65,29 @@ legend_items = (
     'javelin',
     )
 
-p_attrs = QStruct('character attrs',
+p_attrs = QStruct('character_attrs',
     SInt32('exp', GUI_NAME='experience'),
     Float('health'),
-    Float('strength added'),
-    Float('armor added'),
-    Float('magic added'),
-    Float('speed added'),
+    Float('strength_added'),
+    Float('armor_added'),
+    Float('magic_added'),
+    Float('speed_added'),
     SIZE=24,
     )
 
-p_stats = QStruct('character stats',
-    SInt32('enemies killed'),
-    SInt32('generals killed'),
-    SInt32('golems killed'),
-    SInt32('bosses killed'),
-    SInt32('generators destroyed'),
-    SInt32('gold found'),
-    Float('total playtime'),#counted in frames
+p_stats = QStruct('character_stats',
+    SInt32('enemies_killed'),
+    SInt32('generals_killed'),
+    SInt32('golems_killed'),
+    SInt32('bosses_killed'),
+    SInt32('generators_destroyed'),
+    SInt32('gold_found'),
+    Float('total_playtime'),  # counted in frames?
     SIZE=28,
     )
 
-p_powerup = Struct('character powerup',
-    Float('time left'),
+p_powerup = Struct('character_powerup',
+    Float('time_left'),
     SEnum32('type',
         "none",
         Pad(4),
@@ -101,52 +97,52 @@ p_powerup = Struct('character powerup',
         "magic",
         "special",
         ),
-    Float('attribute add'),
+    Float('attribute_add'),
     Union("flags",
         CASE='.type.enum_name',
-        CASES={
-            'none': no_flags,
-            'speed': no_flags,
-            'magic': no_flags,
-            'weapon': weapon_flags,
-            'armor': armor_flags,
-            'special': special_flags,
-            }
+        CASES=dict(
+            none=Bool32("flags"),
+            speed=Bool32("flags"),
+            magic=Bool32("flags"),
+            weapon=cheat_weapon_types,
+            armor=cheat_armor_types,
+            special=cheat_special_types,
+            )
         ),
     SIZE=16,
     )
 
-p_stuff = Container('character stuff',
+p_stuff = Container('character_stuff',
     SInt16('potions', MIN=0, MAX=9),
     SInt16('keys', MIN=0, MAX=9),
     Bool16('shards',
         Pad(1),
-        'lich shard',
-        'dragon shard',
-        'chimera shard',
-        'plague shard',
-        'drider shard',
-        'djinn shard',
-        'yeti shard',
-        'wraith shard',
+        'lich_shard',
+        'dragon_shard',
+        'chimera_shard',
+        'plague_shard',
+        'drider_shard',
+        'djinn_shard',
+        'yeti_shard',
+        'wraith_shard',
         #'unknown1',
         #'unknown2',
         ),
     Bool16('runes', *runes),
-    Bool16('legend items', *legend_items),
-    SInt16('powerup count'),
+    Bool16('legend_items', *legend_items),
+    SInt16('powerup_count'),
 
-    Bool16('rune attempts sp', *runes),
-    Bool16('rune attempts mp', *runes),
-    Bool16('legend attempts sp', *legend_items),
-    Bool16('legend attempts mp', *legend_items),
+    Bool16('rune_attempts_sp', *runes),
+    Bool16('rune_attempts_mp', *runes),
+    Bool16('legend_attempts_sp', *legend_items),
+    Bool16('legend_attempts_mp', *legend_items),
     #boss_attempts 1 and 2 are always 0 it seems, so rather
     #than have them editable, lets just treat them as padding
-    #UInt16('boss attempts 1'),
-    #UInt16('boss attempts 2'),
+    #UInt16('boss_attempts_1'),
+    #UInt16('boss_attempts_2'),
     Pad(4),
 
-    QStruct('gargoyle items',
+    QStruct('gargoyle_items',
         # a value of -1 means all that the max amount have been collected
         SInt16('fangs'),
         SInt16('feathers'),
@@ -167,24 +163,24 @@ p_stuff = Container('character stuff',
         ),
     UInt32('gold'),
     Array('powerups', SUB_STRUCT=p_powerup, SIZE=32),
-    UInt8Array('powerup states', SIZE=32),
+    UInt8Array('powerup_states', SIZE=32),
     SIZE=596,
     )
 
 
 p_waves = Struct('levels',
     Pad(1),
-    levels_bool('castle realm',6),
-    levels_bool('mountain realm',6),
-    levels_bool('desert realm',5),
-    levels_bool('forest realm',5),
+    levels_bool('castle_realm',6),
+    levels_bool('mountain_realm',6),
+    levels_bool('desert_realm',5),
+    levels_bool('forest_realm',5),
     levels_bool('temple',2),
     levels_bool('underworld',2),
-    levels_bool('town realm',5),
+    levels_bool('town_realm',5),
     levels_bool('battlefields',4),
-    levels_bool('ice realm',5),
-    levels_bool('dream realm',6),
-    levels_bool('sky realm',5),
+    levels_bool('ice_realm',5),
+    levels_bool('dream_realm',6),
+    levels_bool('sky_realm',5),
     Bool8('unknown',
         'unknown0',
         'unknown1',
@@ -200,10 +196,10 @@ p_waves = Struct('levels',
 
 gdl_savemeta_def = TagDef("save",
     BytesRaw('hmac_sig', SIZE=20, VISIBLE=False),
-    Struct('save data',
+    Struct('save_data',
         StrLatin1('name', SIZE=7, DEFAULT='PLAYER'),
         Pad(1),
-        SEnum16('last alt type',
+        SEnum16('last_alt_type',
             "warrior", "valkyrie", "wizard",    "archer",
             "dwarf",   "knight",   "sorceress", "jester",
 
@@ -211,15 +207,15 @@ gdl_savemeta_def = TagDef("save",
             "ogre",     "unicorn",   "medusa", "hyena",
             "sumner",
             ),
-        SEnum8('last color',
+        SEnum8('last_color',
             "yellow",
             "blue",
             "red",
             "green",
             ),
-        SInt8('char saved'),
+        SInt8('char_saved'),
 
-        Bool16('class unlocks',
+        Bool16('class_unlocks',
             "minotaur",
             "falconess",
             "jackal",
@@ -230,22 +226,22 @@ gdl_savemeta_def = TagDef("save",
             "hyena",
             "sumner",
             ),
-        UInt16('level total'),
+        UInt16('level_total'),
         
-        Array('character attrs',  SUB_STRUCT=p_attrs,
+        Array('character_attrs',  SUB_STRUCT=p_attrs,
             SIZE=16, NAME_MAP=make_name_map('_attrs')),
-        Array('character stats',  SUB_STRUCT=p_stats,
+        Array('character_stats',  SUB_STRUCT=p_stats,
             SIZE=16, NAME_MAP=make_name_map('_stats')),
-        Array('character stuff',  SUB_STRUCT=p_stuff,
+        Array('character_stuff',  SUB_STRUCT=p_stuff,
             SIZE=16, NAME_MAP=make_name_map('_stuff')),
-        Array('character levels', SUB_STRUCT=p_waves,
+        Array('character_levels', SUB_STRUCT=p_waves,
             SIZE=16, NAME_MAP=make_name_map('_levels')),
         
-        UEnum8('control scheme',
+        UEnum8('control_scheme',
             "ps2",
             "arcade",
             "robotron",
-            "one handed",
+            "one_handed",
             ),
         UEnum8('rumble',
             "none",
@@ -254,12 +250,12 @@ gdl_savemeta_def = TagDef("save",
             "maximum",
             DEFAULT=2,
             ),
-        UEnum8('auto-attack',
+        UEnum8('auto_attack',
             "off",
             "on",
             DEFAULT=1,
             ),
-        UEnum8('auto-aim',
+        UEnum8('auto_aim',
             "off",
             "on",
             DEFAULT=1,
@@ -269,7 +265,7 @@ gdl_savemeta_def = TagDef("save",
         #
         #These might be enumerators designating the display
         #status of each help hint text(invisible, visible, seen)
-        UInt8Array('help disp', SIZE=256, DEFAULT=help_disp_default),
+        UInt8Array('help_disp', SIZE=256, DEFAULT=help_disp_default),
         ),
 
     ext=".xsv", endian='<', tag_cls=GdlSaveTag,

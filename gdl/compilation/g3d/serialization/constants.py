@@ -45,8 +45,9 @@ STORAGE_TYPE_UINT16_BITPACKED = 0x6F
 
 
 # TEXTURE CONSTANTS
-#i dont imagine there ever being a use for even a 1024 texture
-VALID_DIMS = set(1<<i for i in range(16))
+# these limits are based on limitations of the miptbp structure
+VALID_DIMS = set(1<<i for i in range(15))
+MAX_MIP_COUNT = 6
 
 
 FORMAT_ID_TO_NAME = {
