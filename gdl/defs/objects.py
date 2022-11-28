@@ -157,23 +157,70 @@ v13_object_block = Struct("object",
         )
     )
 
-tex0_struct = BitStruct("tex0",
-    UBitInt("tb_addr",       SIZE=14),
-    UBitInt("tb_width",      SIZE=6),
-    UBitInt("psm",           SIZE=6), # pixel mode
-    UBitInt("tex_width",     SIZE=4),
-    UBitInt("tex_height",    SIZE=4),
-    Bit("tex_cc"),
-    UBitInt("tex_funtion",   SIZE=2),
-    UBitInt("cb_addr",       SIZE=14),
-    UBitInt("clut_pixmode",  SIZE=4),
-    Bit("clut_smode"),
-    UBitInt("clut_offset",   SIZE=5),
-    UBitInt("clut_loadmode", SIZE=3),
-    SIZE=8
+# For tex0_struct and mip_tbp_struct, the following references were used:
+#   https://openkh.dev/common/tm2.html
+#   https://psi-rockin.github.io/ps2tek/
+pixel_storage_modes = (
+    ("PSMCT32",   0), #  RGBA32
+    ("PSMCT24",   1), #  RGB24
+    ("PSMCT16",   2), #  RGBA16
+    ("PSMCT16S", 10), #  RGBA16 signed
     )
 
-mip_tbp1_struct = BitStruct("mip_tbp1",
+tex0_struct = BitStruct("tex0",
+    UBitInt("tb_addr",  SIZE=14),  # base pointer in words/64(i.e. 256-byte chunks)
+    UBitInt("tb_width", SIZE=6),   # texture buffer width in pixels/64
+    UBitEnum("psm",
+        *pixel_storage_modes,
+        ("PSMT8",    19), #  8-bit indexed(4 pixels per 32 bits)
+        ("PSMT4",    20), #  4-bit indexed(8 pixels per 32 bits)
+        ("PSMT8H",   27), #  like PSMT8, but upper 24 bits unused
+        ("PSMT4HL",  26), #  like PSMT4, but upper 24 bits are discarded
+        ("PSMT4HH",  44), #  like PSMT4, but lower 4 and upper 24 bits are discarded
+        ("PSMZ32",   48), #  32-bit Z buffer
+        ("PSMZ24",   49), #  24-bit Z buffer in 32-bit(upper 8-bit unused)
+        ("PSMZ16",   50), #  16-bit Z buffer in 32-bit(2 pixels)
+        ("PSMZ16S",  58), #  16-bit signed Z buffer in 32-bit(2 pixels)
+        SIZE=6
+        ),
+    UBitInt("tex_width",  SIZE=4),  # log2 of width
+    UBitInt("tex_height", SIZE=4),  # log2 of height
+    UBitEnum("tex_cc",
+        "RGB",
+        "RGBA",
+        SIZE=1
+        ),
+    UBitEnum("tex_function",
+        "modulate",
+        "decal",
+        "hilight",
+        "hilight_2",
+        SIZE=2
+        ),
+    UBitInt("cb_addr", SIZE=14),  # palette pointer in words/64(i.e. 256-byte chunks)
+    UBitEnum("clut_pixmode",
+        *pixel_storage_modes,
+        SIZE=4
+        ),
+    UBitEnum("clut_smode",
+        "CSM1",  # swizzled every 32 bytes
+        "CSM2",  # unswizzled
+        SIZE=1
+        ),
+    UBitInt("clut_offset", SIZE=5), # offset/16
+    UBitInt("clut_loadmode",
+        "dont_recache",
+        "recache",
+        "recache_and_copy_clut_to_cbp0",
+        "recache_and_copy_clut_to_cbp1",
+        "recache_and_copy_clut_to_cbp0_if_cb_addr_changed",
+        "recache_and_copy_clut_to_cbp1_if_cb_addr_changed",
+        SIZE=3, DEFAULT=1
+        ),
+    SIZE=8, VISIBLE=False
+    )
+
+mip_tbp_struct = BitStruct("mip_tbp",
     UBitInt("tb_addr1",  SIZE=14),
     UBitInt("tb_width1", SIZE=6),
     UBitInt("tb_addr2",  SIZE=14),
@@ -181,10 +228,6 @@ mip_tbp1_struct = BitStruct("mip_tbp1",
     UBitInt("tb_addr3",  SIZE=14),
     UBitInt("tb_width3", SIZE=6),
     Pad(4),
-    SIZE=8
-    )
-
-mip_tbp2_struct = BitStruct("mip_tbp2",
     UBitInt("tb_addr4",  SIZE=14),
     UBitInt("tb_width4", SIZE=6),
     UBitInt("tb_addr5",  SIZE=14),
@@ -192,7 +235,7 @@ mip_tbp2_struct = BitStruct("mip_tbp2",
     UBitInt("tb_addr6",  SIZE=14),
     UBitInt("tb_width6", SIZE=6),
     Pad(4),
-    SIZE=8
+    SIZE=16, VISIBLE=False
     )
 
 v4_bitmap_block = Struct("bitmap",
@@ -274,8 +317,7 @@ v12_bitmap_block = Struct("bitmap",
     LPointer32("bitmap def", VISIBLE=False),
 
     tex0_struct,
-    mip_tbp1_struct,
-    mip_tbp2_struct,
+    mip_tbp_struct,
 
     LUInt16Array("vram_address", SIZE=4, VISIBLE=False),
     LUInt16Array("clut_address", SIZE=4, VISIBLE=False),
