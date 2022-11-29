@@ -265,15 +265,6 @@ def import_textures(
         bitmap.log2_of_height = int(math.log(bitmap.height + 1, 2))
         bitmap.width_64       = min(1, (bitmap.width + 63) // 64)
 
-        # size strangely has to do with the height * pixel_byte_size.
-        pixel_size = (
-            0 if bitmap.flags.external else
-            c.PIXEL_SIZES.get(bitmap.format.enum_name, 0)
-            )
-        # TODO: figure out the exact calculation method, as this one
-        #       is fairly close, but is off in certain circumstances
-        bitmap.size = (bitmap.height * pixel_size) // 8
-
         if bitmap.flags.external or meta.get("cache_name"):
             # create a bitmap def
             bitmap_defs.append()
@@ -285,6 +276,63 @@ def import_textures(
         if not bitmap.frame_count:
             # the only names stored to the texdef names are the non-sequence bitmaps
             objects_tag.texdef_names.append(meta["name"])
+
+        if bitmap.flags.external or bitmap.frame_count:
+            continue
+
+        # populate tex0 and miptbp
+        format_name = bitmap.format.enum_name
+        bitmap.tex0.tex_width  = bitmap.log2_of_width
+        bitmap.tex0.tex_height = bitmap.log2_of_height
+        bitmap.tex0.psm.set_to(
+            "psmt8"   if "IDX_8" in format_name else
+            "psmt4"   if "IDX_4" in format_name else
+            "psmct16" if "1555"  in format_name else
+            "psmct32" if "8888"  in format_name else
+            "psmct32" # should never hit this
+            )
+        bitmap.tex0.tex_cc.set_to(
+            meta.get("tex_cc", "rgba")
+            )
+        bitmap.tex0.tex_function.set_to(
+            meta.get("tex_function", "decal")
+            )
+        bitmap.tex0.clut_pixmode.set_to(
+            meta.get("clut_pixmode", "csm1")
+            )
+        bitmap.tex0.clut_smode.set_to(
+            "psmct16" if "1555_IDX" in format_name else "psmct32"
+            )
+        bitmap.tex0.clut_loadmode.set_to(
+            meta.get("clut_loadmode", "recache")
+            )
+        bitmap.tex0.clut_offset = 0
+        bitmap.tex0.cb_addr = 0
+
+        bitmap.size = 0
+        for m in range(1 + bitmap.mipmap_count):
+            width  = bitm.width  >> m
+            height = bitm.height >> m
+            tb_width = max(width//64, 2 if "IDX" in format_name else 1)
+
+            tb_block = bitmap.mip_tbp if m else bitm.tex0
+            tb_block["tb_addr%s"  % (m if m else "")] = bitmap.size
+            tb_block["tb_width%s" % (m if m else "")] = tb_width
+
+            # NOTES:
+            #   ARGB1555: 2*(256^2+128^2+64^2+(3*32^2)))/256
+            # TODO: calculate mip size and increment bitmap.size by it
+
+        if "BGR" in format_name and "IDX" in format_name:
+            # always allocate 1KB for the palette
+            bitmap.size += 4
+
+        # round the size up to a multiple of 32
+        bitmap.size = max(1, bitmap.size + 31) // 32
+
+        # palette is always allocated at the end of the texture buffer
+        if "BGR" in format_name and "IDX" in format_name:
+            bitmap.tex0.cb_addr = bitmap.size - 4
 
     return gtx_textures
 

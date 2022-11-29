@@ -87,6 +87,15 @@ def decompile_objects_metadata(
             asset_name=bitmap_assets[i]["asset_name"],
             cache_name=exported_bitmaps.get(i, False),
             )
+        if not(bitm.frame_count or getattr(bitm.flags, "external") or not hasattr(bitm, "tex0")):
+            for name, default in (
+                    ("tex_cc", "rgba"),
+                    ("clut_pixmode", "csm1"),
+                    ("tex_function", "decal"),
+                    ("clut_loadmode", "recache"),
+                    ):
+                if bitm.tex0[name].enum_name != default:
+                    metadata_bitm[name] = bitm.tex0[name].enum_name
 
         # temporary hack 
         metadata_bitm["force_index"] = i

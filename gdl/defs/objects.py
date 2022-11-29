@@ -208,7 +208,7 @@ tex0_struct = BitStruct("tex0",
         SIZE=1
         ),
     UBitInt("clut_offset", SIZE=5), # offset/16
-    UBitInt("clut_loadmode",
+    UBitEnum("clut_loadmode",
         "dont_recache",
         "recache",
         "recache_and_copy_clut_to_cbp0",

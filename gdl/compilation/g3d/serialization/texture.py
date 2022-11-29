@@ -41,6 +41,8 @@ class G3DTexture:
     def import_asset(self, input_filepath, optimize_format=False, **kwargs):
         arby = arbytmap.Arbytmap()
         arby.load_from_file(input_path=input_filepath)
+        if arby.width not in c.VALID_DIMS or arby.height not in c.VALID_DIMS:
+            raise ValueError("Invalid dimensions: %sx%s" % (arby.width, arby.height))
 
         target_format_name = kwargs.pop("target_format_name", self.format_name)
         target_format_name = target_format_name.split("_NGC")[0]
