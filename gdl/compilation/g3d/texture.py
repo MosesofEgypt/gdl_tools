@@ -263,7 +263,7 @@ def import_textures(
         # add 1 to make sure we dont try to do log(0, 2)
         bitmap.log2_of_width  = int(math.log(bitmap.width + 1, 2))
         bitmap.log2_of_height = int(math.log(bitmap.height + 1, 2))
-        bitmap.width_64       = min(1, (bitmap.width + 63) // 64)
+        bitmap.width_64       = max(1, (bitmap.width + 63) // 64)
 
         if bitmap.flags.external or meta.get("cache_name"):
             # create a bitmap def
@@ -277,7 +277,7 @@ def import_textures(
             # the only names stored to the texdef names are the non-sequence bitmaps
             objects_tag.texdef_names.append(meta["name"])
 
-        if bitmap.flags.external or bitmap.frame_count:
+        if bitmap.flags.external:
             continue
 
         # populate tex0 and miptbp

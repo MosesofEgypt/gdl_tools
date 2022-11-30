@@ -102,11 +102,11 @@ class CrucibleApp(Tk):
             )
         self.btn_decompile_sources = Button(
             self.debug_actions_frame, text="Decompile asset sources", width=20,
-            command=lambda *a, **kw: self._decompile_objects(cache=True)
+            command=lambda *a, **kw: self._decompile_objects(source=True)
             )
         self.btn_decompile_cache = Button(
             self.debug_actions_frame, text="Decompile asset cache", width=20,
-            command=lambda *a, **kw: self._decompile_objects(source=True)
+            command=lambda *a, **kw: self._decompile_objects(cache=True)
             )
         # DEBUG
 
