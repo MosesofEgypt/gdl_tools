@@ -318,7 +318,7 @@ def import_textures(
             if m <= bitmap.mipmap_count:
                 tb_addr  = bitmap.size
                 tb_width = max(width//64, 2 if "IDX" in format_name else 1)
-                mip_size = max(1, (pixel_size*width*height//8) // 256)
+                mip_size = max(tb_width, (pixel_size*width*height//8) // 256)
 
             tb_block = bitmap.mip_tbp if m else bitmap.tex0
             tb_block["tb_addr%s"  % (m if m else "")] = tb_addr
