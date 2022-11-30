@@ -90,8 +90,8 @@ def decompile_objects_metadata(
         if not(bitm.frame_count or getattr(bitm.flags, "external") or not hasattr(bitm, "tex0")):
             for name, default in (
                     ("tex_cc", "rgba"),
-                    ("clut_pixmode", "csm1"),
                     ("tex_function", "decal"),
+                    ("clut_smode", "csm1"),
                     ("clut_loadmode", "recache"),
                     ):
                 if bitm.tex0[name].enum_name != default:

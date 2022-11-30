@@ -294,14 +294,14 @@ def import_textures(
         bitmap.tex0.tex_cc.set_to(
             meta.get("tex_cc", "rgba")
             )
+        bitmap.tex0.clut_pixmode.set_to(
+            "psmct16" if "1555_IDX" in format_name else "psmct32"
+            )
         bitmap.tex0.tex_function.set_to(
             meta.get("tex_function", "decal")
             )
-        bitmap.tex0.clut_pixmode.set_to(
-            meta.get("clut_pixmode", "csm1")
-            )
         bitmap.tex0.clut_smode.set_to(
-            "psmct16" if "1555_IDX" in format_name else "psmct32"
+            meta.get("clut_smode", "csm1")
             )
         bitmap.tex0.clut_loadmode.set_to(
             meta.get("clut_loadmode", "recache")
@@ -310,25 +310,27 @@ def import_textures(
         bitmap.tex0.cb_addr = 0
 
         bitmap.size = 0
-        for m in range(1 + bitmap.mipmap_count):
-            width  = bitm.width  >> m
-            height = bitm.height >> m
-            tb_width = max(width//64, 2 if "IDX" in format_name else 1)
+        pixel_size = c.PIXEL_SIZES.get(format_name, 0)  # in bits
+        for m in range(7):
+            width  = bitmap.width  >> m
+            height = bitmap.height >> m
+            tb_addr = tb_width = mip_size = 0
+            if m <= bitmap.mipmap_count:
+                tb_addr  = bitmap.size
+                tb_width = max(width//64, 2 if "IDX" in format_name else 1)
+                mip_size = max(1, (pixel_size*width*height//8) // 256)
 
-            tb_block = bitmap.mip_tbp if m else bitm.tex0
-            tb_block["tb_addr%s"  % (m if m else "")] = bitmap.size
+            tb_block = bitmap.mip_tbp if m else bitmap.tex0
+            tb_block["tb_addr%s"  % (m if m else "")] = tb_addr
             tb_block["tb_width%s" % (m if m else "")] = tb_width
-
-            # NOTES:
-            #   ARGB1555: 2*(256^2+128^2+64^2+(3*32^2)))/256
-            # TODO: calculate mip size and increment bitmap.size by it
+            bitmap.size += mip_size
 
         if "BGR" in format_name and "IDX" in format_name:
             # always allocate 1KB for the palette
             bitmap.size += 4
 
         # round the size up to a multiple of 32
-        bitmap.size = max(1, bitmap.size + 31) // 32
+        bitmap.size = 32 * max(1, (bitmap.size + 31) // 32)
 
         # palette is always allocated at the end of the texture buffer
         if "BGR" in format_name and "IDX" in format_name:
