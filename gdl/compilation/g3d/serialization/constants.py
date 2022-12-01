@@ -3,12 +3,11 @@ from ..constants import *
 DEBUG = False
 
 # MODEL CONSTANTS
-# These are the highest tested strip lengths the systems will
-# either load, or properly render(ps2 starts choking above 60)
+# These are the highest tested strip lengths the systems will properly load
+RETAIL_MAX_STRIP_LEN = 30  # safe max length from looking at retail files
 XBOX_MAX_STRIP_LEN   = 189
 NGC_MAX_STRIP_LEN    = XBOX_MAX_STRIP_LEN  # haven't tested yet
-PS2_MAX_STRIP_LEN    = 59
-RETAIL_MAX_STRIP_LEN = 30  # safe max length from looking at retail files
+PS2_MAX_STRIP_LEN    = RETAIL_MAX_STRIP_LEN  # dont change. levels might not load
 
 POS_SCALE   = 0x80
 UV_SCALE    = 0x80

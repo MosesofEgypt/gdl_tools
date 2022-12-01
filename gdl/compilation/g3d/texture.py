@@ -12,6 +12,7 @@ from . import util
 def _compile_texture(kwargs):
     name           = kwargs.pop("name")
     target_ngc     = kwargs.pop("target_ngc")
+    target_ps2     = kwargs.pop("target_ps2")
     cache_filepath = kwargs.pop("cache_filepath")
     asset_filepath = kwargs.pop("asset_filepath")
 
@@ -20,7 +21,7 @@ def _compile_texture(kwargs):
     g3d_texture.import_asset(asset_filepath, **kwargs)
     os.makedirs(os.path.dirname(cache_filepath), exist_ok=True)
     with open(cache_filepath, "wb") as f:
-        g3d_texture.export_gtx(f, target_ngc=target_ngc)
+        g3d_texture.export_gtx(f, target_ngc=target_ngc, target_ps2=target_ps2)
 
 
 def _decompile_texture(kwargs):
@@ -108,7 +109,8 @@ def compile_textures(
                 asset_filepath=asset_filepath, optimize_format=optimize_format,
                 target_format_name=meta.get("format", c.DEFAULT_FORMAT_NAME),
                 mipmap_count=max(0, 0 if target_ngc else meta.get("mipmap_count", 0)),
-                name=name, cache_filepath=cache_filepath, target_ngc=target_ngc
+                name=name, cache_filepath=cache_filepath,
+                target_ngc=target_ngc, target_ps2=target_ps2
                 ))
         except Exception:
             print(format_exc())
@@ -233,12 +235,21 @@ def import_textures(
             bitmap.tex_shift_index   = meta.get("tex_shift_index", 0)
         elif g3d_texture:
             # there is actually a texture to import
-            for rawdata in (g3d_texture.palette, *g3d_texture.textures):
-                if rawdata:
-                    tex_pointer += len(rawdata) * getattr(rawdata, "itemsize", 1)
+            bitmap_size = 0
+            for rawdata in g3d_texture.textures:
+                bitmap_size += len(rawdata) * getattr(rawdata, "itemsize", 1)
+
+            if c.PIXEL_SIZES.get(g3d_texture.format_name) == 4:
+                bitmap_size //= 2
+
+            if g3d_texture.palette:
+                bitmap_size += (
+                    len(g3d_texture.palette) * getattr(g3d_texture.palette, "itemsize", 1)
+                    )
+
+            tex_pointer += bitmap_size
 
             bitmap.format.set_to(g3d_texture.format_name)
-
             bitmap.lod_k      = meta.get("lod_k", g3d_texture.lod_k)
             bitmap.flags.data = g3d_texture.flags
             bitmap.width      = g3d_texture.width
@@ -258,7 +269,7 @@ def import_textures(
                 setattr(bitmap.flags, flag_name, meta["flags"][flag_name])
 
         # align after each bitmap
-        tex_pointer += util.calculate_padding(tex_pointer, 16)
+        tex_pointer += util.calculate_padding(tex_pointer, c.DEF_TEXTURE_BUFFER_CHUNK_SIZE)
 
         # add 1 to make sure we dont try to do log(0, 2)
         bitmap.log2_of_width  = int(math.log(bitmap.width + 1, 2))
@@ -319,6 +330,7 @@ def import_textures(
                 tb_addr  = bitmap.size
                 tb_width = max(width//64, 2 if "IDX" in format_name else 1)
                 mip_size = max(tb_width, (pixel_size*width*height//8) // 256)
+                mip_size += util.calculate_padding(mip_size, tb_width)
 
             tb_block = bitmap.mip_tbp if m else bitmap.tex0
             tb_block["tb_addr%s"  % (m if m else "")] = tb_addr

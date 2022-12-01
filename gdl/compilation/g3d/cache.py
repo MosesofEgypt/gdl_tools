@@ -57,7 +57,8 @@ def compile_cache_files(
 
         if gtx_textures:
             serialize_textures_cache(
-                objects_tag, gtx_textures, target_ngc=target_ngc
+                objects_tag, gtx_textures,
+                target_ngc=target_ngc, target_ps2=target_ps2
                 )
 
     return dict(
@@ -104,7 +105,8 @@ def decompile_cache_files(
 
 
 def serialize_textures_cache(
-        objects_tag, gtx_textures, output_filepath=None, target_ngc=False
+        objects_tag, gtx_textures, output_filepath=None,
+        target_ngc=False, target_ps2=False
         ):
     if not output_filepath:
         objects_dir     = os.path.dirname(objects_tag.filepath)
@@ -125,7 +127,8 @@ def serialize_textures_cache(
 
             f.seek(bitmap.tex_pointer)
             g3d_texture.export_gtx(
-                f, target_ngc=target_ngc, headerless=True
+                f, headerless=True,
+                target_ngc=target_ngc, target_ps2=target_ps2,
                 )
 
     backup_and_rename_temp(output_filepath, temppath)

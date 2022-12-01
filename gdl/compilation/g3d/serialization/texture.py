@@ -8,6 +8,7 @@ import scipy
 from array import array
 from copy import deepcopy
 from traceback import format_exc
+from .. import util
 from . import arbytmap_ext as arbytmap
 from . import constants as c
 
@@ -277,7 +278,7 @@ class G3DTexture:
             keep_alpha=self.has_alpha
             )
 
-    def export_gtx(self, output_buffer, target_ngc=False, headerless=False):
+    def export_gtx(self, output_buffer, headerless=False, target_ngc=False, target_ps2=False):
         ps2_format_name = self.format_name.split("_NGC")[0]
         ngc_format_name = ps2_format_name + "_NGC"
         if ngc_format_name not in c.FORMAT_NAME_TO_ID:
@@ -349,6 +350,11 @@ class G3DTexture:
 
         for texture in textures:
             output_buffer.write(texture)
+
+        if target_ps2:
+            output_buffer.write(b"\x00" * util.calculate_padding(
+                output_buffer.tell(), c.PS2_TEXTURE_BUFFER_CHUNK_SIZE
+                ))
 
     def _load_into_arbytmap(self, include_mipmaps=False):
         if not self.textures:
