@@ -23,6 +23,8 @@ class TextureBufferPacker:
     _tb_widths = ()
     _cb_addr   = -1
     _blocks_free = ()
+    _free_char = "-"
+    _used_char = "#"
 
     def __init__(
             self, width, height, pixel_format,
@@ -42,6 +44,21 @@ class TextureBufferPacker:
         self.mipmaps = mipmaps
 
     @property
+    def efficiency(self):
+        return 1 - sum(self._blocks_free) / self.buffer_size
+    @property
+    def optimized_efficiency(self):
+        return 1 - sum(self._blocks_free) / self.optimized_buffer_size
+    @property
+    def usage_string(self):
+        return "\n".join(
+            "".join(
+                self._free_char if self._blocks_free[y*self.blocks_wide + x] else self._used_char
+                for x in range(self.blocks_wide)
+                )
+            for y in range(self.blocks_tall)
+            )
+    @property
     def base_address(self):
         return self._tb_addrs[0] if self._tb_addrs else 0
     @property
@@ -52,8 +69,12 @@ class TextureBufferPacker:
     def buffer_size(self):
         return len(self._blocks_free)
     @property
-    def efficiency(self):
-        return 1 - sum(self._blocks_free) / len(self._blocks_free)
+    def optimized_buffer_size(self):
+        buffer_size = self.buffer_size
+        # scroll backward through the end of the buffer
+        # and remove any pages that have no blocks used
+        # TODO: implement this
+        return buffer_size
 
     @property
     def has_palette(self):
@@ -92,7 +113,24 @@ class TextureBufferPacker:
     def page_height(self):
         '''Number of pixels tall each page is'''
         return c.PSM_PAGE_HEIGHTS[self.pixel_format]
+    @property
+    def page_block_width(self):
+        '''Number of blocks wide each page is'''
+        return len(c.PSM_BLOCK_ORDERS[self.pixel_format][0])
+    @property
+    def page_block_height(self):
+        '''Number of blocks tall each page is'''
+        return len(c.PSM_BLOCK_ORDERS[self.pixel_format])
 
+    @property
+    def blocks_wide(self):
+        '''Number of blocks wide the texture buffer is'''
+        block_order = c.PSM_BLOCK_ORDERS[self.pixel_format]
+        return len(block_order[0]) * self.buffer_width
+    @property
+    def blocks_tall(self):
+        '''Number of blocks tall the texture buffer is'''
+        return self.buffer_size // self.blocks_wide
     @property
     def min_pages_wide(self):
         '''Minimum number of pages of width are required to fit the fullsize image'''
@@ -117,15 +155,13 @@ class TextureBufferPacker:
         return x, y
 
     def _xy_address_to_block_address(self, x, y):
-        block_order = c.PSM_BLOCK_ORDERS[self.pixel_format]
-        blocks_wide = len(block_order[0])
-        blocks_tall = len(block_order)
+        blocks_per_page = self.page_block_width*self.page_block_height
+        page_x,  page_y  = x // self.page_block_width, y // self.page_block_height
+        block_x, block_y = x  % self.page_block_width, y  % self.page_block_height
 
-        blocks_per_page = blocks_wide*blocks_tall
-        page_x, page_y = x//blocks_wide, y//blocks_tall
-
-        block_addr = block_order[y % blocks_tall][x % blocks_wide]
-        pages_skipped = (page_y*self.buffer_width + page_x)
+        block_order   = c.PSM_BLOCK_ORDERS[self.pixel_format]
+        block_addr    = block_order[block_y][block_x]
+        pages_skipped = page_y*self.buffer_width + page_x
         return block_addr + blocks_per_page*pages_skipped
 
     def _linear_address_to_block_address(self, linear_addr):
@@ -136,7 +172,7 @@ class TextureBufferPacker:
     def _initialize_blocks(self, pages_wide=1, pages_tall=1):
         block_order = c.PSM_BLOCK_ORDERS[self.pixel_format]
         blocks_per_page = len(block_order[0]) * len(block_order)
-        print("Initializing %s pages wide, %s pages tall" % (pages_wide, pages_tall))
+        #print("Initializing %s pages wide, %s pages tall" % (pages_wide, pages_tall))
 
         # clear existing calculations
         self._cb_addr      = 0
@@ -185,6 +221,8 @@ class TextureBufferPacker:
             for x in range(1, b_width  - 1)
             for y in range(1, b_height - 1)
             )
+        max_block_x = self.blocks_wide
+        max_block_y = self.blocks_tall
         while i < block_count:
             try:
                 i = self._blocks_free.index(True, i)
@@ -193,7 +231,10 @@ class TextureBufferPacker:
                 break
 
             x0, y0 = self._linear_address_to_xy_address(i)
-            free = True
+            free = (
+                x0 + b_width  <= max_block_x and
+                y0 + b_height <= max_block_y
+                )
             # check the corners for high certainty on block freeness
             for xa, ya in corner_check_coords:
                 if not free:
@@ -218,7 +259,7 @@ class TextureBufferPacker:
 
             # every block is free
             if free:
-                print("Located free block at %s" % i)
+                #print("Located free block at %s" % i)
                 return i
 
             i += 1
@@ -284,4 +325,3 @@ class TextureBufferPacker:
                     pages_wide += 1
                 else:
                     pages_tall += 1
-

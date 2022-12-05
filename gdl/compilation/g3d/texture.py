@@ -327,7 +327,7 @@ def import_textures(
             )
         buffer_calc.calculate()
 
-        bitmap.size          = buffer_calc.buffer_size
+        bitmap.size          = buffer_calc.optimized_buffer_size
         bitmap.tex0.tb_addr  = buffer_calc.base_address
         bitmap.tex0.tb_width = buffer_calc.buffer_width
         bitmap.tex0.cb_addr  = buffer_calc.palette_address
