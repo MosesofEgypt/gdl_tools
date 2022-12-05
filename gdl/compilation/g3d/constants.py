@@ -86,6 +86,10 @@ PIXEL_SIZES = {
     "XBGR_1555_IDX_8_NGC":8,
     }
 
+MONOCHROME_FORMATS = set(
+    ("A_4_IDX_4", "I_4_IDX_4", "A_8_IDX_8", "I_8_IDX_8")
+    )
+
 # these limits are based on limitations of the miptbp structure
 VALID_DIMS = set(1<<i for i in range(15))
 MAX_MIP_COUNT = 6

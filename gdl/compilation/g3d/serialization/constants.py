@@ -66,7 +66,3 @@ FORMAT_ID_TO_NAME = {
     147: "I_4_IDX_4",  # not really palettized
     }
 FORMAT_NAME_TO_ID = {v: k for k, v in FORMAT_ID_TO_NAME.items()}
-
-MONOCHROME_FORMATS = set(
-    ("A_4_IDX_4", "I_4_IDX_4", "A_8_IDX_8", "I_8_IDX_8")
-    )
