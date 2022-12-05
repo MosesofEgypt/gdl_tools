@@ -44,11 +44,6 @@ STORAGE_TYPE_UINT16_BITPACKED = 0x6F
 
 
 # TEXTURE CONSTANTS
-# these limits are based on limitations of the miptbp structure
-VALID_DIMS = set(1<<i for i in range(15))
-MAX_MIP_COUNT = 6
-
-
 FORMAT_ID_TO_NAME = {
     0: "ABGR_1555",
     1: "XBGR_1555",

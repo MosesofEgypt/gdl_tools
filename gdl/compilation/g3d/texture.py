@@ -6,6 +6,7 @@ from traceback import format_exc
 from ..metadata import objects as objects_metadata
 from .serialization.texture import G3DTexture, ROMTEX_HEADER_STRUCT
 from . import constants as c
+from . import texture_buffer_packer
 from . import util
 
 
@@ -296,17 +297,17 @@ def import_textures(
         bitmap.tex0.tex_width  = bitmap.log2_of_width
         bitmap.tex0.tex_height = bitmap.log2_of_height
         bitmap.tex0.psm.set_to(
-            "psmt8"   if "IDX_8" in format_name else
-            "psmt4"   if "IDX_4" in format_name else
-            "psmct16" if "1555"  in format_name else
-            "psmct32" if "8888"  in format_name else
-            "psmct32" # should never hit this
+            c.PSM_T8   if "IDX_8" in format_name else
+            c.PSM_T4   if "IDX_4" in format_name else
+            c.PSM_CT16 if "1555"  in format_name else
+            c.PSM_CT32 if "8888"  in format_name else
+            c.PSM_CT32 # should never hit this
             )
         bitmap.tex0.tex_cc.set_to(
             meta.get("tex_cc", "rgba")
             )
         bitmap.tex0.clut_pixmode.set_to(
-            "psmct16" if "1555_IDX" in format_name else "psmct32"
+            c.PSM_CT16 if "1555_IDX" in format_name else c.PSM_CT32
             )
         bitmap.tex0.tex_function.set_to(
             meta.get("tex_function", "decal")
@@ -317,36 +318,23 @@ def import_textures(
         bitmap.tex0.clut_loadmode.set_to(
             meta.get("clut_loadmode", "recache")
             )
-        bitmap.tex0.clut_offset = 0
-        bitmap.tex0.cb_addr = 0
 
-        bitmap.size = 0
-        pixel_size = c.PIXEL_SIZES.get(format_name, 0)  # in bits
-        for m in range(7):
-            width  = bitmap.width  >> m
-            height = bitmap.height >> m
-            tb_addr = tb_width = mip_size = 0
-            if m <= bitmap.mipmap_count:
-                tb_addr  = bitmap.size
-                tb_width = max(width//64, 2 if "IDX" in format_name else 1)
-                mip_size = max(tb_width, (pixel_size*width*height//8) // 256)
-                mip_size += util.calculate_padding(mip_size, tb_width)
+        buffer_calc = texture_buffer_packer.TextureBufferPacker(
+            width=bitmap.width, height=bitmap.height,
+            mipmaps=bitmap.mipmap_count,
+            pixel_format=bitmap.tex0.psm.enum_name,
+            palette_format=bitmap.tex0.clut_pixmode.enum_name,
+            )
+        buffer_calc.calculate()
 
-            tb_block = bitmap.mip_tbp if m else bitmap.tex0
-            tb_block["tb_addr%s"  % (m if m else "")] = tb_addr
-            tb_block["tb_width%s" % (m if m else "")] = tb_width
-            bitmap.size += mip_size
-
-        if "BGR" in format_name and "IDX" in format_name:
-            # always allocate 1KB for the palette
-            bitmap.size += 4
-
-        # round the size up to a multiple of 32
-        bitmap.size = 32 * max(1, (bitmap.size + 31) // 32)
-
-        # palette is always allocated at the end of the texture buffer
-        if "BGR" in format_name and "IDX" in format_name:
-            bitmap.tex0.cb_addr = bitmap.size - 4
+        bitmap.size          = buffer_calc.buffer_size
+        bitmap.tex0.tb_addr  = buffer_calc.base_address
+        bitmap.tex0.tb_width = buffer_calc.buffer_width
+        bitmap.tex0.cb_addr  = buffer_calc.palette_address
+        for m in range(1, 7):
+            tb_addr, tb_width = buffer_calc.get_address_and_width(m)
+            bitmap.mip_tbp["tb_addr%s"  % m] = tb_addr
+            bitmap.mip_tbp["tb_width%s" % m] = tb_width
 
     return gtx_textures
 

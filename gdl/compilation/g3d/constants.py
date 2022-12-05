@@ -85,3 +85,118 @@ PIXEL_SIZES = {
     "ABGR_1555_IDX_4_NGC":4,
     "XBGR_1555_IDX_8_NGC":8,
     }
+
+# these limits are based on limitations of the miptbp structure
+VALID_DIMS = set(1<<i for i in range(15))
+MAX_MIP_COUNT = 6
+
+# everything below relates to calculating PS2
+# texture buffer addresses, sizes, and formats
+PSM_CT32  = "psmct32"   # usable as palette format
+PSM_CT24  = "psmct24"   # usable as palette format
+PSM_CT16  = "psmct16"   # usable as palette format
+PSM_CT16S = "psmct16s"  # usable as palette format
+PSM_Z32   = "psmz32"
+PSM_Z24   = "psmz24"
+PSM_Z16   = "psmz16"
+PSM_Z16S  = "psmz16s"
+PSM_T8    = "psmt8"
+PSM_T4    = "psmt4"
+PSM_T8H   = "psmt8h"
+PSM_T4HL  = "psmt4hl"
+PSM_T4HH  = "psmt4hh"
+
+
+PSM_BLOCK_ORDER_PSMCT32 = (
+    (  0,  1,  4,  5,  16,  17,  20,  21),
+    (  2,  3,  6,  7,  18,  19,  22,  23),
+    (  8,  9, 12, 13,  24,  25,  28,  29),
+    ( 10, 11, 14, 15,  26,  27,  30,  31),
+    )
+PSM_BLOCK_ORDER_PSMZ32 = (
+    (24,  25,  28,  29,  8,  9, 12, 13),
+    (26,  27,  30,  31, 10, 11, 14, 15),
+    (16,  17,  20,  21,  0,  1,  4,  5),
+    (18,  19,  22,  23,  2,  3,  6,  7),
+    )
+PSM_BLOCK_ORDER_PSMCT16 = (
+    ( 0,  2,  8, 10),
+    ( 1,  3,  9, 11),
+    ( 4,  6, 12, 14),
+    ( 5,  7, 13, 15),
+    (16, 18, 24, 26),
+    (17, 19, 25, 27),
+    (20, 22, 28, 30),
+    (21, 23, 29, 31),
+    )
+PSM_BLOCK_ORDER_PSMCT16S = (
+    ( 0,  2, 16, 18),
+    ( 1,  3, 17, 19),
+    ( 8, 10, 24, 26),
+    ( 9, 11, 25, 27),
+    ( 4,  6, 20, 22),
+    ( 5,  7, 21, 23),
+    (12, 14, 28, 30),
+    (13, 15, 29, 31),
+    )
+PSM_BLOCK_ORDER_PSMZ16 = (
+    (24, 26, 16, 18),
+    (25, 27, 17, 19),
+    (28, 30, 20, 22),
+    (29, 31, 21, 23),
+    ( 8, 10,  0,  2),
+    ( 9, 11,  1,  3),
+    (12, 14,  4,  6),
+    (13, 15,  5,  7),
+    )
+PSM_BLOCK_ORDER_PSMZ16S = (
+    (24, 26,  8, 10),
+    (25, 27,  9, 11),
+    (16, 18,  0,  2),
+    (17, 19,  1,  3),
+    (28, 30, 12, 14),
+    (29, 31, 13, 15),
+    (20, 22,  4,  6),
+    (21, 23,  5,  7),
+    )
+
+# NOTE: several of these block structures are shared across formats
+PSM_BLOCK_ORDERS = {
+    PSM_CT32:  PSM_BLOCK_ORDER_PSMCT32,
+    PSM_CT24:  PSM_BLOCK_ORDER_PSMCT32,
+    PSM_CT16:  PSM_BLOCK_ORDER_PSMCT16,
+    PSM_CT16S: PSM_BLOCK_ORDER_PSMCT16S,
+    PSM_Z32:   PSM_BLOCK_ORDER_PSMZ32,
+    PSM_Z24:   PSM_BLOCK_ORDER_PSMZ32,
+    PSM_Z16:   PSM_BLOCK_ORDER_PSMZ16,
+    PSM_Z16S:  PSM_BLOCK_ORDER_PSMZ16S,
+    PSM_T8:    PSM_BLOCK_ORDER_PSMCT32,
+    PSM_T4:    PSM_BLOCK_ORDER_PSMCT16,
+    PSM_T8H:   PSM_BLOCK_ORDER_PSMCT32,
+    PSM_T4HL:  PSM_BLOCK_ORDER_PSMCT32,
+    PSM_T4HH:  PSM_BLOCK_ORDER_PSMCT32,
+    }
+PSM_PAGE_WIDTHS = {
+    psm: (128 if psm in (PSM_T8, PSM_T4) else 64)
+    for psm in PSM_BLOCK_ORDERS.keys()
+    }
+PSM_PAGE_HEIGHTS = {
+    psm: (
+        128 if psm == PSM_T4 else
+        64 if psm in (PSM_T8, PSM_CT16, PSM_CT16S, PSM_Z16, PSM_Z16S) else
+        32
+        )
+    for psm in PSM_BLOCK_ORDERS.keys()
+    }
+PSM_BLOCK_WIDTHS = {
+    psm: (
+        32 if psm == PSM_T4 else
+        16 if psm in (PSM_T8, PSM_CT16, PSM_CT16S, PSM_Z16, PSM_Z16S) else
+        8
+        )
+    for psm in PSM_BLOCK_ORDERS.keys()
+    }
+PSM_BLOCK_HEIGHTS = {
+    psm: (16 if psm in (PSM_T8, PSM_T4) else 8)
+    for psm in PSM_BLOCK_ORDERS.keys()
+    }
