@@ -61,6 +61,20 @@ class TextureBufferPacker:
         self.height  = height
         self.mipmaps = mipmaps
         self._used_chars = dict(self._used_chars) # copy in case edits are made
+        self._initialize_blocks(self.min_pages_wide, self.min_pages_tall)
+
+    def _initialize_blocks(self, pages_wide=1, pages_tall=1):
+        block_order = c.PSM_BLOCK_ORDERS[self.pixel_format]
+        blocks_per_page = len(block_order[0]) * len(block_order)
+        #print("Initializing %s pages wide, %s pages tall" % (pages_wide, pages_tall))
+
+        # clear existing calculations
+        self._cb_addr      = 0
+        self._tb_addrs     = []
+        self._tb_widths    = []
+        self._blocks_used  = [0] * blocks_per_page * pages_tall * pages_wide
+        self._buffer_width = pages_wide
+        self._optimized_buffer_size = None
 
     @property
     def stack_on_y(self):
@@ -226,19 +240,6 @@ class TextureBufferPacker:
         return self._xy_address_to_block_address(
             *self._linear_address_to_xy_address(linear_addr)
             )
-
-    def _initialize_blocks(self, pages_wide=1, pages_tall=1):
-        block_order = c.PSM_BLOCK_ORDERS[self.pixel_format]
-        blocks_per_page = len(block_order[0]) * len(block_order)
-        #print("Initializing %s pages wide, %s pages tall" % (pages_wide, pages_tall))
-
-        # clear existing calculations
-        self._cb_addr      = 0
-        self._tb_addrs     = []
-        self._tb_widths    = []
-        self._blocks_used  = [0] * blocks_per_page * pages_tall * pages_wide
-        self._buffer_width = pages_wide
-        self._optimized_buffer_size = None
 
     def _mark_allocated_linear(self, allocate, b_width, b_height, linear_addr, test_only=False):
         return self._mark_allocated_xy(
@@ -415,6 +416,8 @@ class TextureBufferPacker:
                 mip_width = b_width * self.block_width
                 block_addr  = self._mark_allocated_linear("T%s" % m, b_width, b_height, addr)
                 block_width = int(math.ceil(mip_width / 64))
+                # TEMPORARY HACK
+                block_width = int(math.ceil(self.buffer_width * self.page_width) / 64)
 
                 self._tb_addrs.append(block_addr)
                 self._tb_widths.append(block_width)
@@ -436,7 +439,6 @@ class TextureBufferPacker:
             if addr is None:
                 # one of the addresses ended up null, indicating we need to reallocate
                 if allocations >= self.max_allocations:
-                    return
                     raise ValueError("Could not allocate large enough buffer to fit all texture data.")
 
                 allocate = True
