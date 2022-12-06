@@ -12,6 +12,7 @@ class FixedBytearrayBuffer(BytearrayBuffer):
     __slots__ = ('_pos',)
     def __init__(self, *args):
         self._pos = 0
+        bytearray.__init__(self, *args)
 
 
 def locate_assets(data_dir, extensions):

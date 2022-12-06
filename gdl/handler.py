@@ -14,7 +14,7 @@ class GdlHandler(Handler):
             filename = filepath.split('\\')[-1].lower()
         except:
             filename = ''
-            
+
         filename, ext = os.path.splitext(filename)
         filename, ext = filename.lower(), ext.lower()
         filename = filename.split(".")[-1]
@@ -23,6 +23,8 @@ class GdlHandler(Handler):
             return ext[1:]
         elif ext in ('.ps2', '.ngc'):
             return filename
+        elif filename + ext == "slus_200.47":
+            return "slus"
         elif ext == '.wad':
             if filename in ('arc','dwf','fal','hye',
                             'jac','jes','kni','med',

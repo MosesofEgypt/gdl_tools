@@ -6,12 +6,14 @@ from traceback import format_exc
 from ..metadata import objects as objects_metadata
 from .serialization.texture import G3DTexture, ROMTEX_HEADER_STRUCT
 from . import constants as c
+from . import texture_buffer_packer
 from . import util
 
 
 def _compile_texture(kwargs):
     name           = kwargs.pop("name")
     target_ngc     = kwargs.pop("target_ngc")
+    target_ps2     = kwargs.pop("target_ps2")
     cache_filepath = kwargs.pop("cache_filepath")
     asset_filepath = kwargs.pop("asset_filepath")
 
@@ -20,7 +22,7 @@ def _compile_texture(kwargs):
     g3d_texture.import_asset(asset_filepath, **kwargs)
     os.makedirs(os.path.dirname(cache_filepath), exist_ok=True)
     with open(cache_filepath, "wb") as f:
-        g3d_texture.export_gtx(f, target_ngc=target_ngc)
+        g3d_texture.export_gtx(f, target_ngc=target_ngc, target_ps2=target_ps2)
 
 
 def _decompile_texture(kwargs):
@@ -53,8 +55,9 @@ def _decompile_texture(kwargs):
 
 
 def compile_textures(
-        data_dir, force_recompile=False, target_ngc=False,
-        optimize_format=False, parallel_processing=False
+        data_dir,
+        force_recompile=False, optimize_format=False, parallel_processing=False,
+        target_ps2=False, target_ngc=False, target_xbox=False,
         ):
     asset_folder    = os.path.join(data_dir, c.EXPORT_FOLDERNAME, c.TEX_FOLDERNAME)
     cache_path_base = os.path.join(data_dir, c.IMPORT_FOLDERNAME, c.TEX_FOLDERNAME)
@@ -71,7 +74,11 @@ def compile_textures(
     all_job_args = []
     all_assets = util.locate_textures(os.path.join(asset_folder), cache_files=False)
 
-    ext = c.TEXTURE_CACHE_EXTENSION_NGC if target_ngc else c.TEXTURE_CACHE_EXTENSION
+    asset_type = (
+        c.TEXTURE_CACHE_EXTENSION_PS2  if target_ps2 else
+        c.TEXTURE_CACHE_EXTENSION_NGC  if target_ngc else
+        c.TEXTURE_CACHE_EXTENSION_XBOX
+        )
     for name in sorted(all_assets):
         meta = bitmap_metadata.get(name)
         asset_filepath = all_assets[name]
@@ -81,7 +88,7 @@ def compile_textures(
 
         try:
             filename = os.path.splitext(os.path.relpath(asset_filepath, asset_folder))[0]
-            cache_filepath = os.path.join(cache_path_base, "%s.%s" % (filename, ext))
+            cache_filepath = os.path.join(cache_path_base, "%s.%s" % (filename, asset_type))
 
             source_md5 = b'\x00'*16
             gtx_cached_md5 = b''
@@ -103,7 +110,8 @@ def compile_textures(
                 asset_filepath=asset_filepath, optimize_format=optimize_format,
                 target_format_name=meta.get("format", c.DEFAULT_FORMAT_NAME),
                 mipmap_count=max(0, 0 if target_ngc else meta.get("mipmap_count", 0)),
-                name=name, cache_filepath=cache_filepath, target_ngc=target_ngc
+                name=name, cache_filepath=cache_filepath,
+                target_ngc=target_ngc, target_ps2=target_ps2
                 ))
         except Exception:
             print(format_exc())
@@ -118,12 +126,15 @@ def compile_textures(
         )
 
 
-def import_textures(objects_tag, data_dir, target_ngc=False, use_force_index_hack=False):
+def import_textures(
+        objects_tag, data_dir, use_force_index_hack=False,
+        target_ngc=False, target_ps2=False, target_xbox=False,
+        ):
     # locate and load all assets
     gtx_textures_by_name = {}
     all_asset_filepaths = util.locate_textures(
         os.path.join(data_dir, c.IMPORT_FOLDERNAME, c.TEX_FOLDERNAME),
-        cache_files=True, target_ngc=target_ngc
+        cache_files=True, target_ngc=target_ngc, target_xbox=target_xbox
         )
     for name in sorted(all_asset_filepaths):
         try:
@@ -196,87 +207,138 @@ def import_textures(objects_tag, data_dir, target_ngc=False, use_force_index_hac
     # into the cache file, set the pointers for the texture data,
     # and import the rest of the bitmap metadata(w/h, mips, etc).
     for i in range(len(sorted_bitm_meta)):
-        bitmap      = bitmaps[i]
+        bitm        = bitmaps[i]
         meta        = sorted_bitm_meta[i]
         g3d_texture = gtx_textures[i]
         if not meta:
             continue
 
-        bitmap.frame_count = meta.get("frame_count", 0)
-        bitmap.tex_pointer = tex_pointer
+        bitm.frame_count = meta.get("frame_count", 0)
+        bitm.tex_pointer = tex_pointer
 
-        if bitmap.frame_count or bitmap.flags.external:
+        if bitm.frame_count or bitm.flags.external:
             # no bitmap to import; only import metadata
             try:
-                bitmap.format.set_to(meta["format"])
+                bitm.format.set_to(meta["format"])
             except Exception:
                 print(format_exc())
                 print("Warning: Could not set bitmap format.")
 
-            bitmap.flags.data   = 0
-            bitmap.lod_k        = meta.get("lod_k", c.DEFAULT_TEX_LOD_K)
-            bitmap.width        = meta.get("width", 0)
-            bitmap.height       = meta.get("height", 0)
-            bitmap.mipmap_count = meta.get("mipmap_count", 0)
-            bitmap.frame_count  = meta.get("frame_count", bitmap.frame_count)
+            bitm.flags.data   = 0
+            bitm.lod_k        = meta.get("lod_k", c.DEFAULT_TEX_LOD_K)
+            bitm.width        = meta.get("width", 0)
+            bitm.height       = meta.get("height", 0)
+            bitm.mipmap_count = meta.get("mipmap_count", 0)
+            bitm.frame_count  = meta.get("frame_count", bitm.frame_count)
 
-            bitmap.tex_palette_index = meta.get("tex_palette_index", 0)
-            bitmap.tex_palette_count = meta.get("tex_palette_count", 0)
-            bitmap.tex_shift_index   = meta.get("tex_shift_index", 0)
+            bitm.tex_palette_index = meta.get("tex_palette_index", 0)
+            bitm.tex_palette_count = meta.get("tex_palette_count", 0)
+            bitm.tex_shift_index   = meta.get("tex_shift_index", 0)
         elif g3d_texture:
             # there is actually a texture to import
-            for rawdata in (g3d_texture.palette, *g3d_texture.textures):
-                if rawdata:
-                    tex_pointer += len(rawdata) * getattr(rawdata, "itemsize", 1)
+            bitmap_size = 0
+            for rawdata in g3d_texture.textures:
+                bitmap_size += len(rawdata) * getattr(rawdata, "itemsize", 1)
 
-            bitmap.format.set_to(g3d_texture.format_name)
+            if c.PIXEL_SIZES.get(g3d_texture.format_name) == 4:
+                bitmap_size //= 2
 
-            bitmap.lod_k      = meta.get("lod_k", g3d_texture.lod_k)
-            bitmap.flags.data = g3d_texture.flags
-            bitmap.width      = g3d_texture.width
-            bitmap.height     = g3d_texture.height
+            if g3d_texture.palette:
+                bitmap_size += (
+                    len(g3d_texture.palette) * getattr(g3d_texture.palette, "itemsize", 1)
+                    )
+
+            tex_pointer += bitmap_size
+
+            bitm.format.set_to(g3d_texture.format_name)
+            bitm.lod_k      = meta.get("lod_k", g3d_texture.lod_k)
+            bitm.flags.data = g3d_texture.flags
+            bitm.width      = g3d_texture.width
+            bitm.height     = g3d_texture.height
             if target_ngc:
-                bitmap.mipmap_count = meta.get("mipmap_count", 0)
+                bitm.mipmap_count = meta.get("mipmap_count", 0)
             else:
-                bitmap.mipmap_count = min(0, len(g3d_texture.textures) - 1)
+                bitm.mipmap_count = max(0, len(g3d_texture.textures) - 1)
 
-            bitmap.flags.has_alpha = "A" in g3d_texture.format_name
+            bitm.flags.has_alpha = "A" in g3d_texture.format_name
         else:
             print("Warning: Could not locate bitmap file for '%s'" % asset_name)
 
         # copy flags from metadata
         for flag_name in meta.get("flags", {}):
-            if hasattr(bitmap.flags, flag_name):
-                setattr(bitmap.flags, flag_name, meta["flags"][flag_name])
+            if hasattr(bitm.flags, flag_name):
+                setattr(bitm.flags, flag_name, meta["flags"][flag_name])
 
         # align after each bitmap
-        tex_pointer += util.calculate_padding(tex_pointer, 16)
+        tex_pointer += util.calculate_padding(tex_pointer, c.DEF_TEXTURE_BUFFER_CHUNK_SIZE)
 
         # add 1 to make sure we dont try to do log(0, 2)
-        bitmap.log2_of_width  = int(math.log(bitmap.width + 1, 2))
-        bitmap.log2_of_height = int(math.log(bitmap.height + 1, 2))
-        bitmap.width_64       = min(1, (bitmap.width + 63) // 64)
+        bitm.log2_of_width  = int(math.log(bitm.width + 1, 2))
+        bitm.log2_of_height = int(math.log(bitm.height + 1, 2))
+        bitm.width_64       = max(1, (bitm.width + 63) // 64)
 
-        # size strangely has to do with the height * pixel_byte_size.
-        pixel_size = (
-            0 if bitmap.flags.external else
-            c.PIXEL_SIZES.get(bitmap.format.enum_name, 0)
-            )
-        # TODO: figure out the exact calculation method, as this one
-        #       is fairly close, but is off in certain circumstances
-        bitmap.size = (bitmap.height * pixel_size) // 8
-
-        if bitmap.flags.external or meta.get("cache_name"):
+        if bitm.flags.external or meta.get("cache_name"):
             # create a bitmap def
             bitmap_defs.append()
             bitmap_defs[-1].name = meta["name"][:30]
-            bitmap_defs[-1].width = bitmap.width
-            bitmap_defs[-1].height = bitmap.height
+            bitmap_defs[-1].width = bitm.width
+            bitmap_defs[-1].height = bitm.height
             bitmap_defs[-1].tex_index = i
 
-        if not bitmap.frame_count:
+        if not bitm.frame_count:
             # the only names stored to the texdef names are the non-sequence bitmaps
             objects_tag.texdef_names.append(meta["name"])
+
+        if bitm.flags.external:
+            continue
+
+        # populate tex0 and miptbp
+        format_name = bitm.format.enum_name
+        bitm.tex0.tex_width  = bitm.log2_of_width
+        bitm.tex0.tex_height = bitm.log2_of_height
+        bitm.tex0.psm.set_to(
+            c.PSM_T8   if "IDX_8" in format_name else
+            c.PSM_T4   if "IDX_4" in format_name else
+            c.PSM_CT16 if "1555"  in format_name else
+            c.PSM_CT32 if "8888"  in format_name else
+            c.PSM_CT32 # should never hit this
+            )
+        bitm.tex0.tex_cc.set_to(
+            meta.get("tex_cc", "rgba")
+            )
+        bitm.tex0.clut_pixmode.set_to(
+            c.PSM_CT16 if "1555_IDX" in format_name else c.PSM_CT32
+            )
+        bitm.tex0.tex_function.set_to(
+            meta.get("tex_function", "decal")
+            )
+        bitm.tex0.clut_smode.set_to(
+            meta.get("clut_smode", "csm1")
+            )
+        bitm.tex0.clut_loadmode.set_to(
+            meta.get("clut_loadmode", "recache")
+            )
+
+        buffer_calc = texture_buffer_packer.TextureBufferPacker(
+            width=bitm.width, height=bitm.height,
+            mipmaps=bitm.mipmap_count,
+            pixel_format=bitm.tex0.psm.enum_name,
+            palette_format=(
+                None if format_name in c.MONOCHROME_FORMATS else
+                bitm.tex0.clut_pixmode.enum_name
+                ),
+            )
+        buffer_calc.pack()
+        buffer_calc.optimize()
+
+        bitm.size          = buffer_calc.optimized_buffer_size
+        bitm.tex0.cb_addr  = buffer_calc.palette_address
+
+        bitm.tex0.tb_addr, bitm.tex0.tb_width = buffer_calc.get_address_and_width(0)
+        for m in range(1, 7):
+            tb_addr, tb_width = buffer_calc.get_address_and_width(m)
+            bitm.mip_tbp["tb_addr%s"  % m] = tb_addr
+            bitm.mip_tbp["tb_width%s" % m] = tb_width
 
     return gtx_textures
 

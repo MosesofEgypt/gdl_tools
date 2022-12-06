@@ -157,6 +157,86 @@ v13_object_block = Struct("object",
         )
     )
 
+# For tex0_struct and mip_tbp_struct, the following references were used:
+#   https://openkh.dev/common/tm2.html
+#   https://psi-rockin.github.io/ps2tek/
+pixel_storage_modes = (
+    ("psmct32",   0), #  RGBA32
+    ("psmct24",   1), #  RGB24
+    ("psmct16",   2), #  RGBA16
+    ("psmct16s", 10), #  RGBA16 signed
+    )
+
+tex0_struct = BitStruct("tex0",
+    UBitInt("tb_addr",  SIZE=14),  # base pointer in words/64(i.e. 256-byte chunks)
+    UBitInt("tb_width", SIZE=6),   # texture buffer width in pixels/64
+    UBitEnum("psm",
+        *pixel_storage_modes,
+        ("psmt8",    19), #  8-bit indexed(4 pixels per 32 bits)
+        ("psmt4",    20), #  4-bit indexed(8 pixels per 32 bits)
+        ("psmt8h",   27), #  like PSMT8, but upper 24 bits unused
+        ("psmt4hl",  26), #  like PSMT4, but upper 24 bits are discarded
+        ("psmt4hh",  44), #  like PSMT4, but lower 4 and upper 24 bits are discarded
+        ("psmz32",   48), #  32-bit Z buffer
+        ("psmz24",   49), #  24-bit Z buffer in 32-bit(upper 8-bit unused)
+        ("psmz16",   50), #  16-bit Z buffer in 32-bit(2 pixels)
+        ("psmz16s",  58), #  16-bit signed Z buffer in 32-bit(2 pixels)
+        SIZE=6
+        ),
+    UBitInt("tex_width",  SIZE=4),  # log2 of width
+    UBitInt("tex_height", SIZE=4),  # log2 of height
+    UBitEnum("tex_cc",
+        "rgb",
+        "rgba",
+        SIZE=1
+        ),
+    UBitEnum("tex_function",
+        "modulate",
+        "decal",
+        "hilight",
+        "hilight_2",
+        SIZE=2
+        ),
+    UBitInt("cb_addr", SIZE=14),  # palette pointer in words/64(i.e. 256-byte chunks)
+    UBitEnum("clut_pixmode",
+        *pixel_storage_modes,
+        SIZE=4
+        ),
+    UBitEnum("clut_smode",
+        "csm1",  # swizzled every 32 bytes
+        "csm2",  # unswizzled
+        SIZE=1
+        ),
+    UBitInt("clut_offset", SIZE=5), # offset/16
+    UBitEnum("clut_loadmode",
+        "dont_recache",
+        "recache",
+        "recache_and_copy_clut_to_cbp0",
+        "recache_and_copy_clut_to_cbp1",
+        "recache_and_copy_clut_to_cbp0_if_cb_addr_changed",
+        "recache_and_copy_clut_to_cbp1_if_cb_addr_changed",
+        SIZE=3, DEFAULT=1
+        ),
+    SIZE=8, VISIBLE=False
+    )
+
+mip_tbp_struct = BitStruct("mip_tbp",
+    UBitInt("tb_addr1",  SIZE=14),
+    UBitInt("tb_width1", SIZE=6),
+    UBitInt("tb_addr2",  SIZE=14),
+    UBitInt("tb_width2", SIZE=6),
+    UBitInt("tb_addr3",  SIZE=14),
+    UBitInt("tb_width3", SIZE=6),
+    Pad(4),
+    UBitInt("tb_addr4",  SIZE=14),
+    UBitInt("tb_width4", SIZE=6),
+    UBitInt("tb_addr5",  SIZE=14),
+    UBitInt("tb_width5", SIZE=6),
+    UBitInt("tb_addr6",  SIZE=14),
+    UBitInt("tb_width6", SIZE=6),
+    Pad(4),
+    SIZE=16, VISIBLE=False
+    )
 
 v4_bitmap_block = Struct("bitmap",
     UInt8("mipmap_count", EDITABLE=False),
@@ -179,69 +259,52 @@ v4_bitmap_block = Struct("bitmap",
     )
 
 v12_bitmap_block = Struct("bitmap",
-    #palletized textures are in either 16 or 256 color format
+    # palletized textures are in either 16 or 256 color format
     #   if a texture has a 16 color palette then each byte counts as
     #   2 pixels with the least significant 4 bits being the left pixel
-    #portraits used as background on player bar are in ABGR_8888_IDX_4
-
-    #color data is stored in RGBA order
-    #8x8 seems to be the smallest a texture is allowed to be
-
+    # color data is stored in RGBA order
+    # 8x8 seems to be the smallest a texture is allowed to be
     bitmap_format_v12,
     SInt8("lod_k"),
-    #mipmap_count does not include the largest size.
-    #this means a texture without mipmaps will have a mipmap_count of 0
+    # mipmap_count does not include the largest size.
+    # this means a texture without mipmaps will have a mipmap_count of 0
     UInt8("mipmap_count", EDITABLE=False),
 
-    #Width-64 == (width+63)//64
+    # Width-64 == (width+63)//64
     UInt8("width_64", EDITABLE=False),
     UInt16("log2_of_width", EDITABLE=False),
     UInt16("log2_of_height", EDITABLE=False),
 
     bitmap_flags_v12,
 
-    UInt16("tex_palette_index", EDITABLE=False),
+    UInt16("tex_palette_index", EDITABLE=False),  # unused while serialized
 
     #pointer to the texture in the BITMAPS.ps2
     #where the pixel texture data is located
     Pointer32("tex_pointer", EDITABLE=False),
 
-    UInt16("tex_palette_count"),
-    UInt16("tex_shift_index"),
-
-    #the number of bitmaps after the current
-    #one that are included in the animation
-    #animated textures can have different formats for each frame
-    #Animating a series of bitmaps:
-    #    Take the first bitmap and lets call it "base".
-    #    Now make a bitmap_def block aiming to base.
-    #    Create another bitmap block to act as the main object
-    #    (so multiple, different, animations can exist).
-    #    In the anim.ps2 create a texture animation aiming
-    #    to the main sequence and aim the start of the animation
-    #    to the base sequence.
+    UInt16("tex_palette_count"),  # unused while serialized
+    UInt16("tex_shift_index"),    # unused while serialized
     UInt16("frame_count"),
 
     UInt16("width", EDITABLE=False),
     UInt16("height", EDITABLE=False),
 
-    #related to resolution as a texture with half the
-    #size of another texture has this int halved as well
-    #not sure if this one matters or not
+    # size of all pixel data defined by tex0 and miptbp
     UInt16("size"),
 
-    #points to the bitmap def that this bitmap uses
-    #this seems to be the same pointer for each texture in
-    #an animation, except for ones of a different format
-    #doesnt seem to be used, so ignore it
-    LPointer32("bitmap def", VISIBLE=False),
+    # points to the bitmap def that this bitmap uses
+    # this seems to be the same pointer for each texture in
+    # an animation, except for ones of a different format
+    # doesnt seem to be used, so ignore it
+    LPointer32("bitmap_def", VISIBLE=False),
 
-    LUInt32Array("tex_0", SIZE=8, VISIBLE=False),
-    LUInt32Array("mip tbp 1", SIZE=8, VISIBLE=False),
-    LUInt32Array("mip tbp 2", SIZE=8, VISIBLE=False),
+    tex0_struct,
+    mip_tbp_struct,
 
-    LUInt16Array("vram address", SIZE=4, VISIBLE=False),
-    LUInt16Array("clut address", SIZE=4, VISIBLE=False),
+    # unused while serialized
+    LUInt16Array("vram_address", SIZE=4, VISIBLE=False),
+    LUInt16Array("clut_address", SIZE=4, VISIBLE=False),
 
     SIZE=64
     )

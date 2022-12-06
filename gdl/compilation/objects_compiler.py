@@ -11,13 +11,15 @@ class ObjectsCompiler:
 
     build_ngc_files = True
     build_ps2_files = True
+    build_xbox_files = True
 
     parallel_processing = False
 
     use_force_index_hack = True
-    optimize_texture_format = False
-    swap_lightmap_and_diffuse = False
-    force_recompile = False
+    optimize_models      = True
+    optimize_textures    = True
+    force_recompile      = False
+    swap_lightmap_and_diffuse = False  # debug feature
 
     overwrite = False
     individual_meta = True
@@ -34,39 +36,70 @@ class ObjectsCompiler:
 
     def compile_textures(self):
         asset_dir = os.path.join(self.target_dir, c.DATA_FOLDERNAME)
-        for ngc, do_build in ((False, self.build_ps2_files),
-                              (True, self.build_ngc_files)):
-            if do_build:
-                texture_comp.compile_textures(
-                    asset_dir, target_ngc=ngc,
-                    parallel_processing=self.parallel_processing,
-                    force_recompile=self.force_recompile,
-                    optimize_format=self.optimize_texture_format
-                    )
+        if not os.path.isdir(asset_dir):
+            return
+        elif not(self.build_ngc_files or self.build_ps2_files or self.build_xbox_files):
+            return
+
+        kwargs = dict(
+            parallel_processing=self.parallel_processing,
+            force_recompile=self.force_recompile,
+            optimize_format=self.optimize_textures,
+            )
+        if self.build_ps2_files:
+            texture_comp.compile_textures(asset_dir, target_ps2=True, **kwargs)
+
+        if self.build_ngc_files:
+            texture_comp.compile_textures(asset_dir, target_ngc=True, **kwargs)
+
+        if self.build_xbox_files:
+            texture_comp.compile_textures(asset_dir, target_xbox=True, **kwargs)
 
     def compile_models(self):
         asset_dir = os.path.join(self.target_dir, c.DATA_FOLDERNAME)
-        model_comp.compile_models(
-            asset_dir, force_recompile=self.force_recompile,
+        if not os.path.isdir(asset_dir):
+            return
+        elif not(self.build_ngc_files or self.build_ps2_files or self.build_xbox_files):
+            return
+
+        kwargs = dict(
+            force_recompile=self.force_recompile,
             parallel_processing=self.parallel_processing,
+            optimize_strips=self.optimize_models,
             )
+        if self.build_ps2_files:
+            model_comp.compile_models(asset_dir, target_ps2=True, **kwargs)
+
+        if self.build_ngc_files:
+            model_comp.compile_models(asset_dir, target_ngc=True, **kwargs)
+
+        if self.build_xbox_files:
+            model_comp.compile_models(asset_dir, target_xbox=True, **kwargs)
 
     def compile(self):
         if not os.path.isdir(self.target_dir):
             return
+        elif not(self.build_ngc_files or self.build_ps2_files or self.build_xbox_files):
+            return
+
+        comp_kwargs = []
+        if self.build_ps2_files:
+            comp_kwargs.append(dict(name="PS2",  target_ps2=True))
+
+        if self.build_ngc_files:
+            comp_kwargs.append(dict(name="NGC",  target_ngc=True))
+
+        if self.build_xbox_files:
+            comp_kwargs.append(dict(name="XBOX", target_xbox=True))
 
         compilation_outputs = dict()
-        for ngc, build in ((False, self.build_ps2_files),
-                           (True, self.build_ngc_files)):
-            comp_name = "NGC" if ngc else "PS2"
-            if not build:
-                continue
-
-            compilation_outputs[comp_name] = cache_comp.compile_cache_files(
-                self.target_dir, target_ngc=ngc,
+        for kwargs in comp_kwargs:
+            name = kwargs.pop("name")
+            compilation_outputs[name] = cache_comp.compile_cache_files(
+                self.target_dir, **kwargs,
                 serialize_cache_files=self.serialize_cache_files,
                 build_anim_cache=self.build_anim_cache,
-                build_texdef_cache=self.build_texdef_cache and (not ngc),
+                build_texdef_cache=(self.build_texdef_cache and name == "PS2"),
                 use_force_index_hack=self.use_force_index_hack
                 )
 

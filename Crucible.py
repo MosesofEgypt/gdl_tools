@@ -34,7 +34,7 @@ class CrucibleApp(Tk):
     def __init__(self, **options):
         Tk.__init__(self, **options)
         
-        self.title("Crucible V1.1.1")
+        self.title("Crucible V1.1.2")
         self.minsize(500, 400)
         self.resizable(1, 0)
 
@@ -46,7 +46,7 @@ class CrucibleApp(Tk):
         self.tex_extract_format  = StringVar(self, "PNG")
         self.meta_extract_format = StringVar(self, "YAML")
         self.use_parallel_processing = BooleanVar(self, True)
-        self.optimize_texture_format = BooleanVar(self, True)
+        self.optimize                = BooleanVar(self, True)
         self.force_recompile_cache   = BooleanVar(self, False)
         self.overwrite               = BooleanVar(self, False)
 
@@ -102,11 +102,11 @@ class CrucibleApp(Tk):
             )
         self.btn_decompile_sources = Button(
             self.debug_actions_frame, text="Decompile asset sources", width=20,
-            command=lambda *a, **kw: self._decompile_objects(cache=True)
+            command=lambda *a, **kw: self._decompile_objects(source=True)
             )
         self.btn_decompile_cache = Button(
             self.debug_actions_frame, text="Decompile asset cache", width=20,
-            command=lambda *a, **kw: self._decompile_objects(source=True)
+            command=lambda *a, **kw: self._decompile_objects(cache=True)
             )
         # DEBUG
 
@@ -131,9 +131,9 @@ class CrucibleApp(Tk):
             self.settings_frame, text='Use parallel processing',
             variable=self.use_parallel_processing, onvalue=1, offvalue=0
             )
-        self.optimize_texture_format_button = Checkbutton(
-            self.settings_frame, text='Optimize texture formats',
-            variable=self.optimize_texture_format, onvalue=1, offvalue=0
+        self.optimize_button = Checkbutton(
+            self.settings_frame, text='Optimize models and textures',
+            variable=self.optimize, onvalue=1, offvalue=0
             )
         self.force_recompile_button = Checkbutton(
             self.settings_frame, text='Force full recompile',
@@ -179,7 +179,7 @@ class CrucibleApp(Tk):
         y = 0
         for lbl, menu, radio in (
                 (self.build_target_label, self.build_target_menu, self.parallel_processing_button),
-                (self.mod_format_label, self.mod_format_menu, self.optimize_texture_format_button),
+                (self.mod_format_label, self.mod_format_menu, self.optimize_button),
                 (self.tex_format_label, self.tex_format_menu, self.force_recompile_button),
                 (self.meta_format_label, self.meta_format_menu, self.overwrite_button),
             ):
@@ -195,13 +195,15 @@ class CrucibleApp(Tk):
     def get_objects_compiler(self, **kwargs):
         build_target = BUILD_TARGETS.get(self.build_target.get(), "ps2")
         kwargs.update(
-            target_dir = self.target_objects_dir.get(),
-            build_ngc_files = (build_target == "ngc"),
-            build_ps2_files = (build_target == "ps2" or build_target == "xbox"),
-            build_texdef_cache = (build_target == "ps2"),
-            optimize_texture_format = self.optimize_texture_format.get(),
-            force_recompile = self.force_recompile_cache.get(),
-            overwrite = self.overwrite.get(),
+            target_dir          = self.target_objects_dir.get(),
+            build_ngc_files     = (build_target == "ngc"),
+            build_xbox_files    = (build_target == "xbox"),
+            build_ps2_files     = (build_target == "ps2"),
+            build_texdef_cache  = (build_target == "ps2"),
+            optimize_models     = self.optimize.get(),
+            optimize_textures   = self.optimize.get(),
+            force_recompile     = self.force_recompile_cache.get(),
+            overwrite           = self.overwrite.get(),
             )
         return objects_compiler.ObjectsCompiler(**kwargs)
 
@@ -295,8 +297,15 @@ class CrucibleApp(Tk):
             tex_asset_types  = []
 
             if cache:
-                mod_asset_types.append("g3d")
-                tex_asset_types.append("gtn" if build_target == "ngc" else "gtx")
+                if build_target == "ngc":
+                    mod_asset_types.append("g3n")
+                    tex_asset_types.append("gtn")
+                elif build_target == "xbox":
+                    mod_asset_types.append("g3x")
+                    tex_asset_types.append("gtx")
+                else:
+                    mod_asset_types.append("g3p")
+                    tex_asset_types.append("gtp")
 
             if source:
                 mod_asset_types.append(MOD_EXTRACT_FORMATS.get(self.mod_extract_format.get(), "obj"))

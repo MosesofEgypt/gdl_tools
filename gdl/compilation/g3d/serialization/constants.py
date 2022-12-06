@@ -3,7 +3,11 @@ from ..constants import *
 DEBUG = False
 
 # MODEL CONSTANTS
-MAX_STRIP_LEN = 190 - 1  # UInt8_Max - (final null vert)
+# These are the highest tested strip lengths the systems will properly load
+RETAIL_MAX_STRIP_LEN = 30  # safe max length from looking at retail files
+XBOX_MAX_STRIP_LEN   = 189
+NGC_MAX_STRIP_LEN    = XBOX_MAX_STRIP_LEN  # haven't tested yet
+PS2_MAX_STRIP_LEN    = RETAIL_MAX_STRIP_LEN  # dont change. levels might not load
 
 POS_SCALE   = 0x80
 UV_SCALE    = 0x80
@@ -40,10 +44,6 @@ STORAGE_TYPE_UINT16_BITPACKED = 0x6F
 
 
 # TEXTURE CONSTANTS
-#i dont imagine there ever being a use for even a 1024 texture
-VALID_DIMS = set(1<<i for i in range(16))
-
-
 FORMAT_ID_TO_NAME = {
     0: "ABGR_1555",
     1: "XBGR_1555",
@@ -66,7 +66,3 @@ FORMAT_ID_TO_NAME = {
     147: "I_4_IDX_4",  # not really palettized
     }
 FORMAT_NAME_TO_ID = {v: k for k, v in FORMAT_ID_TO_NAME.items()}
-
-MONOCHROME_FORMATS = set(
-    ("A_4_IDX_4", "I_4_IDX_4", "A_8_IDX_8", "I_8_IDX_8")
-    )
