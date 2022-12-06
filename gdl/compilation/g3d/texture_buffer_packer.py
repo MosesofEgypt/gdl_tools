@@ -84,7 +84,7 @@ class TextureBufferPacker:
         2D array when converting linear coordinates to/from xy.
         '''
         # only grow on the x axis if we're dealing with tall, thin textures
-        return (self.height / self.page_height) <= (self.width / self.page_width)
+        return (self.height / self.page_height) < (self.width / self.page_width)
 
     @property
     def free_block_count(self):
@@ -464,8 +464,8 @@ class TextureBufferPacker:
         # loop over every page on the last page row, and reduce the
         # opt_buffer_size by it if its completely unallocated. we are
         # going right to left as that is the order to deallocate pages.
-        # We are also ignoring the first page in the row since, the row
-        # was created because at least that page was deemed necessary
+        # We are also ignoring the first page in the row, as the row
+        # was created because at least one page was deemed to be needed.
         while x0 >= self.page_block_width:
             allocate_args = (
                 self._cull_block_val,
