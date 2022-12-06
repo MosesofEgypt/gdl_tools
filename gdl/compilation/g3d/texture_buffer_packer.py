@@ -413,14 +413,22 @@ class TextureBufferPacker:
 
             addr = self._get_linear_index_of_free_chunk(b_width, b_height)
             if addr is not None:
-                mip_width = b_width * self.block_width
-                block_addr  = self._mark_allocated_linear("T%s" % m, b_width, b_height, addr)
-                block_width = int(math.ceil(mip_width / 64))
-                # TEMPORARY HACK
-                block_width = int(math.ceil(self.buffer_width * self.page_width) / 64)
+                mip_width   = b_width * self.block_width
+                buffer_addr = self._mark_allocated_linear("T%s" % m, b_width, b_height, addr)
 
-                self._tb_addrs.append(block_addr)
-                self._tb_widths.append(block_width)
+                # if the texture will cross into the page below, we
+                # need to set the width to the overall buffer width.
+                _, buffer_block_y = self._linear_address_to_xy_address(addr)
+                page_y0 = buffer_block_y // self.page_block_height
+                page_y1 = (buffer_block_y + b_height - 1) // self.page_block_height
+                if page_y0 == page_y1:
+                    # texture doesn't cross into page below
+                    buffer_width = int(math.ceil(mip_width / 64))
+                else:
+                    buffer_width = int(math.ceil(self.buffer_width * self.page_width) / 64)
+
+                self._tb_addrs.append(buffer_addr)
+                self._tb_widths.append(buffer_width)
 
             m += 1
 
