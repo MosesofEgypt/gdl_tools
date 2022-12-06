@@ -328,9 +328,8 @@ def import_textures(
                 bitm.tex0.clut_pixmode.enum_name
                 ),
             )
-        buffer_calc.gdl_palette = True
         buffer_calc.pack()
-        #buffer_calc.optimize()
+        buffer_calc.optimize()
 
         bitm.size          = buffer_calc.optimized_buffer_size
         bitm.tex0.cb_addr  = buffer_calc.palette_address

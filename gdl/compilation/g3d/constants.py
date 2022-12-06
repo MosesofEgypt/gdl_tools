@@ -180,6 +180,24 @@ PSM_BLOCK_ORDERS = {
     PSM_T4HL:  PSM_BLOCK_ORDER_PSMCT32,
     PSM_T4HH:  PSM_BLOCK_ORDER_PSMCT32,
     }
+
+def _invert_block_order(block_order):
+    inv_block_order = [ [-1] * len(r) for r in block_order ]
+
+    for y in range(len(block_order)):
+        width = len(block_order[y])
+        for x in range(width):
+            b_x = block_order[y][x]  % width
+            b_y = block_order[y][x] // width
+            inv_block_order[b_y][b_x] = y * width + x
+
+    return tuple(tuple(r) for r in inv_block_order)
+
+PSM_INVERSE_BLOCK_ORDERS = {
+    name: _invert_block_order(PSM_BLOCK_ORDERS[name])
+    for name in PSM_BLOCK_ORDERS
+    }
+
 PSM_PAGE_WIDTHS = {
     psm: (128 if psm in (PSM_T8, PSM_T4) else 64)
     for psm in PSM_BLOCK_ORDERS.keys()

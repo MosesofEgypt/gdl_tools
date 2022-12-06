@@ -11,9 +11,8 @@ class TextureBufferPacker:
     width   = 0
     mipmaps = 0
 
-    gdl_palette = False
     check_centers = False
-    max_reallocations = 20
+    max_allocations = 20
 
     _buffer_width = 0  # total number of pages wide the buffer is
                        # this isn't quite the same as the width of
@@ -64,7 +63,7 @@ class TextureBufferPacker:
         self._used_chars = dict(self._used_chars) # copy in case edits are made
 
     @property
-    def grow_on_y(self):
+    def stack_on_y(self):
         '''
         Determines whether to grow in the Y direction or not.
         Additionally, this determines the orientation of the
@@ -111,17 +110,15 @@ class TextureBufferPacker:
             )
     @property
     def palette_size(self):
-        '''Returns the width and height of the palette in blocks'''
+        '''Returns the length of the palette in blocks'''
         if self.pixel_format not in (c.PSM_T8, c.PSM_T4):
-            return (0, 0)
-        elif self.gdl_palette:
-            return (2, 2)
+            return 0
         elif self.pixel_format == c.PSM_T4:
-            return (1, 1)
+            return 1
         elif self.palette_format == c.PSM_CT32:
-            return (2, 2)
+            return 4
         else:
-            return (2, 1)
+            return 2
     @property
     def palette_address(self):
         return self._cb_addr if self.palette_size else 0
@@ -180,21 +177,43 @@ class TextureBufferPacker:
     def _xy_address_to_linear_address(self, x, y):
         if x > self.blocks_wide:
             raise ValueError("Coordinate x=%s outside buffer width %s" % (x, self.blocks_wide))
-        elif self.grow_on_y:
+        elif self.stack_on_y:
             return x * self.blocks_tall + y
         else:
             return y * self.blocks_wide + x
 
     def _linear_address_to_xy_address(self, linear_addr):
-        if self.grow_on_y:
+        if self.stack_on_y:
             return (linear_addr // self.blocks_tall,
                     linear_addr % self.blocks_tall)
         else:
             return (linear_addr % self.blocks_wide,
                     linear_addr // self.blocks_wide)
 
+    def _block_address_to_xy_address(self, block_addr):
+        blocks_per_page  = self.page_block_width * self.page_block_height
+
+        page_block_addr = block_addr  % blocks_per_page
+        page_index      = block_addr // blocks_per_page
+
+        block_x = page_block_addr  % self.page_block_width
+        block_y = page_block_addr // self.page_block_width
+        page_x  = page_index  % self.pages_wide
+        page_y  = page_index // self.pages_wide
+
+        x0 = page_x * self.page_block_width
+        y0 = page_y * self.page_block_height
+
+        inv_block_order = c.PSM_INVERSE_BLOCK_ORDERS[self.pixel_format]
+        inv_block_addr  = inv_block_order[block_y][block_x]
+
+        xa = inv_block_addr  % self.page_block_width
+        ya = inv_block_addr // self.page_block_width
+
+        return x0 + xa, y0 + ya
+
     def _xy_address_to_block_address(self, x, y):
-        blocks_per_page = self.page_block_width*self.page_block_height
+        blocks_per_page  = self.page_block_width * self.page_block_height
         page_x,  page_y  = x // self.page_block_width, y // self.page_block_height
         block_x, block_y = x  % self.page_block_width, y  % self.page_block_height
 
@@ -221,13 +240,14 @@ class TextureBufferPacker:
         self._buffer_width = pages_wide
         self._optimized_buffer_size = None
 
-    def _mark_allocated_linear(self, allocate, b_width, b_height, linear_addr):
+    def _mark_allocated_linear(self, allocate, b_width, b_height, linear_addr, test_only=False):
         return self._mark_allocated_xy(
             allocate, b_width, b_height,
-            *self._linear_address_to_xy_address(linear_addr)
+            *self._linear_address_to_xy_address(linear_addr),
+            test_only
             )
 
-    def _mark_allocated_xy(self, allocate, b_width, b_height, x0, y0):
+    def _mark_allocated_xy(self, allocate, b_width, b_height, x0, y0, test_only=False):
         if not allocate:
             allocate = self._free_block_val
 
@@ -239,13 +259,35 @@ class TextureBufferPacker:
                     raise ValueError("Block already %s at x=%s, y=%s" % (
                         "allocated" if allocate else "unallocated", x, y
                         ))
-                self._blocks_used[i] = allocate
+                if not test_only:
+                    self._blocks_used[i] = allocate
 
         return self._xy_address_to_block_address(x0, y0)
 
-    def _get_linear_index_of_free_chunk(
-            self, b_width, b_height, start_index=None, search_length=None
-            ):
+    def _get_block_ordered_block_index_of_free_chunk(self, b_length):
+        i = 0
+        while i + b_length <= self.buffer_size:
+            len_free = 0
+            b_i = self._linear_address_to_block_address(i)
+            for j in range(b_i, b_i + b_length):
+                k = self._xy_address_to_linear_address(
+                    *self._block_address_to_xy_address(j)
+                    )
+                len_free += not self._blocks_used[k]
+
+            # every block is free
+            if len_free == b_length:
+                return b_i
+
+            try:
+                i = self._blocks_used.index(self._free_block_val, i + 1)
+            except ValueError:
+                # no free blocks
+                break
+
+        return None
+
+    def _get_linear_index_of_free_chunk(self, b_width, b_height):
         corner_check_coords = (
             (          0,            0), # upper left
             (b_width - 1, b_height - 1), # lower right
@@ -266,15 +308,8 @@ class TextureBufferPacker:
         max_block_x = self.blocks_wide
         max_block_y = self.blocks_tall
 
-        if start_index is None:
-            start_index = 0
-
-        if search_length is None:
-            search_length = self.buffer_size
-
-        i = start_index
-        search_end = min(start_index + search_length, self.buffer_size)
-        while i < search_end:
+        i = 0
+        while i < self.buffer_size:
             x0, y0 = self._linear_address_to_xy_address(i)
             free = (
                 x0 + b_width  <= max_block_x and
@@ -307,10 +342,8 @@ class TextureBufferPacker:
                 #print("Located free block at %s" % i)
                 return i
 
-            i += 1
-
             try:
-                i = self._blocks_used.index(0, i)
+                i = self._blocks_used.index(self._free_block_val, i + 1)
             except ValueError:
                 # no more free blocks
                 break
@@ -381,41 +414,34 @@ class TextureBufferPacker:
             if addr is not None:
                 mip_width = b_width * self.block_width
                 block_addr  = self._mark_allocated_linear("T%s" % m, b_width, b_height, addr)
-                block_width = int(math.ceil(
-                    math.ceil(mip_width / self.page_width) * (self.page_width / 64)
-                    ))
+                block_width = int(math.ceil(mip_width / 64))
 
                 self._tb_addrs.append(block_addr)
                 self._tb_widths.append(block_width)
 
             m += 1
 
-            # if there is a palette, pack it no later than the 3rd texture
-            if m == min(tex_count, 3) and pack_palette:
+            # if there is a palette, pack it.
+            # NOTE: palettes are packed linearly in block-order rather than scanline order.
+            if m == tex_count and pack_palette:
                 pack_palette = False
-                p_width, p_height = self.palette_size
-                start = length = None
-                if self.gdl_palette:
-                    start  = self._xy_address_to_linear_address(
-                        self.blocks_wide - p_width, self.blocks_tall - p_height
-                        )
-                    length = 1
-
-                addr = self._get_linear_index_of_free_chunk(p_width, p_height, start, length)
+                addr = self._get_block_ordered_block_index_of_free_chunk(self.palette_size)
                 if addr is not None:
-                    self._cb_addr = self._mark_allocated_linear("CB", p_width, p_height, addr)
+                    self._cb_addr = addr
+                    for i in range(self.palette_size):
+                        self._mark_allocated_xy(
+                            "CB", 1, 1, *self._block_address_to_xy_address(addr + i)
+                            )
 
             if addr is None:
                 # one of the addresses ended up null, indicating we need to reallocate
-                if allocations >= self.max_reallocations:
+                if allocations >= self.max_allocations:
+                    return
                     raise ValueError("Could not allocate large enough buffer to fit all texture data.")
 
                 allocate = True
                 # can't fit something. expand pages in direction of growth and restart
-                if self.grow_on_y:
-                    pages_tall += 1
-                else:
-                    pages_wide += 1
+                pages_tall += 1
 
     def optimize(self):
         opt_buffer_size = self.buffer_size
@@ -431,28 +457,21 @@ class TextureBufferPacker:
         # We are also ignoring the first page in the row since, the row
         # was created because at least that page was deemed necessary
         while x0 >= self.page_block_width:
-            # NOTE: we can cheat by only checking the top and left
-            #   edges for allocated blocks. We allocate starting from
-            #   top left and grow down-right without breaks between
-            #   blocks. That means any allocated blocks would have to
-            #   cross the top or left border.
-            # NOTE2: we can actually cheat even more based on what
-            #   and how we're packing. The top left corner will always
-            #   be allocated if any of the block is allocated. This is
-            #   because we're always packing progressively smaller blocks
-            #   that will always either fit into the page starting in the
-            #   top left corner, or will fit in an entirely different page.
-            i = self._xy_address_to_linear_address(x0, y0)
-            if self._blocks_used[i]:
-                break
-
-            self._mark_allocated_linear(
+            allocate_args = (
                 self._cull_block_val,
                 self.page_block_width,
                 self.page_block_height,
                 self._xy_address_to_linear_address(x0, y0)
                 )
 
+            # test marking the whole page as allocated to ensure it's
+            # all free before actually marking it all as cullable
+            try:
+                self._mark_allocated_linear(*allocate_args, test_only=True)
+            except ValueError:
+                break
+
+            self._mark_allocated_linear(*allocate_args)
             opt_buffer_size -= page_block_size
             x0 -= self.page_block_width
 
