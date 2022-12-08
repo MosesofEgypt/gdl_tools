@@ -329,10 +329,9 @@ def import_textures(
                 ),
             )
         buffer_calc.pack()
-        buffer_calc.optimize()
 
-        bitm.size          = buffer_calc.optimized_buffer_size
-        bitm.tex0.cb_addr  = buffer_calc.palette_address
+        bitm.size         = buffer_calc.block_count
+        bitm.tex0.cb_addr = buffer_calc.palette_address
 
         bitm.tex0.tb_addr, bitm.tex0.tb_width = buffer_calc.get_address_and_width(0)
         for m in range(1, 7):
