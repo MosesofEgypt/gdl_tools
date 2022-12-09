@@ -11,37 +11,37 @@ class TextureBufferPacker:
     width   = 0
     mipmaps = 0
 
-    check_centers = False
-    max_allocations = 20
+    overlap_error = True
 
-    _buffer_width = 0  # total number of pages wide the buffer is
-                       # this isn't quite the same as the width of
-                       # tex0, as we may end up storing the images
-                       # stacked horizontally if they are taller than
-                       # wide, as they'll fit better stacked sideways
     _tb_addrs  = ()
     _tb_widths = ()
     _cb_addr   = -1
-    _optimized_buffer_size = None
 
     _blocks_used = ()
-    _cull_block_val = -1
     _free_block_val = 0
+    _t0_block_val   = 1 << 0
+    _t1_block_val   = 1 << 1
+    _t2_block_val   = 1 << 2
+    _t3_block_val   = 1 << 3
+    _t4_block_val   = 1 << 4
+    _t5_block_val   = 1 << 5
+    _t6_block_val   = 1 << 6
+    _pal_block_val  = 1 << 7
+
     _unknown_char = "?"
     _border_char_h = "-"
     _border_char_v = "|"
     _border_char_c = "+"
     _used_chars = {
         _free_block_val: ".",
-        _cull_block_val: "X",
-        "T0": "0",
-        "T1": "1",
-        "T2": "2",
-        "T3": "3",
-        "T4": "4",
-        "T5": "5",
-        "T6": "6",
-        "CB": "#",
+        _t0_block_val:  "0",
+        _t1_block_val:  "1",
+        _t2_block_val:  "2",
+        _t3_block_val:  "3",
+        _t4_block_val:  "4",
+        _t5_block_val:  "5",
+        _t6_block_val:  "6",
+        _pal_block_val: "#",
         }
 
     def __init__(
@@ -61,60 +61,98 @@ class TextureBufferPacker:
         self.height  = height
         self.mipmaps = mipmaps
         self._used_chars = dict(self._used_chars) # copy in case edits are made
-        self._initialize_blocks(self.min_pages_wide, self.min_pages_tall)
+        self.initialize_blocks()
 
-    def _initialize_blocks(self, pages_wide=1, pages_tall=1):
-        block_order = c.PSM_BLOCK_ORDERS[self.pixel_format]
-        blocks_per_page = len(block_order[0]) * len(block_order)
-        #print("Initializing %s pages wide, %s pages tall" % (pages_wide, pages_tall))
+    def allocate_pages(self, page_count):
+        block_count = page_count * self.blocks_per_page
+        self._blocks_used.extend([self._free_block_val] * block_count)
+        #print("Allocated %s pages" % (page_count, ))
 
+    def initialize_blocks(self, allocate_required_pages=True):
         # clear existing calculations
         self._cb_addr      = 0
         self._tb_addrs     = []
         self._tb_widths    = []
-        self._blocks_used  = [0] * blocks_per_page * pages_tall * pages_wide
-        self._buffer_width = pages_wide
-        self._optimized_buffer_size = None
+        self._blocks_used  = []
 
-    @property
-    def stack_on_y(self):
-        '''
-        Determines whether to grow in the Y direction or not.
-        Additionally, this determines the orientation of the
-        2D array when converting linear coordinates to/from xy.
-        '''
-        # only grow on the x axis if we're dealing with tall, thin textures
-        return (self.height / self.page_height) < (self.width / self.page_width)
+        if not allocate_required_pages:
+            return
 
-    @property
-    def free_block_count(self):
-        return (
-            self._blocks_used.count(self._free_block_val) +
-            self._blocks_used.count(self._cull_block_val)
-            )
+        blocks_required = 0
+        pixels_per_block = self.block_width * self.block_height
+        for m in range(1 + self.mipmaps):
+            blocks_required += self.get_mip_width(m) * self.get_mip_height(m)
+
+        if self.has_palette:
+            blocks_required += self.palette_size
+
+        pages_required = int(math.ceil(blocks_required / self.blocks_per_page))
+        self.allocate_pages(pages_required)
+
+    def get_usage_string(self, pages_wide=None, page_borders=False):
+        if not pages_wide:
+            pages_wide = max(
+                1, (max( [1] + self._tb_widths) * 64) // self.page_width,
+                )
+
+        page_sep_h = ""
+        page_sep_v = ""
+        if page_borders:
+            page_sep_h = self._border_char_h*self.page_block_width + self._border_char_c
+            page_sep_v = self._border_char_v
+
+        usage_str = ""
+        pages_tall = int(math.ceil(self.page_count / pages_wide))
+
+        # nesting from hael
+        for page_0 in range(0, pages_tall*pages_wide, pages_wide):
+            pages_in_row = min(page_0 + pages_wide, self.page_count) - page_0
+
+            for y in range(self.page_block_height):
+                block_y_addr = y * self.page_block_width
+                for page_addr in range(page_0, page_0 + pages_in_row):
+
+                    for x in range(self.page_block_width):
+                        linear_addr = (
+                            self._page_to_linear_address(page_addr) +
+                            block_y_addr +
+                            x
+                            )
+
+                        usage_str += self._used_chars.get(
+                            self._blocks_used[linear_addr],
+                            self._unknown_char
+                            )
+
+                    usage_str += page_sep_v
+
+                usage_str += "\n"
+
+            usage_str += page_sep_h * pages_in_row + "\n"
+
+        return usage_str
+
+    def get_mip_width(self, mip_level):
+        '''Returns the number of blocks wide the specified mipmap level is.'''
+        return max(self.block_width, self.width >> mip_level) // self.block_width
+
+    def get_mip_height(self, mip_level):
+        '''Returns the number of blocks tall the specified mipmap level is.'''
+        return max(self.block_height, self.height >> mip_level) // self.block_height
+
     @property
     def efficiency(self):
-        return 1 - self.free_block_count / max(1, self.buffer_size)
-    @property
-    def optimized_efficiency(self):
-        delta = self.buffer_size - max(1, self.optimized_buffer_size)
-        return 1 - (self.free_block_count - delta) / (self.buffer_size - delta)
+        return 1 - self.free_block_count / max(1, self.block_count)
 
     @property
-    def base_address(self):
-        return self._tb_addrs[0] if self._tb_addrs else 0
-    @property
-    def buffer_width(self):
-        '''Number of pages wide the buffer is'''
-        return self._buffer_width
-    @property
-    def buffer_size(self):
+    def block_count(self):
         return len(self._blocks_used)
     @property
-    def optimized_buffer_size(self):
-        if self._optimized_buffer_size is None:
-            return self.buffer_size
-        return self._optimized_buffer_size
+    def free_block_count(self):
+        return self._blocks_used.count(self._free_block_val)
+    @property
+    def page_count(self):
+        return self.block_count // self.blocks_per_page
 
     @property
     def has_palette(self):
@@ -129,13 +167,10 @@ class TextureBufferPacker:
             return 0
         elif self.pixel_format == c.PSM_T4:
             return 1
-        elif self.palette_format == c.PSM_CT32:
-            return 4
-        else:
+        elif self.palette_format in (c.PSM_CT16, c.PSM_CT16S):
             return 2
-    @property
-    def palette_address(self):
-        return self._cb_addr if self.palette_size else 0
+        else:
+            return 4
 
     @property
     def block_width(self):
@@ -156,129 +191,126 @@ class TextureBufferPacker:
     @property
     def page_block_width(self):
         '''Number of blocks wide each page is'''
-        return len(c.PSM_BLOCK_ORDERS[self.pixel_format][0])
+        return c.PSM_PAGE_BLOCK_WIDTHS[self.pixel_format]
     @property
     def page_block_height(self):
         '''Number of blocks tall each page is'''
-        return len(c.PSM_BLOCK_ORDERS[self.pixel_format])
-
+        return c.PSM_PAGE_BLOCK_HEIGHTS[self.pixel_format]
     @property
-    def blocks_wide(self):
-        '''Number of blocks wide the texture buffer is'''
-        block_order = c.PSM_BLOCK_ORDERS[self.pixel_format]
-        return len(block_order[0]) * self.buffer_width
-    @property
-    def blocks_tall(self):
-        '''Number of blocks tall the texture buffer is'''
-        return self.buffer_size // self.blocks_wide
-    @property
-    def pages_wide(self):
-        '''Number of pages wide the texture buffer is'''
-        return self.blocks_wide // self.page_block_width
-    @property
-    def pages_tall(self):
-        '''Number of pages tall the texture buffer is'''
-        return self.blocks_tall // self.page_block_height
-    @property
-    def min_pages_wide(self):
-        '''Minimum number of pages of width are required to fit the fullsize image'''
-        return int(math.ceil(max(self.page_width, self.width) / self.page_width))
-    @property
-    def min_pages_tall(self):
-        '''Minimum number of pages of height are required to fit the fullsize image'''
-        return int(math.ceil(max(self.page_height, self.height) / self.page_height))
+    def blocks_per_page(self):
+        '''Number of blocks in each page'''
+        return self.page_block_width * self.page_block_height
 
-    def _xy_address_to_linear_address(self, x, y):
-        if x > self.blocks_wide:
-            raise ValueError("Coordinate x=%s outside buffer width %s" % (x, self.blocks_wide))
-        elif self.stack_on_y:
-            return x * self.blocks_tall + y
-        else:
-            return y * self.blocks_wide + x
+    def _linear_address_to_page(self, linear_addr):
+        return linear_addr // self.blocks_per_page
 
-    def _linear_address_to_xy_address(self, linear_addr):
-        if self.stack_on_y:
-            return (linear_addr // self.blocks_tall,
-                    linear_addr % self.blocks_tall)
-        else:
-            return (linear_addr % self.blocks_wide,
-                    linear_addr // self.blocks_wide)
+    def _page_to_linear_address(self, page):
+        return page * self.blocks_per_page
 
-    def _block_address_to_xy_address(self, block_addr):
-        blocks_per_page  = self.page_block_width * self.page_block_height
+    def _bounds_check_address(self, page_x, page_y, linear_addr, pages_wide):
+        if page_x > pages_wide:
+            raise ValueError(
+                "Page x=%s outside buffer width %s" % (page_x, pages_wide)
+                )
+        elif linear_addr >= self.block_count:
+            raise ValueError(
+                "Linear address i=%s outside buffer length %s" %
+                (linear_addr, self.block_count)
+                )
 
-        page_block_addr = block_addr  % blocks_per_page
-        page_index      = block_addr // blocks_per_page
+    def _linear_address_to_xy_address(self, linear_addr, pages_wide, ref_page=0):
+        page   = self._linear_address_to_page(linear_addr)
+        index_in_page = linear_addr - self._page_to_linear_address(page)
 
-        block_x = page_block_addr  % self.page_block_width
-        block_y = page_block_addr // self.page_block_width
-        page_x  = page_index  % self.pages_wide
-        page_y  = page_index // self.pages_wide
+        page_x = page  % pages_wide
+        page_y = page // pages_wide
+        x0     = index_in_page  % self.page_block_width
+        y0     = index_in_page // self.page_block_width
 
-        x0 = page_x * self.page_block_width
-        y0 = page_y * self.page_block_height
+        x = x0 + page_x * self.page_block_width
+        y = y0 + page_y * self.page_block_height
 
-        inv_block_order = c.PSM_INVERSE_BLOCK_ORDERS[self.pixel_format]
-        inv_block_addr  = inv_block_order[block_y][block_x]
+        #self._bounds_check_address(page_x, page_y, linear_addr, pages_wide)
+        return x, y
 
-        xa = inv_block_addr  % self.page_block_width
-        ya = inv_block_addr // self.page_block_width
+    def _xy_address_to_linear_address(self, x, y, pages_wide, ref_page=0):
+        page_x = x // self.page_block_width
+        page_y = y // self.page_block_height
+        x0     = x  % self.page_block_width
+        y0     = y  % self.page_block_height
+        index_in_page = x0 + y0 * self.page_block_width
 
-        return x0 + xa, y0 + ya
+        linear_addr = (
+            index_in_page +
+            self._page_to_linear_address(page_x) +
+            self._page_to_linear_address(page_y * pages_wide) +
+            self._page_to_linear_address(ref_page)
+            )
 
-    def _xy_address_to_block_address(self, x, y):
-        blocks_per_page  = self.page_block_width * self.page_block_height
-        page_x,  page_y  = x // self.page_block_width, y // self.page_block_height
-        block_x, block_y = x  % self.page_block_width, y  % self.page_block_height
+        #self._bounds_check_address(page_x, page_y, linear_addr, pages_wide)
+        return linear_addr
 
-        block_order   = c.PSM_BLOCK_ORDERS[self.pixel_format]
-        block_addr    = block_order[block_y][block_x]
-        pages_skipped = page_y*self.buffer_width + page_x
-        return block_addr + blocks_per_page*pages_skipped
+    def _block_address_to_linear_address(self, linear_addr):
+        block_order = c.PSM_INVERSE_BLOCK_ORDERS[self.pixel_format]
+        base_addr = self._linear_address_to_page(linear_addr) * self.blocks_per_page
+        return base_addr + block_order[linear_addr % self.blocks_per_page] 
 
     def _linear_address_to_block_address(self, linear_addr):
-        return self._xy_address_to_block_address(
-            *self._linear_address_to_xy_address(linear_addr)
-            )
+        block_order = c.PSM_BLOCK_ORDERS[self.pixel_format]
+        base_addr = self._linear_address_to_page(linear_addr) * self.blocks_per_page
+        return base_addr + block_order[linear_addr % self.blocks_per_page]
 
-    def _mark_allocated_linear(self, allocate, b_width, b_height, linear_addr, test_only=False):
-        return self._mark_allocated_xy(
-            allocate, b_width, b_height,
-            *self._linear_address_to_xy_address(linear_addr),
-            test_only
-            )
-
-    def _mark_allocated_xy(self, allocate, b_width, b_height, x0, y0, test_only=False):
+    def _mark_allocated_indices(self, allocate, block_indices, test_only=False):
         if not allocate:
             allocate = self._free_block_val
 
-        for y in range(y0, y0 + b_height):
-            for x in range(x0, x0 + b_width):
-                i = self._xy_address_to_linear_address(x, y)
-                #print("%sllocating X=%s, Y=%s, I=%s" % ("A" if allocate else "Dea", x, y, i))
-                if bool(self._blocks_used[i]) == bool(allocate):
-                    raise ValueError("Block already %s at x=%s, y=%s" % (
-                        "allocated" if allocate else "unallocated", x, y
-                        ))
-                if not test_only:
-                    self._blocks_used[i] = allocate
+        want_free_space = (allocate != self._free_block_val)
+        for i in block_indices:
+            # print("%sllocating I=%s" % ("A" if allocate else "Dea", i))
+            if want_free_space and self._blocks_used[i] != self._free_block_val:
+                msg = "Block already %sallocated at i=%s" % ("" if allocate else "un", i)
+                if self.overlap_error:
+                    raise ValueError("Error: %s" % msg)
+                else:
+                    print("Warning: %s" % msg)
+                    self._blocks_used[i] |= allocate
 
-        return self._xy_address_to_block_address(x0, y0)
+            elif not test_only:
+                self._blocks_used[i] = allocate
 
-    def _get_block_ordered_block_index_of_free_chunk(self, b_length):
+    def _mark_allocated_block_linear(
+            self, allocate, length, block_addr, ref_page=0, test_only=False
+            ):
+        block_addr += self._page_to_linear_address(ref_page)
+
+        indices = (
+            self._block_address_to_linear_address(b_i)
+            for b_i in range(block_addr, block_addr + length)
+            )
+        self._mark_allocated_indices(allocate, indices, test_only)
+
+    def _mark_allocated_xy(
+            self, allocate, width, height, pages_wide, x0, y0, ref_page=0, test_only=False
+            ):
+        indices = (
+            self._xy_address_to_linear_address(x, y, pages_wide, ref_page)
+            for y in range(y0, y0 + height)
+            for x in range(x0, x0 + width)
+            )
+        self._mark_allocated_indices(allocate, indices, test_only)
+
+    def _get_linear_index_of_free_line_chunk(self, length):
         i = 0
-        while i + b_length <= self.buffer_size:
+        while i + length <= self.block_count:
             len_free = 0
             b_i = self._linear_address_to_block_address(i)
-            for j in range(b_i, b_i + b_length):
-                k = self._xy_address_to_linear_address(
-                    *self._block_address_to_xy_address(j)
-                    )
+            for j in range(b_i, b_i + length):
+                k = self._block_address_to_linear_address(j)
                 len_free += not self._blocks_used[k]
 
             # every block is free
-            if len_free == b_length:
-                return b_i
+            if len_free == length:
+                return i
 
             try:
                 i = self._blocks_used.index(self._free_block_val, i + 1)
@@ -288,60 +320,70 @@ class TextureBufferPacker:
 
         return None
 
-    def _get_linear_index_of_free_chunk(self, b_width, b_height):
-        corner_check_coords = (
-            (          0,            0), # upper left
-            (b_width - 1, b_height - 1), # lower right
-            (b_width - 1,            0), # upper right
-            (          0, b_height - 1), # lower left
-            )
-        side_check_coords = (  # ignoring corners
-            *tuple((0,            y) for y in range(1, b_height - 1)),  # left
-            *tuple((b_width - 1,  y) for y in range(1, b_height - 1)),  # right
-            *tuple((x,            0) for x in range(1, b_width  - 1)),  # top
-            *tuple((x, b_height - 1) for x in range(1, b_width  - 1)),  # bottom
-            )
-        center_check_coords = (
+    def _get_linear_index_of_free_2d_chunk(self, width, height):
+        x_step = 1
+        y_step = 1
+        if width > height:
+            x_step = width // height
+        else:
+            y_step = height // width
+
+        # fastest thing to check is the coordinates
+        corner_check_coords = set((
+            (0, 0), (width - 1, height - 1),
+            (width - 1, 0), (0, height - 1),
+            ))
+
+        diagonal_check_coords = set(
+            (i*x_step, i*y_step)
+            for i in range(min(width, height))
+            ).difference(corner_check_coords)
+
+        side_check_coords = set((
+            *tuple((0,          y) for y in range(height)),  # left
+            *tuple((width - 1,  y) for y in range(height)),  # right
+            *tuple((x,          0) for x in range(width)),  # top
+            *tuple((x, height - 1) for x in range(width)),  # bottom
+            )).difference(corner_check_coords)
+
+        remaining_check_coords = set(
             (x, y)
-            for x in range(1, b_width  - 1)
-            for y in range(1, b_height - 1)
+            for x in range(width)
+            for y in range(height)
+            ).difference(
+                corner_check_coords, diagonal_check_coords, side_check_coords
+                )
+
+        # check in this order to fail faster.
+        # basically, check perimeter, and only check centers
+        # if the most likely occupied coordinates look clear
+        coords_to_check = (
+            *tuple(corner_check_coords),
+            *tuple(diagonal_check_coords),
+            *tuple(side_check_coords),
+            *tuple(remaining_check_coords),
             )
-        max_block_x = self.blocks_wide
-        max_block_y = self.blocks_tall
+
+        pages_wide = max(width, self.page_block_width) // self.page_block_width
 
         i = 0
-        while i < self.buffer_size:
-            x0, y0 = self._linear_address_to_xy_address(i)
-            free = (
-                x0 + b_width  <= max_block_x and
-                y0 + b_height <= max_block_y
-                )
-            # check the corners for high certainty on block freeness
-            for xa, ya in corner_check_coords:
+        while i < self.block_count:
+            x0, y0 = self._linear_address_to_xy_address(i, pages_wide)
+            free = True
+
+            # check every block to determine freeness
+            for xa, ya in coords_to_check:
                 if not free:
                     break
-                j = self._xy_address_to_linear_address(x0 + xa, y0 + ya)
-                free &= j < self.buffer_size and not self._blocks_used[j]
-
-            # check the sides for certainty(unless fragmentation has occurred)
-            for xa, ya in side_check_coords:
-                if not free:
-                    break
-                j = self._xy_address_to_linear_address(x0 + xa, y0 + ya)
-                free &= j < self.buffer_size and not self._blocks_used[j]
-
-            # check the centers(if necessary)
-            if self.check_centers:
-                for xa, ya in center_check_coords:
-                    if not free:
-                        break
-                    j = self._xy_address_to_linear_address(x0 + xa, y0 + ya)
-                    free &= j < self.buffer_size and not self._blocks_used[j]
+                j = self._xy_address_to_linear_address(
+                    x0 + xa, y0 + ya, pages_wide
+                    )
+                free &= j < self.block_count and not self._blocks_used[j]
 
             # every block is free
             if free:
                 #print("Located free block at %s" % i)
-                return i
+                return i, pages_wide
 
             try:
                 i = self._blocks_used.index(self._free_block_val, i + 1)
@@ -349,140 +391,97 @@ class TextureBufferPacker:
                 # no more free blocks
                 break
 
-        return None
+        return None, pages_wide
 
-    def get_usage_string(self, page_borders=False):
-        lines_gen = (
-            "".join(
-                self._used_chars.get(
-                    self._blocks_used[self._xy_address_to_linear_address(x, y)],
-                    self._unknown_char
-                    )
-                for x in range(self.blocks_wide)
-                )
-            for y in range(self.blocks_tall)
-            )
-        if page_borders:
-            lines = []
-            border_line_h = self._border_char_c.join(
-                self._border_char_h * self.page_block_width
-                for p in range(self.pages_wide)
-                ) + "\n"
-            for line in lines_gen:
-                page_line = self._border_char_v.join(
-                    line[i: i + self.page_block_width]
-                    for i in range(0, self.blocks_wide, self.page_block_width)
-                    )
-                lines.append(page_line + "\n")
+    def _get_or_allocate_block_index_of_free_chunk(self, width, height=0):
+        # start off at the first free address in case we need to allocate multiple times
+        block_addr = None
+        for i in range(50):
+            if height > 0:
+                linear_addr, pages_wide = self._get_linear_index_of_free_2d_chunk(width, height)
+            else:
+                linear_addr, pages_wide = self._get_linear_index_of_free_line_chunk(width), 0
 
-            usage_str = border_line_h.join(
-                "".join(lines[i: i + self.page_block_height])
-                for i in range(0, len(lines), self.page_block_height)
-                )
-        else:
-            usage_str = "\n".join(lines_gen)
+            if linear_addr is not None:
+                # found a block. break
+                block_addr = self._linear_address_to_block_address(linear_addr)
+                break
 
-        return usage_str
+            # couldn't locate a free chunk. allocate another few pages(at least 1)
+            required_block_count = (width * max(1, height)) - self.free_block_count
+            required_pages = math.ceil(required_block_count // self.blocks_per_page)
+            self.allocate_pages(int(max(1, required_pages)))
+            
+        if block_addr is None:
+            raise ValueError("Could not allocate large enough buffer to fit all texture data.")
+
+        return block_addr, pages_wide
+
+    @property
+    def palette_address(self):
+        return self._cb_addr if self.palette_size else 0
 
     def get_address_and_width(self, mip_level):
         if mip_level in range(min(len(self._tb_addrs), len(self._tb_widths))):
             return self._tb_addrs[mip_level], self._tb_widths[mip_level]
         return 0, 0
 
-    def pack(self):
-        tex_count = 1 + self.mipmaps
-
-        pages_wide, pages_tall = self.min_pages_wide, self.min_pages_tall
-        allocations = 0
-        allocate = True
-        m = 0
-
-        while allocate or m < tex_count:
-            if allocate:
-                self._initialize_blocks(pages_wide, pages_tall)
-                pack_palette = self.has_palette
-                allocations += 1
-                allocate = False
-                m = 0
-
-            # calculate how many blocks wide and tall are required
-            mip_width  = max(self.block_width,  self.width  >> m)
-            mip_height = max(self.block_height, self.height >> m)
-            b_width  = mip_width  // self.block_width
-            b_height = mip_height // self.block_height
-
-            addr = self._get_linear_index_of_free_chunk(b_width, b_height)
-            if addr is not None:
-                mip_width   = b_width * self.block_width
-                buffer_addr = self._mark_allocated_linear("T%s" % m, b_width, b_height, addr)
-
-                # if the texture will cross into the page below, we
-                # need to set the width to the overall buffer width.
-                _, buffer_block_y = self._linear_address_to_xy_address(addr)
-                page_y0 = buffer_block_y // self.page_block_height
-                page_y1 = (buffer_block_y + b_height - 1) // self.page_block_height
-                if page_y0 == page_y1:
-                    # texture doesn't cross into page below
-                    buffer_width = int(math.ceil(mip_width / 64))
-                else:
-                    buffer_width = int(math.ceil(self.buffer_width * self.page_width) / 64)
-
-                self._tb_addrs.append(buffer_addr)
-                self._tb_widths.append(buffer_width)
-
-            m += 1
-
-            # if there is a palette, pack it.
-            # NOTE: palettes are packed linearly in block-order rather than scanline order.
-            if m == tex_count and pack_palette:
-                pack_palette = False
-                addr = self._get_block_ordered_block_index_of_free_chunk(self.palette_size)
-                if addr is not None:
-                    self._cb_addr = addr
-                    for i in range(self.palette_size):
-                        self._mark_allocated_xy(
-                            "CB", 1, 1, *self._block_address_to_xy_address(addr + i)
-                            )
-
-            if addr is None:
-                # one of the addresses ended up null, indicating we need to reallocate
-                if allocations >= self.max_allocations:
-                    raise ValueError("Could not allocate large enough buffer to fit all texture data.")
-
-                allocate = True
-                # can't fit something. expand pages in direction of growth and restart
-                pages_tall += 1
-
-    def optimize(self):
-        opt_buffer_size = self.buffer_size
-        page_block_size = self.page_block_width * self.page_block_height
-        # scroll backward through the end of the buffer
-        # and remove any pages that have no blocks used
-        x0 = (self.pages_wide - 1) * self.page_block_width
-        y0 = (self.pages_tall - 1) * self.page_block_height
-
-        # loop over every page on the last page row, and reduce the
-        # opt_buffer_size by it if its completely unallocated. we are
-        # going right to left as that is the order to deallocate pages.
-        # We are also ignoring the first page in the row, as the row
-        # was created because at least one page was deemed to be needed.
-        while x0 >= self.page_block_width:
-            allocate_args = (
-                self._cull_block_val,
-                self.page_block_width,
-                self.page_block_height,
-                self._xy_address_to_linear_address(x0, y0)
+    def allocate_texture(self, mipmap_level, pages_wide, block_addr):
+        linear_addr = self._block_address_to_linear_address(block_addr)
+        x0, y0 = self._linear_address_to_xy_address(linear_addr, pages_wide)
+        if mipmap_level not in range(1 + c.MAX_MIP_COUNT):
+            raise ValueError(
+                "Mipmap level must be in range [0, %s), not %s" %
+                (c.MAX_MIP_COUNT + 1, mipmap_level)
                 )
 
-            # test marking the whole page as allocated to ensure it's
-            # all free before actually marking it all as cullable
-            try:
-                self._mark_allocated_linear(*allocate_args, test_only=True)
-            except ValueError:
-                break
+        self._mark_allocated_xy(
+            (1 << mipmap_level),
+            self.get_mip_width(mipmap_level),
+            self.get_mip_height(mipmap_level),
+            pages_wide, x0, y0
+            )
+        self._tb_addrs.append(block_addr)
+        self._tb_widths.append((pages_wide * self.page_width) // 64)
 
-            self._mark_allocated_linear(*allocate_args)
-            opt_buffer_size -= page_block_size
-            x0 -= self.page_block_width
+    def allocate_palette(self, block_addr):
+        self._mark_allocated_block_linear(self._pal_block_val, self.palette_size, block_addr)
+        self._cb_addr = block_addr
 
-        self._optimized_buffer_size = opt_buffer_size
+    def pack(self):
+        self.initialize_blocks()
+
+        for m in range(1 + self.mipmaps):
+            addr, pages_wide = self._get_or_allocate_block_index_of_free_chunk(
+                self.get_mip_width(m), self.get_mip_height(m)
+                )
+            self.allocate_texture(m, pages_wide, addr)
+
+        # return if there isn't a palette to pack.
+        if self.has_palette:
+            # NOTE: palettes are packed linearly in block-order rather than scanline order.
+            addr, _ = self._get_or_allocate_block_index_of_free_chunk(self.palette_size)
+            self.allocate_palette(addr)
+
+
+def load_from_buffer_info(
+        width, height, pixel_format, palette_format,
+        buffer_size, palette_address, tex_addresses, tex_widths,
+        allow_overlap = False
+        ):
+    buffer_calc = TextureBufferPacker(
+        width, height, pixel_format, len(tex_addresses), palette_format
+        )
+    buffer_calc.overlap_error = not allow_overlap
+    buffer_calc.initialize_blocks(allocate_required_pages=False)
+    buffer_calc.allocate_pages(buffer_size // 32)
+
+    for m in range(len(tex_addresses)):
+        buffer_calc.allocate_texture(
+            m, tex_widths[m], tex_addresses[m]
+            )
+
+    if palette_address is not None and buffer_calc.has_palette:
+        buffer_calc.allocate_palette(palette_address)
+
+    return buffer_calc
