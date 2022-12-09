@@ -193,12 +193,12 @@ PSM_INVERSE_BLOCK_ORDERS = {
     }
 
 PSM_PAGE_BLOCK_WIDTHS = {
-    psm: (8 if psm in (PSM_T8, PSM_T4) else 4)
+    psm: (8 if psm in (PSM_T8, PSM_CT32, PSM_CT24, PSM_Z32, PSM_Z24) else 4)
     for psm in PSM_BLOCK_ORDERS.keys()
     }
 
 PSM_PAGE_BLOCK_HEIGHTS = {
-    psm: (4 if psm in (PSM_T8, PSM_T4) else 8)
+    psm: (4 if psm in (PSM_T8, PSM_CT32, PSM_CT24, PSM_Z32, PSM_Z24) else 8)
     for psm in PSM_BLOCK_ORDERS.keys()
     }
 
