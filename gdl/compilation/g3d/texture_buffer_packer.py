@@ -18,23 +18,30 @@ class TextureBufferPacker:
     _cb_addr   = -1
 
     _blocks_used = ()
-    _overlap_block_val = -1
     _free_block_val = 0
+    _t0_block_val   = 1 << 0
+    _t1_block_val   = 1 << 1
+    _t2_block_val   = 1 << 2
+    _t3_block_val   = 1 << 3
+    _t4_block_val   = 1 << 4
+    _t5_block_val   = 1 << 5
+    _t6_block_val   = 1 << 6
+    _pal_block_val  = 1 << 7
+
     _unknown_char = "?"
     _border_char_h = "-"
     _border_char_v = "|"
     _border_char_c = "+"
     _used_chars = {
-        _overlap_block_val: "X",
         _free_block_val: ".",
-        "T0": "0",
-        "T1": "1",
-        "T2": "2",
-        "T3": "3",
-        "T4": "4",
-        "T5": "5",
-        "T6": "6",
-        "CB": "#",
+        _t0_block_val:  "0",
+        _t1_block_val:  "1",
+        _t2_block_val:  "2",
+        _t3_block_val:  "3",
+        _t4_block_val:  "4",
+        _t5_block_val:  "5",
+        _t6_block_val:  "6",
+        _pal_block_val: "#",
         }
 
     def __init__(
@@ -266,7 +273,7 @@ class TextureBufferPacker:
                     raise ValueError("Error: %s" % msg)
                 else:
                     print("Warning: %s" % msg)
-                    self._blocks_used[i] = self._overlap_block_val
+                    self._blocks_used[i] |= allocate
 
             elif not test_only:
                 self._blocks_used[i] = allocate
@@ -422,9 +429,14 @@ class TextureBufferPacker:
     def allocate_texture(self, mipmap_level, pages_wide, block_addr):
         linear_addr = self._block_address_to_linear_address(block_addr)
         x0, y0 = self._linear_address_to_xy_address(linear_addr, pages_wide)
+        if mipmap_level not in range(1 + c.MAX_MIP_COUNT):
+            raise ValueError(
+                "Mipmap level must be in range [0, %s), not %s" %
+                (c.MAX_MIP_COUNT + 1, mipmap_level)
+                )
 
         self._mark_allocated_xy(
-            "T%s" % mipmap_level,
+            (1 << mipmap_level),
             self.get_mip_width(mipmap_level),
             self.get_mip_height(mipmap_level),
             pages_wide, x0, y0
@@ -433,7 +445,7 @@ class TextureBufferPacker:
         self._tb_widths.append((pages_wide * self.page_width) // 64)
 
     def allocate_palette(self, block_addr):
-        self._mark_allocated_block_linear("CB", self.palette_size, block_addr)
+        self._mark_allocated_block_linear(self._pal_block_val, self.palette_size, block_addr)
         self._cb_addr = block_addr
 
     def pack(self):
@@ -450,3 +462,26 @@ class TextureBufferPacker:
             # NOTE: palettes are packed linearly in block-order rather than scanline order.
             addr, _ = self._get_or_allocate_block_index_of_free_chunk(self.palette_size)
             self.allocate_palette(addr)
+
+
+def load_from_buffer_info(
+        width, height, pixel_format, palette_format,
+        buffer_size, palette_address, tex_addresses, tex_widths,
+        allow_overlap = False
+        ):
+    buffer_calc = TextureBufferPacker(
+        width, height, pixel_format, len(tex_addresses), palette_format
+        )
+    buffer_calc.overlap_error = not allow_overlap
+    buffer_calc.initialize_blocks(allocate_required_pages=False)
+    buffer_calc.allocate_pages(buffer_size // 32)
+
+    for m in range(len(tex_addresses)):
+        buffer_calc.allocate_texture(
+            m, tex_widths[m], tex_addresses[m]
+            )
+
+    if palette_address is not None and buffer_calc.has_palette:
+        buffer_calc.allocate_palette(palette_address)
+
+    return buffer_calc
