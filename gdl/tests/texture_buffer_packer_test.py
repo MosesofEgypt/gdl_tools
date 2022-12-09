@@ -48,7 +48,6 @@ for w, h, fmt, m, pfmt in (
         (256, 256, "psmct32", 6, "psmct32"),
         (256, 256, "psmct16", 6, "psmct32"),
     ):
-    break
 
     test = texture_buffer_packer.TextureBufferPacker(w, h, fmt, m, pfmt)
     test.pack()
