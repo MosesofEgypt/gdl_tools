@@ -470,7 +470,7 @@ def load_from_buffer_info(
         allow_overlap = False
         ):
     buffer_calc = TextureBufferPacker(
-        width, height, pixel_format, len(tex_addresses), palette_format
+        width, height, pixel_format, len(tex_addresses) - 1, palette_format
         )
     buffer_calc.overlap_error = not allow_overlap
     buffer_calc.initialize_blocks(allocate_required_pages=False)

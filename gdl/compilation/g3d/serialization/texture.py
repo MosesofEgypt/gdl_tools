@@ -209,9 +209,9 @@ class G3DTexture:
             palette = palette_block[0] = bytearray(palette_block[0])
             if not is_ngc and not is_monochrome:
                 arbytmap.gauntlet_ps2_palette_shuffle(palette, palette_stride)
-            rescaler_4bpp = arbytmap.INDEXING_4BPP_TO_8BPP
+            rescaler_4bpp = c.INDEXING_4BPP_TO_8BPP
         else:
-            rescaler_4bpp = arbytmap.MONOCHROME_4BPP_TO_8BPP
+            rescaler_4bpp = c.MONOCHROME_4BPP_TO_8BPP
 
         # hack for 4bpp palettized to pad it up to 8bpp
         if pixel_stride < 8:
@@ -342,8 +342,8 @@ class G3DTexture:
         # hack for 4bpp palettized to unpad from 8bpp to 4bpp
         if pixel_stride < 8:
             rescaler_4bpp = (
-                arbytmap.INDEXING_8BPP_TO_4BPP if palette else
-                arbytmap.MONOCHROME_8BPP_TO_4BPP
+                c.INDEXING_8BPP_TO_4BPP if palette else
+                c.MONOCHROME_8BPP_TO_4BPP
                 )
             textures = [
                 arbytmap.rescale_8bit_array_to_4bit(texture, rescaler_4bpp)

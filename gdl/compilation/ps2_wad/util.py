@@ -66,6 +66,23 @@ def read_file_headers(input_buffer):
     return file_headers
 
 
+def write_file_headers(file_headers, output_buffer):
+    output_buffer.write(struct.pack('<I', len(file_headers)))
+    for header in file_headers:
+        output_buffer.write(INDEX_HEADER_STRUCT.pack(
+            header["uncomp_size"],
+            header["data_pointer"],
+            header["path_hash"],
+            header["comp_size"],
+            ))
+
+    output_buffer.write(
+        b'\x00' * calculate_padding(
+            output_buffer.tell(), c.PS2_WAD_FILE_CHUNK_SIZE
+            )
+        )
+
+
 def concat_wad_files(wad_filepath, temp_wad_filepaths):
     # combine mini wads into final wad
     all_file_headers = []
@@ -123,23 +140,6 @@ def concat_wad_files(wad_filepath, temp_wad_filepaths):
                     data = fin.read(8 * 1024**2) # read and write in 8MB chunks
                     data_remaining -= len(data)
                     fout.write(data)
-
-
-def write_file_headers(file_headers, output_buffer):
-    output_buffer.write(struct.pack('<I', len(file_headers)))
-    for header in file_headers:
-        output_buffer.write(INDEX_HEADER_STRUCT.pack(
-            header["uncomp_size"],
-            header["data_pointer"],
-            header["path_hash"],
-            header["comp_size"],
-            ))
-
-    output_buffer.write(
-        b'\x00' * calculate_padding(
-            output_buffer.tell(), c.PS2_WAD_FILE_CHUNK_SIZE
-            )
-        )
 
 
 def _mix_filepath_hash_values(x, y, z):

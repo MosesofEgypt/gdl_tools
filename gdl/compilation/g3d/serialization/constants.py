@@ -66,3 +66,32 @@ FORMAT_ID_TO_NAME = {
     147: "I_4_IDX_4",  # not really palettized
     }
 FORMAT_NAME_TO_ID = {v: k for k, v in FORMAT_ID_TO_NAME.items()}
+
+
+INDEXING_4BPP_TO_8BPP = tuple(
+     (i & 0xF) |      # isolate bits 1-4
+    ((i & 0xF0) << 4) # isolate bits 5-8 and shift to 9-12
+     for i in range(0x100)
+    )
+INDEXING_8BPP_TO_4BPP = tuple(
+     (i & 0xF) |       # isolate bits 1-4
+    ((i & 0xF00) >> 4) # isolate bits 9-12 and shift to 5-8
+    for i in range(0x10000)
+    )
+
+MONOCHROME_4BPP_TO_8BPP = tuple(
+     ((i & 0xF) * 17) |
+    (((i >> 4)  * 17) << 8)
+    for i in range(0x100)
+    )
+MONOCHROME_8BPP_TO_4BPP = tuple(
+    int(round((i & 0xFF) / 17)) |
+    (int(round((i >> 8)  / 17)) << 4)
+    for i in range(0x10000)
+    )
+BYTESWAP_5551_ARGB_AND_ABGR = tuple(
+    (i & 0x83E0)         | # alpha and green
+    ((i & 0x7C00) >> 10) | # isolate bits 10-15 and shift to 1-5
+    ((i & 0x1F)   << 10)   # isolate bits 1-5 and shift to 10-15
+    for i in range(0x10000)
+    )

@@ -14,34 +14,6 @@ from arbytmap.arby import *
 
 FORMAT_X1R5G5B5 = "X1R5G5B5"
 
-INDEXING_4BPP_TO_8BPP = tuple(
-     (i & 0xF) |      # isolate bits 1-4
-    ((i & 0xF0) << 4) # isolate bits 5-8 and shift to 9-12
-     for i in range(0x100)
-    )
-INDEXING_8BPP_TO_4BPP = tuple(
-     (i & 0xF) |       # isolate bits 1-4
-    ((i & 0xF00) >> 4) # isolate bits 9-12 and shift to 5-8
-    for i in range(0x10000)
-    )
-
-MONOCHROME_4BPP_TO_8BPP = tuple(
-     ((i & 0xF) * 17) |
-    (((i >> 4)  * 17) << 8)
-    for i in range(0x100)
-    )
-MONOCHROME_8BPP_TO_4BPP = tuple(
-    int(round((i & 0xFF) / 17)) |
-    (int(round((i >> 8)  / 17)) << 4)
-    for i in range(0x10000)
-    )
-BYTESWAP_5551_ARGB_AND_ABGR = tuple(
-    (i & 0x83E0)         | # alpha and green
-    ((i & 0x7C00) >> 10) | # isolate bits 10-15 and shift to 1-5
-    ((i & 0x1F)   << 10)   # isolate bits 1-5 and shift to 10-15
-    for i in range(0x10000)
-    )
-
 
 def channel_swap_bgra_rgba_array(all_pixels, pixel_stride):
     for orig_pixels in all_pixels:
@@ -50,7 +22,7 @@ def channel_swap_bgra_rgba_array(all_pixels, pixel_stride):
         if pixel_stride == 2:
             # use a mapping to quickly swap 16 bit pixels
             uint16_pixels = array("H", pixels)
-            swapped_pixels = map(BYTESWAP_5551_ARGB_AND_ABGR.__getitem__, uint16_pixels)
+            swapped_pixels = map(c.BYTESWAP_5551_ARGB_AND_ABGR.__getitem__, uint16_pixels)
             pixels[:] = bytearray(array("H", swapped_pixels))
         elif pixel_stride == 4:
             # use arbytmap to quickly swap 32bit pixels
@@ -118,7 +90,7 @@ def _fixed_unpack_indexing(self, packed_indexing):
     Does not support unpacking 1 or 2 bit indexing
     '''
     if self.indexing_size == 4:
-        return rescale_4bit_array_to_8bit(packed_indexing, INDEXING_4BPP_TO_8BPP)
+        return rescale_4bit_array_to_8bit(packed_indexing, c.INDEXING_4BPP_TO_8BPP)
     elif self.indexing_size == 8:
         return array("B", packed_indexing)
     else:
