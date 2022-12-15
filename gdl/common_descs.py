@@ -100,9 +100,25 @@ xyz_float = QStruct("",
     Float("x"), Float("y"), Float("z"),
     ORIENT='h'
     )
+ijk_float = QStruct("",
+    Float("i"), Float("j"), Float("k"),
+    ORIENT='h'
+    )
+ijkw_float = QStruct("",
+    Float("i"), Float("j"), Float("k"), Float("w"),
+    ORIENT='h'
+    )
 bgra_uint8 = QStruct("",
     UInt8("b"), UInt8("g"), UInt8("r"), UInt8("a"),
     ORIENT='h', WIDGET=ColorPickerFrame
+    )
+rgba_uint8 = QStruct("",
+    UInt8("r"), UInt8("g"), UInt8("b"), UInt8("a"),
+    ORIENT='h', WIDGET=ColorPickerFrame
+    )
+float_lower_upper = QStruct("",
+    Float('lower'), Float('upper'),
+    ORIENT='h'
     )
 stat_range = QStruct("",
     Float('min'), Float('max'),
