@@ -5,18 +5,81 @@ from ..field_types import *
 
 def get(): return anim_ps2_def
 
+
+def get_atree_data_array_pointer(
+        *args, node=None, parent=None, new_value=None,
+        pointer_field_names=None, **kwargs
+        ):
+    if parent is None:
+        if node:
+            parent = node.parent
+        else:
+            return 0
+
+    base_pointer = 0
+    for i in range(len(pointer_field_names) - 1):
+        base_pointer += parent.get_neighbor(pointer_field_names[i])
+
+    if new_value is None:
+        return parent.get_neighbor(pointer_field_names[-1]) + base_pointer
+
+    parent.set_neighbor(pointer_field_names[-1], new_value - base_pointer)
+
+
+def get_comp_angles_size(*args, parent=None, new_value=None, **kwargs):
+    return 0 if (new_value or not parent) or parent.parent.comp_ang_pointer == 0 else 256 * 4
+
+
+def get_comp_positions_size(*args, parent=None, new_value=None, **kwargs):
+    return 0 if (new_value or not parent) or parent.parent.comp_pos_pointer == 0 else 256 * 4
+
+
+def get_comp_units_size(*args, parent=None, new_value=None, **kwargs):
+    return 0 if (new_value or not parent) or parent.parent.comp_unit_pointer == 0 else 256 * 4
+    
+
+
+# necessary?
+mbnode = Struct("mbnode",
+    Array("mats",
+        SUB_STRUCT=QStruct("mat", INCLUDE=ijkw_float),
+        SIZE=4
+        ),
+    QStruct("scale", INCLUDE=ijkw_float),
+    UInt16("id"),
+    SInt8("type"),
+    UInt8("alpha"),
+    Float("zsort_add"),
+    UInt32("tex_alt_index"),
+    SInt16("tex_change_index"),
+    UInt8("tex_shift_index"),
+    UInt8("extra_byte"),
+    UInt32("flags"),
+    UInt32("color"),
+    SInt16("zmod"),
+    SInt16("ambient_add"),
+    UInt32("index"),
+    QStruct("data",
+        Pointer32("romobject_pointer"),
+        Pointer32("polyheader_pointer"),
+        Pointer32("blitinst_pointer"),
+        Pointer32("psys_pointer"),
+        ),
+    Pointer32("parent_mbnode_pointer"),
+    Pointer32("child_mbnode_pointer"),
+    Pointer32("next_mbnode_pointer"),
+    SIZE=128
+    )
+
+# necessary?
 tanim_data = Struct("tanim_data",
     FloatArray("tpyr", SIZE=4*4),
     FloatArray("tpos", SIZE=4*4),
     FloatArray("tscale", SIZE=4*4),
+    SIZE=48
     )
 
-anim_seq_info = Struct("anim_seq_info",
-    UInt16("type"),
-    UInt16("size"),
-    UInt32("animidx"),
-    )
-
+# necessary?
 anim_data = Struct("anim_data",
     Pointer32("anim_seq_info_pointer"),
     SInt32("used"),
@@ -32,40 +95,11 @@ anim_data = Struct("anim_data",
     FloatArray("pscale", SIZE=4*4),
     FloatArray("nscale", SIZE=4*4),
     FloatArray("xscale", SIZE=4*4),
+    SIZE=160
     )
 
-anim_header = Struct("anim_header",
-    Pointer32("comp_ang_pointer"),
-    Pointer32("comp_pos_pointer"),
-    Pointer32("comp_unit_pointer"),
-    Pointer32("blocks_pointer"),
-    Pointer32("sequence_info_pointer"),
-    SInt32("sequence_count"),
-    SInt32("object_count"),
-    )
-
-atree_header = Struct("atree_header",
-    Pointer32("atreeseq_pointer"),
-    Pointer32("animheader_pointer"),
-    Pointer32("objanimheader_pointer"),
-    Pointer32("anodeinfo_pointer"),
-    SInt16("node_count"),
-    SInt16("seq_count"),
-    StrNntLatin1("prefix", SIZE=30),
-    SInt16("model"),
-    )
-
-anode = Struct("anode",
-    Pointer32("mbnode_pointer"),
-    Pointer32("parent_anode_pointer"),
-    Pointer32("child_anode_pointer"),
-    Pointer32("next_anode_pointer"),
-    QStruct("initpos", INCLUDE=xyz_float),
-    SInt32("type"),
-    SInt32("offset"),
-    )
-
-anim_info = Struct("anim_info",
+# necessary?
+anim_info = QStruct("anim_info",
     Pointer32("atreeseq_pointer"),
     Pointer32("animheader_pointer"),
     Pointer32("objanimheader_pointer"),
@@ -85,174 +119,227 @@ anim_info = Struct("anim_info",
     Float("atime"),
     SInt16("repeat"),
     UInt16("stage"),
+    SIZE=56
     )
 
-anode_info = Struct("anode_info",
-    StrNntLatin1("mbdesc", SIZE=32),
-    QStruct("initpos", INCLUDE=xyz_float),
-    SInt16("type"),
-    SInt16("flags"),
-    UInt16("mbflags"),
-    SInt32("offset"),
-    SInt32("parentidx"),
-    )
-
+# necessary?
 atree = Struct("atree",
     Pointer32("root_anode_pointer"),
-    Struct("anim_info", INCLUDE=anim_info),
+    QStruct("anim_info", INCLUDE=anim_info),
     SInt32("anode_count"),
     Pointer32("first_anode_pointer"),
     Pointer32("anodeinfo_pointer"),
+    SIZE=76
     )
 
-mbnode = Struct("mbnode",
-    Array("mats",
-        SUB_STRUCT=QStruct("mat", INCLUDE=ijkw_float),
-        SIZE=4
+anode = Struct("anode",
+    Pointer32("mb_node_pointer"),
+    Pointer32("parent_anode_pointer"),
+    Pointer32("child_anode_pointer"),
+    Pointer32("next_anode_pointer"),
+    QStruct("init_pos", INCLUDE=xyz_float),
+    SInt32("type"),
+    SInt32("offset"),  # TODO
+    SIZE=36
+    )
+
+
+
+obj_anim = Struct("obj_anim",
+    StrNntLatin1("mb_desc", SIZE=32),
+    SInt32("mb_index"),
+    SInt16("frame_count"),
+    SInt16("start_frame"),
+    SIZE=40,
+    )
+
+anim_seq_info = Struct("anim_seq_info",
+    UInt16("type"),
+    UInt16("size"),
+    UInt32("anim_index"),
+    SIZE=8
+    )
+
+anim_header = Struct("anim_header",
+    Pointer32("comp_ang_pointer"),
+    Pointer32("comp_pos_pointer"),
+    Pointer32("comp_unit_pointer"),
+    Pointer32("blocks_pointer"),  # TODO
+    Pointer32("sequence_info_pointer"),
+    SInt32("sequence_count"),
+    SInt32("object_count"),  # TODO
+    SIZE=28,
+    STEPTREE=Container("data",
+        FloatArray("comp_angles",
+            POINTER="..comp_ang_pointer", SIZE=get_comp_angles_size
+            ),
+        FloatArray("comp_positions",
+            POINTER="..comp_pos_pointer", SIZE=get_comp_positions_size
+            ),
+        FloatArray("comp_units",
+            POINTER="..comp_unit_pointer", SIZE=get_comp_units_size
+            ),
+        # TODO
+        #Array("sequences",
+        #    SUB_STRUCT=anim_seq_info, SIZE="..sequence_count",
+        #    POINTER=lambda *a, **kw: get_atree_data_array_pointer(
+        #        *a, pointer_field_names=[
+        #            ".....offset", "....anim_header_pointer", "..sequence_info_pointer"
+        #            ], **kw
+        #        ),
+        #    ),
         ),
-    QStruct("scale", INCLUDE=ijkw_float),
-    UInt16("id"),
-    SInt8("type"),
-    UInt8("alpha"),
-    Float("zsort_add"),
-    UInt32("texaltidx"),
-    SInt16("texchangeidx"),
-    UInt8("texshiftidx"),
-    UInt8("extra_byte"),
-    UInt32("flags"),
-    UInt32("color"),
-    SInt16("zmod"),
-    SInt16("ambient_add"),
-    UInt32("index"),
-    QStruct("data",
-        Pointer32("romobject_pointer"),
-        Pointer32("polyheader_pointer"),
-        Pointer32("blitinst_pointer"),
-        Pointer32("psys_pointer"),
+    )
+
+obj_anim_header = Struct("obj_anim_header",
+    Pointer32("obj_anim_pointer"),
+    SInt32("obj_anim_count"),
+    SIZE=8,
+    STEPTREE=Array("obj_anims",
+        SUB_STRUCT=obj_anim, SIZE=".obj_anim_count",
+        POINTER=lambda *a, **kw: get_atree_data_array_pointer(
+            *a, pointer_field_names=[
+                "....offset", "...obj_anim_header_pointer", ".obj_anim_pointer", 
+                ], **kw
+            ),
+        )
+    )
+
+atree_seq = Struct("atree_seq",
+    StrNntLatin1("name", SIZE=32),
+    SInt16("frame_count"),
+    SInt16("frame_rate"),
+    SInt16("repeat"),
+    SInt16("fix_pos"),
+    SInt16("texmod_count"),  # TODO
+    SInt16("flags"),
+    SInt32("texmod_pointer"),  # TODO
+    SIZE=48
+    )
+
+anode_info = Struct("anode_info",
+    StrNntLatin1("mb_desc", SIZE=32),
+    QStruct("init_pos", INCLUDE=xyz_float),
+    SInt16("type"),
+    SInt16("flags"),
+    UInt32("mb_flags"),
+    SInt32("offset"),  # add to anim_header.blocks_pointer maybe?
+    SInt32("parent_index"),
+    SIZE=60,
+    # TODO
+    #STEPTREE=Struct("anode",
+    #    INCLUDE=anode,
+    #    POINTER=lambda *a, **kw: get_atree_data_array_pointer(
+    #        *a, pointer_field_names=[
+    #            "..anim_header_pointer", ".offset",
+    #            ], **kw
+    #        ),
+    #    ),
+    )
+
+atree_data = Container("atree_data",
+    Struct("anim_header",
+        INCLUDE=anim_header,
+        POINTER=lambda *a, **kw: get_atree_data_array_pointer(
+            *a, pointer_field_names=["...offset", "..anim_header_pointer"], **kw
+            ),
         ),
-    Pointer32("parent_mbnode_pointer"),
-    Pointer32("child_mbnode_pointer"),
-    Pointer32("next_mbnode_pointer"),
+    Struct("obj_anim_header",
+        INCLUDE=obj_anim_header,
+        POINTER=lambda *a, **kw: get_atree_data_array_pointer(
+            *a, pointer_field_names=["...offset", "..obj_anim_header_pointer"], **kw
+            ),
+        ),
+    Array("atree_sequences",
+        SUB_STRUCT=atree_seq, SIZE="..atree_seq_count",
+        POINTER=lambda *a, **kw: get_atree_data_array_pointer(
+            *a, pointer_field_names=["...offset", "..atree_seq_pointer"], **kw
+            ),
+        ),
+    Array("anode_infos",
+        SUB_STRUCT=anode_info, SIZE="..anode_count",
+        POINTER=lambda *a, **kw: get_atree_data_array_pointer(
+            *a, pointer_field_names=["...offset", "..anode_info_pointer"], **kw
+            ),
+        ),
+    )
+
+atree_header = Struct("atree_header",
+    Pointer32("atree_seq_pointer"),
+    Pointer32("anim_header_pointer"),
+    Pointer32("obj_anim_header_pointer"),
+    Pointer32("anode_info_pointer"),
+    SInt32("anode_count"),
+    SInt32("atree_seq_count"),
+    StrNntLatin1("prefix", SIZE=30),
+    SInt16("model"),
+    SIZE=56, POINTER=".offset", STEPTREE=atree_data
     )
 
 atree_info = Struct("atree_info",
     StrNntLatin1("name", SIZE=32),
     SInt32("offset"),
+    SIZE=36, STEPTREE=atree_header,
     )
 
 texmod = Struct("texmod",
     SInt16("atree"),
-    SInt16("seqidx"),
+    SInt16("seq_index"),
     StrNntLatin1("name", SIZE=32),
-    StrNntLatin1("sourcename", SIZE=32),
-    SInt32("texidx"),
-    SInt32("sourceidx"),
+    StrNntLatin1("source_name", SIZE=32),
+    SInt32("tex_index"),
+    SInt32("source_index"),
     SInt16("frame_count"),
-    SInt16("startframe"),
+    SInt16("start_frame"),
     SInt32("rate"),
     SInt32("frame"),
-    )
-
-world_psys_flags = Bool32("flags",
-    ("dynamic",  0x1),
-    ("oneshot",  0x2),
-    ("forever",  0x4),
-    ("gravity",  0x8),
-    ("drag",     0x10),
-    ("notexrgb", 0x20),
-    ("notexa",   0x40),
-    ("fb_add",   0x80),
-    ("fb_mul",   0x100),
-    ("sort",     0x200),
-    ("nozcmp",   0x400),
-    ("nozwrite", 0x800),
-    )
-
-world_psys_flag_enables = Bool32("flag_enables",
-    INCLUDE=world_psys_flags
-    )
-
-world_psys_enables = Bool32("enables",
-    ("preset",  0x1),
-    ("maxp",    0x2),
-    ("maxdir",  0x4),
-    ("maxpos",  0x8),
-    ("e_life",  0x10),
-    ("p_life",  0x20),
-    ("e_angle", 0x40),
-    ("e_dir",   0x80),
-    ("e_vol",   0x100),
-    ("e_rate",  0x200),
-    ("e_rate_rand", 0x400),
-    ("p_gravity", 0x800),
-    ("p_drag",    0x1000),
-    ("p_speed",   0x2000),
-    ("p_texname", 0x4000),
-    ("p_texcnt",  0x8000),
-    ("p_rgb",   0x10000),
-    ("p_alpha", 0x20000),
-    ("p_width", 0x40000),
-    ("e_delay", 0x80000),
-    )
-
-
-world_psys = Struct("world_psys",
-    UInt32("version"),
-    SInt16("preset"),
-    SInt8("id"),
-    SInt8("dummy"),
-    world_psys_flags,
-    world_psys_flag_enables,
-    world_psys_enables,
-    SInt32("maxp"),
-    UInt32("maxdir"),
-    UInt32("maxpos"),
-    QStruct("e_lifefade", INCLUDE=float_lower_upper),
-    QStruct("p_lifefade", INCLUDE=float_lower_upper),
-    Pad(4*2),
-    Float("e_angle"),
-    SInt32("p_texcnt"),
-    StrNntLatin1("p_texname", SIZE=32),
-    QStruct("e_dir", INCLUDE=ijk_float),
-    QStruct("e_vol", INCLUDE=xyz_float),
-    QStruct("e_rate", INCLUDE=ijkw_float),
-    Float("e_rate_rand"),
-    Float("p_gravity"),
-    Float("p_drag"),
-    Float("p_speed"),
-    Array("p_colors",
-        QStruct("color", SUB_STRUCT=rgba_uint8),
-        SIZE=4
-        ),
-    FloatArray("p_widths", SIZE=4*4),
-    Float("e_delay"),
-    Pad(4*3 + 4*4*6 + 4*3),
-    UInt32("checksum"),
+    SIZE=88
     )
 
 atree_list_header_v0 = Struct("atree_list_header",
-    Pointer32("atree_infos_pointer"),
-    UInt16("texmod_count"),
-    UInt16("texmod_pointer"),
+    UInt32("texmod_count"),
+    UInt32("texmod_pointer"),
+    SIZE=12
     )
 
 atree_list_header_v8 = Struct("atree_list_header",
-    Pointer32("atree_infos_pointer"),
-    UInt16("texmod_count"),
-    UInt16("texmod_pointer"),
-    UInt16("psys_count"),
-    UInt16("psys_pointer"),
+    UInt32("texmod_count"),
+    UInt32("texmod_pointer"),
+    UInt32("psys_count"),
+    UInt32("psys_pointer"),
+    SIZE=20
     )
 
 anim_ps2_def = TagDef("anim",
     UInt16("atree_count"),
     UInt16("version", DEFAULT=8),
+    Pointer32("atree_infos_pointer"),
     Switch("atree_list_header",
         CASE=".version",
         CASES={
             0: atree_list_header_v0,
             8: atree_list_header_v8
             },
+        ),
+    Array("atrees",
+        SUB_STRUCT=atree_info,
+        SIZE=".atree_count",
+        POINTER=".atree_infos_pointer"
+        ),
+    Array("texmods",
+        SUB_STRUCT=texmod,
+        SIZE=".atree_list_header.texmod_count",
+        POINTER=".atree_list_header.texmod_pointer"
+        ),
+    Switch("psys",
+        CASE=".version",
+        CASES={
+            8: Array("psys",
+                SUB_STRUCT=psys_struct,
+                SIZE=".atree_list_header.psys_count",
+                POINTER=".atree_list_header.psys_pointer"
+                ),
+            }
         ),
     ext=".ps2", endian="<", tag_cls=AnimTag
     )
