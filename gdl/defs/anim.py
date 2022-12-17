@@ -65,27 +65,43 @@ def get_comp_units_size(*args, parent=None, new_value=None, **kwargs):
 
 obj_anim = Struct("obj_anim",
     StrNntLatin1("mb_desc", SIZE=32),
-    SInt32("mb_index"),
+    SInt32("mb_index", DEFAULT=-1, VISIBLE=False), # always -1
     SInt16("frame_count"),
     SInt16("start_frame"),
     SIZE=40,
     )
 
 anim_seq_info = Struct("anim_seq_info",
-    UInt16("type"),
-    UInt16("size"),
+    Bool16("type",
+        # these are the flags that are set across all animation files
+        ("unknown0", 1<<0),
+        ("unknown1", 1<<1),
+        ("unknown2", 1<<2),
+
+        ("unknown4", 1<<4),
+        ("unknown5", 1<<5),
+        ("unknown6", 1<<6),
+
+        ("unknown8", 1<<8),
+        ("unknown9", 1<<9),
+        ("unknown10", 1<<10),
+
+        ("unknown13", 1<<13),
+        ("unknown14", 1<<14),
+        ),
+    UInt16("size"),  # NOTE: only ever seen values 0-9
     UInt32("anim_index"),
     SIZE=8
     )
 
 anim_header = Struct("anim_header",
-    Pointer32("comp_ang_pointer"),
-    Pointer32("comp_pos_pointer"),
-    Pointer32("comp_unit_pointer"),
-    Pointer32("blocks_pointer"),
-    Pointer32("sequence_info_pointer"),
-    SInt32("sequence_count"),
-    SInt32("object_count"),
+    Pointer32("comp_ang_pointer", VISIBLE=False),
+    Pointer32("comp_pos_pointer", VISIBLE=False),
+    Pointer32("comp_unit_pointer", VISIBLE=False),
+    Pointer32("blocks_pointer", VISIBLE=False),
+    Pointer32("sequence_info_pointer", VISIBLE=False),
+    SInt32("sequence_count", EDITABLE=False, VISIBLE=False),
+    SInt32("object_count", EDITABLE=False, VISIBLE=False),
     SIZE=28,
     STEPTREE=Container("data",
         FloatArray("comp_angles",
@@ -110,8 +126,8 @@ anim_header = Struct("anim_header",
     )
 
 obj_anim_header = Struct("obj_anim_header",
-    Pointer32("obj_anim_pointer"),
-    SInt32("obj_anim_count"),
+    Pointer32("obj_anim_pointer", VISIBLE=False),
+    SInt32("obj_anim_count", VISIBLE=False),
     SIZE=8,
     STEPTREE=Array("obj_anims",
         SUB_STRUCT=obj_anim, SIZE=".obj_anim_count",
@@ -127,11 +143,16 @@ atree_seq = Struct("atree_seq",
     StrNntLatin1("name", SIZE=32),
     SInt16("frame_count"),
     SInt16("frame_rate"),
-    SInt16("repeat"),
-    SInt16("fix_pos"),
+    UEnum16("repeat",
+        "no",
+        "yes"
+        ),
+    SInt16("fix_pos", VISIBLE=False), # always 0
     SInt16("texmod_count"),
-    SInt16("flags"),
-    SInt32("texmod_index"),
+    Bool16("flags",
+        "unknown" # yes, only one flag. idky
+        ),
+    SInt32("texmod_index", DEFAULT=-1),
     SIZE=48,
     # TODO
     #STEPTREE=UInt8Array("block_data",
@@ -145,13 +166,45 @@ atree_seq = Struct("atree_seq",
     )
 
 anode_info = Struct("anode_info",
+    # NOTE: MB == multi-branch???
     StrNntLatin1("mb_desc", SIZE=32),
     QStruct("init_pos", INCLUDE=xyz_float),
-    SInt16("type"),
-    SInt16("flags"),
-    UInt32("mb_flags"),
+    SEnum16("type",
+        # NOTE: Might be MBNODE_TYPE ????
+        "unknown0",
+        "unknown1",
+        "unknown2",
+        "unknown3",
+        "unknown4",
+        ),
+    Bool16("flags",
+        # TODO: check if this is set in conjunction with mb_flags
+        "unknown" # yes, only one flag. idky
+        ),
+    Bool32("mb_flags",
+        # these are the flags that are set across all animation files
+        ("unknown6", 1<<6),
+        ("unknown7", 1<<7),
+
+        ("unknown11", 1<<11),
+        ("unknown12", 1<<12),
+        ("unknown13", 1<<13),
+
+        ("unknown15", 1<<15),
+        ("unknown19", 1<<19),
+
+        ("unknown22", 1<<22),
+        ("unknown23", 1<<23),
+        ("unknown24", 1<<24),
+
+        ("unknown26", 1<<26),
+        ("unknown27", 1<<27),
+
+        ("unknown29", 1<<29),
+        ("unknown30", 1<<30),
+        ),
     SInt32("anim_seq_info_offset"),
-    SInt32("parent_index"),
+    SInt32("parent_index", DEFAULT=-1),
     SIZE=60,
     )
 
@@ -183,20 +236,20 @@ atree_data = Container("atree_data",
     )
 
 atree_header = Struct("atree_header",
-    Pointer32("atree_seq_pointer"),
-    Pointer32("anim_header_pointer"),
-    Pointer32("obj_anim_header_pointer"),
-    Pointer32("anode_info_pointer"),
-    SInt32("anode_count"),
-    SInt32("atree_seq_count"),
+    Pointer32("atree_seq_pointer", VISIBLE=False),
+    Pointer32("anim_header_pointer", VISIBLE=False),
+    Pointer32("obj_anim_header_pointer", VISIBLE=False),
+    Pointer32("anode_info_pointer", VISIBLE=False),
+    SInt32("anode_count", VISIBLE=False),
+    SInt32("atree_seq_count", VISIBLE=False),
     StrNntLatin1("prefix", SIZE=30),
-    SInt16("model"),
+    SInt16("model", VISIBLE=False), # always 0
     SIZE=56, POINTER=".offset", STEPTREE=atree_data
     )
 
 atree_info = Struct("atree_info",
     StrNntLatin1("name", SIZE=32),
-    SInt32("offset"),
+    SInt32("offset", VISIBLE=False),
     SIZE=36, STEPTREE=atree_header,
     )
 
@@ -215,27 +268,27 @@ texmod = Struct("texmod",
     )
 
 atree_list_header_v0 = Struct("atree_list_header",
-    UInt32("texmod_count"),
-    UInt32("texmod_pointer"),
+    UInt32("texmod_count", VISIBLE=False),
+    UInt32("texmod_pointer", VISIBLE=False),
     SIZE=12
     )
 
 atree_list_header_v8 = Struct("atree_list_header",
-    UInt32("texmod_count"),
-    UInt32("texmod_pointer"),
-    UInt32("particle_system_count"),
-    UInt32("particle_system_pointer"),
+    UInt32("texmod_count", VISIBLE=False),
+    UInt32("texmod_pointer", VISIBLE=False),
+    UInt32("particle_system_count", VISIBLE=False),
+    UInt32("particle_system_pointer", VISIBLE=False),
     SIZE=20
     )
 
 anim_ps2_def = TagDef("anim",
-    UInt16("atree_count"),
+    UInt16("atree_count", VISIBLE=False),
     UEnum16("version",
         ("v0", 0),
         ("v8", 8),
-        DEFAULT=8
+        DEFAULT=8, EDITABLE=False
         ),
-    Pointer32("atree_infos_pointer"),
+    Pointer32("atree_infos_pointer", VISIBLE=False),
     Switch("atree_list_header",
         CASE=".version.enum_name",
         CASES=dict(
