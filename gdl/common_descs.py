@@ -116,8 +116,8 @@ rgba_uint8 = QStruct("",
     UInt8("r"), UInt8("g"), UInt8("b"), UInt8("a"),
     ORIENT='h', WIDGET=ColorPickerFrame
     )
-float_lower_upper = QStruct("",
-    Float('lower'), Float('upper'),
+float_min_max = QStruct("",
+    Float('min'), Float('max'),
     ORIENT='h'
     )
 stat_range = QStruct("",
@@ -262,7 +262,7 @@ damages_lump = Lump('damages',
         ),
     )
 
-psys_flags = Bool32("flags",
+particle_system_flags = Bool32("flags",
     ("dynamic",  0x1),
     ("oneshot",  0x2),
     ("forever",  0x4),
@@ -277,11 +277,11 @@ psys_flags = Bool32("flags",
     ("nozwrite", 0x800),
     )
 
-psys_flag_enables = Bool32("flag_enables",
-    INCLUDE=psys_flags
+particle_system_flag_enables = Bool32("flag_enables",
+    INCLUDE=particle_system_flags
     )
 
-psys_enables = Bool32("enables",
+particle_system_enables = Bool32("enables",
     ("preset",  0x1),
     ("maxp",    0x2),
     ("maxdir",  0x4),
@@ -304,38 +304,53 @@ psys_enables = Bool32("enables",
     ("e_delay", 0x80000),
     )
 
-psys_struct = Struct("psys",
-    UInt32("version"),
+particle_system = Struct("particle_system",
+    UEnum32("version",
+        ("v257", 257),
+        DEFAULT=257
+        ),
     SInt16("preset"),
     SInt8("id"),
     SInt8("dummy"),
-    psys_flags,
-    psys_flag_enables,
-    psys_enables,
+    particle_system_flags,
+    particle_system_flag_enables,
+    particle_system_enables,
     SInt32("maxp"),
     UInt32("maxdir"),
     UInt32("maxpos"),
-    QStruct("e_lifefade", INCLUDE=float_lower_upper),
-    QStruct("p_lifefade", INCLUDE=float_lower_upper),
+    QStruct("e_lifefade", INCLUDE=float_min_max),
+    QStruct("p_lifefade", INCLUDE=float_min_max),
     Pad(4*2),
     Float("e_angle"),
     SInt32("p_texcnt"),
     StrNntLatin1("p_texname", SIZE=32),
     QStruct("e_dir", INCLUDE=ijk_float),
     QStruct("e_vol", INCLUDE=xyz_float),
-    QStruct("e_rate", INCLUDE=ijkw_float),
+    QStruct("e_rate",
+        Float("r0"),
+        Float("r1"),
+        Float("r2"),
+        Float("r3"),
+        ),
     Float("e_rate_rand"),
     Float("p_gravity"),
     Float("p_drag"),
     Float("p_speed"),
-    Array("p_colors",
-        SUB_STRUCT=QStruct("color", INCLUDE=rgba_uint8),
-        SIZE=4
+    Struct("p_colors",
+        QStruct("c0", INCLUDE=rgba_uint8),
+        QStruct("c1", INCLUDE=rgba_uint8),
+        QStruct("c2", INCLUDE=rgba_uint8),
+        QStruct("c3", INCLUDE=rgba_uint8),
         ),
-    FloatArray("p_widths", SIZE=4*4),
+    QStruct("p_widths",
+        Float("w0"),
+        Float("w1"),
+        Float("w2"),
+        Float("w3"),
+        ),
     Float("e_delay"),
     Pad(4*3 + 4*4*6 + 4*3),
-    UInt32("checksum"),
+    UInt32("checksum"),  # TODO: figure out how this is calculated if necessary
     SIZE=312
     )
 
