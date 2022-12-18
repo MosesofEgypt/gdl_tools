@@ -74,23 +74,23 @@ obj_anim = Struct("obj_anim",
 anim_seq_info = Struct("anim_seq_info",
     Bool16("type",
         # these are the flags that are set across all animation files
-        ("unknown0", 1<<0),
-        ("unknown1", 1<<1),
-        ("unknown2", 1<<2),
+        ("rot_x_data", 1<<0),
+        ("rot_y_data", 1<<1),
+        ("rot_z_data", 1<<2),
 
-        ("unknown4", 1<<4),
-        ("unknown5", 1<<5),
-        ("unknown6", 1<<6),
+        ("pos_x_data", 1<<4),
+        ("pos_y_data", 1<<5),
+        ("pos_z_data", 1<<6),
 
-        ("unknown8", 1<<8),
-        ("unknown9", 1<<9),
-        ("unknown10", 1<<10),
+        ("scale_x_data", 1<<8),
+        ("scale_y_data", 1<<9),
+        ("scale_z_data", 1<<10),
 
-        ("unknown13", 1<<13),
-        ("unknown14", 1<<14),
+        ("is_compressed", 1<<13),
+        ("unknown", 1<<14),
         ),
     UInt16("size"),  # NOTE: only ever seen values 0-9
-    UInt32("anim_index"),
+    UInt32("data_offset"),
     SIZE=8
     )
 
@@ -169,13 +169,12 @@ anode_info = Struct("anode_info",
     # NOTE: MB == multi-branch???
     StrNntLatin1("mb_desc", SIZE=32),
     QStruct("init_pos", INCLUDE=xyz_float),
-    SEnum16("type",
-        # NOTE: Might be MBNODE_TYPE ????
-        "unknown0",
-        "unknown1",
-        "unknown2",
-        "unknown3",
-        "unknown4",
+    SEnum16("anim_type",
+        "null",
+        "skeletal",
+        "object",
+        "texture",
+        "particle_system",
         ),
     Bool16("flags",
         # TODO: check if this is set in conjunction with mb_flags
