@@ -1,5 +1,6 @@
 from supyr_struct.defs.tag_def import TagDef
 from supyr_struct.defs.common_descs import *
+from .objs.texdef import TexdefPs2Tag
 from ..field_types import *
 
 def get(): return texdef_ps2_def
@@ -95,5 +96,5 @@ texdef_ps2_def = TagDef("texdef",
         SUB_STRUCT=bitmap_block
         ),
 
-    endian="<", ext=".ps2"
+    endian="<", ext=".ps2", tag_cls=TexdefPs2Tag
     )
