@@ -87,7 +87,7 @@ anim_seq_info = Struct("anim_seq_info",
         ("scale_z_data", 1<<10),
 
         ("is_compressed", 1<<13),
-        ("unknown", 1<<14),
+        ("unknown", 1<<14), # test when this is set(maybe related to scale?)
         ),
     UInt16("size"),  # NOTE: only ever seen values 0-9
     UInt32("data_offset"),
@@ -150,7 +150,17 @@ atree_seq = Struct("atree_seq",
     SInt16("fix_pos", VISIBLE=False), # always 0
     SInt16("texmod_count"),
     Bool16("flags",
-        "unknown" # yes, only one flag. idky
+        # NOTES:
+        #   only set if not repeating
+        #   very rarely set(only 0.873% of animations)
+        #   only set in these atree sequences(and it is ALWAYS set for them):
+        #     EXIT_PORTAL: ACTIVE3
+        #     FORCEF: ONB
+        #     FORCEF_L: ONB
+        #     FORCEF_S: ONB
+        #     TRIGGER2: OFFA
+        #     TRIGGER3: OFFA
+        "unknown"
         ),
     SInt32("texmod_index", DEFAULT=-1),
     SIZE=48,
@@ -177,30 +187,34 @@ anode_info = Struct("anode_info",
         "particle_system",
         ),
     Bool16("flags",
-        # TODO: check if this is set in conjunction with mb_flags
-        "unknown" # yes, only one flag. idky
+        # yes, only one flag. idky
+        "unknown"  # always set for object, particle_system, and texture
+        #            sometimes set/unset for skeletal and null
         ),
     Bool32("mb_flags",
         # these are the flags that are set across all animation files
-        ("unknown6", 1<<6),
-        ("unknown7", 1<<7),
+        # its possible for no flags to be set on all node types
+        ("unknown6", 1<<6), # object, skeletal, and texture
+        ("unknown7", 1<<7), # all anim types
 
-        ("unknown11", 1<<11),
-        ("unknown12", 1<<12),
-        ("unknown13", 1<<13),
+        ("unknown11", 1<<11), # all anim types(set alone in null, object, skeletal, and texture)
+        ("unknown12", 1<<12), # all anim types
+        ("unknown13", 1<<13), # object, skeletal, and texture
 
-        ("unknown15", 1<<15),
-        ("unknown19", 1<<19),
+        ("unknown15", 1<<15), # null and skeletal
 
-        ("unknown22", 1<<22),
-        ("unknown23", 1<<23),
-        ("unknown24", 1<<24),
+        ("unknown19", 1<<19), # all anim types
 
-        ("unknown26", 1<<26),
-        ("unknown27", 1<<27),
+        # all flags below not set in particle system
+        ("unknown22", 1<<22), # all anim types
+        ("unknown23", 1<<23), # all anim types
+        ("unknown24", 1<<24), # null, skeletal, and texture
 
-        ("unknown29", 1<<29),
-        ("unknown30", 1<<30),
+        ("unknown26", 1<<26), # all anim types
+        ("unknown27", 1<<27), # skeletal, and texture
+
+        ("unknown29", 1<<29), # object
+        ("unknown30", 1<<30), # skeletal
         ),
     SInt32("anim_seq_info_offset"),
     SInt32("parent_index", DEFAULT=-1),
