@@ -84,7 +84,7 @@ class G3DModel():
         self.colors = []
 
         self.lod_ks   = {c.DEFAULT_INDEX_KEY: c.DEFAULT_MOD_LOD_K}
-        self.all_tris = {c.DEFAULT_INDEX_KEY: []}
+        self.tri_lists = {c.DEFAULT_INDEX_KEY: []}
         
         self.all_dont_draws   = {}
         self.all_vert_maxs    = {}
@@ -97,7 +97,7 @@ class G3DModel():
     def make_strips(self):
         '''load the triangles into the stripifier, calculate
         strips, and link them together as best as possible'''
-        self.stripifier.load_mesh(self.all_tris)
+        self.stripifier.load_mesh(self.tri_lists)
         self.stripifier.make_strips()
         self.stripifier.link_strips()
 
@@ -379,19 +379,19 @@ class G3DModel():
                 start_v += len(dont_draw) + 2
 
             # add the imported data to the class
-            self.all_tris.setdefault(idx_key, [])
+            self.tri_lists.setdefault(idx_key, [])
             self.verts.extend(verts)
             self.norms.extend(norms)
             self.colors.extend(colors)
             self.uvs.extend(uvs)
             self.lm_uvs.extend(lm_uvs)
-            self.all_tris[idx_key].extend(tris)
+            self.tri_lists[idx_key].extend(tris)
 
             self.bnd_rad = max(sqrt(bnd_rad_square), self.bnd_rad)
 
             # if nothing was imported, remove the triangles
-            if len(self.all_tris.get(idx_key, [None])) == 0:
-                del self.all_tris[idx_key]
+            if len(self.tri_lists.get(idx_key, [None])) == 0:
+                del self.tri_lists[idx_key]
 
     def import_obj(self, input_lines, source_file_hash=b'\x00'*16):
         # when importing an obj, we have to clear the existing data 
@@ -403,7 +403,7 @@ class G3DModel():
         idx_key  = c.DEFAULT_INDEX_KEY
 
         bnd_rad_square = 0.0
-        tris = self.all_tris[idx_key]
+        tris = self.tri_lists[idx_key]
 
         # collect all all tris, verts, uvw, normals, and texture indexes
         for line in input_lines:
@@ -441,10 +441,10 @@ class G3DModel():
                 idx_key = (tex_name, lm_name)
                 # make a new triangle block if one for
                 # this material doesnt already exist
-                if idx_key not in self.all_tris:
-                    self.all_tris[idx_key] = []
+                if idx_key not in self.tri_lists:
+                    self.tri_lists[idx_key] = []
                     self.lod_ks.setdefault(idx_key, c.DEFAULT_MOD_LOD_K)
-                tris = self.all_tris[idx_key]
+                tris = self.tri_lists[idx_key]
             elif line[0:2] == 'vt':
                 line = [v.strip() for v in line[2:].split(' ') if v]
                 u, v = float(line[0]), 1 - float(line[1])
@@ -478,8 +478,8 @@ class G3DModel():
         self.source_file_hash = source_file_hash
 
         # if no untextured triangles exist, remove the entries
-        if len(self.all_tris.get(c.DEFAULT_INDEX_KEY, [None])) == 0:
-            del self.all_tris[c.DEFAULT_INDEX_KEY]
+        if len(self.tri_lists.get(c.DEFAULT_INDEX_KEY, [None])) == 0:
+            del self.tri_lists[c.DEFAULT_INDEX_KEY]
 
     def export_g3d(self, output_buffer, headerless=False):
         vert_data = self.stripifier.vert_data
@@ -738,8 +738,8 @@ class G3DModel():
         obj_str += '\n'
 
         seen_bitmaps = set()
-        for idx_key in sorted(self.all_tris):
-            if not self.all_tris[idx_key]:
+        for idx_key in sorted(self.tri_lists):
+            if not self.tri_lists[idx_key]:
                 continue
 
             for bitmap_name in idx_key:
@@ -767,8 +767,8 @@ class G3DModel():
 
         # collect all all tris, verts, uvw, normals, and texture indexes
         i = 0
-        for idx_key in sorted(self.all_tris):
-            tris = self.all_tris[idx_key]
+        for idx_key in sorted(self.tri_lists):
+            tris = self.tri_lists[idx_key]
             if not tris:
                 continue
 

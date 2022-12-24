@@ -59,8 +59,8 @@ def get_comp_positions_size(*args, parent=None, new_value=None, **kwargs):
     return 0 if (new_value or not parent) or parent.parent.comp_pos_pointer == 0 else 256 * 4
 
 
-def get_comp_units_size(*args, parent=None, new_value=None, **kwargs):
-    return 0 if (new_value or not parent) or parent.parent.comp_unit_pointer == 0 else 256 * 4
+def get_comp_scales_size(*args, parent=None, new_value=None, **kwargs):
+    return 0 if (new_value or not parent) or parent.parent.comp_scale_pointer == 0 else 256 * 4
 
 
 obj_anim = Struct("obj_anim",
@@ -86,10 +86,10 @@ anim_seq_info = Struct("anim_seq_info",
         ("scale_y_data", 1<<9),
         ("scale_z_data", 1<<10),
 
-        ("is_compressed", 1<<13),
-        ("unknown", 1<<14), # test when this is set(maybe related to scale?)
+        ("compressed_data", 1<<13),
+        ("unknown", 1<<14), # seems to be completely independent of other flags
         ),
-    UInt16("size"),  # NOTE: only ever seen values 0-9
+    UInt16("size"), # number of transform axis types(sum flag counts 0-9)
     UInt32("data_offset"),
     SIZE=8
     )
@@ -97,7 +97,7 @@ anim_seq_info = Struct("anim_seq_info",
 anim_header = Struct("anim_header",
     Pointer32("comp_ang_pointer", VISIBLE=False),
     Pointer32("comp_pos_pointer", VISIBLE=False),
-    Pointer32("comp_unit_pointer", VISIBLE=False),
+    Pointer32("comp_scale_pointer", VISIBLE=False),
     Pointer32("blocks_pointer", VISIBLE=False),
     Pointer32("sequence_info_pointer", VISIBLE=False),
     SInt32("sequence_count", EDITABLE=False, VISIBLE=False),
@@ -110,8 +110,8 @@ anim_header = Struct("anim_header",
         FloatArray("comp_positions",
             POINTER="..comp_pos_pointer", SIZE=get_comp_positions_size
             ),
-        FloatArray("comp_units",
-            POINTER="..comp_unit_pointer", SIZE=get_comp_units_size
+        FloatArray("comp_scales",
+            POINTER="..comp_scale_pointer", SIZE=get_comp_scales_size
             ),
         Array("anim_seq_infos",
             SUB_STRUCT=anim_seq_info,
@@ -120,9 +120,18 @@ anim_header = Struct("anim_header",
                 *a, pointer_field_names=[
                     ".....offset", "....anim_header_pointer", "..sequence_info_pointer"
                     ], **kw
-                ),
-            ),
+                )
+            )
         ),
+        # TODO
+        #UInt8Array("block_data",
+        #    SIZE=get_block_data_size,
+        #    POINTER=lambda *a, **kw: get_atree_data_array_pointer(
+        #        *a, pointer_field_names=[
+        #            ".....offset", "....anim_header_pointer", "...anim_header.blocks_pointer"
+        #            ], **kw
+        #        ),
+        #    ),
     )
 
 obj_anim_header = Struct("obj_anim_header",
@@ -135,7 +144,7 @@ obj_anim_header = Struct("obj_anim_header",
             *a, pointer_field_names=[
                 "....offset", "...obj_anim_header_pointer", ".obj_anim_pointer", 
                 ], **kw
-            ),
+            )
         )
     )
 
@@ -164,15 +173,6 @@ atree_seq = Struct("atree_seq",
         ),
     SInt32("texmod_index", DEFAULT=-1),
     SIZE=48,
-    # TODO
-    #STEPTREE=UInt8Array("block_data",
-    #    SIZE=get_block_data_size,
-    #    POINTER=lambda *a, **kw: get_atree_data_array_pointer(
-    #        *a, pointer_field_names=[
-    #            ".....offset", "....anim_header_pointer", "...anim_header.blocks_pointer"
-    #            ], **kw
-    #        ),
-    #    ),
     )
 
 anode_info = Struct("anode_info",
@@ -186,37 +186,41 @@ anode_info = Struct("anode_info",
         "texture",
         "particle_system",
         ),
+    # NOTE: maybe flags relate to things like "is_dynamic_light"
     Bool16("flags",
         # yes, only one flag. idky
         "unknown"  # always set for object, particle_system, and texture
-        #            sometimes set/unset for skeletal and null
+        #            set in 31.86% of skeletal and 23.83% of null
         ),
     Bool32("mb_flags",
         # these are the flags that are set across all animation files
         # its possible for no flags to be set on all node types
-        ("unknown6", 1<<6), # object, skeletal, and texture
-        ("unknown7", 1<<7), # all anim types
+        ("unknown6", 1<<6), # 0.79% of object, skeletal, and texture
+        ("unknown7", 1<<7), # 9.19% of all anim types
 
-        ("unknown11", 1<<11), # all anim types(set alone in null, object, skeletal, and texture)
-        ("unknown12", 1<<12), # all anim types
-        ("unknown13", 1<<13), # object, skeletal, and texture
+        ("unknown11", 1<<11), # 13.20% of all anim types(set alone in null, object, skeletal, and texture)
+        ("unknown12", 1<<12), # 15.32% of all anim types
+        ("unknown13", 1<<13), # 0.13% of object, skeletal, and texture
 
-        ("unknown15", 1<<15), # null and skeletal
+        ("unknown15", 1<<15), # 1.62% of null and skeletal
 
-        ("unknown19", 1<<19), # all anim types
+        ("unknown19", 1<<19), # 8.25% of all anim types
 
         # all flags below not set in particle system
-        ("unknown22", 1<<22), # all anim types
-        ("unknown23", 1<<23), # all anim types
-        ("unknown24", 1<<24), # null, skeletal, and texture
+        ("unknown22", 1<<22), # 2.32% of all anim types
+        ("unknown23", 1<<23), # 2.31% of all anim types
+        ("unknown24", 1<<24), # 1.02% of null, skeletal, and texture
 
-        ("unknown26", 1<<26), # all anim types
-        ("unknown27", 1<<27), # skeletal, and texture
+        ("unknown26", 1<<26), # 7.41% of all anim types
+        ("unknown27", 1<<27), # 0.17% of skeletal, and texture
 
-        ("unknown29", 1<<29), # object
-        ("unknown30", 1<<30), # skeletal
+        ("unknown29", 1<<29), # 0.01% of object
+        ("unknown30", 1<<30), # 0.007% of skeletal
         ),
     SInt32("anim_seq_info_offset"),
+    # anim_seq_info_offset points to an array of containing one
+    # anode_seq_info for each animation in the atree_sequences.
+    # data_offset of anim_seq_info points to animation data
     SInt32("parent_index", DEFAULT=-1),
     SIZE=60,
     )
