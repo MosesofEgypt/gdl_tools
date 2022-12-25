@@ -1,74 +1,40 @@
+from . import scene_animation
 
-class SceneNode:
-    _name = ""
 
-    _pos_xyz = (0, 0, 0)
-    _rot_ypr = (0, 0, 0)
-    _scale_xyz = (0, 0, 0)
+class SceneObject:
+    _actor_animations = ()
+    _shape_morph_animations = ()
+    _texture_swap_animations = ()
+    
+    def __init__(self, **kwargs):
+        self._actor_animations = {}
+        self._shape_morph_animations = {}
+        self._texture_swap_animations = {}
 
-    _parent = None
-    _children = None
-
-    def __init__(self, *args, **kwargs):
+    def create_instance(self):
         pass
 
-    @property
-    def children(self): pass
+    def add_animation(self, animation):
+        animations = None
+        if isinstance(animation, scene_animation.ActorAnimation):
+            animations = self._actor_animations
+        elif isinstance(animation, scene_animation.ShapeMorphAnimation):
+            animations = self._shape_morph_animations
+        elif isinstance(animation, scene_animation.TextureSwapAnimation):
+            animations = self._texture_swap_animations
+        else:
+            raise TypeError(f"Unknown animation type {type(animation)}")
 
-    @property
-    def parent(self):
-        return self.parent
+        if animation.name in animations:
+            raise ValueError(f"Animation with name '{animation.name}' already exists")
 
-    @parent.setter
-    def parent(self, parent):
-        self.parent = parent
+        animations[animaton.name] = animation
 
-    def add_child(self, child):
+    def play_animation(self, instance_id, anim_name):
         pass
 
-    def get_child(self, child_name):
+    def stop_animation(self, instance_id, anim_name):
         pass
 
-    def del_child(self, child_name):
-        pass
-
-
-class ParticleSystemNode(SceneNode):
-    _texture = None
-    # TODO: fill in all particle system parameters
-
-
-class CollisionNode(SceneNode):
-    _collision_model = None
-
-
-class _AnimatedNode(SceneNode):
-    _curr_frame = 0
-
-
-class TextureNode(_AnimatedNode):
-    _curr_texture = None
-
-
-class SkeletonNode(_AnimatedNode):
-    _render_model = None
-
-
-class ShapeMorphNode(_AnimatedNode):
-    _curr_render_model = None
-
-
-class SceneObject(SceneNode):
-    _animation_states = ()
-
-    def __init__(self, *args, **kwargs):
-        pass
-
-    def start_animation(self, anim_name):
-        pass
-
-    def set_animation_state(self, anim_name, state_info):
-        pass
-
-    def stop_animation(self, anim_name):
+    def set_animation_time(self, instance_id, anim_name, frame_time):
         pass

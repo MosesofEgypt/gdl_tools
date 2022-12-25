@@ -159,17 +159,7 @@ atree_seq = Struct("atree_seq",
     SInt16("fix_pos", VISIBLE=False), # always 0
     SInt16("texmod_count"),
     Bool16("flags",
-        # NOTES:
-        #   only set if not repeating
-        #   very rarely set(only 0.873% of animations)
-        #   only set in these atree sequences(and it is ALWAYS set for them):
-        #     EXIT_PORTAL: ACTIVE3
-        #     FORCEF: ONB
-        #     FORCEF_L: ONB
-        #     FORCEF_S: ONB
-        #     TRIGGER2: OFFA
-        #     TRIGGER3: OFFA
-        "unknown"
+        "play_reversed"
         ),
     SInt32("texmod_index", DEFAULT=-1),
     SIZE=48,
@@ -186,12 +176,12 @@ anode_info = Struct("anode_info",
         "texture",
         "particle_system",
         ),
-    # NOTE: maybe flags relate to things like "is_dynamic_light"
     Bool16("flags",
-        # yes, only one flag. idky
-        "unknown"  # always set for object, particle_system, and texture
-        #            set in 31.86% of skeletal and 23.83% of null
+        "no_object_def" # seems to indicate that there is no object def to locate for this node
+        #           always set for object, particle_system, and texture
+        #           set in 31.86% of skeletal and 23.83% of null
         ),
+    # NOTE: maybe flags relate to things like "is_dynamic_light"
     Bool32("mb_flags",
         # these are the flags that are set across all animation files
         # its possible for no flags to be set on all node types

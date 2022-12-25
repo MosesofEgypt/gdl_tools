@@ -18,5 +18,10 @@ class Shader:
     _lm_tex   = None
     _diff_tex = None
 
+    _diff_tex_name = None
+
     def __init__(self, *args, **kwargs):
+        pass
+
+    def set_diffuse_texture(self, texture_name):
         pass
