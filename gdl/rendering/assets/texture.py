@@ -10,7 +10,7 @@ class Texture:
 
         if not isinstance(self._p3d_texture, panda3d.core.Texture):
             raise TypeError(
-                f"shader must be of type panda3d.core.Texture, not {type(self._p3d_texture)}"
+                f"p3d_texture must be of type panda3d.core.Texture, not {type(self._p3d_texture)}"
                 )
 
     @property

@@ -17,9 +17,9 @@ class Geometry:
             raise TypeError(
                 f"shader must be of type GeometryShader, not {type(self._shader)}"
                 )
-        elif not isinstance(self._p3d_geometry, panda3d.core.Geom):
+        elif not isinstance(self._p3d_geometry, panda3d.core.GeomNode):
             raise TypeError(
-                f"shader must be of type panda3d.core.Geom, not {type(self._p3d_geometry)}"
+                f"p3d_geometry must be of type panda3d.core.GeomNode, not {type(self._p3d_geometry)}"
                 )
 
     @property
@@ -34,29 +34,43 @@ class Geometry:
 class Model:
     _name = ""
     _geometries = ()
-    _bounding_radius = 0.0
+    _bound_rad = 0.0
+    _p3d_model = None
 
     def __init__(self, **kwargs):
-        self._name = kwargs.pop("name", self._name)
-        self._bounding_radius = kwargs.pop("bounding_radius", self._bounding_radius)
-        self._geometries = []
+        self._name       = kwargs.pop("name", self._name)
+        self._p3d_model  = kwargs.pop("p3d_model", self._p3d_model)
+        self._bound_rad  = kwargs.pop("bounding_radius", self._bound_rad)
+        self._geometries = {}
+
+        if not isinstance(self._p3d_model, panda3d.core.ModelNode):
+            raise TypeError(
+                f"p3d_model must be of type panda3d.core.ModelNode, not {type(self._p3d_model)}"
+                )
 
     def add_geometry(self, geometry):
         if not isinstance(geometry, Geometry):
             raise TypeError(f"geometry must be of type Geometry, not {type(geometry)}")
+        elif id(geometry) in self._geometries:
+            return
 
-        self._geometries.append(geometry)
+        self._geometries[id(geometry)] = geometry
+        self.p3d_model.addChild(geometry.p3d_geometry)
 
     @property
     def name(self): return self._name.upper()
 
     @property
+    def p3d_model(self):
+        return self._p3d_model
+
+    @property
     def geometries(self):
-        return tuple(self._geometries)
+        return tuple(self._geometries.values())
 
     @property
     def bounding_radius(self):
-        return self._bounding_radius
+        return self._bound_rad
     @bounding_radius.setter
     def bounding_radius(self, val):
-        self._bounding_radius = float(val)
+        self._bound_rad = float(val)

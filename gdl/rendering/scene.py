@@ -32,34 +32,17 @@ class Scene(ShowBase):
         render.setLight(alnp)
 
         self.accept("escape", sys.exit, [0])
-        self.accept("w", self.zoomIn)
-        self.accept("s", self.zoomOut)
-        self.accept("a", self.moveLeft)
-        self.accept("d", self.moveRight)
 
         self._scene_objects = {}
 
         objects_data = load_objects_dir_files(objects_dir) if objects_dir else None
         objects_data.pop("worlds_tag")
 
-        #scene_object = load_scene_actor_from_tags(objects_dir, **objects_data)
-        scene_object = load_scene_object_from_tags(objects_dir, **objects_data)
+        scene_object = load_scene_actor_from_tags(object_name, **objects_data)
         self.add_scene_object(scene_object)
 
         for scene_object in self.scene_objects.values():
-            scene_object.p3d_node.hprInterval(3, (360, 360, 360)).loop()
-
-    def zoomIn(self):
-        camera.setY(camera.getY() * 0.9)
-
-    def zoomOut(self):
-        camera.setY(camera.getY() * 1.2)
-
-    def moveLeft(self):
-        camera.setX(camera.getX() + 1)
-
-    def moveRight(self):
-        camera.setX(camera.getX() - 1)
+            NodePath(scene_object.p3d_node).hprInterval(3, (360, 0, 0)).loop()
 
     def add_scene_object(self, scene_obj):
         if not isinstance(scene_obj, scene_object.SceneObject):
@@ -67,9 +50,13 @@ class Scene(ShowBase):
         elif scene_obj.name in self._scene_objects:
             raise ValueError(f"SceneObject with name '{scene_obj.name}' already exists")
 
+        print("Adding to scene:")
+        for child in NodePath(scene_obj.p3d_node).findAllMatches('**'):
+            print(child)
+
         self._scene_objects[scene_obj.name] = scene_obj
 
-        scene_obj.p3d_node.reparentTo(self._scene_renderer)
+        render.node().addChild(scene_obj.p3d_node)
 
     @property
     def scene_objects(self):
