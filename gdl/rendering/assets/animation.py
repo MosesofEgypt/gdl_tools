@@ -1,5 +1,4 @@
 from . import model
-from . import skeleton
 from . import texture
 
 
@@ -63,7 +62,7 @@ class Animation:
 
 
 class ActorAnimation(Animation):
-    _frame_data_cls = actor.ActorSkeleton
+    pass
 
 
 class ShapeMorphAnimation(Animation):

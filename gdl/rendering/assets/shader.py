@@ -1,5 +1,5 @@
 
-class Shader:
+class GeometryShader:
     alpha = False
     sort  = False
     sort_alpha = False
@@ -15,13 +15,15 @@ class Shader:
     lmap_lit = False
     dyn_lit  = False
 
-    _lm_tex   = None
-    _diff_tex = None
+    _lm_textures = ()
+    _diff_texture = None
 
-    _diff_tex_name = None
+    _diff_texture_name = None
 
     def __init__(self, *args, **kwargs):
-        pass
+        self._lm_textures = {}
 
     def set_diffuse_texture(self, texture_name):
+        # TODO: implement texture switching through changing shader
+        # input value that controls what texture to display
         pass
