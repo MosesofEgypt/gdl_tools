@@ -15,7 +15,6 @@ def load_geom_from_g3d_model(g3d_model):
 
     verts  = GeomVertexWriter(vdata, 'vertex')
     norms  = GeomVertexWriter(vdata, 'normal')
-    colors = GeomVertexWriter(vdata, 'color')
     uvs    = GeomVertexWriter(vdata, 'texcoord')
 
     for x, y, z in g3d_model.verts:
@@ -25,11 +24,18 @@ def load_geom_from_g3d_model(g3d_model):
     for i, j, k in g3d_model.norms:
         norms.addData3f(i, k, j)
 
-    for argb in g3d_model.colors:
-        colors.addData4f(*argb)
+    for u, v in g3d_model.uvs:
+        uvs.addData2f(u, v)
 
-    for uv in g3d_model.uvs:
-        uvs.addData2f(*uv)
+    if g3d_model.colors:
+        colors = GeomVertexWriter(vdata, 'color')
+        for r, g, b, a in g3d_model.colors:
+            colors.addData4f(r, g, b, a)
+
+    if g3d_model.lm_uvs:
+        lmuvs = GeomVertexWriter(vdata, 'texcoord')
+        for s, t in g3d_model.lm_uvs:
+            lmuvs.addData2f(s, t)
 
     tris = GeomTriangles(Geom.UHDynamic)
     for tri_list in g3d_model.tri_lists.values():
@@ -43,7 +49,9 @@ def load_geom_from_g3d_model(g3d_model):
     return geometry
 
 
-def load_model_from_objects_tag(objects_tag, model_name):
+def load_model_from_objects_tag(
+        objects_tag, model_name, textures_filepath=None
+        ):
     model_name = model_name.upper().strip()
     obj_index = -1
 
@@ -52,30 +60,32 @@ def load_model_from_objects_tag(objects_tag, model_name):
             obj_index = b.obj_index
             break
 
-    if obj_index < 0:
-        return
+    if obj_index >= 0:
+        _, bitmap_names = objects_tag.get_cache_names()
+        obj = objects_tag.data.objects[obj_index]
 
-    _, bitmap_names = objects_tag.get_cache_names()
-    obj = objects_tag.data.objects[obj_index]
+        flags    = getattr(obj, "flags", None)
+        subobjs  = getattr(obj.data, "sub_objects", ())
+        has_lmap = getattr(flags, "lmap", False)
+        bnd_rad  = obj.bnd_rad
 
-    flags    = getattr(obj, "flags", None)
-    subobjs  = getattr(obj.data, "sub_objects", ())
-    has_lmap = getattr(flags, "lmap", False)
-
-    datas = [ m.data for m in obj.data.sub_object_models ]
-    tex_names = [
-        bitmap_names.get(h.tex_index, {}).get('name')
-        for h in (obj.sub_object_0, *subobjs)
-        ]
-    lm_names = [
-        bitmap_names.get(h.lm_index, {}).get('name') if has_lmap else ""
-        for h in (obj.sub_object_0, *subobjs)
-        ]
+        datas = [ m.data for m in obj.data.sub_object_models ]
+        tex_names = [
+            bitmap_names.get(h.tex_index, {}).get('name')
+            for h in (obj.sub_object_0, *subobjs)
+            ]
+        lm_names = [
+            bitmap_names.get(h.lm_index, {}).get('name') if has_lmap else ""
+            for h in (obj.sub_object_0, *subobjs)
+            ]
+    else:
+        bnd_rad = 0
+        datas = tex_names = lm_names = ()
 
     model = Model(
         name=model_name,
         p3d_model=ModelNode(model_name),
-        bounding_radius=obj.bnd_rad
+        bounding_radius=bnd_rad
         )
     for data, tex_name, lm_name in zip(datas, tex_names, lm_names):
         g3d_model = G3DModel()

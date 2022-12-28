@@ -1,11 +1,10 @@
-from pprint import pprint
 from panda3d.core import PandaNode, LVecBase3f
 
 from ..assets.scene_object import SceneObject
 from .model import load_model_from_objects_tag
 
 
-def load_nodes_from_anim_tag(anim_tag, object_name):
+def load_nodes_from_anim_tag(object_name, anim_tag):
     anodes = ()
     for atree in anim_tag.data.atrees:
         if atree.name.upper().strip() == object_name.upper().strip():
@@ -68,13 +67,16 @@ def get_model_node_name_map(object_name, anim_tag):
 
 
 def load_scene_object_from_tags(
-        object_name, anim_tag, objects_tag=None, textures_filepath=None
+        object_name, *, anim_tag, objects_tag=None, textures_filepath=None
         ):
-    skeleton = load_nodes_from_anim_tag(anim_tag, object_name)
+    object_name = object_name.upper().strip()
+    skeleton = load_nodes_from_anim_tag(object_name, anim_tag)
     scene_object = SceneObject(name=object_name, p3d_node=skeleton)
 
     for model_name, node_name in zip(*get_model_node_name_map(object_name, anim_tag)):
-        model = load_model_from_objects_tag(objects_tag, model_name)
+        model = load_model_from_objects_tag(
+            objects_tag, model_name, textures_filepath
+            )
         scene_object.attach_model(model, node_name)
 
     return scene_object

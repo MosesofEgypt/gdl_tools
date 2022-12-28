@@ -15,6 +15,8 @@ class SceneObject:
     def __init__(self, **kwargs):
         self._name = kwargs.pop("name", self._name)
         self._p3d_node = kwargs.pop("p3d_node", self._p3d_node)
+        if self._p3d_node is None:
+            self._p3d_node = panda3d.core.PandaNode(self.name)
 
         self._shape_morph_animations = {}
         self._texture_swap_animations = {}
@@ -31,11 +33,14 @@ class SceneObject:
     @property
     def texture_swap_animations(self): return dict(self._texture_swap_animations)
 
-    def attach_model(self, model, node_name):
+    def attach_model(self, model, node_name=""):
         node_name = node_name.upper().strip()
-        parent_node_path = panda3d.core.NodePath(self.p3d_node).find("**/" + node_name)
+        parent_node_path = panda3d.core.NodePath(self.p3d_node)
 
-        if parent_node_path.isEmpty() and parent_node_path.parent.isEmpty():
+        if node_name and node_name != self.p3d_node.name.lower().strip():
+            parent_node_path = parent_node_path.find("**/" + node_name)
+
+        if parent_node_path is None:
             # TODO: raise error since node doesnt exist
             return
 
@@ -45,9 +50,6 @@ class SceneObject:
 
         node_model_collection[model.name] = model
         parent_node_path.node().add_child(model.p3d_model)
-
-    def create_instance(self):
-        pass
 
     def add_shape_morph_animation(self, animation):
         if not isinstance(animation, scene_animation.ShapeMorphAnimation):

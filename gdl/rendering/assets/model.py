@@ -12,6 +12,8 @@ class Geometry:
         self._p3d_geometry = kwargs.pop("p3d_geometry", self._p3d_geometry)
         if self._shader is None:
             self._shader = shader.GeometryShader()
+        if self._p3d_geometry is None:
+            self._p3d_geometry = panda3d.core.GeomNode()
 
         if not isinstance(self._shader, shader.GeometryShader):
             raise TypeError(
@@ -42,6 +44,8 @@ class Model:
         self._p3d_model  = kwargs.pop("p3d_model", self._p3d_model)
         self._bound_rad  = kwargs.pop("bounding_radius", self._bound_rad)
         self._geometries = {}
+        if self._p3d_model is None:
+            self._p3d_model = panda3d.core.ModelNode(self.name)
 
         if not isinstance(self._p3d_model, panda3d.core.ModelNode):
             raise TypeError(
