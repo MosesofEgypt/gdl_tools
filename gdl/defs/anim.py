@@ -265,12 +265,17 @@ texmod = Struct("texmod",
     SInt16("seq_index"),
     StrNntLatin1("name", SIZE=32),
     StrNntLatin1("source_name", SIZE=32),
-    SInt32("tex_index"),
-    SInt32("source_index"),
-    SInt16("frame_count"),
-    SInt16("start_frame"),
-    SInt32("rate"),
-    SInt32("frame"),
+    SInt32("tex_index"),  # index of texture defining texture swap, or
+                          # texture to scroll horizontally
+    SInt32("source_index"), # if >= 0, first index of texture swap array
+                            # if -1, is horizonal-scroll animation
+    SInt16("frame_count"),  # number of texture swap frames, or
+                            # number of frames to complete one scroll.
+                            # values < 0 mean scroll in opposite direction
+    SInt16("start_frame"),  # unused?
+    SInt32("rate"),  # number of frames to display each texture before swap
+                     # must be nonzero if texture swap animation
+    SInt32("frame"), # texture swap frame to start on
     SIZE=88
     )
 
