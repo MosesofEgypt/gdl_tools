@@ -60,8 +60,8 @@ class Scene(ShowBase):
             self.load_scene(self.objects_dir, object_names=object_names)
 
     def adjust_camera_light(self, amount):
-        self._camera_light_intensity += 1
-        self._camera_light_intensity %= (self._light_levels + amount)
+        self._camera_light_intensity += amount
+        self._camera_light_intensity %= self._light_levels + 1
         self._camera_light.setColor((
             self._camera_light_intensity / self._light_levels,
             self._camera_light_intensity / self._light_levels,
@@ -70,8 +70,8 @@ class Scene(ShowBase):
             ))
 
     def adjust_ambient_light(self, amount):
-        self._ambient_light_intensity += 1
-        self._ambient_light_intensity %= (self._light_levels + amount)
+        self._ambient_light_intensity += amount
+        self._ambient_light_intensity %= self._light_levels + 1
         self._ambient_light.setColor((
             self._ambient_light_intensity / self._light_levels,
             self._ambient_light_intensity / self._light_levels,

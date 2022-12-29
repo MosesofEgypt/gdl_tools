@@ -6,17 +6,10 @@ from . import shader
 class Geometry:
     _shader = None
     _p3d_geometry = None
-        
-    _diff_texture_stage = None
-    _lm_texture_stage   = None
 
     def __init__(self, **kwargs):
         self._shader       = kwargs.pop("shader", self._shader)
         self._p3d_geometry = kwargs.pop("p3d_geometry", self._p3d_geometry)
-        
-        self._diff_texture_stage = panda3d.core.TextureStage('diffuse')
-        self._lm_texture_stage   = panda3d.core.TextureStage('lightmap')
-        self._lm_texture_stage.setTexcoordName("lm")
 
         if self._shader is None:
             self._shader = shader.GeometryShader()
@@ -42,49 +35,7 @@ class Geometry:
         return self._p3d_geometry
 
     def apply_shader(self):
-        # TODO: move most of this into GeometryShader
-        nodepath = panda3d.core.NodePath(self.p3d_geometry)
-        if self.shader.diff_texture:
-            nodepath.setTexture(
-                self._diff_texture_stage,
-                self.shader.diff_texture.p3d_texture
-                )
-
-        if self.shader.lm_texture:
-            nodepath.setTexture(
-                self._lm_texture_stage,
-                self.shader.lm_texture.p3d_texture
-                )
-
-        nodepath.setTransparency(
-            panda3d.core.TransparencyAttrib.MAlpha if self.shader.alpha else
-            panda3d.core.TransparencyAttrib.MNone
-            )
-        if self.shader.chrome:
-            nodepath.setTexGen(
-                self._diff_texture_stage,
-                panda3d.core.TexGenAttrib.MEyeSphereMap
-                )
-        else:
-            nodepath.clearTexGen()
-            
-
-        # ps2 textures use signed alpha channels, so double
-        # the value to achieve the transparency level we want
-        if self.shader.signed_alpha:
-            self._diff_texture_stage.setCombineAlpha(
-                panda3d.core.TextureStage.CMAdd,
-                panda3d.core.TextureStage.CSTexture,
-                panda3d.core.TextureStage.COSrcAlpha,
-                panda3d.core.TextureStage.CSTexture,
-                panda3d.core.TextureStage.COSrcAlpha,
-                )
-        else:
-            self._diff_texture_stage.setCombineAlpha(
-                panda3d.core.TextureStage.CMReplace,
-                panda3d.core.TextureStage.CSTexture,
-                panda3d.core.TextureStage.COSrcAlpha,
-                )
+        self.shader.apply_to_geometry(self.p3d_geometry)
 
 
 class Model:
