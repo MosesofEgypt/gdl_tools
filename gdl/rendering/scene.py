@@ -1,10 +1,12 @@
 import os
 import sys
 import panda3d.egg
+import traceback
+import tkinter.filedialog
 
 from direct.showbase.ShowBase import ShowBase
-from panda3d.core import AmbientLight, DirectionalLight, PointLight
-from panda3d.core import NodePath
+from panda3d.core import AmbientLight, DirectionalLight, PointLight,\
+     NodePath, WindowProperties
 
 from .assets import scene_object
 from .g3d_to_p3d.util import load_objects_dir_files
@@ -14,9 +16,16 @@ from .g3d_to_p3d.scene_world import load_scene_world_from_tags
 
 class Scene(ShowBase):
     _scene_objects = ()
+    _curr_scene_object_name = ""
+    _objects_dir = ""
+
+    _camera_light_intensity = 4
+    _ambient_light_intensity = 1
+    _light_levels = 5
 
     def __init__(self, **kwargs):
-        objects_dir  = kwargs.pop("objects_dir", None)
+        self.objects_dir  = kwargs.pop("objects_dir", None)
+
         object_name  = kwargs.pop("object_name", None)
         object_names = kwargs.pop("object_names", ())
         if object_name:
@@ -25,28 +34,110 @@ class Scene(ShowBase):
         super().__init__()
 
         # Put lighting on the main scene
-        dlight = DirectionalLight('dlight')
-        alight = AmbientLight('alight')
-        dlight.setColor((0.75, 0.75, 0.75, 1))
-        alight.setColor((0.25, 0.25, 0.25, 1))
+        self._camera_light = DirectionalLight('dlight')
+        self._ambient_light = AmbientLight('alight')
+        self.adjust_ambient_light(0)
+        self.adjust_ambient_light(0)
 
-        dlnp = render.attachNewNode(dlight)
-        alnp = render.attachNewNode(alight)
-        dlnp.setHpr(0, -60, 0)
+        dlnp = camera.attachNewNode(self._camera_light)
+        alnp = render.attachNewNode(self._ambient_light)
 
         render.setLight(dlnp)
         render.setLight(alnp)
 
         self.accept("escape", sys.exit, [0])
+        self.accept("a", self.switch_model, [False])
+        self.accept("d", self.switch_model, [True])
+        self.accept("o", self.load_objects, [])
+        self.accept("i", self.import_objects, [])
+        self.accept("l", self.adjust_camera_light, [1])
+        self.accept("k", self.adjust_ambient_light, [1])
 
         self._scene_objects = {}
 
+        if self.objects_dir:
+            self.load_scene(self.objects_dir, object_names=object_names)
+
+    def adjust_camera_light(self, amount):
+        self._camera_light_intensity += 1
+        self._camera_light_intensity %= (self._light_levels + amount)
+        self._camera_light.setColor((
+            self._camera_light_intensity / self._light_levels,
+            self._camera_light_intensity / self._light_levels,
+            self._camera_light_intensity / self._light_levels,
+            1
+            ))
+
+    def adjust_ambient_light(self, amount):
+        self._ambient_light_intensity += 1
+        self._ambient_light_intensity %= (self._light_levels + amount)
+        self._ambient_light.setColor((
+            self._ambient_light_intensity / self._light_levels,
+            self._ambient_light_intensity / self._light_levels,
+            self._ambient_light_intensity / self._light_levels,
+            1
+            ))
+
+    def import_objects(self):
+        objects_dir = tkinter.filedialog.askdirectory(
+            initialdir=self.objects_dir,
+            title="Select the folder containing OBJECTS.PS2/NGC to import"
+            )
         if objects_dir:
-            self.load_scene(objects_dir, object_names=object_names)
+            self.objects_dir = objects_dir
+            self.load_scene(self.objects_dir)
+
+    def load_objects(self):
+        objects_dir = tkinter.filedialog.askdirectory(
+            initialdir=self.objects_dir,
+            title="Select the folder containing OBJECTS.PS2/NGC to load"
+            )
+        if objects_dir:
+            self.clear_scene()
+            self.objects_dir = objects_dir
+            self.load_scene(self.objects_dir)
+
+    def switch_model(self, next_model=True):
+        if not self._scene_objects:
+            return
+
+        model_names = tuple(sorted(self._scene_objects))
+        curr_scene_object = self._scene_objects.get(self._curr_scene_object_name)
+
+        if curr_scene_object:
+            NodePath(curr_scene_object.p3d_node).hide()
+            name_index = model_names.index(self._curr_scene_object_name)
+            name_index += 1 if next_model else -1
+        else:
+            name_index = 0
+
+        self._curr_scene_object_name = model_names[name_index % len(model_names)]
+        NodePath(self._scene_objects[self._curr_scene_object_name].p3d_node).show()
+
+        props = WindowProperties()
+        props.setTitle("Preview: %s" % self._curr_scene_object_name)
+        base.win.requestProperties(props)
+
+    def clear_scene(self):
+        for scene_object_name in tuple(self._scene_objects.keys()):
+            scene_object = self._scene_objects[scene_object_name]
+            NodePath(scene_object.p3d_node).removeNode()
+            del self._scene_objects[scene_object_name]
+
+        props = WindowProperties()
+        props.setTitle("Preview: ")
+        base.win.requestProperties(props)
 
     def load_scene(self, objects_dir, object_names=()):
+        try:
+            self._load_scene(objects_dir, object_names)
+        except Exception:
+            print(traceback.format_exc())
+
+    def _load_scene(self, objects_dir, object_names=()):
         objects_data = load_objects_dir_files(objects_dir) if objects_dir else None
 
+        is_ngc            = objects_data["is_ngc"]
         anim_tag          = objects_data["anim_tag"]
         objects_tag       = objects_data["objects_tag"]
         worlds_tag        = objects_data["worlds_tag"]
@@ -60,19 +151,25 @@ class Scene(ShowBase):
                 name,
                 anim_tag=anim_tag,
                 objects_tag=objects_tag,
-                textures_filepath=textures_filepath
+                textures_filepath=textures_filepath,
+                is_ngc=is_ngc
                 )
             self.add_scene_object(scene_object)
+            NodePath(scene_object.p3d_node).hide()
 
         if worlds_tag:
             scene_world = load_scene_world_from_tags(
                 worlds_tag=worlds_tag,
                 objects_tag=objects_tag,
                 anim_tag=anim_tag,
-                textures_filepath=textures_filepath
+                textures_filepath=textures_filepath,
+                is_ngc=is_ngc
                 )
             self.add_scene_object(scene_world)
-            
+            self._ambient_light_intensity = self._light_levels
+            self.adjust_ambient_light(0)
+
+        self.switch_model()
 
         #for scene_object in self.scene_objects.values():
         #    NodePath(scene_object.p3d_node).hprInterval(10, (360, 0, 0)).loop()

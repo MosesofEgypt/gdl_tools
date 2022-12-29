@@ -2,6 +2,7 @@ from panda3d.core import PandaNode, LVecBase3f, NodePath
 
 from ..assets.scene_world import SceneWorld
 from .model import load_model_from_objects_tag
+from .texture import load_textures_from_objects_tag
 
 
 def _load_nodes_from_worlds_tag(world_objects, parent_p3d_node, child_index, seen):
@@ -40,30 +41,19 @@ def load_nodes_from_worlds_tag(worlds_tag, root_p3d_node):
 
 
 def load_scene_world_from_tags(
-        *, worlds_tag, objects_tag, anim_tag=None, textures_filepath=None
+        *, worlds_tag, objects_tag, anim_tag=None,
+        textures_filepath=None, is_ngc=False
         ):
     scene_world = SceneWorld(name="")
     load_nodes_from_worlds_tag(worlds_tag, scene_world.p3d_node)
 
-    exists_flags = 0
-    missing_flags = 0
+    textures = load_textures_from_objects_tag(
+        objects_tag, textures_filepath, is_ngc
+        )
+
     # load and attach models
-    i = 0
     for world_object in worlds_tag.data.world_objects:
-        model = load_model_from_objects_tag(
-            objects_tag, world_object.name, textures_filepath
-            )
+        model = load_model_from_objects_tag(objects_tag, world_object.name, textures)
+        scene_world.attach_model(model, world_object.name)
 
-        if model:
-            exists_flags |= world_object.flags.data
-            scene_world.attach_model(model, world_object.name)
-
-            #if i > 300:
-            #    break
-            i += 1
-        else:
-            missing_flags |= world_object.flags.data
-
-
-    print(exists_flags, missing_flags)
     return scene_world

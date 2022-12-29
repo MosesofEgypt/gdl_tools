@@ -2,6 +2,7 @@ from panda3d.core import PandaNode, LVecBase3f
 
 from ..assets.scene_object import SceneObject
 from .model import load_model_from_objects_tag
+from .texture import load_textures_from_objects_tag
 
 
 def load_nodes_from_anim_tag(object_name, anim_tag):
@@ -67,16 +68,18 @@ def get_model_node_name_map(object_name, anim_tag):
 
 
 def load_scene_object_from_tags(
-        object_name, *, anim_tag, objects_tag=None, textures_filepath=None
+        object_name, *, anim_tag, objects_tag=None,
+        textures_filepath=None, is_ngc=False
         ):
     object_name = object_name.upper().strip()
     skeleton = load_nodes_from_anim_tag(object_name, anim_tag)
     scene_object = SceneObject(name=object_name, p3d_node=skeleton)
 
+    textures = load_textures_from_objects_tag(
+        objects_tag, textures_filepath, is_ngc
+        )
     for model_name, node_name in zip(*get_model_node_name_map(object_name, anim_tag)):
-        model = load_model_from_objects_tag(
-            objects_tag, model_name, textures_filepath
-            )
+        model = load_model_from_objects_tag(objects_tag, model_name, textures)
         scene_object.attach_model(model, node_name)
 
     return scene_object

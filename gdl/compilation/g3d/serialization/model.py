@@ -267,12 +267,13 @@ class G3DModel():
                 elif storage_type == c.STORAGE_TYPE_FLOAT32:
                     if data_type == c.DATA_TYPE_GEOM:
                         # triangle strip. only need the face direction from it
+                        strip_count += 1
+                        faces_drawn.append([])
                         face_dirs.append(data[2])
                     elif data_type == c.DATA_TYPE_POS:
                         # append a single triangle
-                        strip_count += 1
-                        faces_drawn.append([0])
-                        face_dirs.append(1.0)
+                        faces_drawn[-1].append(0)
+                        face_dirs[-1] = -1.0
 
                         # NOTE: we're ignoring the count here because it's not possible to
                         #       store more than a single triangle here. the count MUST be 12
@@ -306,8 +307,6 @@ class G3DModel():
                         verts.append([x, y, z])
                         bnd_rad_square = max(x**2 + y**2 + z**2, bnd_rad_square)
 
-                    strip_count += 1
-
                 elif data_type == c.DATA_TYPE_NORM:
                     dont_draw = []
 
@@ -326,7 +325,7 @@ class G3DModel():
                     # make sure the first 2 are removed since they
                     # are always 1 and triangle strips are always
                     # made of 2 more verts than there are triangles
-                    faces_drawn.append(dont_draw[2:])
+                    faces_drawn[-1].extend(dont_draw[2:])
 
                 elif data_type == c.DATA_TYPE_COLOR:
                     for j in range(len(data)):
@@ -365,6 +364,10 @@ class G3DModel():
             for j in range(strip_count):
                 dont_draw = faces_drawn[j]
                 face_dir = int(bool(face_dirs[j] == -1.0))
+                if not dont_draw:
+                    # empty strip. skip
+                    continue
+
                 for f in range(len(dont_draw)):
                     # determine if the face is not supposed to be drawn
                     if not dont_draw[f]:
