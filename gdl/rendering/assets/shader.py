@@ -5,6 +5,8 @@ class GeometryShader:
     sort  = False
     sort_alpha = False
 
+    signed_alpha = True
+
     sharp  = False
     blur   = False
     chrome = False

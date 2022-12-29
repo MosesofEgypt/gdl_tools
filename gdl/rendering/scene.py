@@ -55,6 +55,7 @@ class Scene(ShowBase):
 
         self._scene_objects = {}
 
+        self.clear_scene()
         if self.objects_dir:
             self.load_scene(self.objects_dir, object_names=object_names)
 

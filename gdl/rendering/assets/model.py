@@ -42,6 +42,7 @@ class Geometry:
         return self._p3d_geometry
 
     def apply_shader(self):
+        # TODO: move most of this into GeometryShader
         nodepath = panda3d.core.NodePath(self.p3d_geometry)
         if self.shader.diff_texture:
             nodepath.setTexture(
@@ -59,7 +60,6 @@ class Geometry:
             panda3d.core.TransparencyAttrib.MAlpha if self.shader.alpha else
             panda3d.core.TransparencyAttrib.MNone
             )
-        
         if self.shader.chrome:
             nodepath.setTexGen(
                 self._diff_texture_stage,
@@ -67,6 +67,24 @@ class Geometry:
                 )
         else:
             nodepath.clearTexGen()
+            
+
+        # ps2 textures use signed alpha channels, so double
+        # the value to achieve the transparency level we want
+        if self.shader.signed_alpha:
+            self._diff_texture_stage.setCombineAlpha(
+                panda3d.core.TextureStage.CMAdd,
+                panda3d.core.TextureStage.CSTexture,
+                panda3d.core.TextureStage.COSrcAlpha,
+                panda3d.core.TextureStage.CSTexture,
+                panda3d.core.TextureStage.COSrcAlpha,
+                )
+        else:
+            self._diff_texture_stage.setCombineAlpha(
+                panda3d.core.TextureStage.CMReplace,
+                panda3d.core.TextureStage.CSTexture,
+                panda3d.core.TextureStage.COSrcAlpha,
+                )
 
 
 class Model:
