@@ -8,6 +8,7 @@ from direct.showbase.ShowBase import ShowBase
 from panda3d.core import AmbientLight, DirectionalLight, PointLight,\
      NodePath, WindowProperties
 
+from . import free_camera
 from .assets import scene_object
 from .g3d_to_p3d.util import load_objects_dir_files
 from .g3d_to_p3d.scene_actor import load_scene_actor_from_tags
@@ -22,6 +23,8 @@ class Scene(ShowBase):
     _camera_light_intensity = 4
     _ambient_light_intensity = 1
     _light_levels = 5
+
+    _camera_controller = None
 
     def __init__(self, **kwargs):
         self.objects_dir  = kwargs.pop("objects_dir", None)
@@ -39,25 +42,34 @@ class Scene(ShowBase):
         self.adjust_ambient_light(0)
         self.adjust_ambient_light(0)
 
-        dlnp = camera.attachNewNode(self._camera_light)
+        dlnp = self.camera.attachNewNode(self._camera_light)
         alnp = render.attachNewNode(self._ambient_light)
 
         render.setLight(dlnp)
         render.setLight(alnp)
 
         self.accept("escape", sys.exit, [0])
-        self.accept("a", self.switch_model, [False])
-        self.accept("d", self.switch_model, [True])
+        self.accept("arrow_left", self.switch_model, [False])
+        self.accept("arrow_right", self.switch_model, [True])
         self.accept("o", self.load_objects, [])
         self.accept("i", self.import_objects, [])
         self.accept("l", self.adjust_camera_light, [1])
-        self.accept("k", self.adjust_ambient_light, [1])
+        self.accept("-", self.adjust_fov, [False])
+        self.accept("=", self.adjust_fov, [True])
+
+        self._camera_controller = free_camera.FreeCamera(self, self.camera)
+        self._camera_controller.start()
 
         self._scene_objects = {}
 
         self.clear_scene()
         if self.objects_dir:
             self.load_scene(self.objects_dir, object_names=object_names)
+
+    def adjust_fov(self, increase):
+        lens = self.camNode.getLens(0)
+        new_fov = min(180, max(5, lens.fov.getX() + (5 if increase else -5)))
+        lens.fov = new_fov
 
     def adjust_camera_light(self, amount):
         self._camera_light_intensity += amount
