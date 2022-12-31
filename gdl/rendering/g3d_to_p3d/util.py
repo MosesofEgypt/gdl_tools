@@ -1,10 +1,12 @@
+import array
 import os
-import tempfile
 import panda3d
 
 from traceback import format_exc
 from supyr_struct.defs.bitmaps.dds import dds_def
 
+from arbytmap import arby, format_defs as fd
+from ...compilation.g3d import constants as g3d_const
 from ...defs.anim import anim_ps2_def
 from ...defs.objects import objects_ps2_def
 from ...defs.worlds import worlds_ps2_def
@@ -81,28 +83,89 @@ def load_objects_dir_files(objects_dir):
         )
 
 
+def g3d_texture_to_dds(g3d_texture):
+    # only the first one for now
+    palette = g3d_texture.palette
+    texture = g3d_texture.textures[0]
+
+    dds_tag = dds_def.build()
+
+    dds_header = dds_tag.data.header
+    pfmt_head  = dds_header.dds_pixelformat
+
+    dds_header.width  = g3d_texture.width
+    dds_header.height = g3d_texture.height
+    dds_header.depth  = 1
+
+    dds_header.flags.linearsize = False
+    dds_header.flags.pitch = True
+
+    monochrome = g3d_texture.format_name in g3d_const.MONOCHROME_FORMATS
+    pfmt_head.flags.rgb_space = not pfmt_head.flags.alpha_only
+    pfmt_head.flags.has_alpha = g3d_texture.flags & g3d_const.GTX_FLAG_HAS_ALPHA
+
+    if monochrome:
+        # making monochrome into 24bpp color
+        pfmt_head.rgb_bitcount = 8
+        pfmt_head.flags.has_alpha = False
+    elif g3d_texture.format_name not in g3d_const.PALETTE_SIZES:
+        # non-palettized texture
+        pfmt_head.rgb_bitcount = g3d_const.PIXEL_SIZES[g3d_texture.format_name]
+    else:
+        # palettized texture. need to depalettize
+        pfmt_head.rgb_bitcount = g3d_const.PALETTE_SIZES[g3d_texture.format_name] * 8
+
+        # create a new array to hold the pixels after we unpack them
+        depal_texture = bytearray(4 * len(texture))
+
+        if arby.fast_arbytmap:
+            arby.arbytmap_ext.depalettize_bitmap(
+                depal_texture, texture, palette, 4)
+        else:
+            for i, index in enumerate(texture):
+                depal_texture[i*4:(i+1*4)] = palette[index*4:(index+1)*4]
+
+        texture = depal_texture
+
+    pfmt_head.flags.four_cc = False
+    masks   = fd.CHANNEL_MASKS[g3d_texture.arbytmap_format]
+    offsets = fd.CHANNEL_OFFSETS[g3d_texture.arbytmap_format]
+
+    if monochrome:
+        pfmt_head.a_bitmask = 0
+        pfmt_head.r_bitmask = masks[0] << offsets[0]
+        pfmt_head.g_bitmask = masks[0] << offsets[0]
+        pfmt_head.b_bitmask = masks[0] << offsets[0]
+    else:
+        if pfmt_head.flags.has_alpha:
+            pfmt_head.a_bitmask = masks[0] << offsets[0]
+
+        pfmt_head.r_bitmask = masks[1] << offsets[1]
+        pfmt_head.g_bitmask = masks[2] << offsets[2]
+        pfmt_head.b_bitmask = masks[3] << offsets[3]
+
+    dds_header.pitch_or_linearsize = (
+        dds_header.width * pfmt_head.rgb_bitcount + 7
+        ) // 8
+
+    # TODO: implement mipmaps
+    dds_header.mipmap_count = 0
+    dds_header.caps.complex = False
+    dds_header.caps.mipmaps = False
+    dds_header.flags.mipmaps = False
+
+    dds_tag.data.pixel_data = bytes(texture)
+    return dds_tag
+
+
 def g3d_texture_to_p3d_texture(g3d_texture):
     p3d_texture = panda3d.core.Texture()
-    dds_tempfile = tempfile.NamedTemporaryFile("wb")
-    tex0_tempfile = dds_tempfile.name
 
-    arby = g3d_texture.to_arbytmap_instance()
-    dds_tempfiles = arby.save_to_file(
-        output_path=dds_tempfile.name, ext="dds",
-        overwrite=True, mipmaps=False
-        )
-    if not dds_tempfiles:
-        return p3d_texture
+    dds_tag  = g3d_texture_to_dds(g3d_texture)
+    dds_data = dds_tag.data.serialize()
 
-    tex0_tempfile = str(dds_tempfiles[0])
-    ifile_stream = panda3d.core.IFileStream()
-    ifile_stream.open(tex0_tempfile)
-    p3d_texture.readDds(ifile_stream, tex0_tempfile)
-    
-    try:
-        os.unlink(tex0_tempfile)
-        dds_tempfile.close()
-    except Exception:
-        print(format_exc())
-        print(f"Could not clean up temp files: '{dds_tempfile.name}', '{tex0_tempfile}'")
+    data_stream = panda3d.core.StringStream()
+    data_stream.setData(dds_data)
+
+    p3d_texture.readDds(data_stream)
     return p3d_texture

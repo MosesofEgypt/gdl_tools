@@ -1,7 +1,7 @@
 import panda3d
 
 from . import util
-from ..assets.texture import Texture
+from ..assets.texture import Texture, AnimatedTexture
 from ...compilation.g3d import constants as g3d_const
 from ...compilation.g3d.serialization.texture import G3DTexture
 
@@ -25,6 +25,7 @@ def load_textures_from_objects_tag(
         for index, name in texture_names.items():
             bitm = objects_tag.data.bitmaps[index]
             if getattr(bitm.flags, "external", False) or bitm.frame_count > 0:
+                # empty placeholder texture
                 p3d_texture = panda3d.core.Texture()
             else:
                 f.seek(bitm.tex_pointer)
@@ -44,6 +45,11 @@ def load_textures_from_objects_tag(
                 panda3d.core.SamplerState.WM_clamp if getattr(bitm.flags, "clamp_v", False) else
                 panda3d.core.SamplerState.WM_repeat)
 
-            textures[name] = Texture(name=name, p3d_texture=p3d_texture)
+            texture_class = AnimatedTexture if bitm.frame_count > 0 else Texture
+            texture = texture_class(name=name, p3d_texture=p3d_texture)
+
+            # TODO: consider changing this? pick a style?
+            textures[name]  = texture
+            textures[index] = texture
 
     return textures

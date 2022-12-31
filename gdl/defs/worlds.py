@@ -5,6 +5,9 @@ from ..field_types import *
 
 def get(): return worlds_ps2_def
 
+# NOTE: it appears that non-lightmapped objects should be rendered
+# in additive mode. objects without lightmaps in E1 are the ones that
+# normally appear transparent(columns, light rays, door frame, etc)
 world_object = Struct("world_object",
     StrNntLatin1("name", SIZE=16),
     Bool32("flags",
