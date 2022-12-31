@@ -114,16 +114,17 @@ def g3d_texture_to_dds(g3d_texture):
     else:
         # palettized texture. need to depalettize
         pfmt_head.rgb_bitcount = g3d_const.PALETTE_SIZES[g3d_texture.format_name] * 8
+        bpp = pfmt_head.rgb_bitcount // 8  # bytes_per_pixel
 
         # create a new array to hold the pixels after we unpack them
-        depal_texture = bytearray(4 * len(texture))
+        depal_texture = bytearray(bpp * len(texture))
 
         if arby.fast_arbytmap:
             arby.arbytmap_ext.depalettize_bitmap(
-                depal_texture, texture, palette, 4)
+                depal_texture, texture, palette, bpp)
         else:
             for i, index in enumerate(texture):
-                depal_texture[i*4:(i+1*4)] = palette[index*4:(index+1)*4]
+                depal_texture[i*bpp:(i+1)*bpp] = palette[index*bpp:(index+1)*bpp]
 
         texture = depal_texture
 

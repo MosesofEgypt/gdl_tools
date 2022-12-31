@@ -182,6 +182,9 @@ class Scene(ShowBase):
             self.add_scene_object(scene_world)
             self._ambient_light_intensity = self._light_levels
             self.adjust_ambient_light(0)
+            self.setBackgroundColor(0,0,0)
+        else:
+            self.setBackgroundColor(0.5,0.5,0.5)
 
         self.switch_model()
 
