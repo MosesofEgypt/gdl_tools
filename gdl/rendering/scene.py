@@ -53,6 +53,7 @@ class Scene(ShowBase):
         self.accept("arrow_right", self.switch_model, [True])
         self.accept("o", self.load_objects, [])
         self.accept("i", self.import_objects, [])
+        self.accept("k", self.adjust_ambient_light, [1])
         self.accept("l", self.adjust_camera_light, [1])
         self.accept("-", self.adjust_fov, [False])
         self.accept("=", self.adjust_fov, [True])
