@@ -89,7 +89,7 @@ class FreeCamera(direct.showbase.DirectObject.DirectObject):
         if self._active:
             return
 
-        self.disableMouse()
+        self._show_base.disableMouse()
         for template, delta in [("%s", True), ("%s-up", False)]:
             for key, action in [("w", "forward"),      ("s", "backward"), ("r", "up"),
                                 ("a", "left"),         ("d", "right"),    ("f", "down"),
