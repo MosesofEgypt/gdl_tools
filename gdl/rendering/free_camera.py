@@ -12,7 +12,7 @@ class FreeCamera(direct.showbase.DirectObject.DirectObject):
     roll_right   = False
     speed_up     = False
     speed_down   = False
-    speed       = 5.0
+    speed        = 5.0
 
     move_rate     = 1
     roll_rate     = 10
@@ -20,68 +20,76 @@ class FreeCamera(direct.showbase.DirectObject.DirectObject):
     look_rate_p   = 0.1
     speed_up_rate = 1
 
-    _camera  = None
-    _time    = 0
-    _enabled = False
+    _show_base = None
+    _camera    = None
+    _time      = 0
+    _active    = False
+    _enabled   = False
+    _camera_control_delay = 0
 
     def __init__(self, show_base, camera):
-        self.show_base = show_base
-        self._camera = camera
-        self._time = 0
+        self._show_base = show_base
+        self._camera    = camera
+        self._time      = 0
+        self._enabled   = self._active = False
 
-        self.accept("space", self.toggle, [])
-
-    def update_camera(self, task):
-        delta_t = (task.time - self._time) / 1000
+    def update_camera(self, delta_t):
         delta_x = delta_y = delta_z = 0
         delta_h = delta_p = delta_r = 0
 
-        win_props = self.show_base.win.getProperties()
-        if win_props.getForeground():
-            center_x = win_props.getXSize() // 2
-            center_y = win_props.getYSize() // 2
+        win = self._show_base.win
+        center_x = win.getProperties().getXSize() // 2
+        center_y = win.getProperties().getYSize() // 2
 
-            delta_h -= (self.show_base.win.getPointer(0).getX() - center_x) * self.look_rate_h
-            delta_p -= (self.show_base.win.getPointer(0).getY() - center_y) * self.look_rate_p
-            self.show_base.win.movePointer(0, center_x, center_y)
+        if not self._camera_control_delay:
+            delta_h -= (win.getPointer(0).getX() - center_x) * self.look_rate_h
+            delta_p -= (win.getPointer(0).getY() - center_y) * self.look_rate_p
 
-            if self.speed_up:   self.speed += self.speed_up_rate
-            if self.speed_down: self.speed -= self.speed_up_rate
-            self.speed = max(0, self.speed)
-            self.speed_up    = False
-            self.speed_down  = False
+        if self._camera_control_delay <= 1:
+            # recenter the frame before we start camera control. we do this
+            # to keep from jumping the curser on the frame it's still visible,
+            # or jumping the camera on the first frame control is enabled
+            win.movePointer(0, center_x, center_y)
 
-            if self.left:       delta_x -= self.move_rate * delta_t * self.speed
-            if self.right:      delta_x += self.move_rate * delta_t * self.speed
-            if self.forward:    delta_y += self.move_rate * delta_t * self.speed
-            if self.backward:   delta_y -= self.move_rate * delta_t * self.speed
-            if self.up:         delta_z += self.move_rate * delta_t * self.speed
-            if self.down:       delta_z -= self.move_rate * delta_t * self.speed
-            if self.roll_left:  delta_r -= self.roll_rate * delta_t# * self.speed
-            if self.roll_right: delta_r += self.roll_rate * delta_t# * self.speed
+        if self.speed_up:   self.speed += self.speed_up_rate
+        if self.speed_down: self.speed -= self.speed_up_rate
+        self.speed = max(0, self.speed)
+        self.speed_up    = False
+        self.speed_down  = False
 
-            self._camera.setX(self._camera, self._camera.getX(self._camera) + delta_x)
-            self._camera.setY(self._camera, self._camera.getY(self._camera) + delta_y)
-            self._camera.setZ(render, self._camera.getZ(render) + delta_z)
-            self._camera.setH(render, self._camera.getH(render) + delta_h)
-            self._camera.setP(self._camera, self._camera.getP(self._camera) + delta_p)
-            self._camera.setR(self._camera, self._camera.getR(self._camera) + delta_r)
+        if self.left:       delta_x -= self.move_rate * delta_t * self.speed
+        if self.right:      delta_x += self.move_rate * delta_t * self.speed
+        if self.forward:    delta_y += self.move_rate * delta_t * self.speed
+        if self.backward:   delta_y -= self.move_rate * delta_t * self.speed
+        if self.up:         delta_z += self.move_rate * delta_t * self.speed
+        if self.down:       delta_z -= self.move_rate * delta_t * self.speed
+        if self.roll_left:  delta_r -= self.roll_rate * delta_t# * self.speed
+        if self.roll_right: delta_r += self.roll_rate * delta_t# * self.speed
+
+        self._camera.setX(self._camera, self._camera.getX(self._camera) + delta_x)
+        self._camera.setY(self._camera, self._camera.getY(self._camera) + delta_y)
+        self._camera.setZ(render, self._camera.getZ(render) + delta_z)
+        self._camera.setH(render, self._camera.getH(render) + delta_h)
+        self._camera.setP(self._camera, self._camera.getP(self._camera) + delta_p)
+        self._camera.setR(self._camera, self._camera.getR(self._camera) + delta_r)
+
+        # decrement each cycle
+        self._camera_control_delay = max(0, self._camera_control_delay - 1)
+
+    def update_camera_task(self, task):
+        if self._show_base.win.getProperties().getForeground() and self._enabled:
+            self.update_camera((task.time - self._time) / 1000)
+        else:
+            self._camera_control_delay = 3
 
         self.time = task.time
         return direct.task.Task.cont
 
     def start(self):
-        self.show_base.disableMouse()
+        if self._active:
+            return
 
-        props = panda3d.core.WindowProperties()
-        props.setCursorHidden(True)
-        self.show_base.win.requestProperties(props)
-
-        center_x = self.show_base.win.getProperties().getXSize() // 2
-        center_y = self.show_base.win.getProperties().getYSize() // 2
-        self.show_base.win.movePointer(0, center_x, center_y)
-        self.show_base.taskMgr.add(self.update_camera, 'HxMouseLook::update_camera')
-
+        self.disableMouse()
         for template, delta in [("%s", True), ("%s-up", False)]:
             for key, action in [("w", "forward"),      ("s", "backward"), ("r", "up"),
                                 ("a", "left"),         ("d", "right"),    ("f", "down"),
@@ -89,24 +97,43 @@ class FreeCamera(direct.showbase.DirectObject.DirectObject):
                                 ]:
                 self.accept(template % key, setattr, [self, action, delta])
 
+        for i in range(1, 4):
+            self.accept("mouse%s" % i,    self.set_enabled, [True])
+            self.accept("mouse%s-up" % i, self.set_enabled, [False])
+
         self.accept("wheel_up",   setattr, [self, "speed_up",   True])
         self.accept("wheel_down", setattr, [self, "speed_down", True])
-        self._enabled = True
+        self._show_base.taskMgr.add(self.update_camera_task, 'HxMouseLook::update_camera_task')
+        self._active = True
 
     def stop(self):
-        self.show_base.taskMgr.remove("HxMouseLook::update_camera")
+        if not self._active:
+            return
 
-        props = panda3d.core.WindowProperties()
-        props.setCursorHidden(False)
-        self.show_base.win.requestProperties(props)
+        for template in ["%s", "%s-up"]:
+            for key in ("w", "a", "s", "d", "r", "f", "q", "e", "mouse1", "mouse2"):
+                self.ignore(template % key)
+
+        for i in range(1, 4):
+            self.ignore("mouse%s" % i)
+            self.ignore("mouse%s-up" % i)
+
+        for key in ("wheel_up", "wheel_down"):
+            self.ignore(key)
 
         mat = panda3d.core.LMatrix4f(
             self._camera.getTransform(render).getMat()
             )
         mat.invertInPlace()
         self._camera.setMat(panda3d.core.LMatrix4f.identMat())
-        self.show_base.mouseInterfaceNode.setMat(mat)
-        self.show_base.enableMouse()
+        self._show_base.mouseInterfaceNode.setMat(mat)
+        self._show_base.taskMgr.remove("HxMouseLook::update_camera_task")
+        self._active = False
+
+    def set_enabled(self, enable):
+        enable = bool(enable)
+        if enable == bool(self._enabled):
+            return
 
         self.left        = False
         self.right       = False
@@ -119,17 +146,8 @@ class FreeCamera(direct.showbase.DirectObject.DirectObject):
         self.speed_up    = False
         self.speed_down  = False
 
-        for template in ["%s", "%s-up"]:
-            for key in ("w", "a", "s", "d", "r", "f", "q", "e"):
-                self.ignore(template % key)
-
-        for key in ("wheel_up", "wheel_down"):
-            self.ignore(key)
-
-        self._enabled = False
-
-    def toggle(self):
-        if self._enabled:
-            self.stop()
-        else:
-            self.start()
+        props = panda3d.core.WindowProperties()
+        props.setCursorHidden(enable)
+        self._show_base.win.requestProperties(props)
+        self._enabled = enable
+        self._camera_control_delay = 3
