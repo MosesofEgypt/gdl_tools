@@ -104,6 +104,10 @@ ijk_float = QStruct("",
     Float("i"), Float("j"), Float("k"),
     ORIENT='h'
     )
+pyr_float = QStruct("",
+    Float("p"), Float("y"), Float("r"),
+    ORIENT='h'
+    )
 ijkw_float = QStruct("",
     Float("i"), Float("j"), Float("k"), Float("w"),
     ORIENT='h'
@@ -170,6 +174,69 @@ def Lump(*args, **kwargs):
 #############################
 #  shared lump structs
 #############################
+item_type = SEnum32("item_type",
+    ("random",      0xFF),
+    ("powerup",     0x01),
+    ("container",   0x02),
+    ("generator",   0x03),
+    ("enemy_info",  0x04),
+    ("trigger",     0x05),
+    ("trap",        0x06),
+    ("door",        0x07),
+    ("damage_tile", 0x08),
+    ("exit",        0x09),
+    ("obsticle",    0x0A),
+    ("transporter", 0x0B),
+    ("rotator",     0x0C),
+    ("sound",       0x0D),
+    )
+
+item_subtype = SEnum32("item_subtype",
+    ("gold",       0x01),
+    ("key",        0x02),
+    ("food",       0x03),
+    ("potion",     0x04),
+    ("weapon",     0x05),
+    ("armor",      0x06),
+    ("speed",      0x07),
+    ("magic",      0x08),
+    ("special",    0x09),
+    ("runestone",  0x0A),
+    ("bosskey",    0x0B),
+    ("obelisk",    0x0C),
+    ("quest",      0x0D),
+    ("scroll",     0x0E),
+    ("gemstone",   0x0F),
+    ("feather",    0x10),
+
+    ("bridge_pad",          0x14),
+    ("door_pad",            0x15),
+    ("bridge_switch",       0x16),
+    ("door_switch",         0x17),
+    ("activator_switch",    0x18),
+    ("elevator_pad",        0x19),
+    ("elevator_switch",     0x1A),
+    ("lift_pad",            0x1B),
+    ("lift_start",          0x1C),
+    ("lift_end",            0x1D),
+    ("no_weapon_collider",  0x1E),
+    ("shoot_trigger",       0x1F),
+
+    ("rock_fall",       0x28),
+    ("safe_rock",       0x29),
+    ("wall",            0x2A),
+    ("barrel",          0x2B),
+    ("barrel_explode",  0x2C),
+    ("barrel_poison",   0x2D),
+    ("chest",           0x2E),
+    ("chest_gold",      0x2F),
+    ("chest_silver",    0x30),
+    ("leaf_fall",       0x31),
+    ("secret",          0x32),
+    ("rock_fly",        0x33),
+    ("shoot_fall",      0x34),
+    ("rock_sink",       0x35),
+    )
 
 effects_lump = Lump('effects',
     SUB_STRUCT=Struct('effect',
@@ -314,6 +381,72 @@ particle_system_enables = Bool32("enables",
     ("p_alpha", 0x20000),
     ("p_width", 0x40000),
     ("e_delay", 0x80000),
+    )
+
+# NOTE: enum size not confirmed
+camera_mode = SEnum8("mode",
+    "off",
+    "free",
+    "lock",
+    "game",
+    "object_eye",
+    "vector_distance",
+    "point",
+    "dragon",
+    "chimera",
+    "djinn",
+    "drider",
+    "demon",
+    "boss",
+    )
+
+# NOTE: enum size not confirmed
+attention_mode = SEnum8("mode",
+    "free",
+    "lock",
+    "target",
+    "object",
+    "point",
+    "player",
+    "enemy",
+    "item",
+    "milestone",
+    "lookout",
+    "camera",
+    )
+
+# NOTE: enum size not confirmed
+boss_camera_flags = Bool8("camera_flags",
+    "track_boss",
+    "stay_in_front",
+    "stay_in_back",
+    "watch_boss",
+    "track_all",
+    "watch_mode_2",
+    "unused0",
+    "unused1",
+    "zoom_in",
+    "zoom_out",
+    )
+
+# NOTE: enum size not confirmed
+light_type = SEnum32("preset",
+    ("point",       0x01),
+    ("spot",        0x02),
+    ("directional", 0x03),
+    )
+
+# NOTE: enum size not confirmed
+texmod_type = UEnum8("preset",
+    "unknown",
+    "local",
+    ("mip_blend",   0xFA),
+    ("fade_out",    0xFB),
+    ("fade_in",     0xFC),
+    ("scroll_v",    0xFD),
+    ("scroll_u",    0xFE),  # also "special"
+    #("special",    0xFE),
+    ("external",    0xFF),
     )
 
 particle_system = Struct("particle_system",

@@ -164,6 +164,10 @@ class Scene(ShowBase):
             object_names = tuple(atree.name for atree in anim_tag.data.atrees)
 
         for name in object_names:
+            old_scene_object = self._scene_objects.pop(name, None)
+            if old_scene_object:
+                render.node().removeChild(old_scene_object.p3d_node)
+
             scene_object = load_scene_actor_from_tags(
                 name,
                 anim_tag=anim_tag,
