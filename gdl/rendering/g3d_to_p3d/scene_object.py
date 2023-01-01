@@ -75,11 +75,22 @@ def load_scene_object_from_tags(
     skeleton = load_nodes_from_anim_tag(object_name, anim_tag)
     scene_object = SceneObject(name=object_name, p3d_node=skeleton)
 
+    print("Loading textures")
+    start = time.time()
     textures = load_textures_from_objects_tag(
         objects_tag, textures_filepath, is_ngc
         )
+    print("Finished. Took %s seconds" % (time.time() - start))
+
+    # load and attach models
+    print("Loading world objects")
+    start = time.time()
+    _, bitmap_names = objects_tag.get_cache_names()
     for model_name, node_name in zip(*get_model_node_name_map(object_name, anim_tag)):
-        model = load_model_from_objects_tag(objects_tag, model_name, textures)
+        model = load_model_from_objects_tag(
+            objects_tag, model_name, textures, bitmap_names
+            )
         scene_object.attach_model(model, node_name)
 
+    print("Finished. Took %s seconds" % (time.time() - start))
     return scene_object

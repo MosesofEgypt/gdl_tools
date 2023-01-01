@@ -98,19 +98,17 @@ class GeometryShader:
         if self.alpha:
             nodepath.setTransparency(panda3d.core.TransparencyAttrib.MAlpha)
             self._diff_texture_stage.setSort(GeometryShader.DRAW_SORT_OPAQUE)
+        elif self.additive_diffuse:
+            # Doesn't work in all cases.
+            self._color_blend_attrib = panda3d.core.ColorBlendAttrib.make(
+                panda3d.core.ColorBlendAttrib.MAdd
+                )
+            nodepath.setTransparency(panda3d.core.TransparencyAttrib.MAlpha)
+            nodepath.setAttrib(self._color_blend_attrib)
+            self._diff_texture_stage.setSort(GeometryShader.DRAW_SORT_SFX)
         else:
-            if self.additive_diffuse:
-                # Doesn't work in all cases.
-                # TODO: figure out what controls transparency for these objects
-                self._color_blend_attrib = panda3d.core.ColorBlendAttrib.make(
-                    panda3d.core.ColorBlendAttrib.MAdd
-                    )
-                nodepath.setTransparency(panda3d.core.TransparencyAttrib.MAlpha)
-                nodepath.setAttrib(self._color_blend_attrib)
-                self._diff_texture_stage.setSort(GeometryShader.DRAW_SORT_SFX)
-            else:
-                nodepath.setTransparency(panda3d.core.TransparencyAttrib.MNone)
-                self._diff_texture_stage.setSort(GeometryShader.DRAW_SORT_OPAQUE)
+            nodepath.setTransparency(panda3d.core.TransparencyAttrib.MNone)
+            self._diff_texture_stage.setSort(GeometryShader.DRAW_SORT_OPAQUE)
 
         # ps2 textures use signed alpha channels, so double
         # the value to achieve the transparency level we want

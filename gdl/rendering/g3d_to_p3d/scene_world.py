@@ -1,3 +1,5 @@
+import time
+
 from panda3d.core import PandaNode, LVecBase3f, NodePath
 
 from ..assets.scene_world import SceneWorld
@@ -47,13 +49,21 @@ def load_scene_world_from_tags(
     scene_world = SceneWorld(name="")
     load_nodes_from_worlds_tag(worlds_tag, scene_world.p3d_node)
 
+    print("Loading textures")
+    start = time.time()
     textures = load_textures_from_objects_tag(
         objects_tag, textures_filepath, is_ngc
         )
+    print("Finished. Took %s seconds" % (time.time() - start))
 
     # load and attach models
+    print("Loading world objects")
+    start = time.time()
+    _, bitmap_names = objects_tag.get_cache_names()
     for world_object in worlds_tag.data.world_objects:
-        model = load_model_from_objects_tag(objects_tag, world_object.name, textures)
+        model = load_model_from_objects_tag(
+            objects_tag, world_object.name, textures, bitmap_names
+            )
         for geom in model.geometries:
             if not geom.shader.lm_texture:
                 # non-lightmapped world objects are rendered with transparency
@@ -62,4 +72,5 @@ def load_scene_world_from_tags(
 
         scene_world.attach_model(model, world_object.name)
 
+    print("Finished. Took %s seconds" % (time.time() - start))
     return scene_world

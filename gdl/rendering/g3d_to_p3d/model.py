@@ -65,7 +65,7 @@ def load_geom_from_g3d_model(g3d_model, geom_shader):
         )
 
 
-def load_model_from_objects_tag(objects_tag, model_name, textures=()):
+def load_model_from_objects_tag(objects_tag, model_name, textures=(), bitmap_names=()):
     if not textures:
         textures = {}
 
@@ -79,7 +79,9 @@ def load_model_from_objects_tag(objects_tag, model_name, textures=()):
 
     flags = None
     if obj_index >= 0:
-        _, bitmap_names = objects_tag.get_cache_names()
+        if not bitmap_names:
+            _, bitmap_names = objects_tag.get_cache_names()
+
         obj = objects_tag.data.objects[obj_index]
 
         flags    = getattr(obj, "flags", None)
