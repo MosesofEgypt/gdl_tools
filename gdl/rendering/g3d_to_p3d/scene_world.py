@@ -41,29 +41,9 @@ def load_nodes_from_worlds_tag(worlds_tag, root_p3d_node):
     #for child in NodePath(root_p3d_node).findAllMatches('**'):
     #    print(child)
 
-
-def load_scene_world_from_tags(
-        *, worlds_tag, objects_tag, anim_tag=None,
-        textures_filepath=None, is_ngc=False
-        ):
-    scene_world = SceneWorld(name="")
-    load_nodes_from_worlds_tag(worlds_tag, scene_world.p3d_node)
-
-    print("Loading textures")
-    start = time.time()
-    textures = load_textures_from_objects_tag(
-        objects_tag, textures_filepath, is_ngc
-        )
-    print("Finished. Took %s seconds" % (time.time() - start))
-
-    # load and attach models
-    print("Loading world objects")
-    start = time.time()
-    _, bitmap_names = objects_tag.get_cache_names()
+def test(worlds_tag, objects_tag, textures, scene_world):
     for world_object in worlds_tag.data.world_objects:
-        model = load_model_from_objects_tag(
-            objects_tag, world_object.name, textures, bitmap_names
-            )
+        model = load_model_from_objects_tag(objects_tag, world_object.name, textures)
         for geom in model.geometries:
             if not geom.shader.lm_texture:
                 # non-lightmapped world objects are rendered with transparency
@@ -72,5 +52,30 @@ def load_scene_world_from_tags(
 
         scene_world.attach_model(model, world_object.name)
 
-    print("Finished. Took %s seconds" % (time.time() - start))
+def load_scene_world_from_tags(
+        *, worlds_tag, objects_tag, anim_tag=None,
+        textures_filepath=None, is_ngc=False
+        ):
+    start = time.time()
+    world_name = str(worlds_tag.filepath).upper().replace("\\", "/").\
+                 split("LEVELS/")[-1].split("/")[0]
+    scene_world = SceneWorld(name=world_name)
+    load_nodes_from_worlds_tag(worlds_tag, scene_world.p3d_node)
+    scene_world.cache_node_paths()
+
+    textures = load_textures_from_objects_tag(
+        objects_tag, textures_filepath, is_ngc
+        )
+
+    # load and attach models
+    for world_object in worlds_tag.data.world_objects:
+        model = load_model_from_objects_tag(objects_tag, world_object.name, textures)
+        for geom in model.geometries:
+            if not geom.shader.lm_texture:
+                # non-lightmapped world objects are rendered with transparency
+                geom.shader.additive_diffuse = True
+                geom.shader.apply_to_geometry(geom.p3d_geometry)
+        scene_world.attach_model(model, world_object.name)
+
+    print("Loading scene world '%s' took %s seconds" % (world_name, time.time() - start))
     return scene_world

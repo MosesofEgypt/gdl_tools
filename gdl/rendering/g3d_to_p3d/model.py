@@ -65,23 +65,17 @@ def load_geom_from_g3d_model(g3d_model, geom_shader):
         )
 
 
-def load_model_from_objects_tag(objects_tag, model_name, textures=(), bitmap_names=()):
+def load_model_from_objects_tag(objects_tag, model_name, textures=()):
     if not textures:
         textures = {}
 
     model_name = model_name.upper().strip()
-    obj_index = -1
-
-    for b in objects_tag.data.object_defs:
-        if b.name.upper().strip() == model_name and b.obj_index > -1:
-            obj_index = b.obj_index
-            break
+    _, bitmap_name_by_index = objects_tag.get_cache_names()
+    object_indices_by_name, _ = objects_tag.get_cache_names(by_name=True)
+    obj_index = object_indices_by_name.get(model_name, {}).get("index", -1)
 
     flags = None
     if obj_index >= 0:
-        if not bitmap_names:
-            _, bitmap_names = objects_tag.get_cache_names()
-
         obj = objects_tag.data.objects[obj_index]
 
         flags    = getattr(obj, "flags", None)
@@ -91,11 +85,11 @@ def load_model_from_objects_tag(objects_tag, model_name, textures=(), bitmap_nam
 
         datas = [ m.data for m in obj.data.sub_object_models ]
         tex_names = [
-            bitmap_names.get(h.tex_index, {}).get('name')
+            bitmap_name_by_index.get(h.tex_index, {}).get('name')
             for h in (obj.sub_object_0, *subobjs)
             ]
         lm_names = [
-            bitmap_names.get(h.lm_index, {}).get('name') if has_lmap else ""
+            bitmap_name_by_index.get(h.lm_index, {}).get('name') if has_lmap else ""
             for h in (obj.sub_object_0, *subobjs)
             ]
     else:

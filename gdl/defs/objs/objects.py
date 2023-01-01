@@ -10,7 +10,12 @@ from ...compilation.g3d import constants as c
 
 class ObjectsPs2Tag(GdlTag):
 
-    texdef_names = None
+    texdef_names  = None
+
+    _object_assets_by_name  = None
+    _bitmap_assets_by_name  = None
+    _object_assets_by_index = None
+    _bitmap_assets_by_index = None
 
     def load_texdef_names(self, filepath=None):
         if filepath is None:
@@ -24,7 +29,7 @@ class ObjectsPs2Tag(GdlTag):
         bitmap_defs = texdef_tag.data.bitmap_defs
         self.texdef_names = [bitmap_defs[i].name for i in range(len(bitmap_defs))]
 
-    def get_cache_names(self, by_name=False):
+    def generate_cache_names(self):
         bitmaps     = self.data.bitmaps
         objects     = self.data.objects
         object_defs = self.data.object_defs
@@ -129,11 +134,24 @@ class ObjectsPs2Tag(GdlTag):
                 name = f"{c.UNNAMED_ASSET_NAME}.{len(names)}"
                 names.setdefault(i, dict(name=name, asset_name=name, index=i))
 
-        if by_name:
-            object_names = {d['name']: d for i, d in object_names.items()}
-            bitmap_names = {d['name']: d for i, d in bitmap_names.items()}
+        self._object_assets_by_index = object_names
+        self._bitmap_assets_by_index = bitmap_names
+        self._object_assets_by_name  = {d['name']: d for i, d in self._object_assets_by_index.items()}
+        self._bitmap_assets_by_name  = {d['name']: d for i, d in self._bitmap_assets_by_index.items()}
 
-        return object_names, bitmap_names
+    def get_cache_names(self, by_name=False, recache=False):
+        if None in (self._object_assets_by_index, self._object_assets_by_name,
+                    self._bitmap_assets_by_index, self._bitmap_assets_by_name):
+            self.generate_cache_names()
+
+        if by_name:
+            object_names = self._object_assets_by_name
+            bitmap_names = self._bitmap_assets_by_name
+        else:
+            object_names = self._object_assets_by_index
+            bitmap_names = self._bitmap_assets_by_index
+
+        return dict(object_names), dict(bitmap_names)
 
     def set_pointers(self, offset=0):
         '''

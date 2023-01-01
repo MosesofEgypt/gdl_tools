@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 import panda3d.egg
 import traceback
 import tkinter.filedialog
@@ -149,7 +150,9 @@ class Scene(ShowBase):
             print(traceback.format_exc())
 
     def _load_scene(self, objects_dir, object_names=()):
+        start = time.time()
         objects_data = load_objects_dir_files(objects_dir) if objects_dir else None
+        print("Loading objects dir files took %s seconds" % (time.time() - start))
 
         is_ngc            = objects_data["is_ngc"]
         anim_tag          = objects_data["anim_tag"]
