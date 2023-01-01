@@ -12,13 +12,13 @@ class FreeCamera(direct.showbase.DirectObject.DirectObject):
     roll_right   = False
     speed_up     = False
     speed_down   = False
-    speed        = 5.0
+    speed        = 10.0
 
     move_rate     = 1
-    roll_rate     = 10
+    roll_rate     = 30
     look_rate_h   = 0.1
     look_rate_p   = 0.1
-    speed_up_rate = 1
+    speed_up_rate = 2
 
     _show_base = None
     _camera    = None
@@ -37,19 +37,21 @@ class FreeCamera(direct.showbase.DirectObject.DirectObject):
         delta_x = delta_y = delta_z = 0
         delta_h = delta_p = delta_r = 0
 
-        win = self._show_base.win
-        center_x = win.getProperties().getXSize() // 2
-        center_y = win.getProperties().getYSize() // 2
-
-        if not self._camera_control_delay:
-            delta_h -= (win.getPointer(0).getX() - center_x) * self.look_rate_h
-            delta_p -= (win.getPointer(0).getY() - center_y) * self.look_rate_p
-
         if self._camera_control_delay <= 1:
+            win = self._show_base.win
+            center_x = win.getProperties().getXSize() // 2
+            center_y = win.getProperties().getYSize() // 2
+            if self._camera_control_delay == 0:
+                delta_h -= (win.getPointer(0).getX() - center_x) * self.look_rate_h
+                delta_p -= (win.getPointer(0).getY() - center_y) * self.look_rate_p
+
             # recenter the frame before we start camera control. we do this
             # to keep from jumping the curser on the frame it's still visible,
             # or jumping the camera on the first frame control is enabled
             win.movePointer(0, center_x, center_y)
+
+        # decrement each cycle
+        self._camera_control_delay = max(0, self._camera_control_delay - 1)
 
         if self.speed_up:   self.speed += self.speed_up_rate
         if self.speed_down: self.speed -= self.speed_up_rate
@@ -73,16 +75,13 @@ class FreeCamera(direct.showbase.DirectObject.DirectObject):
         self._camera.setP(self._camera, self._camera.getP(self._camera) + delta_p)
         self._camera.setR(self._camera, self._camera.getR(self._camera) + delta_r)
 
-        # decrement each cycle
-        self._camera_control_delay = max(0, self._camera_control_delay - 1)
-
     def update_camera_task(self, task):
         if self._show_base.win.getProperties().getForeground() and self._enabled:
-            self.update_camera((task.time - self._time) / 1000)
+            self.update_camera(task.time - self._time)
         else:
             self._camera_control_delay = 3
 
-        self.time = task.time
+        self._time = task.time
         return direct.task.Task.cont
 
     def start(self):

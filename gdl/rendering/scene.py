@@ -188,9 +188,6 @@ class Scene(ShowBase):
 
         self.switch_model()
 
-        #for scene_object in self.scene_objects.values():
-        #    NodePath(scene_object.p3d_node).hprInterval(10, (360, 0, 0)).loop()
-
     def add_scene_object(self, scene_obj):
         if not isinstance(scene_obj, scene_object.SceneObject):
             raise TypeError(f"scene object must be of type SceneObject, not {type(scene_obj)}")

@@ -99,18 +99,17 @@ class GeometryShader:
             nodepath.setTransparency(panda3d.core.TransparencyAttrib.MAlpha)
             self._diff_texture_stage.setSort(GeometryShader.DRAW_SORT_OPAQUE)
         else:
-            nodepath.setTransparency(panda3d.core.TransparencyAttrib.MNone)
             if self.additive_diffuse:
                 # Doesn't work in all cases.
-                # TODO: figure out what controls transparenc for these objects
-                #self._color_blend_attrib = panda3d.core.ColorBlendAttrib.make(
-                #    panda3d.core.ColorBlendAttrib.MAdd,
-                #    panda3d.core.ColorBlendAttrib.OOne,
-                #    panda3d.core.ColorBlendAttrib.OOne,
-                #    )
-                #nodepath.setAttrib(self._color_blend_attrib)
+                # TODO: figure out what controls transparency for these objects
+                self._color_blend_attrib = panda3d.core.ColorBlendAttrib.make(
+                    panda3d.core.ColorBlendAttrib.MAdd
+                    )
+                nodepath.setTransparency(panda3d.core.TransparencyAttrib.MAlpha)
+                nodepath.setAttrib(self._color_blend_attrib)
                 self._diff_texture_stage.setSort(GeometryShader.DRAW_SORT_SFX)
             else:
+                nodepath.setTransparency(panda3d.core.TransparencyAttrib.MNone)
                 self._diff_texture_stage.setSort(GeometryShader.DRAW_SORT_OPAQUE)
 
         # ps2 textures use signed alpha channels, so double

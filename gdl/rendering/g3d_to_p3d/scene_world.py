@@ -56,7 +56,7 @@ def load_scene_world_from_tags(
         model = load_model_from_objects_tag(objects_tag, world_object.name, textures)
         for geom in model.geometries:
             if not geom.shader.lm_texture:
-                # on-lightmapped world objects are rendered with transparency
+                # non-lightmapped world objects are rendered with transparency
                 geom.shader.additive_diffuse = True
                 geom.shader.apply_to_geometry(geom.p3d_geometry)
 
