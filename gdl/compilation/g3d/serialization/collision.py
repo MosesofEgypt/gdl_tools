@@ -59,14 +59,24 @@ class G3DCollision:
                 if z_norm_len:
                     z_norm = (z_norm[0]/z_norm_len, z_norm[1]/z_norm_len, z_norm[2]/z_norm_len)
 
+                if sum(x_norm) + sum(y_norm) + sum(z_norm) not in (2.0, 0.0, -2.0):
+                    # TEMPORARY
+                    self.verts.extend((
+                        (x0, y0, z0),
+                        )*3)
+                    continue
+                    
                 if sum(x_norm) == 0:
                     x_norm = y_norm
-                    if norm == (0.0, 0.0, 1.0):
+                    if norm[2] > 0.999999:
+                        z_norm = (z_norm[0], -z_norm[1], z_norm[2])
+                elif sum(y_norm) == 0:
+                    if norm[1] > 0.999999:
                         z_norm = (z_norm[0], -z_norm[1], z_norm[2])
                 elif sum(z_norm) == 0:
                     z_norm = x_norm
                     x_norm = y_norm
-                    if norm == (1.0, 0.0, 0.0):
+                    if norm[0] >= 0.999999:
                         z_norm = (z_norm[0], -z_norm[1], z_norm[2])
 
                 # calculate x1, x2, z1, and z2
@@ -76,13 +86,14 @@ class G3DCollision:
                 x2 = u2 * x_norm[0] + v2 * z_norm[0]
                 y2 = u2 * x_norm[1] + v2 * z_norm[1]
                 z2 = u2 * x_norm[2] + v2 * z_norm[2]
-                #x1 = u1 * x_norm[0]
-                #z1 = v1 * z_norm[2]
-                #x2 = u2 * x_norm[0]
-                #z2 = v2 * z_norm[2]
-
-                # solve for y1 and y2
-                #y1 = y2 = y0
+                '''
+                rot = vector_util.Matrix((
+                    (norm[0], 0, 0),
+                    (0, norm[1], 0),
+                    (0, 0, norm[2]),
+                    ))
+                x1, y1, z1 = rot * vector_util.Matrix(((u1, ), (0, ), (v1, )))
+                x2, y2, z2 = rot * vector_util.Matrix(((u2, ), (0, ), (v2, )))'''
 
                 self.verts.extend((
                     (x0,      y0,      z0     ),
