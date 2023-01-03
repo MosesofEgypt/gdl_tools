@@ -9,6 +9,7 @@ XBOX_MAX_STRIP_LEN   = 189
 NGC_MAX_STRIP_LEN    = XBOX_MAX_STRIP_LEN  # haven't tested yet
 PS2_MAX_STRIP_LEN    = RETAIL_MAX_STRIP_LEN  # dont change. levels might not load
 
+COLL_SCALE  = 0x40
 POS_SCALE   = 0x80
 UV_SCALE    = 0x80
 LM_UV_SCALE = 0x8000

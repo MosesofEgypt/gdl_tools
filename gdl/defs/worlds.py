@@ -93,7 +93,7 @@ sound_info = QStruct("sound_info",
     SIZE=12
     )
 
-obsticle_info = QStruct("obsticle_info",
+obstacle_info = QStruct("obstacle_info",
     SInt16("subtype"),
     SInt16("strength"),
     SIZE=4
@@ -129,7 +129,7 @@ item_instance = Struct("item_instance",
             teleporter_info=teleporter_info,
             rotator_info=rotator_info,
             sound_info=sound_info,
-            obsticle_info=obsticle_info,
+            obstacle_info=obstacle_info,
             powerup_info=powerup_info,
             trap_info=trap_info,
             ),
@@ -141,12 +141,13 @@ item_instance = Struct("item_instance",
 
 item_info_data = Struct("item_info_data",
     item_subtype,
-    SInt16("col_type",
+    SEnum16("col_type",
         "none",
-        "circle",
+        "cylinder",
         "sphere",
         "box",
         "object",
+        ("null", -1),
         ),
     SInt16("col_flags"),
     Float("radius"),
@@ -210,11 +211,12 @@ world_object = Struct("world_object",
     Float("radius"),
     SInt8("checked"),
     SInt8("no_collision"),
-    SInt16("coll_triangle_count"),
-    SInt32("coll_triangle_index"),
+    SInt16("coll_tri_count"),
+    SInt32("coll_tri_index"),
     SIZE=60
     )
 
+# related to pathfinding and item placement?
 grid_row = Struct("grid_row",
     # debug symbols say first and last are unsigned, but i've seen -1 and -2 as values
     SInt16("first"),

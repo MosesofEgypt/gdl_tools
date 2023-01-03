@@ -62,7 +62,7 @@ class G3DModel():
 
     source_file_hash = b'\x00'*16
 
-    def __init__(self, target_ps2=False, target_ngc=False, target_xbox=False):        
+    def __init__(self, target_ps2=False, target_ngc=False, target_xbox=False):
         self.stripifier = Stripifier()
         self.stripifier.degen_link = False
         self.stripifier.max_strip_len = (

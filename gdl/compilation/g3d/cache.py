@@ -5,8 +5,9 @@ from supyr_struct.util import backup_and_rename_temp
 from traceback import format_exc
 from ...defs.objects import objects_ps2_def
 from ...defs.texdef import texdef_ps2_def
+from ...defs.worlds import worlds_ps2_def
 from ..metadata import objects as objects_metadata
-from . import animation, model, texture
+from . import animation, collision, model, texture
 from . import constants as c
 
 
@@ -15,6 +16,7 @@ def compile_cache_files(
         serialize_cache_files=False, use_force_index_hack=False,
         build_anim_cache=True, build_texdef_cache=False,
         ):
+    # TODO: add support for compiling worlds
     data_dir    = os.path.join(objects_dir, c.DATA_FOLDERNAME)
     objects_tag = objects_ps2_def.build()
     anim_tag    = None
@@ -74,14 +76,19 @@ def decompile_cache_files(
         meta_asset_types=c.METADATA_ASSET_EXTENSIONS[0],
         tex_asset_types=c.TEXTURE_CACHE_EXTENSIONS,
         mod_asset_types=c.MODEL_CACHE_EXTENSIONS,
+        coll_asset_types=c.COLLISION_CACHE_EXTENSION,
         parallel_processing=False, swap_lightmap_and_diffuse=False, **kwargs
         ):
 
     ps2_objects_filepath = os.path.join(target_dir,  "objects.ps2")
     ngc_objects_filepath = os.path.join(target_dir,  "objects.ngc")
     texdef_filepath      = os.path.join(target_dir,  "texdef.ps2")
+    ps2_worlds_filepath  = os.path.join(target_dir,  "worlds.ps2")
+    ngc_worlds_filepath  = os.path.join(target_dir,  "worlds.ngc")
+
     objects_tag = None
-    texdef_tag = None
+    texdef_tag  = None
+    worlds_tag  = None
 
     if os.path.isfile(ps2_objects_filepath):
         objects_tag = objects_ps2_def.build(filepath=ps2_objects_filepath)
@@ -92,10 +99,13 @@ def decompile_cache_files(
 
     elif os.path.isfile(ngc_objects_filepath):
         objects_tag = objects_ps2_def.build(filepath=ngc_objects_filepath)
-
     elif os.path.isfile(texdef_filepath):
         texdef_tag = texdef_ps2_def.build(filepath=texdef_filepath)
 
+    if os.path.isfile(ps2_objects_filepath):
+        worlds_tag = worlds_ps2_def.build(filepath=ps2_worlds_filepath)
+    elif os.path.isfile(ngc_objects_filepath):
+        worlds_tag = worlds_ps2_def.build(filepath=ngc_worlds_filepath)
 
     if data_dir is None:
         data_dir = os.path.join(target_dir, c.DATA_FOLDERNAME)
@@ -119,6 +129,12 @@ def decompile_cache_files(
             overwrite=overwrite, parallel_processing=parallel_processing,
             asset_types=mod_asset_types,
             swap_lightmap_and_diffuse=swap_lightmap_and_diffuse
+            )
+
+    if coll_asset_types and worlds_tag:
+        collision.decompile_collision(
+            worlds_tag, data_dir,
+            overwrite=overwrite, asset_types=coll_asset_types,
             )
 
 

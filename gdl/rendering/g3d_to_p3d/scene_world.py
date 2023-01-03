@@ -5,6 +5,7 @@ from panda3d.core import PandaNode, LVecBase3f, NodePath
 from ..assets.scene_world import SceneWorld
 from .model import load_model_from_objects_tag
 from .texture import load_textures_from_objects_tag
+from .collision import load_collision_from_worlds_tag
 
 
 def _load_nodes_from_worlds_tag(world_objects, parent_p3d_node, child_index, seen):
@@ -41,16 +42,6 @@ def load_nodes_from_worlds_tag(worlds_tag, root_p3d_node):
     #for child in NodePath(root_p3d_node).findAllMatches('**'):
     #    print(child)
 
-def test(worlds_tag, objects_tag, textures, scene_world):
-    for world_object in worlds_tag.data.world_objects:
-        model = load_model_from_objects_tag(objects_tag, world_object.name, textures)
-        for geom in model.geometries:
-            if not geom.shader.lm_texture:
-                # non-lightmapped world objects are rendered with transparency
-                geom.shader.additive_diffuse = True
-                geom.shader.apply_to_geometry(geom.p3d_geometry)
-
-        scene_world.attach_model(model, world_object.name)
 
 def load_scene_world_from_tags(
         *, worlds_tag, objects_tag, anim_tag=None,
@@ -67,15 +58,29 @@ def load_scene_world_from_tags(
         objects_tag, textures_filepath, is_ngc
         )
 
-    # load and attach models
-    for world_object in worlds_tag.data.world_objects:
+    # load and attach models and collision
+    for i, world_object in enumerate(worlds_tag.data.world_objects):
         model = load_model_from_objects_tag(objects_tag, world_object.name, textures)
         for geom in model.geometries:
             if not geom.shader.lm_texture:
                 # non-lightmapped world objects are rendered with transparency
+                # TODO: Doesn't work in all cases. Figure this out
                 geom.shader.additive_diffuse = True
                 geom.shader.apply_to_geometry(geom.p3d_geometry)
+
         scene_world.attach_model(model, world_object.name)
+
+        if world_object.coll_tri_index >= 0 and world_object.coll_tri_count > 0:
+            #if world_object.name == "E1BIGSLAB":
+            #    print(i, world_object.name, world_object.coll_tri_index, world_object.coll_tri_count)
+            collision = load_collision_from_worlds_tag(
+                worlds_tag, world_object.name, world_object.coll_tri_index,
+                world_object.coll_tri_count,
+                )
+            if world_object.flags.unknown12:  # flag 13 also seems always set?
+                scene_world.attach_collision(collision, world_object.name)
+            else:
+                scene_world.attach_collision(collision, world_name)
 
     print("Loading scene world '%s' took %s seconds" % (world_name, time.time() - start))
     return scene_world

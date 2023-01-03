@@ -11,6 +11,7 @@ class SceneObject:
     _texture_swap_animations = ()
 
     _node_models = ()
+    _node_collision = ()
     _node_paths = ()
     
     def __init__(self, **kwargs):
@@ -22,6 +23,7 @@ class SceneObject:
         self._shape_morph_animations = {}
         self._texture_swap_animations = {}
         self._node_models = {}
+        self._node_collision = {}
         self.cache_node_paths()
 
     def cache_node_paths(self):
@@ -42,6 +44,8 @@ class SceneObject:
     def p3d_node(self): return self._p3d_node
     @property
     def node_models(self): return {k: dict(v) for k, v in self._node_models.items()}
+    @property
+    def node_collision(self): return {k: dict(v) for k, v in self._node_collision.items()}
     @property
     def shape_morph_animations(self): return dict(self._shape_morph_animations)
     @property
@@ -67,6 +71,27 @@ class SceneObject:
 
         node_model_collection[model.name] = model
         parent_node_path.node().add_child(model.p3d_model)
+
+    def attach_collision(self, collision, node_name=""):
+        node_name = node_name.upper().strip()
+        parent_node_path = self._node_paths.get(node_name)
+        if parent_node_path is None:
+            parent_node_path = panda3d.core.NodePath(self.p3d_node)
+            if node_name and node_name != self.p3d_node.name.lower().strip():
+                parent_node_path = parent_node_path.find("**/" + node_name)
+
+            if parent_node_path is not None:
+                self._cache_node_paths(parent_node_path)
+            else:
+                # TODO: raise error since node doesnt exist
+                return
+
+        node_collision_collection = self._node_collision.setdefault(node_name, dict())
+        if collision.name in node_collision_collection:
+            return
+
+        node_collision_collection[collision.name] = collision
+        parent_node_path.node().add_child(collision.p3d_collision)
 
     def add_shape_morph_animation(self, animation):
         if not isinstance(animation, scene_animation.ShapeMorphAnimation):

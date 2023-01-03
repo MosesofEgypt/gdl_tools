@@ -7,7 +7,7 @@ import tkinter.filedialog
 
 from direct.showbase.ShowBase import ShowBase
 from panda3d.core import AmbientLight, DirectionalLight, PointLight,\
-     NodePath, WindowProperties
+     NodePath, WindowProperties, CollisionVisualizer
 
 from . import free_camera
 from .assets import scene_object
@@ -16,6 +16,10 @@ from .g3d_to_p3d.scene_actor import load_scene_actor_from_tags
 from .g3d_to_p3d.scene_object import load_scene_object_from_tags
 from .g3d_to_p3d.scene_world import load_scene_world_from_tags
 
+
+# TODO: restructure this class to be a container for loading all
+# objects/actors/particle systems/collision/animations/textures/etc
+# in a scene and making them available for consumption by root scene
 class Scene(ShowBase):
     _scene_objects = ()
     _curr_scene_object_name = ""
@@ -26,6 +30,9 @@ class Scene(ShowBase):
     _light_levels = 5
 
     _camera_controller = None
+    _collision_visualizer = None
+    _collision_visible = False
+    _geometry_visible = True
 
     def __init__(self, **kwargs):
         self.objects_dir  = kwargs.pop("objects_dir", None)
@@ -52,6 +59,8 @@ class Scene(ShowBase):
         self.accept("escape", sys.exit, [0])
         self.accept("arrow_left", self.switch_model, [False])
         self.accept("arrow_right", self.switch_model, [True])
+        self.accept("1", self.toggle_geometry_view, [])
+        self.accept("2", self.toggle_collision_view, [])
         self.accept("o", self.load_objects, [])
         self.accept("i", self.import_objects, [])
         self.accept("k", self.adjust_ambient_light, [1])
@@ -61,6 +70,8 @@ class Scene(ShowBase):
 
         self._camera_controller = free_camera.FreeCamera(self, self.camera)
         self._camera_controller.start()
+
+        #self._collision_visualizer = CollisionVisualizer("collision_debug")
 
         self._scene_objects = {}
 
@@ -72,6 +83,36 @@ class Scene(ShowBase):
         lens = self.camNode.getLens(0)
         new_fov = min(180, max(5, lens.fov.getX() + (5 if increase else -5)))
         lens.fov = new_fov
+
+    def toggle_collision_view(self):
+        curr_scene_object = self._scene_objects.get(self._curr_scene_object_name)
+        if not curr_scene_object:
+            return
+
+        for coll_group in curr_scene_object.node_collision.values():
+            for coll in coll_group.values():
+                coll_node_path = NodePath(coll.p3d_collision)
+                if self._collision_visible:
+                    coll_node_path.hide()
+                else:
+                    coll_node_path.show()
+
+        self._collision_visible = not self._collision_visible
+
+    def toggle_geometry_view(self):
+        curr_scene_object = self._scene_objects.get(self._curr_scene_object_name)
+        if not curr_scene_object:
+            return
+
+        for model_group in curr_scene_object.node_models.values():
+            for model in model_group.values():
+                model_node_path = NodePath(model.p3d_model)
+                if self._geometry_visible:
+                    model_node_path.hide()
+                else:
+                    model_node_path.show()
+
+        self._geometry_visible = not self._geometry_visible
 
     def adjust_camera_light(self, amount):
         self._camera_light_intensity += amount
