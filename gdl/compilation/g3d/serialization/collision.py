@@ -71,8 +71,8 @@ class G3DCollision:
                     if norm[2] > 0.999999:
                         z_norm = (z_norm[0], -z_norm[1], z_norm[2])
                 elif sum(y_norm) == 0:
-                    if norm[1] > 0.999999:
-                        z_norm = (z_norm[0], -z_norm[1], z_norm[2])
+                    if norm[1] <= -0.999999:
+                        x_norm = (-x_norm[0], x_norm[1], x_norm[2])
                 elif sum(z_norm) == 0:
                     z_norm = x_norm
                     x_norm = y_norm
