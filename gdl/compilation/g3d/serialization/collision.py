@@ -42,11 +42,34 @@ class G3DCollision:
 
                 rot_norm = vector_util.cross_product(norm, (0, 1, 0))
                 rot_norm_len = math.sqrt(rot_norm[0]**2 + rot_norm[1]**2 + rot_norm[2]**2)
-                #print(rot_norm_len)
                 rot_norm_angle = math.asin(max(-1.0, min(1.0, rot_norm_len)))
                 if rot_norm_len:
                     rot_norm = (rot_norm[0]/rot_norm_len, rot_norm[1]/rot_norm_len, rot_norm[2]/rot_norm_len)
 
+                x_norm = vector_util.cross_product((0,  0, 1), norm)
+                y_axis_angle_cos = vector_util.dot_product((0, 1, 0), norm) # roll
+                z_norm = vector_util.cross_product((-1, 0, 0), norm)
+
+                # norm pointing along -z
+                    # x_axis angle between y_up and norm == -90
+                    # roll right -90 degrees(rotate around z)
+                    # yaw  right   0 degrees(rotate around y)
+                    # pitch  up  -90 degrees(rotate around x)
+                # norm pointing along y
+                    # x_axis angle between y_up and norm == 0
+                    # roll right   0 degrees(rotate around z)
+                    # yaw  right   0 degrees(rotate around y)
+                    # pitch  up    0 degrees(rotate around x)
+                # norm pointing along -y
+                    # x_axis angle between y_up and norm == -180
+                    # roll right 180 degrees(rotate around z)
+                    # yaw  right   0 degrees(rotate around y)
+                    # pitch  up    0 degrees(rotate around x)
+                # norm pointing along x
+                    # y_axis angle between z_up and norm == -90
+                    # roll right  90 degrees(rotate around z)
+                    # yaw  right  90 degrees(rotate around y)
+                    # pitch   up   0 degrees(rotate around x)
 
                 # cross the normal with the axis rays to get the
                 # normals the x and z axis will move along the plane
@@ -65,8 +88,8 @@ class G3DCollision:
                 if z_norm_len:
                     z_norm = (z_norm[0]/z_norm_len, z_norm[1]/z_norm_len, z_norm[2]/z_norm_len)
 
-                if sum(x_norm) + sum(y_norm) + sum(z_norm) not in (2.0, 0.0, -2.0):
-                #if norm[1] != 0:
+                if max(abs(norm[0]), abs(norm[1]), abs(norm[2])) < 0.99999:
+                #if norm[0] != 0:
                     # TEMPORARY
                     self.verts.extend((
                         (x0, y0, z0),
@@ -78,28 +101,44 @@ class G3DCollision:
                 #   pos world y is up
                 #   pos world x is right
                 if sum(x_norm) == 0:
-                    # norm pointing along z
-                    # pitch up 90 degrees(rotate around x)
-                    # yaw left 90 degrees(rotate around y)
-                    x_norm = y_norm  # y_norm points along x(neg if norm along pos z)
-                    z_norm = z_norm  # z_norm points along y(neg if norm along pos z) 
+                    # norm pointing along +z or -z
+                    # roll right -90 degrees(rotate around z)
+                    # yaw  right   0 degrees(rotate around y)
+                    # pitch  up  -90 degrees(rotate around x)
+                    x_norm = y_norm  # y_norm points along neg x(pos if norm along neg z)
+                    z_norm = z_norm  # z_norm points along neg y(pos if norm along neg z) 
                     if norm[2] >= 0.99999:
+                        # norm pointing along +z
+                        # rotate 180 degrees around any axis(determine which one)
                         z_norm = (z_norm[0], -z_norm[1], z_norm[2])
-
-                elif sum(z_norm) == 0:
-                    # norm pointing along x
-                    # pitch down 90 degrees(rotate around x)
-                    # roll left 90 degrees(rotate around z)
-                    z_norm = x_norm  # x_norm points along y(neg if norm along pos x)
-                    x_norm = y_norm  # y_norm points along z(neg if norm along pos x)
-                    if norm[0] >= 0.99999:
-                        z_norm = (z_norm[0], -z_norm[1], z_norm[2])
+                    else:
+                        # norm pointing along -z
+                        pass
 
                 elif sum(y_norm) == 0:
-                    # norm pointing along y
+                    # norm pointing along +y or -y
                     if norm[1] <= -0.99999:
-                        # roll 180 degrees(rotate around z)
+                        # norm pointing along -y
+                        # rotate 180 degrees around any axis(determine which one)
                         x_norm = (-x_norm[0], x_norm[1], x_norm[2])
+                    else:
+                        # norm pointing along y
+                        pass
+
+                elif sum(z_norm) == 0:
+                    # norm pointing along +x or -x
+                    # roll right  90 degrees(rotate around z)
+                    # yaw  right  90 degrees(rotate around y)
+                    # pitch   up   0 degrees(rotate around x)
+                    z_norm = x_norm  # x_norm points along neg y(pos if norm along neg x)
+                    x_norm = y_norm  # y_norm points along neg z(pos if norm along neg x)
+                    if norm[0] >= 0.99999:
+                        # norm pointing along +x
+                        # rotate 180 degrees around any axis(determine which one)
+                        z_norm = (z_norm[0], -z_norm[1], z_norm[2])
+                    else:
+                        # norm pointing along -x
+                        pass
 
                 # calculate x1, x2, z1, and z2
                 x1 = u1 * x_norm[0] + v1 * z_norm[0]
@@ -109,11 +148,13 @@ class G3DCollision:
                 y2 = u2 * x_norm[1] + v2 * z_norm[1]
                 z2 = u2 * x_norm[2] + v2 * z_norm[2]
 
-                y = p = r = 0
+                y = math.asin(max(-1.0, min(1.0, rot_norm_len)))
+                p = math.asin(max(-1.0, min(1.0, rot_norm_len)))
+                r = math.asin(max(-1.0, min(1.0, rot_norm_len)))
                 rot_quat = vector_util.euler_to_quaternion(y, p, r)
                 rot_mat  = vector_util.quaternion_to_matrix(*rot_quat)
                 #print(norm)
-                #print(rot)
+                #print(rot_mat)
 
                 mat1 = rot_mat * vector_util.Matrix(((u1, ), (0, ), (v1, )))
                 mat2 = rot_mat * vector_util.Matrix(((u2, ), (0, ), (v2, )))
