@@ -43,6 +43,8 @@ class SceneObject:
     @property
     def p3d_node(self): return self._p3d_node
     @property
+    def node_paths(self): return dict(self._node_paths)
+    @property
     def node_models(self): return {k: dict(v) for k, v in self._node_models.items()}
     @property
     def node_collision(self): return {k: dict(v) for k, v in self._node_collision.items()}
