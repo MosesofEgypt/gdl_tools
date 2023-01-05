@@ -19,9 +19,11 @@ def item_info_data_case(parent=None, **kwargs):
         return None
 
 coll_tri = Struct("coll_tri",
-    SInt16("min_y"),
-    SInt16("max_y"),
-    Float("scale"),
+    SInt16("min_y"),  # unknown purpose(runtime optimization?)
+    SInt16("max_y"),  # unknown purpose(runtime optimization?)
+    Float("scale"),  # equal to 1 / sqrt(norm.i^2 + norm.k^2))
+                     # can be used to normalize normal vector
+                     # into a 2d unit vector in the x/z plane
     QStruct("norm", INCLUDE=ijk_float),
     QStruct("v0", INCLUDE=xyz_float),
     SInt16("v1_x"),
