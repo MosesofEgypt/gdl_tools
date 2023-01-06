@@ -197,6 +197,28 @@ item_info = Struct("item_info",
 world_object = Struct("world_object",
     StrNntLatin1("name", SIZE=16),
     Bool32("flags",
+        # flag1: unknown purpose. set on most surfaces
+        # flag2: appears to be set(mostly) on floors(walkable floor?)
+        # flag4: almost never set(2 faces set in E1)
+        # flag5: set on slanted walkable surfaces(walkable slope?)
+        # flag6: same as flag4
+        # flag9: same as flag4
+        # flag11: set on invisible sconce fire(trigger collision/particle death plane?)
+        # flag12: parent-relative position(possibly for animation?)
+        # flag13: same as flag12
+        # flag14: same as flag4
+        # flag15: rarely set(set on chandalier in E1, debris in A1, gargoyle
+        #         wings, carpet, and player clip in L1, some floors in D1,
+        #         elevator clip in G1). seems to be animated player clip
+        # flag16: same as flag4
+        # flag19: same as flag4
+        # flag21: same as flag4
+        # flag22: same as flag4
+        # flag24: rarely set(seems to be movable collision)
+        # flag25: same as flag4
+        # flag26: same as flag4
+        # flag29: same as flag4
+        # flag30: same as flag4
         *((f"unknown{i}", 1<<i) for i in range(32))
         ),
     SEnum16("trigger_type"),

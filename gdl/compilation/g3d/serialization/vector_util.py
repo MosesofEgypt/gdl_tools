@@ -31,7 +31,7 @@ def rotate_vector_by_quaternion(v, q):
     vm = sqrt(vm_sq)
     v1 = [q[0], q[1], q[2]]
     v2 = [v[0], v[1], v[2]]
-    v3 = cross_product(v1, v)
+    v3 = cross_product(v1, v2)
 
     v1m = 2 * dot_product(v1, v)
     v2m = q[3]**2 - dot_product(v1, v1)

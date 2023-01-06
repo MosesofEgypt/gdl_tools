@@ -29,23 +29,22 @@ class G3DCollision:
 
                 scale = coll_tri["scale"]
                 norm  = tuple(coll_tri["norm"])
-                x0, y0, z0 = coll_tri["v0"]
+                x0, y0, z0 = coll_tri["v0"]                    
 
-                u1, v1 = coll_tri["v1_x"]  / c.COLL_SCALE, coll_tri["v1_z"]  / c.COLL_SCALE
-                u2, v2 = coll_tri["v2_x"]  / c.COLL_SCALE, coll_tri["v2_z"]  / c.COLL_SCALE
+                u1, v1 = coll_tri["v1_x"] / c.COLL_SCALE, coll_tri["v1_z"] / c.COLL_SCALE
+                u2, v2 = coll_tri["v2_x"] / c.COLL_SCALE, coll_tri["v2_z"] / c.COLL_SCALE
 
-                y_axis_angle_cos = math.acos(max(-1.0, min(1.0, vector_util.cos_angle_between_vectors((0, 1, 0), norm))))
+                r_cos = max(-1.0, min(1.0, vector_util.cos_angle_between_vectors((0, 1, 0), norm)))
 
-                # scale seems to only factor into determining
-                # whether or not to rotate the coordinates around y
                 y = math.atan2(-norm[0]*scale, -norm[2]*scale) if scale != FLOAT_INFINITY else 0
-                r = -y_axis_angle_cos
+                r = math.acos(r_cos)
 
                 # rotations occur in this order:
                 #   yaw: around y axis from +z to +x
-                # pitch: around x axis from +z to -y
                 #  roll: around z axis from +x to +y
-                rot_quat = vector_util.euler_to_quaternion(y, 0, r)
+                c0, c1 = math.cos(y / 2), math.cos(r / 2)
+                s0, s1 = math.sin(y / 2), math.sin(r / 2)
+                rot_quat = (-c0*s1, s0*c1, s0*s1, c0*c1)
 
                 x1, y1, z1 = vector_util.rotate_vector_by_quaternion((u1, 0, v1), rot_quat)
                 x2, y2, z2 = vector_util.rotate_vector_by_quaternion((u2, 0, v2), rot_quat)
