@@ -50,32 +50,13 @@ class G3DCollision:
                 v1_d = vector_util.rotate_vector_by_quaternion((u1, 0, v1), rot_quat)
                 v2_d = vector_util.rotate_vector_by_quaternion((u2, 0, v2), rot_quat)
 
-                # fix final positions by calculating slope intercept fixups
-                v1_fixup_mag = math.sqrt(sum(val**2 for val in v1_d))
-                v2_fixup_mag = math.sqrt(sum(val**2 for val in v2_d))
-
-                # determine which component has the most precision to work from
-                v1_comp, v2_comp = abs(v1_d[0]), abs(v2_d[0])
-                if abs(v1_d[1]) > v1_comp: v1_comp = abs(v1_d[1])
-                if abs(v1_d[2]) > v1_comp: v1_comp = abs(v1_d[2])
-                if abs(v2_d[1]) > v2_comp: v2_comp = abs(v2_d[1])
-                if abs(v2_d[2]) > v2_comp: v2_comp = abs(v2_d[2])
-
-                # generate a small vector to fix some of the collision's inaccuracy.
-                # vector aims along edge, and intends to intercept next world unit.
-                v1_fixup_scale = (math.ceil(v1_comp+0.01) - v1_comp) / (v1_comp * v1_fixup_mag)
-                v2_fixup_scale = (math.ceil(v2_comp+0.01) - v2_comp) / (v2_comp * v2_fixup_mag)
-
-                v1_fixup = list(val * v1_fixup_scale for val in v1_d)
-                v2_fixup = list(val * v2_fixup_scale for val in v2_d)
-
                 # scale to world units and add the v0 offset
-                x1 = x0 + (v1_d[0] + v1_fixup[0])*unit_scale
-                y1 = y0 + (v1_d[1] + v1_fixup[1])*unit_scale
-                z1 = z0 + (v1_d[2] + v1_fixup[2])*unit_scale
-                x2 = x0 + (v2_d[0] + v2_fixup[0])*unit_scale
-                y2 = y0 + (v2_d[1] + v2_fixup[1])*unit_scale
-                z2 = z0 + (v2_d[2] + v2_fixup[2])*unit_scale
+                x1 = x0 + v1_d[0]*unit_scale
+                y1 = y0 + v1_d[1]*unit_scale
+                z1 = z0 + v1_d[2]*unit_scale
+                x2 = x0 + v2_d[0]*unit_scale
+                y2 = y0 + v2_d[1]*unit_scale
+                z2 = z0 + v2_d[2]*unit_scale
                 self.verts.extend((
                     (x0, y0, z0),
                     (x1, y1, z1),
