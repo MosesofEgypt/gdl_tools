@@ -71,12 +71,11 @@ def load_scene_world_from_tags(
         scene_world.attach_model(model, world_object.name)
 
         if world_object.coll_tri_index >= 0 and world_object.coll_tri_count > 0:
-            #if world_object.name == "E1BIGSLAB":
-            #    print(i, world_object.name, world_object.coll_tri_index, world_object.coll_tri_count)
             collision = load_collision_from_worlds_tag(
                 worlds_tag, world_object.name, world_object.coll_tri_index,
                 world_object.coll_tri_count,
                 )
+
             if world_object.flags.unknown12:  # flag 13 also seems always set?
                 scene_world.attach_collision(collision, world_object.name)
             else:

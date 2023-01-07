@@ -18,7 +18,8 @@ class G3DCollision:
 
     def import_g3c(self, coll_tris, mesh_indices):
         self.clear()
-        
+
+        unit_scale = 1 / c.COLL_SCALE
         for mesh_name, indices in mesh_indices.items():
             v0 = len(self.verts)
             tri_start = indices["index"]
@@ -29,10 +30,11 @@ class G3DCollision:
 
                 scale = coll_tri["scale"]
                 norm  = tuple(coll_tri["norm"])
-                x0, y0, z0 = coll_tri["v0"]                    
+                x0, y0, z0 = coll_tri["v0"]
 
-                u1, v1 = coll_tri["v1_x"] / c.COLL_SCALE, coll_tri["v1_z"] / c.COLL_SCALE
-                u2, v2 = coll_tri["v2_x"] / c.COLL_SCALE, coll_tri["v2_z"] / c.COLL_SCALE
+                #min_y, max_y = coll_tri["min_y"], coll_tri["max_y"]
+                u1, v1 = coll_tri["v1_x"], coll_tri["v1_z"]
+                u2, v2 = coll_tri["v2_x"], coll_tri["v2_z"]
 
                 r_cos = max(-1.0, min(1.0, vector_util.cos_angle_between_vectors((0, 1, 0), norm)))
 
@@ -46,14 +48,59 @@ class G3DCollision:
                 s0, s1 = math.sin(y / 2), math.sin(r / 2)
                 rot_quat = (-c0*s1, s0*c1, s0*s1, c0*c1)
 
-                x1, y1, z1 = vector_util.rotate_vector_by_quaternion((u1, 0, v1), rot_quat)
-                x2, y2, z2 = vector_util.rotate_vector_by_quaternion((u2, 0, v2), rot_quat)
+                v1_d = vector_util.rotate_vector_by_quaternion((u1, 0, v1), rot_quat)
+                v2_d = vector_util.rotate_vector_by_quaternion((u2, 0, v2), rot_quat)
+
+                # fix final positions by calculating slope intercept fixups
+                v1_fixup_mag = math.sqrt(sum(val**2 for val in v1_d))
+                v2_fixup_mag = math.sqrt(sum(val**2 for val in v2_d))
+
+                # determine which component has the most precision to work from
+                v1_comp, v2_comp = abs(v1_d[0]), abs(v2_d[0])
+                if abs(v1_d[1]) > v1_comp: v1_comp = abs(v1_d[1])
+                if abs(v1_d[2]) > v1_comp: v1_comp = abs(v1_d[2])
+                if abs(v2_d[1]) > v2_comp: v2_comp = abs(v2_d[1])
+                if abs(v2_d[2]) > v2_comp: v2_comp = abs(v2_d[2])
+
+                v1_fixup_scale = (math.ceil(v1_comp) - v1_comp) / (v1_comp * v1_fixup_mag)
+                v2_fixup_scale = (math.ceil(v2_comp) - v2_comp) / (v2_comp * v2_fixup_mag)
+
+                v1_fixup = list(val * v1_fixup_scale for val in v1_d)
+                v2_fixup = list(val * v2_fixup_scale for val in v2_d)
+
+                # scale to world units
+                '''
+                x1 = (v1_d[0] + v1_fixup[0]) * unit_scale
+                y1 = (v1_d[1] + v1_fixup[1]) * unit_scale
+                z1 = (v1_d[2] + v1_fixup[2]) * unit_scale
+                x2 = (v2_d[0] + v2_fixup[0]) * unit_scale
+                y2 = (v2_d[1] + v2_fixup[1]) * unit_scale
+                z2 = (v2_d[2] + v2_fixup[2]) * unit_scale
+                '''
+                x1 = (v1_d[0]) * unit_scale
+                y1 = (v1_d[1]) * unit_scale
+                z1 = (v1_d[2]) * unit_scale
+                x2 = (v2_d[0]) * unit_scale
+                y2 = (v2_d[1]) * unit_scale
+                z2 = (v2_d[2]) * unit_scale
+                
 
                 self.verts.extend((
-                    (x0,      y0,      z0     ),
-                    (x1 + x0, y1 + y0, z1 + z0),
-                    (x2 + x0, y2 + y0, z2 + z0)
+                    (x0, y0, z0),
+                    (x1+x0, y1+y0, z1+z0),
+                    (x2+x0, y2+y0, z2+z0),
                     ))
+
+                '''print(self.verts[-2])
+                print(self.verts[-1])
+                print(coll_tri)
+                print(v1_d)
+                print(v2_d)
+                print(math.ceil(v1_comp), v1_comp)
+                print(math.ceil(v2_comp), v2_comp)
+                input((
+                    v1_fixup, v2_fixup, 
+                    ))'''
 
             self.meshes[mesh_name] = [
                 (i, i + 1, i + 2)
