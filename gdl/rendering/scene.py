@@ -23,11 +23,11 @@ from .g3d_to_p3d.scene_world import load_scene_world_from_tags
 class Scene(ShowBase):
     _scene_objects = ()
     _curr_scene_object_name = ""
-    _objects_dir = ""
 
     _camera_light_intensity = 4
     _ambient_light_intensity = 1
-    _light_levels = 5
+    _camera_light_levels  = 5
+    _ambient_light_levels = 5
 
     _camera_controller = None
     _collision_visualizer = None
@@ -56,18 +56,6 @@ class Scene(ShowBase):
         render.setLight(dlnp)
         render.setLight(alnp)
 
-        self.accept("escape", sys.exit, [0])
-        self.accept("arrow_left", self.switch_model, [False])
-        self.accept("arrow_right", self.switch_model, [True])
-        self.accept("1", self.toggle_geometry_view, [])
-        self.accept("2", self.toggle_collision_view, [])
-        self.accept("o", self.load_objects, [])
-        self.accept("i", self.import_objects, [])
-        self.accept("k", self.adjust_ambient_light, [1])
-        self.accept("l", self.adjust_camera_light, [1])
-        self.accept("-", self.adjust_fov, [False])
-        self.accept("=", self.adjust_fov, [True])
-
         self._camera_controller = free_camera.FreeCamera(self, self.camera)
         self._camera_controller.start()
 
@@ -79,9 +67,9 @@ class Scene(ShowBase):
         if self.objects_dir:
             self.load_scene(self.objects_dir, object_names=object_names)
 
-    def adjust_fov(self, increase):
+    def adjust_fov(self, delta):
         lens = self.camNode.getLens(0)
-        new_fov = min(180, max(5, lens.fov.getX() + (5 if increase else -5)))
+        new_fov = min(180, max(5, lens.fov.getX() + delta))
         lens.fov = new_fov
 
     def toggle_collision_view(self):
@@ -116,42 +104,23 @@ class Scene(ShowBase):
 
     def adjust_camera_light(self, amount):
         self._camera_light_intensity += amount
-        self._camera_light_intensity %= self._light_levels + 1
+        self._camera_light_intensity %= self._camera_light_levels + 1
         self._camera_light.setColor((
-            self._camera_light_intensity / self._light_levels,
-            self._camera_light_intensity / self._light_levels,
-            self._camera_light_intensity / self._light_levels,
+            self._camera_light_intensity / self._camera_light_levels,
+            self._camera_light_intensity / self._camera_light_levels,
+            self._camera_light_intensity / self._camera_light_levels,
             1
             ))
 
     def adjust_ambient_light(self, amount):
         self._ambient_light_intensity += amount
-        self._ambient_light_intensity %= self._light_levels + 1
+        self._ambient_light_intensity %= self._ambient_light_levels + 1
         self._ambient_light.setColor((
-            self._ambient_light_intensity / self._light_levels,
-            self._ambient_light_intensity / self._light_levels,
-            self._ambient_light_intensity / self._light_levels,
+            self._ambient_light_intensity / self._ambient_light_levels,
+            self._ambient_light_intensity / self._ambient_light_levels,
+            self._ambient_light_intensity / self._ambient_light_levels,
             1
             ))
-
-    def import_objects(self):
-        objects_dir = tkinter.filedialog.askdirectory(
-            initialdir=self.objects_dir,
-            title="Select the folder containing OBJECTS.PS2/NGC to import"
-            )
-        if objects_dir:
-            self.objects_dir = objects_dir
-            self.load_scene(self.objects_dir)
-
-    def load_objects(self):
-        objects_dir = tkinter.filedialog.askdirectory(
-            initialdir=self.objects_dir,
-            title="Select the folder containing OBJECTS.PS2/NGC to load"
-            )
-        if objects_dir:
-            self.clear_scene()
-            self.objects_dir = objects_dir
-            self.load_scene(self.objects_dir)
 
     def switch_model(self, next_model=True):
         if not self._scene_objects:
@@ -228,7 +197,7 @@ class Scene(ShowBase):
                 is_ngc=is_ngc
                 )
             self.add_scene_object(scene_world)
-            self._ambient_light_intensity = self._light_levels
+            self._ambient_light_intensity = self._ambient_light_levels
             self.adjust_ambient_light(0)
             self.setBackgroundColor(0,0,0)
         else:
