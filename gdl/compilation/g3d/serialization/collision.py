@@ -32,7 +32,6 @@ class G3DCollision:
                 norm  = tuple(coll_tri["norm"])
                 x0, y0, z0 = coll_tri["v0"]
 
-                #min_y, max_y = coll_tri["min_y"], coll_tri["max_y"]
                 u1, v1 = coll_tri["v1_x"], coll_tri["v1_z"]
                 u2, v2 = coll_tri["v2_x"], coll_tri["v2_z"]
 
@@ -62,45 +61,26 @@ class G3DCollision:
                 if abs(v2_d[1]) > v2_comp: v2_comp = abs(v2_d[1])
                 if abs(v2_d[2]) > v2_comp: v2_comp = abs(v2_d[2])
 
-                v1_fixup_scale = (math.ceil(v1_comp) - v1_comp) / (v1_comp * v1_fixup_mag)
-                v2_fixup_scale = (math.ceil(v2_comp) - v2_comp) / (v2_comp * v2_fixup_mag)
+                # generate a small vector to fix some of the collision's inaccuracy.
+                # vector aims along edge, and intends to intercept next world unit.
+                v1_fixup_scale = (math.ceil(v1_comp+0.01) - v1_comp) / (v1_comp * v1_fixup_mag)
+                v2_fixup_scale = (math.ceil(v2_comp+0.01) - v2_comp) / (v2_comp * v2_fixup_mag)
 
                 v1_fixup = list(val * v1_fixup_scale for val in v1_d)
                 v2_fixup = list(val * v2_fixup_scale for val in v2_d)
 
-                # scale to world units
-                '''
-                x1 = (v1_d[0] + v1_fixup[0]) * unit_scale
-                y1 = (v1_d[1] + v1_fixup[1]) * unit_scale
-                z1 = (v1_d[2] + v1_fixup[2]) * unit_scale
-                x2 = (v2_d[0] + v2_fixup[0]) * unit_scale
-                y2 = (v2_d[1] + v2_fixup[1]) * unit_scale
-                z2 = (v2_d[2] + v2_fixup[2]) * unit_scale
-                '''
-                x1 = (v1_d[0]) * unit_scale
-                y1 = (v1_d[1]) * unit_scale
-                z1 = (v1_d[2]) * unit_scale
-                x2 = (v2_d[0]) * unit_scale
-                y2 = (v2_d[1]) * unit_scale
-                z2 = (v2_d[2]) * unit_scale
-                
-
+                # scale to world units and add the v0 offset
+                x1 = x0 + (v1_d[0] + v1_fixup[0])*unit_scale
+                y1 = y0 + (v1_d[1] + v1_fixup[1])*unit_scale
+                z1 = z0 + (v1_d[2] + v1_fixup[2])*unit_scale
+                x2 = x0 + (v2_d[0] + v2_fixup[0])*unit_scale
+                y2 = y0 + (v2_d[1] + v2_fixup[1])*unit_scale
+                z2 = z0 + (v2_d[2] + v2_fixup[2])*unit_scale
                 self.verts.extend((
                     (x0, y0, z0),
-                    (x1+x0, y1+y0, z1+z0),
-                    (x2+x0, y2+y0, z2+z0),
+                    (x1, y1, z1),
+                    (x2, y2, z2),
                     ))
-
-                '''print(self.verts[-2])
-                print(self.verts[-1])
-                print(coll_tri)
-                print(v1_d)
-                print(v2_d)
-                print(math.ceil(v1_comp), v1_comp)
-                print(math.ceil(v2_comp), v2_comp)
-                input((
-                    v1_fixup, v2_fixup, 
-                    ))'''
 
             self.meshes[mesh_name] = [
                 (i, i + 1, i + 2)
