@@ -2,10 +2,10 @@ import time
 
 from panda3d.core import PandaNode, LVecBase3f, NodePath
 
-from ..assets.scene_world import SceneWorld
-from .model import load_model_from_objects_tag
-from .texture import load_textures_from_objects_tag
-from .collision import load_collision_from_worlds_tag
+from ...assets.scene_objects.scene_world import SceneWorld
+from ...assets.scene_objects.scene_world_object import SceneWorldObject
+from ..model import load_model_from_objects_tag
+from ..collision import load_collision_from_worlds_tag
 
 
 def _load_nodes_from_worlds_tag(world_objects, parent_p3d_node, child_index, seen):
@@ -44,8 +44,7 @@ def load_nodes_from_worlds_tag(worlds_tag, root_p3d_node):
 
 
 def load_scene_world_from_tags(
-        *, worlds_tag, objects_tag, anim_tag=None,
-        textures_filepath=None, is_ngc=False
+        *, worlds_tag, objects_tag, textures, anim_tag=None
         ):
     start = time.time()
     world_name = str(worlds_tag.filepath).upper().replace("\\", "/").\
@@ -54,32 +53,35 @@ def load_scene_world_from_tags(
     load_nodes_from_worlds_tag(worlds_tag, scene_world.p3d_node)
     scene_world.cache_node_paths()
 
-    textures = load_textures_from_objects_tag(
-        objects_tag, textures_filepath, is_ngc
-        )
-
     # load and attach models and collision
     for i, world_object in enumerate(worlds_tag.data.world_objects):
-        model = load_model_from_objects_tag(objects_tag, world_object.name, textures)
+        scene_world_object = SceneWorldObject(name=world_object.name)
+
+        model     = load_model_from_objects_tag(
+            objects_tag, world_object.name, textures
+            )
+        collision = load_collision_from_worlds_tag(
+            worlds_tag, world_object.name,
+            world_object.coll_tri_index,
+            world_object.coll_tri_count,
+            )
+
+        coll_attach_node = (
+            scene_world_object.name if world_object.flags.unknown12 else world_name
+            )
+
         for geom in model.geometries:
-            if not geom.shader.lm_texture:
+            if False and not geom.shader.lm_texture:
                 # non-lightmapped world objects are rendered with transparency
                 # TODO: Doesn't work in all cases. Figure this out
                 geom.shader.additive_diffuse = True
                 geom.shader.apply_to_geometry(geom.p3d_geometry)
 
-        scene_world.attach_model(model, world_object.name)
+        scene_world_object.attach_model(model, scene_world_object.name)
+        if collision:
+            scene_world.attach_collision(collision, coll_attach_node)
 
-        if world_object.coll_tri_index >= 0 and world_object.coll_tri_count > 0:
-            collision = load_collision_from_worlds_tag(
-                worlds_tag, world_object.name, world_object.coll_tri_index,
-                world_object.coll_tri_count,
-                )
-
-            if world_object.flags.unknown12:  # flag 13 also seems always set?
-                scene_world.attach_collision(collision, world_object.name)
-            else:
-                scene_world.attach_collision(collision, world_name)
+        scene_world.attach_world_object(scene_world_object, world_object.name)
 
     print("Loading scene world '%s' took %s seconds" % (world_name, time.time() - start))
     return scene_world

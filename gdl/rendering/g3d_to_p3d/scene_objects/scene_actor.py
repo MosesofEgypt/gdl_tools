@@ -1,10 +1,11 @@
 import time
 
-from panda3d.core import PandaNode, LVecBase3f
+from panda3d.core import NodePath, PandaNode, LVecBase3f
+from panda3d.physics import ActorNode
 
-from ..assets.scene_object import SceneObject
-from .model import load_model_from_objects_tag
-from .texture import load_textures_from_objects_tag
+from ...assets.scene_objects.scene_actor import SceneActor
+from ..model import load_model_from_objects_tag
+from .. import util
 
 
 def load_nodes_from_anim_tag(object_name, anim_tag):
@@ -49,43 +50,20 @@ def load_nodes_from_anim_tag(object_name, anim_tag):
     return root_node if root_node is not None else PandaNode("")
 
 
-def get_model_node_name_map(object_name, anim_tag):
-    model_names = []
-    node_names = []
-    atree_header = None
-    for atree in anim_tag.data.atrees:
-        if atree.name.upper().strip() == object_name.upper().strip():
-            atree_header = atree.atree_header
-            break
-
-    if atree_header:
-        for anode in atree_header.atree_data.anode_infos:
-            if anode.flags.no_object_def:
-                continue
-
-            model_names.append(atree_header.prefix + anode.mb_desc)
-            node_names.append(anode.mb_desc)
-
-    return model_names, node_names
-
-
-def load_scene_object_from_tags(
-        object_name, *, anim_tag, objects_tag=None,
-        textures_filepath=None, is_ngc=False
+def load_scene_actor_from_tags(
+        actor_name, *, anim_tag, textures, objects_tag=None
         ):
     start = time.time()
-    object_name = object_name.upper().strip()
-    skeleton = load_nodes_from_anim_tag(object_name, anim_tag)
-    scene_object = SceneObject(name=object_name, p3d_node=skeleton)
+    actor_name = actor_name.upper().strip()
+    actor_node = ActorNode(actor_name)
+    actor_node.add_child(load_nodes_from_anim_tag(actor_name, anim_tag))
 
-    textures = load_textures_from_objects_tag(
-        objects_tag, textures_filepath, is_ngc
-        )
+    scene_actor = SceneActor(name=actor_name, p3d_node=actor_node)
 
     # load and attach models
-    for model_name, node_name in zip(*get_model_node_name_map(object_name, anim_tag)):
+    for model_name, node_name in zip(*anim_tag.get_model_node_name_map(actor_name)):
         model = load_model_from_objects_tag(objects_tag, model_name, textures)
-        scene_object.attach_model(model, node_name)
+        scene_actor.attach_model(model, node_name)
 
-    print("Loading scene object '%s' took %s seconds" % (object_name, time.time() - start))
-    return scene_object
+    print("Loading scene actor '%s' took %s seconds" % (actor_name, time.time() - start))
+    return scene_actor

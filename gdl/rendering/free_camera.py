@@ -1,5 +1,6 @@
-import panda3d
 import direct
+import traceback
+import panda3d
 
 class FreeCamera(direct.showbase.DirectObject.DirectObject):
     forward      = False
@@ -27,28 +28,33 @@ class FreeCamera(direct.showbase.DirectObject.DirectObject):
     _enabled   = False
     _camera_control_delay = 0
 
+    _center_x = 0
+    _center_y = 0
+
     def __init__(self, show_base, camera):
         self._show_base = show_base
         self._camera    = camera
         self._time      = 0
         self._enabled   = self._active = False
 
+    @property
+    def active(self): return self._active
+
     def update_camera(self, delta_t):
         delta_x = delta_y = delta_z = 0
         delta_h = delta_p = delta_r = 0
 
         if self._camera_control_delay <= 1:
-            win = self._show_base.win
-            center_x = win.getProperties().getXSize() // 2
-            center_y = win.getProperties().getYSize() // 2
+            window = self._show_base.win
+            mouse_pointer = window.getPointer(0)
             if self._camera_control_delay == 0:
-                delta_h -= (win.getPointer(0).getX() - center_x) * self.look_rate_h
-                delta_p -= (win.getPointer(0).getY() - center_y) * self.look_rate_p
+                delta_h -= (mouse_pointer.getX() - self._center_x) * self.look_rate_h
+                delta_p -= (mouse_pointer.getY() - self._center_y) * self.look_rate_p
 
             # recenter the frame before we start camera control. we do this
             # to keep from jumping the curser on the frame it's still visible,
             # or jumping the camera on the first frame control is enabled
-            win.movePointer(0, center_x, center_y)
+            window.movePointer(0, int(self._center_x), int(self._center_y))
 
         # decrement each cycle
         self._camera_control_delay = max(0, self._camera_control_delay - 1)
@@ -71,15 +77,23 @@ class FreeCamera(direct.showbase.DirectObject.DirectObject):
         self._camera.setX(self._camera, self._camera.getX(self._camera) + delta_x)
         self._camera.setY(self._camera, self._camera.getY(self._camera) + delta_y)
         self._camera.setZ(render, self._camera.getZ(render) + delta_z)
+        # TODO: fix camera rotation fucking up
         self._camera.setH(render, self._camera.getH(render) + delta_h)
         self._camera.setP(self._camera, self._camera.getP(self._camera) + delta_p)
         self._camera.setR(self._camera, self._camera.getR(self._camera) + delta_r)
 
     def update_camera_task(self, task):
         if self._show_base.win.getProperties().getForeground() and self._enabled:
-            self.update_camera(task.time - self._time)
+            try:
+                self.update_camera(task.time - self._time)
+            except Exception:
+                print(traceback.format_exc())
         else:
-            self._camera_control_delay = 3
+            self._camera_control_delay = 2
+
+            mouse_pointer = self._show_base.win.getPointer(0)
+            self._center_x = mouse_pointer.getX()
+            self._center_y = mouse_pointer.getY()
 
         self._time = task.time
         return direct.task.Task.cont
@@ -120,12 +134,6 @@ class FreeCamera(direct.showbase.DirectObject.DirectObject):
         for key in ("wheel_up", "wheel_down"):
             self.ignore(key)
 
-        mat = panda3d.core.LMatrix4f(
-            self._camera.getTransform(render).getMat()
-            )
-        mat.invertInPlace()
-        self._camera.setMat(panda3d.core.LMatrix4f.identMat())
-        self._show_base.mouseInterfaceNode.setMat(mat)
         self._show_base.taskMgr.remove("HxMouseLook::update_camera_task")
         self._active = False
 

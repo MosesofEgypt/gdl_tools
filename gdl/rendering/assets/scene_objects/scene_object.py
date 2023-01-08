@@ -1,6 +1,6 @@
 import panda3d
 
-from . import animation
+from .. import animation
 
 
 class SceneObject:
@@ -53,8 +53,7 @@ class SceneObject:
     @property
     def texture_swap_animations(self): return dict(self._texture_swap_animations)
 
-    def attach_model(self, model, node_name=""):
-        node_name = node_name.upper().strip()
+    def _get_node_path(self, node_name):
         parent_node_path = self._node_paths.get(node_name)
         if parent_node_path is None:
             parent_node_path = panda3d.core.NodePath(self.p3d_node)
@@ -65,34 +64,30 @@ class SceneObject:
                 self._cache_node_paths(parent_node_path)
             else:
                 # TODO: raise error since node doesnt exist
-                return
+                pass
 
-        node_model_collection = self._node_models.setdefault(node_name, dict())
-        if model.name in node_model_collection:
+        return parent_node_path
+
+    def attach_model(self, model, node_name=""):
+        node_name = node_name.upper().strip()
+        node_collection = self._node_models.setdefault(node_name, dict())
+        parent_node_path = self._get_node_path(node_name)
+
+        if model.name in node_collection or parent_node_path is None:
             return
 
-        node_model_collection[model.name] = model
+        node_collection[model.name] = model
         parent_node_path.node().add_child(model.p3d_model)
 
     def attach_collision(self, collision, node_name=""):
         node_name = node_name.upper().strip()
-        parent_node_path = self._node_paths.get(node_name)
-        if parent_node_path is None:
-            parent_node_path = panda3d.core.NodePath(self.p3d_node)
-            if node_name and node_name != self.p3d_node.name.lower().strip():
-                parent_node_path = parent_node_path.find("**/" + node_name)
+        node_collection = self._node_collision.setdefault(node_name, dict())
+        parent_node_path = self._get_node_path(node_name)
 
-            if parent_node_path is not None:
-                self._cache_node_paths(parent_node_path)
-            else:
-                # TODO: raise error since node doesnt exist
-                return
-
-        node_collision_collection = self._node_collision.setdefault(node_name, dict())
-        if collision.name in node_collision_collection:
+        if collision.name in node_collection or parent_node_path is None:
             return
 
-        node_collision_collection[collision.name] = collision
+        node_collection[collision.name] = collision
         parent_node_path.node().add_child(collision.p3d_collision)
 
     def add_shape_morph_animation(self, animation):

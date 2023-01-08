@@ -7,6 +7,9 @@ from ...compilation.g3d.serialization.collision import G3DCollision
 def load_collision_from_worlds_tag(
         worlds_tag, collision_name, tri_index, tri_count
         ):
+    if tri_index < 0 or tri_count <= 0:
+        return None
+
     collision = CollisionMesh(
         name=collision_name,
         p3d_collision=CollisionNode(collision_name),
