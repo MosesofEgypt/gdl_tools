@@ -23,6 +23,7 @@ class FreeCamera(direct.showbase.DirectObject.DirectObject):
 
     _show_base = None
     _camera    = None
+    _ref_node  = None
     _time      = 0
     _active    = False
     _enabled   = False
@@ -31,9 +32,10 @@ class FreeCamera(direct.showbase.DirectObject.DirectObject):
     _center_x = 0
     _center_y = 0
 
-    def __init__(self, show_base, camera):
+    def __init__(self, show_base, camera, ref_node=None):
         self._show_base = show_base
         self._camera    = camera
+        self._ref_node  = ref_node if ref_node else render
         self._time      = 0
         self._enabled   = self._active = False
 
@@ -76,14 +78,13 @@ class FreeCamera(direct.showbase.DirectObject.DirectObject):
 
         self._camera.setX(self._camera, self._camera.getX(self._camera) + delta_x)
         self._camera.setY(self._camera, self._camera.getY(self._camera) + delta_y)
-        self._camera.setZ(render, self._camera.getZ(render) + delta_z)
-        # TODO: fix camera rotation fucking up
-        self._camera.setH(render, self._camera.getH(render) + delta_h)
+        self._camera.setZ(self._ref_node, self._camera.getZ(self._ref_node) + delta_z)
+        self._camera.setH(self._ref_node, self._camera.getH(self._ref_node) + delta_h)
         self._camera.setP(self._camera, self._camera.getP(self._camera) + delta_p)
         self._camera.setR(self._camera, self._camera.getR(self._camera) + delta_r)
 
     def update_camera_task(self, task):
-        if self._show_base.win.getProperties().getForeground() and self._enabled:
+        if self._show_base.win.getProperties().getForeground() and self._enabled and self._active:
             try:
                 self.update_camera(task.time - self._time)
             except Exception:

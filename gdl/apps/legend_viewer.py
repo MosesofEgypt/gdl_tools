@@ -10,7 +10,7 @@ __version__ = (0, 0, 1)
 
 class LegendViewer(Scene):
 
-    title_prefix = "Legend Viewer v%s.%s.%s: " % __version__
+    _title_prefix = "Legend Viewer v%s.%s.%s - " % __version__
 
     def __init__(self):
         super().__init__(windowType='none')
@@ -42,7 +42,7 @@ class LegendViewer(Scene):
         self.accept("f5", self.toggleTexture, [])
         self.accept("f6", self.toggleParticles, [])
 
-        self.accept("tab", self.switch_scene_view, [])
+        self.accept("tab", self.cycle_scene_view, [])
 
         self.accept("k", self.select_game_root_dir, [])
         self.accept("l", self.select_and_load_world, [])
@@ -52,6 +52,15 @@ class LegendViewer(Scene):
         self.accept("-", self.adjust_fov, [-5])
         self.accept("=", self.adjust_fov, [5])
         self.cycle_viewed()
+
+    @property
+    def title_prefix(self):
+        return self._title_prefix + (
+            "World: "  if self._scene_view == self.SCENE_VIEW_WORLD  else
+            "Actor: "  if self._scene_view == self.SCENE_VIEW_ACTOR  else
+            "Object: " if self._scene_view == self.SCENE_VIEW_OBJECT else
+            ""
+            )
 
     def resize(self, event):
         self.tk_root.update()
@@ -105,14 +114,20 @@ class LegendViewer(Scene):
         self.load_objects(objects_dir)
 
     def cycle_viewed(self, increment=0):
-        if self.viewing_world:
+        if self._scene_view == self.SCENE_VIEW_WORLD:
             curr_name = self._curr_scene_world_name
             curr_object = self.active_world
             names = tuple(sorted(self._scene_worlds))
-        else:
+        elif self._scene_view == self.SCENE_VIEW_ACTOR:
+            curr_name = self._curr_scene_actor_name
+            curr_object = self.active_actor
+            names = tuple(sorted(self._scene_actors))
+        elif self._scene_view == self.SCENE_VIEW_OBJECT:
             curr_name = self._curr_scene_object_name
             curr_object = self.active_object
             names = tuple(sorted(self._scene_objects))
+        else:
+            return
         
         name = ""
         if names:
@@ -121,23 +136,39 @@ class LegendViewer(Scene):
                 name_index += names.index(curr_name)
             name = names[name_index % len(names)]
 
-        if self.viewing_world:
+        if self._scene_view == self.SCENE_VIEW_WORLD:
             self.switch_world(name)
-        else:
+        elif self._scene_view == self.SCENE_VIEW_ACTOR:
+            self.switch_actor(name)
+        elif self._scene_view == self.SCENE_VIEW_OBJECT:
             self.switch_object(name)
-
-    def switch_object(self, object_name):
-        super().switch_object(object_name)
-        name = self.active_object.name if self.active_object else ""
-        self.tk_root.title(self.title_prefix + name)
+        else:
+            return
 
     def switch_world(self, world_name):
         super().switch_world(world_name)
-        name = self.active_world.name if self.active_world else ""
+        name = self.active_world.name if self.active_world else "(none selected)"
         self.tk_root.title(self.title_prefix + name)
 
-    def switch_scene_view(self, view_world=None):
-        super().switch_scene_view(view_world)
-        scene_object = self.active_world if self.viewing_world else self.active_object
-        name = scene_object.name if scene_object else ""
+    def switch_actor(self, actor_name):
+        super().switch_actor(actor_name)
+        name = self.active_actor.name if self.active_actor else "(none selected)"
+        self.tk_root.title(self.title_prefix + name)
+
+    def switch_object(self, object_name):
+        super().switch_object(object_name)
+        name = self.active_object.name if self.active_object else "(none selected)"
+        self.tk_root.title(self.title_prefix + name)
+
+    def cycle_scene_view(self):
+        self.switch_scene_view((self._scene_view + 1) % 3)
+
+    def switch_scene_view(self, scene_view):
+        super().switch_scene_view(scene_view)
+        scene_object = (
+            self.active_world  if self._scene_view == self.SCENE_VIEW_WORLD else
+            self.active_actor  if self._scene_view == self.SCENE_VIEW_ACTOR else
+            self.active_object
+            )
+        name = scene_object.name if scene_object else "(none selected)"
         self.tk_root.title(self.title_prefix + name)

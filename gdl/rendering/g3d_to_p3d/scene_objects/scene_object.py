@@ -17,5 +17,5 @@ def load_scene_object_from_tags(
     model = load_model_from_objects_tag(objects_tag, object_name, textures)
     scene_object.attach_model(model, object_name)
 
-    print("Loading scene object '%s' took %s seconds" % (object_name, time.time() - start))
+    #print("Loading scene object '%s' took %s seconds" % (object_name, time.time() - start))
     return scene_object

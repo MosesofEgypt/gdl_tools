@@ -83,5 +83,5 @@ def load_scene_world_from_tags(
 
         scene_world.attach_world_object(scene_world_object, world_object.name)
 
-    print("Loading scene world '%s' took %s seconds" % (world_name, time.time() - start))
+    #print("Loading scene world '%s' took %s seconds" % (world_name, time.time() - start))
     return scene_world

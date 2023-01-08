@@ -19,16 +19,23 @@ from .g3d_to_p3d.texture import load_textures_from_objects_tag
 
 
 class Scene(ShowBase):
+    SCENE_VIEW_WORLD  = 0
+    SCENE_VIEW_ACTOR  = 1
+    SCENE_VIEW_OBJECT = 2
+
     _game_root_dir = ""
 
     _scene_worlds  = ()
+    _scene_actors  = ()
     _scene_objects = ()
 
-    _world_root_node   = None
+    _world_root_node  = None
+    _actor_root_node  = None
     _object_root_node = None
 
-    _curr_scene_object_name = ""
     _curr_scene_world_name  = ""
+    _curr_scene_actor_name  = ""
+    _curr_scene_object_name = ""
 
     _camera_light_intensity  = 4
     _ambient_light_intensity = 1
@@ -36,12 +43,17 @@ class Scene(ShowBase):
     _ambient_light_levels = 5
 
     _world_camera_controller  = None
+    _actor_camera_controller  = None
     _object_camera_controller = None
 
-    _world_camera_transform  = None
-    _object_camera_transform = None
+    _world_camera_pos  = None
+    _actor_camera_pos  = None
+    _object_camera_pos = None
+    _world_camera_rot  = None
+    _actor_camera_rot  = None
+    _object_camera_rot = None
 
-    _viewing_world = True
+    _scene_view = SCENE_VIEW_WORLD
 
     def __init__(self, **kwargs):
         super().__init__()
@@ -60,20 +72,32 @@ class Scene(ShowBase):
 
         object_camera_parent = NodePath(PandaNode("object_camera_node"))
 
-        mat = self.camera.getTransform(render).getMat()
-        self._world_camera_transform  = panda3d.core.LMatrix4f(mat)
-        self._object_camera_transform = panda3d.core.LMatrix4f(mat)
+        # put camera in a reasonable starting position
+        self.camera.setX(5)
+        self.camera.setY(-5)
+        self.camera.setZ(5)
+        self.camera.setH(45)
+        self.camera.setP(-35)
+        self.adjust_fov(90, delta=False)
 
-        self._world_camera_controller  = free_camera.FreeCamera(self, self.camera)
-        self._object_camera_controller = free_camera.FreeCamera(self, self.camera)
+        self._world_camera_pos = self._actor_camera_pos = self._object_camera_pos = self.camera.getPos()
+        self._world_camera_rot = self._actor_camera_rot = self._object_camera_rot = self.camera.getHpr()
 
-        self._scene_objects = {}
+        self._world_camera_controller  = free_camera.FreeCamera(self, self.camera, self.camera.parent)
+        self._actor_camera_controller  = free_camera.FreeCamera(self, self.camera, self.camera.parent)
+        self._object_camera_controller = free_camera.FreeCamera(self, self.camera, self.camera.parent)
+        self._world_camera_controller.start()
+
         self._scene_worlds  = {}
+        self._scene_actors  = {}
+        self._scene_objects = {}
 
         self._world_root_node  = PandaNode("__world_root")
+        self._actor_root_node  = PandaNode("__actor_root")
         self._object_root_node = PandaNode("__object_root")
 
         render.node().add_child(self._world_root_node)
+        render.node().add_child(self._actor_root_node)
         render.node().add_child(self._object_root_node)
 
         self._ambient_light_intensity = self._ambient_light_levels
@@ -84,16 +108,16 @@ class Scene(ShowBase):
         return self._scene_worlds.get(self._curr_scene_world_name)
 
     @property
+    def active_actor(self):
+        return self._scene_actors.get(self._curr_scene_actor_name)
+
+    @property
     def active_object(self):
         return self._scene_objects.get(self._curr_scene_object_name)
 
-    @property
-    def viewing_world(self):
-        return self._viewing_world
-
-    def adjust_fov(self, delta):
+    def adjust_fov(self, angle, delta=True):
         lens = self.camNode.getLens(0)
-        new_fov = min(180, max(5, lens.fov.getX() + delta))
+        new_fov = min(180, max(5, (lens.fov.getX() if delta else 0) + angle))
         lens.fov = new_fov
 
     def set_collision_visible(self, visible=None):
@@ -164,6 +188,21 @@ class Scene(ShowBase):
 
         self._curr_scene_world_name = world_name
 
+    def switch_actor(self, actor_name):
+        if not self._scene_actors:
+            return
+
+        curr_scene_actor = self.active_actor
+        next_scene_actor = self._scene_actors.get(actor_name)
+        if curr_scene_actor:
+            self._actor_root_node.remove_child(curr_scene_actor.p3d_node)
+
+        if next_scene_actor:
+            self._actor_root_node.add_child(next_scene_actor.p3d_node)
+            NodePath(next_scene_actor.p3d_node).show()
+
+        self._curr_scene_actor_name = actor_name
+
     def switch_object(self, object_name):
         if not self._scene_objects:
             return
@@ -179,30 +218,61 @@ class Scene(ShowBase):
 
         self._curr_scene_object_name = object_name
 
-    def switch_scene_view(self, view_world=None):
-        if view_world is None:
-            view_world = not self.viewing_world
+    def switch_scene_view(self, scene_view):
+        if scene_view == self._scene_view or scene_view not in (
+                self.SCENE_VIEW_WORLD, self.SCENE_VIEW_ACTOR, self.SCENE_VIEW_OBJECT,
+                ):
+            return
 
-        mat = self.camera.getTransform(render).getMat()
-        if view_world:
-            self._object_camera_transform = mat
-            mat = self._world_camera_transform
+        try:
+            pos = self.camera.getPos()
+            rot = self.camera.getHpr()
+        except Exception:
+            print(traceback.format_exc())
+            return
+
+        if self._scene_view == self.SCENE_VIEW_WORLD:
+            self._world_camera_pos = pos
+            self._world_camera_rot = rot
+            self._world_camera_controller.stop()
+            NodePath(self._world_root_node).hide()
+        elif self._scene_view == self.SCENE_VIEW_ACTOR:
+            self._actor_camera_pos = pos
+            self._actor_camera_rot = rot
+            self._actor_camera_controller.stop()
+            NodePath(self._actor_root_node).hide()
+        elif self._scene_view == self.SCENE_VIEW_OBJECT:
+            self._object_camera_pos = pos
+            self._object_camera_rot = rot
             self._object_camera_controller.stop()
+            NodePath(self._object_root_node).hide()
+
+        if scene_view == self.SCENE_VIEW_WORLD:
+            pos = self._world_camera_pos
+            rot = self._world_camera_rot
             self._world_camera_controller.start()
             NodePath(self._world_root_node).show()
-            NodePath(self._object_root_node).hide()
             self.setBackgroundColor(0,0,0)
-        else:
-            self._world_camera_transform = mat
-            mat = self._object_camera_transform
-            self._world_camera_controller.stop()
+        elif scene_view == self.SCENE_VIEW_ACTOR:
+            pos = self._actor_camera_pos
+            rot = self._actor_camera_rot
+            self._actor_camera_controller.start()
+            NodePath(self._actor_root_node).show()
+            self.setBackgroundColor(0.5,0.5,0.5)
+        elif scene_view == self.SCENE_VIEW_OBJECT:
+            pos = self._object_camera_pos
+            rot = self._object_camera_rot
             self._object_camera_controller.start()
             NodePath(self._object_root_node).show()
-            NodePath(self._world_root_node).hide()
             self.setBackgroundColor(0.5,0.5,0.5)
 
-        self.camera.setMat(mat)
-        self._viewing_world = view_world
+        try:
+            self.camera.setPos(pos)
+            self.camera.setHpr(rot)
+        except Exception:
+            print(traceback.format_exc())
+
+        self._scene_view = scene_view
 
     def clear_scene(self):
         for scene_world_name in tuple(self._scene_worlds.keys()):
@@ -215,10 +285,18 @@ class Scene(ShowBase):
             NodePath(scene_object.p3d_node).removeNode()
             del self._scene_objects[scene_object_name]
 
+        for scene_actor_name in tuple(self._scene_actors.keys()):
+            scene_actor = self._scene_actors[scene_actor_name]
+            NodePath(scene_actor.p3d_node).removeNode()
+            del self._scene_actors[scene_actor_name]
+
     def load_objects(self, objects_path):
         try:
             self._load_objects(objects_path)
-            self.switch_scene_view(view_world=False)
+            self.switch_scene_view(
+                self.SCENE_VIEW_ACTOR if self._scene_actors else
+                self.SCENE_VIEW_OBJECT
+                )
         except Exception:
             print(traceback.format_exc())
 
@@ -232,7 +310,7 @@ class Scene(ShowBase):
             for items_dir in items_dirs:
                 self._load_items(self.active_world, items_dir)
 
-            self.switch_scene_view(view_world=True)
+            self.switch_scene_view(self.SCENE_VIEW_WORLD)
         except Exception:
             print(traceback.format_exc())
 
@@ -259,34 +337,32 @@ class Scene(ShowBase):
         if objects_tag:
             object_names = set(objects_tag.get_cache_names(by_name=True)[0])
 
-        object_name_to_display = None
+        display_actor = display_object = True
         for actor_name in sorted(anim_tag.actor_names):
             scene_actor = load_scene_actor_from_tags(
                 actor_name, anim_tag=anim_tag,
                 textures=textures, objects_tag=objects_tag,
                 )
-            self.add_scene_object(scene_actor)
+            self.add_scene_actor(scene_actor)
 
             # remove all object names that will be rendered in an actor
+            # TODO: implement removing all objets included in animations
             for model_name in anim_tag.get_model_node_name_map(actor_name)[0]:
                 if model_name in object_names:
                     object_names.remove(model_name)
 
-            if object_name_to_display is None:
-                object_name_to_display = actor_name
+            if display_actor:
+                self.switch_actor(actor_name)
+                display_actor = False
 
         for object_name in sorted(object_names):
-            # TODO: implement this when we can successfully load all object pieces
-            break
             scene_object = load_scene_object_from_tags(
                 object_name, textures=textures, objects_tag=objects_tag,
                 )
             self.add_scene_object(scene_object)
-            if object_name_to_display is None:
-                object_name_to_display = object_name
-
-        if object_name_to_display:
-            self.switch_object(object_name_to_display)
+            if display_object:
+                self.switch_object(object_name)
+                display_object = False
 
     def _load_world(self, levels_dir):
         start = time.time()
@@ -320,22 +396,37 @@ class Scene(ShowBase):
         if not isinstance(world, scene_world.SceneWorld):
             raise TypeError(f"Scene world must be of type SceneWorld, not {type(world)}")
         elif world.name in self._scene_worlds:
-            raise ValueError(f"SceneWorld with name '{world.name}' already exists")
+            # TODO: replace existing world
+            return
 
         self._scene_worlds[world.name] = world
+
+    def add_scene_actor(self, actor):
+        if not isinstance(actor, scene_actor.SceneActor):
+            raise TypeError(f"Scene actor must be of type SceneActor, not {type(actor)}")
+        elif actor.name in self._scene_actors:
+            # TODO: replace existing actor
+            return
+
+        self._scene_actors[actor.name] = actor
 
     def add_scene_object(self, object):
         if not isinstance(object, scene_object.SceneObject):
             raise TypeError(f"Scene object must be of type SceneObject, not {type(object)}")
         elif object.name in self._scene_objects:
-            raise ValueError(f"SceneObject with name '{object.name}' already exists")
+            # TODO: replace existing object
+            return
 
         self._scene_objects[object.name] = object
 
     @property
-    def scene_objects(self):
-        return dict(self._scene_objects)
-
-    @property
     def scene_worlds(self):
         return dict(self._scene_worlds)
+
+    @property
+    def scene_actors(self):
+        return dict(self._scene_actors)
+
+    @property
+    def scene_objects(self):
+        return dict(self._scene_objects)

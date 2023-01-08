@@ -65,5 +65,5 @@ def load_scene_actor_from_tags(
         model = load_model_from_objects_tag(objects_tag, model_name, textures)
         scene_actor.attach_model(model, node_name)
 
-    print("Loading scene actor '%s' took %s seconds" % (actor_name, time.time() - start))
+    #print("Loading scene actor '%s' took %s seconds" % (actor_name, time.time() - start))
     return scene_actor
