@@ -27,7 +27,6 @@ class FreeCamera(direct.showbase.DirectObject.DirectObject):
     _time      = 0
     _active    = False
     _enabled   = False
-    _camera_control_delay = 0
 
     _center_x = 0
     _center_y = 0
@@ -46,20 +45,15 @@ class FreeCamera(direct.showbase.DirectObject.DirectObject):
         delta_x = delta_y = delta_z = 0
         delta_h = delta_p = delta_r = 0
 
-        if self._camera_control_delay <= 1:
-            window = self._show_base.win
-            mouse_pointer = window.getPointer(0)
-            if self._camera_control_delay == 0:
-                delta_h -= (mouse_pointer.getX() - self._center_x) * self.look_rate_h
-                delta_p -= (mouse_pointer.getY() - self._center_y) * self.look_rate_p
+        window = self._show_base.win
+        mouse_pointer = window.getPointer(0)
+        delta_h -= (mouse_pointer.getX() - self._center_x) * self.look_rate_h
+        delta_p -= (mouse_pointer.getY() - self._center_y) * self.look_rate_p
 
-            # recenter the frame before we start camera control. we do this
-            # to keep from jumping the curser on the frame it's still visible,
-            # or jumping the camera on the first frame control is enabled
-            window.movePointer(0, int(self._center_x), int(self._center_y))
-
-        # decrement each cycle
-        self._camera_control_delay = max(0, self._camera_control_delay - 1)
+        # recenter the frame before we start camera control. we do this
+        # to keep from jumping the curser on the frame it's still visible,
+        # or jumping the camera on the first frame control is enabled
+        window.movePointer(0, int(self._center_x), int(self._center_y))
 
         if self.speed_up:   self.speed += self.speed_up_rate
         if self.speed_down: self.speed -= self.speed_up_rate
@@ -90,8 +84,6 @@ class FreeCamera(direct.showbase.DirectObject.DirectObject):
             except Exception:
                 print(traceback.format_exc())
         else:
-            self._camera_control_delay = 2
-
             mouse_pointer = self._show_base.win.getPointer(0)
             self._center_x = mouse_pointer.getX()
             self._center_y = mouse_pointer.getY()
