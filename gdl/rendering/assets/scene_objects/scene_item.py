@@ -104,6 +104,9 @@ class SceneItemInfo:
         h = (h * 180) / math.pi
         p = (p * 180) / math.pi
         r = (r * 180) / math.pi
+        #if self.item_type == c.ITEM_TYPE_GENERATOR:
+        #    print(self.actor_name, min_players)
+        #    print(params.generator_info)
 
         scene_item_nodepath = panda3d.core.NodePath(scene_item.p3d_node)
         scene_item_nodepath.setPos(panda3d.core.LVecBase3f(x, y, z))
@@ -129,6 +132,9 @@ class SceneItem(SceneObject):
     @property
     def actor_name(self):
         return self.scene_actor.name if self.scene_actor else ""
+    @property
+    def min_players(self):
+        return self._min_players
 
     @property
     def scene_actor(self):
@@ -182,17 +188,37 @@ class SceneItemTrigger(SceneItem):
 
 
 class SceneItemEnemy(SceneItem):
-    strength = 0.0
+    strength = 0
     ai_type  = 0
     radius   = 0.0
     interval = 0.0
 
 
 class SceneItemGenerator(SceneItem):
-    strength    = 0.0
+    strength    = 0
     ai_type     = 0
     max_enemies = 0
     interval    = 0.0
+
+    _generator_scene_actors = ()
+
+    def __init__(self, **kwargs):
+        self._generator_scene_actors = tuple(kwargs.pop("generator_scene_actors", ()))
+        for scene_actor in self._generator_scene_actors:
+            if not isinstance(scene_actor, (type(None), SceneActor)):
+                raise TypeError(f"Generator scene actors must be either None or of type SceneActor, not {type(scene_actor)}")
+
+        super().__init__(**kwargs)
+
+    @property
+    def generator_scene_actors(self): return self._generator_scene_actors
+
+    def set_strength(self, strength):
+        if not(isinstance(strength, int) and strength in range(len(self._generator_scene_actors))):
+            raise ValueError("No enemy varient for strength of '%s'" % strength)
+            
+        self.scene_actor = self._generator_scene_actors[strength]
+        self.strength = strength
 
 
 class SceneItemExit(SceneItem):

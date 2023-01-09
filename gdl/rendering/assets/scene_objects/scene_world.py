@@ -13,6 +13,8 @@ class SceneWorld(SceneObject):
     _objects_root_node = None
     _items_root_nodes  = ()
 
+    _player_count = 4
+
     def __init__(self, **kwargs):
         self._node_world_objects = {}
         self._node_scene_items   = {}
@@ -39,6 +41,22 @@ class SceneWorld(SceneObject):
 
         self.p3d_node.add_child(self._objects_root_node)
 
+    @property
+    def player_count(self): return self._player_count
+    @player_count.setter
+    def player_count(self, count):
+        if not(isinstance(count, int) and count in range(5)):
+            raise ValueError("Player count must be either 0, 1, 2, 3, or 4, not '%s'" % count)
+
+        self._player_count = count
+        for scene_items in self._node_scene_items.values():
+            for scene_item in scene_items:
+                node_path = panda3d.core.NodePath(scene_item.p3d_node)
+                if scene_item.min_players > self.player_count:
+                    node_path.hide()
+                else:
+                    node_path.show()
+
     def attach_scene_item(self, scene_item):
         item_type = ""
         if   isinstance(scene_item, SceneItemPowerup):      item_type = "powerup"
@@ -62,6 +80,12 @@ class SceneWorld(SceneObject):
 
         self._items_root_nodes[item_type].add_child(scene_item.p3d_node)
         self._node_scene_items[item_type].append(scene_item)
+
+        node_path = panda3d.core.NodePath(scene_item.p3d_node)
+        if scene_item.min_players > self.player_count:
+            node_path.hide()
+        else:
+            node_path.show()
 
     def attach_world_object(self, world_object, node_name=""):
         if not isinstance(world_object, SceneWorldObject):

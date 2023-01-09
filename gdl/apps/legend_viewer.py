@@ -34,13 +34,18 @@ class LegendViewer(Scene):
         self.accept("arrow_left", self.cycle_viewed, [-1])
         self.accept("arrow_right", self.cycle_viewed, [1])
 
-        self.accept("f1", self.set_geometry_visible, [])
-        self.accept("f2", self.set_collision_visible, [])
-        self.accept("f3", self.toggleWireframe, [])
-        self.accept("f4", self.toggleShowVertices, [])
+        self.accept("f1", self.set_world_geometry_visible, [])
+        self.accept("f2", self.set_item_geometry_visible, [])
+        self.accept("f3", self.set_world_collision_visible, [])
+        self.accept("f4", self.set_item_collision_visible, [])
 
-        self.accept("f5", self.toggleTexture, [])
-        self.accept("f6", self.toggleParticles, [])
+        self.accept("f5", self.toggleWireframe, [])
+        self.accept("f6", self.toggleShowVertices, [])
+        self.accept("f7", self.toggleTexture, [])
+        self.accept("f8", self.toggleParticles, [])
+
+        for i in range(5):
+            self.accept(str(i), self.set_player_count, [i])
 
         self.accept("tab", self.cycle_scene_view, [])
 
