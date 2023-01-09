@@ -4,8 +4,7 @@ import time
 from panda3d.core import PandaNode, LVecBase3f, NodePath
 
 from ...assets.scene_objects.scene_world import SceneWorld
-from ...assets.scene_objects.scene_world_object import SceneWorldObject
-from ..model import load_model_from_objects_tag
+from .scene_world_object import load_scene_world_object_from_tags
 from ..collision import load_collision_from_worlds_tag
 from .scene_item import load_scene_item_infos_from_worlds_tag,\
      load_scene_item_from_item_instance
@@ -63,11 +62,10 @@ def load_scene_world_from_tags(
     scene_item_infos = load_scene_item_infos_from_worlds_tag(worlds_tag)
 
     # load and attach models and collision
-    for i, world_object in enumerate(worlds_tag.data.world_objects):
-        scene_world_object = SceneWorldObject(name=world_object.name)
-
-        model     = load_model_from_objects_tag(
-            objects_tag, world_object.name, textures
+    for world_object in worlds_tag.data.world_objects:
+        scene_world_object = load_scene_world_object_from_tags(
+            world_object, textures=textures,
+            worlds_tag=worlds_tag, objects_tag=objects_tag
             )
         collision = load_collision_from_worlds_tag(
             worlds_tag, world_object.name,
@@ -75,18 +73,7 @@ def load_scene_world_from_tags(
             world_object.coll_tri_count,
             )
 
-        coll_attach_node = (
-            scene_world_object.name if world_object.flags.unknown12 else world_name
-            )
-
-        for geom in model.geometries:
-            if False and not geom.shader.lm_texture:
-                # non-lightmapped world objects are rendered with transparency
-                # TODO: Doesn't work in all cases. Figure this out
-                geom.shader.additive_diffuse = True
-                geom.shader.apply_to_geometry(geom.p3d_geometry)
-
-        scene_world_object.attach_model(model, scene_world_object.name)
+        coll_attach_node = scene_world_object.name if world_object.flags.unknown12 else world_name
         if collision:
             scene_world.attach_collision(collision, coll_attach_node)
 
