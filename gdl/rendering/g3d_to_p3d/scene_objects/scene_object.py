@@ -1,7 +1,5 @@
 import time
 
-from panda3d.core import PandaNode, LVecBase3f
-
 from ...assets.scene_objects.scene_object import SceneObject
 from ..model import load_model_from_objects_tag
 

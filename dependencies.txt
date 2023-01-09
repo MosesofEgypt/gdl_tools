@@ -6,3 +6,4 @@ pycollada
 scipy
 supyr_struct
 pyyaml
+pmw

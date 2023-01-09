@@ -1,6 +1,6 @@
 import os
-import sys
 import time
+import pathlib
 import panda3d.egg
 import traceback
 import tkinter.filedialog
@@ -72,6 +72,10 @@ class Scene(ShowBase):
 
         object_camera_parent = NodePath(PandaNode("object_camera_node"))
 
+        # world camera can start in world center
+        self._world_camera_pos = self.camera.getPos()
+        self._world_camera_rot = self.camera.getHpr()
+
         # put camera in a reasonable starting position
         self.camera.setX(5)
         self.camera.setY(-5)
@@ -80,8 +84,8 @@ class Scene(ShowBase):
         self.camera.setP(-35)
         self.adjust_fov(90, delta=False)
 
-        self._world_camera_pos = self._actor_camera_pos = self._object_camera_pos = self.camera.getPos()
-        self._world_camera_rot = self._actor_camera_rot = self._object_camera_rot = self.camera.getHpr()
+        self._actor_camera_pos = self._object_camera_pos = self.camera.getPos()
+        self._actor_camera_rot = self._object_camera_rot = self.camera.getHpr()
 
         self._world_camera_controller  = free_camera.FreeCamera(self, self.camera, self.camera.parent)
         self._actor_camera_controller  = free_camera.FreeCamera(self, self.camera, self.camera.parent)
@@ -219,7 +223,7 @@ class Scene(ShowBase):
         self._curr_scene_object_name = object_name
 
     def switch_scene_view(self, scene_view):
-        if scene_view == self._scene_view or scene_view not in (
+        if scene_view not in (
                 self.SCENE_VIEW_WORLD, self.SCENE_VIEW_ACTOR, self.SCENE_VIEW_OBJECT,
                 ):
             return
@@ -302,13 +306,33 @@ class Scene(ShowBase):
 
     def load_world(self, world_path):
         worlds_dir = os.path.join(self._game_root_dir, world_path)
-        # TODO
-        items_path = ""
-        items_dirs = os.path.join(self._game_root_dir, items_path) if items_path else ""
+        world_name = os.path.basename(world_path).lower()
+        realm_name = world_name.rstrip("0123456789")
+
+        items_root = ""
+        items_dirs = []
+        # locate the folder all the level items dirs are in(handle case-sensitive systems)
+        for root, dirs, _ in os.walk(pathlib.Path(worlds_dir).parent.parent):
+            for dirname in dirs:
+                if dirname.lower() == "items":
+                    items_root = os.path.join(root, dirname)
+                    break
+            break
+
+        for root, dirs, _ in os.walk(items_root):
+            for dirname in dirs:
+                if dirname.lower() == world_name:
+                    items_dirs.append(os.path.join(root, dirname))
+                if dirname.lower() == realm_name:
+                    items_dirs.append(os.path.join(root, dirname))
+            break
+
         try:
-            self._load_world(worlds_dir)
+            world_item_actors = {}
             for items_dir in items_dirs:
-                self._load_items(self.active_world, items_dir)
+                world_item_actors.update(self._load_world_item_actors(items_dir))
+
+            self._load_world(worlds_dir, world_item_actors)
 
             self.switch_scene_view(self.SCENE_VIEW_WORLD)
         except Exception:
@@ -364,8 +388,11 @@ class Scene(ShowBase):
                 self.switch_object(object_name)
                 display_object = False
 
-    def _load_world(self, levels_dir):
+    def _load_world(self, levels_dir, world_item_actors=()):
         start = time.time()
+        if world_item_actors is None:
+            world_item_actors = {}
+
         objects_data = load_objects_dir_files(levels_dir) if levels_dir else None
         if not objects_data:
             return
@@ -385,12 +412,34 @@ class Scene(ShowBase):
         scene_world = load_scene_world_from_tags(
             worlds_tag=worlds_tag, objects_tag=objects_tag,
             textures=textures, anim_tag=anim_tag,
+            world_item_actors=world_item_actors,
             )
         self.add_scene_world(scene_world)
         self.switch_world(scene_world.name)
 
-    def _load_items(self, scene_world, items_path):
-        pass
+    def _load_world_item_actors(self, items_dir):
+        start = time.time()
+        objects_data = load_objects_dir_files(items_dir) if items_dir else None
+        world_item_actors = {}
+        if objects_data:
+            print("Loading files took %s seconds" % (time.time() - start))
+            is_ngc            = objects_data["is_ngc"]
+            anim_tag          = objects_data["anim_tag"]
+            objects_tag       = objects_data["objects_tag"]
+            textures_filepath = objects_data["textures_filepath"]
+
+            textures = load_textures_from_objects_tag(
+                objects_tag, textures_filepath, is_ngc
+                )
+
+            # load the actors so they're ready to map to items
+            for actor_name in (anim_tag.actor_names if anim_tag else ()):
+                world_item_actors[actor_name] = load_scene_actor_from_tags(
+                    actor_name, anim_tag=anim_tag,
+                    textures=textures, objects_tag=objects_tag,
+                    )
+
+        return world_item_actors
 
     def add_scene_world(self, world):
         if not isinstance(world, scene_world.SceneWorld):

@@ -1,3 +1,4 @@
+import traceback
 import time
 
 from panda3d.core import PandaNode, LVecBase3f, NodePath
@@ -6,6 +7,8 @@ from ...assets.scene_objects.scene_world import SceneWorld
 from ...assets.scene_objects.scene_world_object import SceneWorldObject
 from ..model import load_model_from_objects_tag
 from ..collision import load_collision_from_worlds_tag
+from .scene_item import load_scene_item_infos_from_worlds_tag,\
+     load_scene_item_from_item_instance
 
 
 def _load_nodes_from_worlds_tag(world_objects, parent_p3d_node, child_index, seen):
@@ -44,14 +47,20 @@ def load_nodes_from_worlds_tag(worlds_tag, root_p3d_node):
 
 
 def load_scene_world_from_tags(
-        *, worlds_tag, objects_tag, textures, anim_tag=None
+        *, worlds_tag, objects_tag, textures,
+        anim_tag=None, world_item_actors=()
         ):
+    if world_item_actors is None:
+        world_item_actors = {}
+
     start = time.time()
     world_name = str(worlds_tag.filepath).upper().replace("\\", "/").\
                  split("LEVELS/")[-1].split("/")[0]
     scene_world = SceneWorld(name=world_name)
     load_nodes_from_worlds_tag(worlds_tag, scene_world.p3d_node)
     scene_world.cache_node_paths()
+
+    scene_item_infos = load_scene_item_infos_from_worlds_tag(worlds_tag)
 
     # load and attach models and collision
     for i, world_object in enumerate(worlds_tag.data.world_objects):
@@ -82,6 +91,20 @@ def load_scene_world_from_tags(
             scene_world.attach_collision(collision, coll_attach_node)
 
         scene_world.attach_world_object(scene_world_object, world_object.name)
+
+    for item_instance in worlds_tag.data.item_instances:
+        try:
+            scene_item = load_scene_item_from_item_instance(
+                worlds_tag = worlds_tag,
+                objects_tag = objects_tag, textures = textures,
+                item_instance = item_instance,
+                scene_item_infos = scene_item_infos,
+                world_item_actors = world_item_actors
+                )
+            scene_world.attach_scene_item(scene_item)
+        except Exception:
+            print(traceback.format_exc())
+            continue
 
     #print("Loading scene world '%s' took %s seconds" % (world_name, time.time() - start))
     return scene_world

@@ -14,7 +14,7 @@ def grid_entry_size(parent=None, **kwargs):
 
 def item_info_data_case(parent=None, **kwargs):
     try:
-        return "random" if parent.item_type.enum_name == "" else "normal"
+        return "random" if parent.item_type.enum_name == "random" else "normal"
     except Exception:
         return None
 
@@ -143,7 +143,7 @@ item_instance = Struct("item_instance",
 
 item_info_data = Struct("item_info_data",
     item_subtype,
-    SEnum16("col_type",
+    SEnum16("coll_type",
         "none",
         "cylinder",
         "sphere",
@@ -151,12 +151,12 @@ item_info_data = Struct("item_info_data",
         "object",
         ("null", -1),
         ),
-    SInt16("col_flags"),
+    SInt16("coll_flags"),
     Float("radius"),
     Float("height"),
     Float("x_dim"),
     Float("z_dim"),
-    QStruct("col_offset", INCLUDE=xyz_float),
+    QStruct("coll_offset", INCLUDE=xyz_float),
     StrNntLatin1("name", SIZE=16),
     Bool32("mb_flags",
         *(("unknown%s" % i, 1 << i) for i in range(32))
@@ -267,8 +267,8 @@ locator_type = SEnum8("type",
 
 locator = Struct("locator",
     locator_type,
-    UInt8("unknown0"),
-    UInt16("unknown1"),
+    UInt8("delay"),
+    UInt16("next"),
     QStruct("pos", INCLUDE=xyz_float),
     QStruct("rot", INCLUDE=pyr_float),
     SIZE=28
@@ -309,6 +309,7 @@ worlds_header = Struct('header',
         DEFAULT=0xF00BAB02, EDITABLE=False
         ),
 
+    # NOTE: check struct named worldanim
     UInt32("animation_headers_offset", EDITABLE=False, VISIBLE=False),
     UInt32("animations_count", EDITABLE=False, VISIBLE=False),
     Pointer32("animations_pointer", EDITABLE=False, VISIBLE=False),
@@ -340,7 +341,7 @@ worlds_ps2_def = TagDef("worlds",
         SIZE=".header.coll_tri_count",
         POINTER=".header.coll_tri_pointer",
         ),
-    Array("items_infos",
+    Array("item_infos",
         SUB_STRUCT=item_info,
         SIZE=".header.item_info_count",
         POINTER=".header.item_info_pointer",

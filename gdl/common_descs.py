@@ -175,7 +175,7 @@ def Lump(*args, **kwargs):
 #  shared lump structs
 #############################
 item_type = SEnum32("item_type",
-    ("random",      0xFF),
+    ("random",      -1),
     ("powerup",     0x01),
     ("container",   0x02),
     ("generator",   0x03),
