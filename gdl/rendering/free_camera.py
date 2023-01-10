@@ -109,7 +109,7 @@ class FreeCamera(direct.showbase.DirectObject.DirectObject):
 
         self.accept("wheel_up",   setattr, [self, "speed_up",   True])
         self.accept("wheel_down", setattr, [self, "speed_down", True])
-        self._show_base.taskMgr.add(self.update_camera_task, 'HxMouseLook::update_camera_task')
+        self._show_base.taskMgr.add(self.update_camera_task, 'FreeCamera::update_camera_task')
         self._active = True
 
     def stop(self):
@@ -127,7 +127,7 @@ class FreeCamera(direct.showbase.DirectObject.DirectObject):
         for key in ("wheel_up", "wheel_down"):
             self.ignore(key)
 
-        self._show_base.taskMgr.remove("HxMouseLook::update_camera_task")
+        self._show_base.taskMgr.remove("FreeCamera::update_camera_task")
         self._active = False
 
     def set_enabled(self, enable):

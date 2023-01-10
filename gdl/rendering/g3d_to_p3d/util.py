@@ -12,6 +12,26 @@ from ...defs.objects import objects_ps2_def
 from ...defs.worlds import worlds_ps2_def
 
 
+def locate_objects_dir(search_root, *folder_names):
+    objects_dir = ""
+
+    folder_to_find = folder_names[0].lower()
+    folder_names = folder_names[1:]
+    for root, dirs, _ in os.walk(search_root):
+        for dirname in dirs:
+            if dirname.lower() != folder_to_find:
+                continue
+
+            objects_dir = os.path.join(root, dirname)
+            if folder_names:
+                objects_dir = locate_objects_dir(objects_dir, *folder_names)
+
+            if objects_dir: break
+        if objects_dir: break
+
+    return objects_dir
+
+
 def load_objects_dir_files(objects_dir):
     anim_tag    = None
     worlds_tag  = None

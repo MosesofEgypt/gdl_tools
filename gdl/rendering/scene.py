@@ -11,7 +11,7 @@ from panda3d.core import AmbientLight, DirectionalLight, PointLight,\
 
 from . import free_camera
 from .assets.scene_objects import scene_actor, scene_object, scene_world
-from .g3d_to_p3d.util import load_objects_dir_files
+from .g3d_to_p3d.util import load_objects_dir_files, locate_objects_dir
 from .g3d_to_p3d.scene_objects.scene_actor import load_scene_actor_from_tags
 from .g3d_to_p3d.scene_objects.scene_object import load_scene_object_from_tags
 from .g3d_to_p3d.scene_objects.scene_world import load_scene_world_from_tags
@@ -22,8 +22,6 @@ class Scene(ShowBase):
     SCENE_VIEW_WORLD  = 0
     SCENE_VIEW_ACTOR  = 1
     SCENE_VIEW_OBJECT = 2
-
-    _game_root_dir = ""
 
     _scene_worlds  = ()
     _scene_actors  = ()
@@ -322,28 +320,19 @@ class Scene(ShowBase):
         except Exception:
             print(traceback.format_exc())
 
-    def load_world(self, world_path):
-        worlds_dir = os.path.join(self._game_root_dir, world_path)
-        world_name = os.path.basename(world_path).lower()
+    def load_world(self, worlds_dir):
+        game_root_dir = pathlib.Path(worlds_dir).parent.parent
+
+        world_name = os.path.basename(worlds_dir).lower()
         realm_name = world_name.rstrip("0123456789")
 
-        items_root = ""
-        items_dirs = []
-        # locate the folder all the level items dirs are in(handle case-sensitive systems)
-        for root, dirs, _ in os.walk(pathlib.Path(worlds_dir).parent.parent):
-            for dirname in dirs:
-                if dirname.lower() == "items":
-                    items_root = os.path.join(root, dirname)
-                    break
-            break
-
-        for root, dirs, _ in os.walk(items_root):
-            for dirname in dirs:
-                if dirname.lower() == world_name:
-                    items_dirs.append(os.path.join(root, dirname))
-                if dirname.lower() == realm_name:
-                    items_dirs.append(os.path.join(root, dirname))
-            break
+        # locate the folder all the level items dirs are in
+        items_dirs = [
+            locate_objects_dir(game_root_dir, "items", world_name),
+            locate_objects_dir(game_root_dir, "items", realm_name),
+            locate_objects_dir(game_root_dir, "powerups"),
+            locate_objects_dir(game_root_dir, "weapons"),
+            ]
 
         try:
             world_item_actors = {}

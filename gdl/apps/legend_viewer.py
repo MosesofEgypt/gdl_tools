@@ -1,3 +1,4 @@
+import direct
 import os
 
 import tkinter.filedialog
@@ -6,9 +7,19 @@ from tkinter import TclError
 from ..rendering.scene import Scene
 from panda3d.core import WindowProperties
 
-__version__ = (0, 0, 1)
+__version__ = (0, 0, 2)
 
 class LegendViewer(Scene):
+    # cycle at the rate the game is hardcoded to animate at
+    CYCLE_SUBVIEW_RATE     = 1/30
+    CYCLE_SUBVIEW_MIN_TIME = 0.75
+
+    _last_selected_dir = ""
+
+    _time = 0
+    _cycle_subview_timer = 0
+    _cycle_subview_left  = 0
+    _cycle_subview_right = 0
 
     _title_prefix = "Legend Viewer v%s.%s.%s - " % __version__
 
@@ -31,9 +42,6 @@ class LegendViewer(Scene):
         base.openDefaultWindow(props=props)
         self.tk_root.bind("<Configure>", self.resize)
 
-        self.accept("arrow_left", self.cycle_viewed, [-1])
-        self.accept("arrow_right", self.cycle_viewed, [1])
-
         self.accept("f1", self.set_world_geometry_visible, [])
         self.accept("f2", self.set_item_geometry_visible, [])
         self.accept("f3", self.set_world_collision_visible, [])
@@ -44,19 +52,43 @@ class LegendViewer(Scene):
         self.accept("f7", self.toggleTexture, [])
         self.accept("f8", self.toggleParticles, [])
 
+        self.accept("f11", self.adjust_ambient_light, [1])
+        self.accept("f12", self.adjust_camera_light,  [1])
+
         for i in range(5):
             self.accept(str(i), self.set_player_count, [i])
 
-        self.accept("tab", self.cycle_scene_view, [])
+        self.accept("arrow_left",     setattr, [self, "_cycle_subview_left", -1])
+        self.accept("arrow_left-up",  setattr, [self, "_cycle_subview_left",  0])
+        self.accept("arrow_right",    setattr, [self, "_cycle_subview_right", 1])
+        self.accept("arrow_right-up", setattr, [self, "_cycle_subview_right", 0])
 
-        self.accept("k", self.select_game_root_dir, [])
+        self.accept("tab", self.cycle_scene_view, [1])
+
         self.accept("l", self.select_and_load_world, [])
         self.accept("o", self.select_and_load_objects, [])
-        #self.accept("k", self.adjust_ambient_light, [1])
-        #self.accept("l", self.adjust_camera_light, [1])
         self.accept("-", self.adjust_fov, [-5])
         self.accept("=", self.adjust_fov, [5])
-        self.cycle_viewed()
+
+        self.cycle_scene_view()
+        self.taskMgr.add(self.update_task, 'LegendViewer::update_task')
+
+    def update_task(self, task):
+        delta_t = task.time - self._time
+
+        if self._cycle_subview_left or self._cycle_subview_right:
+            cycle_time = self._cycle_subview_timer - self.CYCLE_SUBVIEW_MIN_TIME
+
+            if self._cycle_subview_timer == 0 or cycle_time >= self.CYCLE_SUBVIEW_RATE:
+                self.switch_scene_subview(self._cycle_subview_left + self._cycle_subview_right)
+                self._cycle_subview_timer -= self.CYCLE_SUBVIEW_RATE
+
+            self._cycle_subview_timer += delta_t
+        else:
+            self._cycle_subview_timer = 0
+
+        self._time = task.time
+        return direct.task.Task.cont
 
     @property
     def title_prefix(self):
@@ -79,46 +111,32 @@ class LegendViewer(Scene):
 
         self.win.requestProperties(props)
 
-    def select_game_root_dir(self):
-        root_dir = tkinter.filedialog.askdirectory(
-            initialdir=self._game_root_dir,
-            title="Select the folder containing the LEVELS and ITEMS folders"
-            )
-        if root_dir:
-            self._game_root_dir = root_dir
-
     def select_and_load_world(self):
-        if not self._game_root_dir:
-            self.select_game_root_dir()
-            if not self._game_root_dir:
-                return
-
         world_dir = tkinter.filedialog.askdirectory(
-            initialdir=self._game_root_dir,
+            initialdir=self._last_selected_dir,
             title="Select the folder containing the WORLDS.PS2/NGC to load"
             )
         if not world_dir:
             return
 
-        world_path = os.path.relpath(world_dir, self._game_root_dir)
-        if world_path.startswith("."):
-            print("That folder does not exist inside the game directory root '%s'" %
-                  self._game_root_dir)
-            return
-
-        self.load_world(world_path)
+        self._last_selected_dir = world_dir
+        self.load_world(world_dir)
 
     def select_and_load_objects(self):
         objects_dir = tkinter.filedialog.askdirectory(
-            initialdir=self._game_root_dir,
+            initialdir=self._last_selected_dir,
             title="Select the folder containing the OBJECTS.PS2/NGC to load"
             )
         if not objects_dir:
             return
 
+        self._last_selected_dir = objects_dir
         self.load_objects(objects_dir)
 
-    def cycle_viewed(self, increment=0):
+    def cycle_scene_view(self, increment=0):
+        self.switch_scene_view((self._scene_view + increment) % 3)
+
+    def switch_scene_subview(self, increment=0):
         if self._scene_view == self.SCENE_VIEW_WORLD:
             curr_name = self._curr_scene_world_name
             curr_object = self.active_world
@@ -164,9 +182,6 @@ class LegendViewer(Scene):
         super().switch_object(object_name)
         name = self.active_object.name if self.active_object else "(none selected)"
         self.tk_root.title(self.title_prefix + name)
-
-    def cycle_scene_view(self):
-        self.switch_scene_view((self._scene_view + 1) % 3)
 
     def switch_scene_view(self, scene_view):
         super().switch_scene_view(scene_view)

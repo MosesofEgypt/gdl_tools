@@ -104,13 +104,15 @@ class SceneItemInfo:
         h = (h * 180) / math.pi
         p = (p * 180) / math.pi
         r = (r * 180) / math.pi
+        #if self.actor_name == "GATECL":
+        #    print(h, p, r)
         #if self.item_type == c.ITEM_TYPE_GENERATOR:
         #    print(self.actor_name, min_players)
         #    print(params.generator_info)
 
-        scene_item_nodepath = panda3d.core.NodePath(scene_item.p3d_node)
-        scene_item_nodepath.setPos(panda3d.core.LVecBase3f(x, y, z))
-        scene_item_nodepath.setHpr(panda3d.core.LVecBase3f(h, p, r))
+        nodepath = panda3d.core.NodePath(scene_item.p3d_node)
+        nodepath.setPos(panda3d.core.LVecBase3f(x, y, z))
+        nodepath.setHpr(panda3d.core.LVecBase3f(h, p, r))
         return scene_item
 
 
