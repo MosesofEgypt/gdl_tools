@@ -5,5 +5,7 @@ pypng
 pycollada
 scipy
 supyr_struct
+tkinter
+panda3d
 pyyaml
 pmw
