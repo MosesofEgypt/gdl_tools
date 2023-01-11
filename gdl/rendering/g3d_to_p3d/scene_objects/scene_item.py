@@ -1,6 +1,7 @@
 import traceback
 
-from ...assets.scene_objects.scene_item import SceneItemInfo
+from ...assets.scene_objects.scene_item import SceneItemInfo, c
+from ...assets.scene_objects.constants import COLL_TYPE_OBJECT
 from ..model import load_model_from_objects_tag
 from ..collision import load_collision_from_worlds_tag
 from .scene_object import load_scene_object_from_tags
@@ -70,7 +71,7 @@ def load_scene_item_from_item_instance(
         worlds_tag, scene_item.name,
         item_instance.coll_tri_index,
         item_instance.coll_tri_count,
-        )
+        ) if scene_item_info.coll_type == c.COLL_TYPE_OBJECT else None
 
     if model:     scene_item.attach_model(model, scene_item.name)
     if collision: scene_item.attach_collision(collision, scene_item.name)

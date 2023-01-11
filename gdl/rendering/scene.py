@@ -19,9 +19,9 @@ from .g3d_to_p3d.texture import load_textures_from_objects_tag
 
 
 class Scene(ShowBase):
-    SCENE_VIEW_WORLD  = 0
-    SCENE_VIEW_ACTOR  = 1
-    SCENE_VIEW_OBJECT = 2
+    SCENE_TYPE_WORLD  = 0
+    SCENE_TYPE_ACTOR  = 1
+    SCENE_TYPE_OBJECT = 2
 
     _scene_worlds  = ()
     _scene_actors  = ()
@@ -51,7 +51,7 @@ class Scene(ShowBase):
     _actor_camera_rot  = None
     _object_camera_rot = None
 
-    _scene_view = SCENE_VIEW_WORLD
+    _scene_type = SCENE_TYPE_WORLD
 
     def __init__(self, **kwargs):
         super().__init__()
@@ -238,9 +238,9 @@ class Scene(ShowBase):
 
         self._curr_scene_object_name = object_name
 
-    def switch_scene_view(self, scene_view):
-        if scene_view not in (
-                self.SCENE_VIEW_WORLD, self.SCENE_VIEW_ACTOR, self.SCENE_VIEW_OBJECT,
+    def switch_scene_type(self, scene_type):
+        if scene_type not in (
+                self.SCENE_TYPE_WORLD, self.SCENE_TYPE_ACTOR, self.SCENE_TYPE_OBJECT,
                 ):
             return
 
@@ -251,35 +251,35 @@ class Scene(ShowBase):
             print(traceback.format_exc())
             return
 
-        if self._scene_view == self.SCENE_VIEW_WORLD:
+        if self._scene_type == self.SCENE_TYPE_WORLD:
             self._world_camera_pos = pos
             self._world_camera_rot = rot
             self._world_camera_controller.stop()
             NodePath(self._world_root_node).hide()
-        elif self._scene_view == self.SCENE_VIEW_ACTOR:
+        elif self._scene_type == self.SCENE_TYPE_ACTOR:
             self._actor_camera_pos = pos
             self._actor_camera_rot = rot
             self._actor_camera_controller.stop()
             NodePath(self._actor_root_node).hide()
-        elif self._scene_view == self.SCENE_VIEW_OBJECT:
+        elif self._scene_type == self.SCENE_TYPE_OBJECT:
             self._object_camera_pos = pos
             self._object_camera_rot = rot
             self._object_camera_controller.stop()
             NodePath(self._object_root_node).hide()
 
-        if scene_view == self.SCENE_VIEW_WORLD:
+        if scene_type == self.SCENE_TYPE_WORLD:
             pos = self._world_camera_pos
             rot = self._world_camera_rot
             self._world_camera_controller.start()
             NodePath(self._world_root_node).show()
             self.setBackgroundColor(0,0,0)
-        elif scene_view == self.SCENE_VIEW_ACTOR:
+        elif scene_type == self.SCENE_TYPE_ACTOR:
             pos = self._actor_camera_pos
             rot = self._actor_camera_rot
             self._actor_camera_controller.start()
             NodePath(self._actor_root_node).show()
             self.setBackgroundColor(0.5,0.5,0.5)
-        elif scene_view == self.SCENE_VIEW_OBJECT:
+        elif scene_type == self.SCENE_TYPE_OBJECT:
             pos = self._object_camera_pos
             rot = self._object_camera_rot
             self._object_camera_controller.start()
@@ -292,7 +292,7 @@ class Scene(ShowBase):
         except Exception:
             print(traceback.format_exc())
 
-        self._scene_view = scene_view
+        self._scene_type = scene_type
 
     def clear_scene(self):
         for scene_world_name in tuple(self._scene_worlds.keys()):
@@ -313,9 +313,9 @@ class Scene(ShowBase):
     def load_objects(self, objects_path):
         try:
             self._load_objects(objects_path)
-            self.switch_scene_view(
-                self.SCENE_VIEW_ACTOR if self._scene_actors else
-                self.SCENE_VIEW_OBJECT
+            self.switch_scene_type(
+                self.SCENE_TYPE_ACTOR if self._scene_actors else
+                self.SCENE_TYPE_OBJECT
                 )
         except Exception:
             print(traceback.format_exc())
@@ -341,7 +341,7 @@ class Scene(ShowBase):
 
             self._load_world(worlds_dir, world_item_actors)
 
-            self.switch_scene_view(self.SCENE_VIEW_WORLD)
+            self.switch_scene_type(self.SCENE_TYPE_WORLD)
         except Exception:
             print(traceback.format_exc())
 

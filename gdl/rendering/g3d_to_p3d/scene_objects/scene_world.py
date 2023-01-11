@@ -73,7 +73,7 @@ def load_scene_world_from_tags(
             world_object.coll_tri_count,
             )
 
-        coll_attach_node = scene_world_object.name if world_object.flags.unknown12 else world_name
+        coll_attach_node = scene_world_object.name if world_object.flags.animated_collision else world_name
         if collision:
             scene_world.attach_collision(collision, coll_attach_node)
 

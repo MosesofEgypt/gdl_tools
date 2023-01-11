@@ -3,7 +3,7 @@ import panda3d
 from . import shader
 
 
-class CollisionMesh:
+class Collision:
     _name = ""
     _p3d_collision = None
 
@@ -12,7 +12,7 @@ class CollisionMesh:
         self._p3d_collision = kwargs.pop("p3d_collision", self._p3d_collision)
 
         if self._p3d_collision is None:
-            self._p3d_collision = panda3d.core.GeomNode()
+            self._p3d_collision = panda3d.core.CollisionNode(self._name)
 
         if not isinstance(self._p3d_collision, panda3d.core.CollisionNode):
             raise TypeError(

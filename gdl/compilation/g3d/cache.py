@@ -100,11 +100,12 @@ def decompile_cache_files(
     elif os.path.isfile(ngc_objects_filepath):
         objects_tag = objects_ps2_def.build(filepath=ngc_objects_filepath)
     elif os.path.isfile(texdef_filepath):
+        # no objects. default to texdef for trying to get texture headers
         texdef_tag = texdef_ps2_def.build(filepath=texdef_filepath)
 
-    if os.path.isfile(ps2_objects_filepath):
+    if os.path.isfile(ps2_worlds_filepath):
         worlds_tag = worlds_ps2_def.build(filepath=ps2_worlds_filepath)
-    elif os.path.isfile(ngc_objects_filepath):
+    elif os.path.isfile(ngc_worlds_filepath):
         worlds_tag = worlds_ps2_def.build(filepath=ngc_worlds_filepath)
 
     if data_dir is None:

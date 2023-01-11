@@ -1,6 +1,6 @@
 from panda3d.core import NodePath, CollisionPolygon, CollisionNode, Point3
 
-from ..assets.collision import CollisionMesh
+from ..assets.collision import Collision
 from ...compilation.g3d.serialization.collision import G3DCollision
 
 
@@ -10,7 +10,7 @@ def load_collision_from_worlds_tag(
     if tri_index < 0 or tri_count <= 0:
         return None
 
-    collision = CollisionMesh(
+    collision = Collision(
         name=collision_name,
         p3d_collision=CollisionNode(collision_name),
         )

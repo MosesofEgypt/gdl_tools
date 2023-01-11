@@ -19,7 +19,8 @@ def load_nodes_from_anim_tag(object_name, anim_tag):
     p3d_nodes = {}
     node_map = {}
     for anode_info in anodes:
-        p3d_node = PandaNode(anode_info.mb_desc.upper().strip())
+        node_name = anode_info.mb_desc.upper().strip()
+        p3d_node = PandaNode(node_name)
         x, y, z = anode_info.init_pos
 
         node_trans = p3d_node.get_transform().set_pos(
@@ -33,9 +34,11 @@ def load_nodes_from_anim_tag(object_name, anim_tag):
             node_type=anode_info.anim_type.enum_name,
             flags=anode_info.mb_flags,
             p3d_node=p3d_node,
+            name=node_name
             ))
 
-    root_node = None
+    root_node  = None
+    node_flags = {}
     for parent_index in sorted(node_map):
         # TODO: add checks to ensure parent exists
         parent_node = p3d_nodes.get(parent_index)
@@ -46,8 +49,21 @@ def load_nodes_from_anim_tag(object_name, anim_tag):
                 break
 
             parent_node.addChild(node_info["p3d_node"])
+            flags = node_info["flags"]
+            node_flags[node_info["name"]] = dict(
+                chrome = bool(flags.chrome),
+                # TODO: figure out which of the 3 flags indicates this
+                additive_diffuse = bool(
+                    flags.unknown7 |
+                    flags.unknown22 | flags.unknown23
+                    ),
+                )
 
-    return root_node if root_node is not None else PandaNode("")
+    if root_node is None:
+        root_node = PandaNode("")
+        node_flags = {}
+
+    return root_node, node_flags
 
 
 def load_scene_actor_from_tags(
@@ -56,7 +72,9 @@ def load_scene_actor_from_tags(
     start = time.time()
     actor_name = actor_name.upper().strip()
     actor_node = ActorNode(actor_name)
-    actor_node.add_child(load_nodes_from_anim_tag(actor_name, anim_tag))
+
+    nodes, node_flags = load_nodes_from_anim_tag(actor_name, anim_tag)
+    actor_node.add_child(nodes)
 
     scene_actor = SceneActor(name=actor_name, p3d_node=actor_node)
 
@@ -64,6 +82,18 @@ def load_scene_actor_from_tags(
     for model_name, node_name in zip(*anim_tag.get_model_node_name_map(actor_name)):
         model = load_model_from_objects_tag(objects_tag, model_name, textures)
         scene_actor.attach_model(model, node_name)
+        flags = node_flags.get(node_name, {})
+
+        for geometry in model.geometries:
+            shader_updated = False
+            if flags.get("chrome"):
+                geometry.shader.chrome = shader_updated = True
+
+            if flags.get("additive_diffuse"):
+                geometry.shader.additive_diffuse = shader_updated = True
+
+            if shader_updated:
+                geometry.apply_shader()
 
     #print("Loading scene actor '%s' took %s seconds" % (actor_name, time.time() - start))
     return scene_actor

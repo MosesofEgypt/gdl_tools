@@ -192,7 +192,7 @@ anode_info = Struct("anode_info",
         ("unknown12", 1<<12), # 15.32% of all anim types
         ("unknown13", 1<<13), # 0.13% of object, skeletal, and texture
 
-        ("unknown15", 1<<15), # 1.62% of null and skeletal
+        ("chrome", 1<<15), # 1.62% of null and skeletal
 
         ("unknown19", 1<<19), # 8.25% of all anim types
 

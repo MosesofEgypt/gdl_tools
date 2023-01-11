@@ -74,6 +74,7 @@ class SceneObject:
         parent_node_path = self._get_node_path(node_name)
 
         if model.name in node_collection or parent_node_path is None:
+            # TODO: raise error
             return
 
         node_collection[model.name] = model
@@ -85,6 +86,7 @@ class SceneObject:
         parent_node_path = self._get_node_path(node_name)
 
         if collision.name in node_collection or parent_node_path is None:
+            # TODO: raise error
             return
 
         node_collection[collision.name] = collision

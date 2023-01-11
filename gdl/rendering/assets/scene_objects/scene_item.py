@@ -1,9 +1,11 @@
 import math
 import panda3d
 
+from ..collision import Collision
 from .scene_actor import SceneActor
 from .scene_object import SceneObject
 from . import constants as c
+from . import util
 
 
 class SceneItemInfo:
@@ -100,19 +102,12 @@ class SceneItemInfo:
 
         x, z, y = kwargs.pop("pos", (0, 0, 0))
         p, h, r = kwargs.pop("rot", (0, 0, 0))
-        # radians to degrees
-        h = (h * 180) / math.pi
-        p = (p * 180) / math.pi
-        r = (r * 180) / math.pi
-        #if self.actor_name == "GATECL":
-        #    print(h, p, r)
-        #if self.item_type == c.ITEM_TYPE_GENERATOR:
-        #    print(self.actor_name, min_players)
-        #    print(params.generator_info)
 
         nodepath = panda3d.core.NodePath(scene_item.p3d_node)
         nodepath.setPos(panda3d.core.LVecBase3f(x, y, z))
-        nodepath.setHpr(panda3d.core.LVecBase3f(h, p, r))
+        nodepath.setQuat(panda3d.core.LQuaternionf(
+            *util.gdl_euler_to_quaternion(r, h, p)
+            ))
         return scene_item
 
 
@@ -130,6 +125,35 @@ class SceneItem(SceneObject):
         # TODO: initialize self using item_info and params
 
         self.scene_actor  = kwargs.pop("scene_actor", self.scene_actor)
+        coll_shape = None
+
+        cx, cz, cy = item_info.coll_offset
+        if item_info.coll_type == c.COLL_TYPE_CYLINDER:
+            coll_shape = panda3d.core.CollisionCapsule(
+                cx, cy, cz, cx, cy, cz + item_info.height, item_info.radius
+                )
+        elif item_info.coll_type == c.COLL_TYPE_SPHERE:
+            coll_shape = panda3d.core.CollisionSphere(
+                cx, cy, cz, item_info.radius
+                )
+        elif item_info.coll_type == c.COLL_TYPE_BOX:
+            coll_shape = panda3d.core.CollisionBox(
+                panda3d.core.Point3F(
+                    cx - item_info.coll_width,
+                    cy - item_info.coll_length,
+                    cz
+                    ),
+                panda3d.core.Point3F(
+                    cx + item_info.coll_width,
+                    cy + item_info.coll_length,
+                    cz + item_info.height
+                    )
+                )
+
+        if coll_shape:
+            collision = Collision(name=self.name)
+            collision.p3d_collision.add_solid(coll_shape)
+            self.attach_collision(collision, self.name)
 
     @property
     def actor_name(self):
