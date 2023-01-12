@@ -202,20 +202,28 @@ item_info_data = Struct("item_info_data",
         # (specifically only FLAMEV, FLAMEH, FORCEF, and FORCEF_S)
         ("unknown", 0x8000),
         ),
-    Bool32("properties",
-        # seems to depend on the item type
-        # for traps, potions, and certain powerups, this
-        # is the damage type for armor, this might be the
-        # armor type need to experiment for each type.
-        # Seems to map to directly to these enums like so:
-        #   special:        SPECIAL_TYPE
-        #   armor:          ARMOR_TYPE
-        #   weapon:         __unnamed_2a_
-        #   damage_tile:    __unnamed_2a_
-        #   potion:         __unnamed_2a_
-        #   no other item types use properties
+    Union("properties",
+        CASES=dict(
+            potion=damage_type,
+            damage_tile=damage_type,
+            weapon=weapon_types,
+            armor=armor_types,
+            special=special_types,
+            ),
+        SIZE=4
         ),
-    SInt16("value"),
+    Union("value",
+        CASES=dict(
+            # TODO: see if there are other enumerators that apply here
+            gargoyle_item=UEnum16("gargoyle_item", *GARGOYLE_ITEMS),
+            crystal=UEnum16("crystal", *CRYSTAL_TYPES),
+            boss_key=UEnum16("boss_key", *BOSS_KEYS),
+            legend_item=UEnum16("legend_item", *LEGEND_ITEMS),
+            runestone=UEnum16("runestone", *RUNESTONES),
+            integer=UEnum16("integer"),
+            ),
+        SIZE=2
+        ),
     SInt16("armor"),
     SInt16("hit_points"),
     SInt16("active_type"),
