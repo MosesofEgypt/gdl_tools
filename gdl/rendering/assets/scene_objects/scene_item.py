@@ -19,6 +19,8 @@ class SceneItemInfo:
     _coll_length = 0.0
     _coll_offset = (0.0, 0.0, 0.0)
 
+    _properties  = ()
+
     radius = 0.0
     height = 0.0
 
@@ -38,6 +40,8 @@ class SceneItemInfo:
         self._coll_width  = kwargs.pop("coll_width",  self._coll_width)
         self._coll_length = kwargs.pop("coll_length", self._coll_length)
         self._coll_offset = tuple(kwargs.pop("coll_offset", self._coll_offset))
+
+        self._properties  = dict(kwargs.pop("properties", self._properties))
 
         self.radius = kwargs.pop("radius", self.radius)
         self.height = kwargs.pop("height", self.height)
@@ -70,9 +74,12 @@ class SceneItemInfo:
     def coll_length(self): return self._coll_length
     @property
     def coll_offset(self): return self._coll_offset
+    @property
+    def properties(self): return dict(self._properties)
 
     def create_instance(self, **kwargs):
         name        = kwargs.pop("name", "")
+        flags       = kwargs.pop("flags", {})
         scene_actor = kwargs.pop("scene_actor", None)
         min_players = kwargs.pop("min_players", 0)
         params      = kwargs.pop("params", {})
@@ -96,12 +103,14 @@ class SceneItemInfo:
             )
 
         scene_item = scene_item_class(
-            name=name, scene_actor=scene_actor,
+            name=name, scene_actor=scene_actor, flags=flags,
             item_info=self, params=params, min_players=min_players,
             )
 
         x, z, y = kwargs.pop("pos", (0, 0, 0))
         p, h, r = kwargs.pop("rot", (0, 0, 0))
+        # offset z by a certain amount to fix z-fighting
+        z += 0.001
 
         nodepath = panda3d.core.NodePath(scene_item.p3d_node)
         nodepath.setPos(panda3d.core.LVecBase3f(x, y, z))
@@ -114,12 +123,14 @@ class SceneItemInfo:
 class SceneItem(SceneObject):
     _scene_actor  = None
     _min_players  = 0
+    _flags = ()
 
     def __init__(self, **kwargs):
         item_info = kwargs.pop("item_info", None)
         params    = kwargs.pop("params", {})
 
         self._min_players = kwargs.pop("min_players", self._min_players)
+        self._flags        = dict(kwargs.pop("flags", self._flags))
 
         super().__init__(**kwargs)
         # TODO: initialize self using item_info and params
@@ -161,6 +172,8 @@ class SceneItem(SceneObject):
     @property
     def min_players(self):
         return self._min_players
+    @property
+    def flags(self): return dict(self._flags)
 
     @property
     def scene_actor(self):

@@ -25,6 +25,8 @@ def load_scene_item_infos_from_worlds_tag(worlds_tag):
                     coll_width  = item_data.x_dim,
                     coll_length = item_data.z_dim,
 
+                    properties  = {},
+
                     value       = item_data.value,
                     armor       = item_data.armor,
                     health      = item_data.hit_points,
@@ -53,6 +55,7 @@ def load_scene_item_from_item_instance(
         ):
     instance_name = item_instance.name.upper().strip()
 
+    flags = item_instance.flags
     scene_item_info = scene_item_infos[item_instance.item_index]
     scene_item = scene_item_info.create_instance(
         name = instance_name,
@@ -60,7 +63,8 @@ def load_scene_item_from_item_instance(
         params = item_instance.params,
         pos = item_instance.pos,
         rot = item_instance.rot,
-        scene_actor = world_item_actors.get(scene_item_info.actor_name)
+        scene_actor = world_item_actors.get(scene_item_info.actor_name),
+        flags = { n: bool(flags[n]) for n in flags.NAME_MAP }
         )
 
     model = load_model_from_objects_tag(

@@ -103,6 +103,10 @@ anim_header = Struct("anim_header",
     SInt32("sequence_count", EDITABLE=False, VISIBLE=False),
     SInt32("object_count", EDITABLE=False, VISIBLE=False),
     SIZE=28,
+    )
+
+anim_header_with_data = Struct("anim_header",
+    INCLUDE=anim_header,
     STEPTREE=Container("data",
         FloatArray("comp_angles",
             POINTER="..comp_ang_pointer", SIZE=get_comp_angles_size
@@ -159,7 +163,7 @@ atree_seq = Struct("atree_seq",
     SInt16("fix_pos", VISIBLE=False), # always 0
     SInt16("texmod_count"),
     Bool16("flags",
-        "play_reversed"
+        "play_reversed"  # only applies to object animations
         ),
     SInt32("texmod_index", DEFAULT=-1),
     SIZE=48,
@@ -217,7 +221,7 @@ anode_info = Struct("anode_info",
 
 atree_data = Container("atree_data",
     Struct("anim_header",
-        INCLUDE=anim_header,
+        INCLUDE=anim_header_with_data,
         POINTER=lambda *a, **kw: get_atree_data_array_pointer(
             *a, pointer_field_names=["...offset", "..anim_header_pointer"], **kw
             ),

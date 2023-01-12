@@ -2,6 +2,8 @@ from supyr_struct.defs.tag_def import TagDef
 from .objs.worlds import WorldsTag
 from ..common_descs import *
 from ..field_types import *
+from .anim import anim_seq_info, anim_header, \
+     get_comp_angles_size, get_comp_positions_size, get_comp_scales_size
 
 def get(): return worlds_ps2_def
 
@@ -39,9 +41,20 @@ container_info = QStruct("container_info",
     SIZE=8
     )
 
-trigger_info = QStruct("trigger_info",
+trigger_info = Struct("trigger_info",
     SInt16("target_world_object_index"),
-    SInt16("flags"),
+    Bool16("flags",
+        # all flags below have been set on activator_switch
+        ("unknown0", 1<<0),
+        ("unknown1", 1<<1),  # set on lift_end, elevator_switch, shoot_trigger
+        ("unknown2", 1<<2),
+        ("unknown5", 1<<5),
+        ("unknown6", 1<<6),
+        ("unknown8", 1<<8),  # set on lift_end, elevator_switch, lift_pad
+        ("unknown10", 1<<10), # set on lift_end, elevator_switch, shoot_trigger
+        ("unknown12", 1<<12),
+        ("unknown13", 1<<13),
+        ),
     UInt8("rad"),
     SInt8("sound_id"),
     SInt8("id"),
@@ -52,8 +65,8 @@ trigger_info = QStruct("trigger_info",
     )
 
 enemy_info = QStruct("enemy_info",
-    SInt16("strength"),
-    SInt16("ai"),
+    SInt16("strength"), # seto to 0, 1, 2, 3, 4, 5, 6
+    SInt16("ai"),  # seen set to: 0, 3, 7, 15, 16, 17, 18, 19, 23, 26, 27
     Float("rad"),
     SInt16("interval"),
     SInt16("dummy"),
@@ -61,15 +74,29 @@ enemy_info = QStruct("enemy_info",
     )
 
 generator_info = QStruct("generator_info",
-    SInt16("strength"),
-    SInt16("ai"),
+    # NOTE: item_subtype is set to "special" for the generators
+    #       that spawn every grunt enemy type in the game
+    SInt16("strength"),  # set to 2 for special
+    #                      otherwise always set to 1, 2, 3
+    SInt16("ai"),  # set to 0 or 7 for special
+    #                otherwise set to 0, 2, 4, 7, 14, 28, 29, 30
     SInt16("max_enemies"),
     SInt16("interval"),
     SIZE=8
     )
 
 exit_info = Struct("exit_info",
-    SInt32("next"),
+    # NOTES:
+    #   If the "name" field is not null, it will be used as the name
+    #   of the level to load if "next" is set to "no". Otherwise, the
+    #   current levels name will be incremented(ex: G1 to G2) and the
+    #   level with that name will be loaded.
+    #   Additionally, the subtype of the secret levels will be set to "special"
+    UEnum32("next",
+        "no",
+        "yes"
+        ),
+    
     StrNntLatin1("name", SIZE=4),
     SIZE=8
     )
@@ -89,14 +116,14 @@ rotator_info = QStruct("rotator_info",
 
 sound_info = QStruct("sound_info",
     Float("radius"),
-    SInt32("music_area"),
-    SInt16("fade"),
-    SInt16("flags"),
+    SInt32("music_area"), # set to 0, 1, 2, 3, 4, 5, 6, 7, 8
+    SInt16("fade"),  # set to 0, 1, 2, 3
+    SInt16("flags"), # always zero in serialized form
     SIZE=12
     )
 
-obstacle_info = QStruct("obstacle_info",
-    SInt16("subtype"),
+obstacle_info = Struct("obstacle_info",
+    obstacle_subtype,
     SInt16("strength"),
     SIZE=4
     )
@@ -115,7 +142,13 @@ trap_info = QStruct("trap_info",
 item_instance = Struct("item_instance",
     SInt16("item_index"),
     SInt8("min_players"),
-    SInt8("flags"),
+    Bool8("flags",
+          # only 3 flags set across all files
+        "unknown0", # settable on container, damage_tile, enemy, 
+        #             generator, obstacle, powerup, and trigger
+        "unknown1", # settable on generator, powerup, rotator, and trigger
+        "unknown2", # settable on obstacle
+        ),
     SInt16("coll_tri_index"),
     SInt16("coll_tri_count"),
     StrNntLatin1("name", SIZE=16),
@@ -151,7 +184,13 @@ item_info_data = Struct("item_info_data",
         "object",
         ("null", -1),
         ),
-    SInt16("coll_flags"),
+    Bool16("coll_flags",
+        # yes, only one flag.
+        # only set on sound, damage_tile, obstacle, trigger, and rotator types
+        "unknown",  # seems to indicate colliding with the item
+        #             triggers it to do something(set on sound
+        #             colliders and certain proximity based traps)
+        ),
     Float("radius"),
     Float("height"),
     Float("x_dim"),
@@ -159,9 +198,23 @@ item_info_data = Struct("item_info_data",
     QStruct("coll_offset", INCLUDE=xyz_float),
     StrNntLatin1("name", SIZE=16),
     Bool32("mb_flags",
-        *(("unknown%s" % i, 1 << i) for i in range(32))
+        # only a single flag, and only set on damage tiles
+        # (specifically only FLAMEV, FLAMEH, FORCEF, and FORCEF_S)
+        ("unknown", 0x8000),
         ),
-    UInt32("properties"),
+    Bool32("properties",
+        # seems to depend on the item type
+        # for traps, potions, and certain powerups, this
+        # is the damage type for armor, this might be the
+        # armor type need to experiment for each type.
+        # Seems to map to directly to these enums like so:
+        #   special:        SPECIAL_TYPE
+        #   armor:          ARMOR_TYPE
+        #   weapon:         __unnamed_2a_
+        #   damage_tile:    __unnamed_2a_
+        #   potion:         __unnamed_2a_
+        #   no other item types use properties
+        ),
     SInt16("value"),
     SInt16("armor"),
     SInt16("hit_points"),
@@ -276,6 +329,49 @@ locator = Struct("locator",
     SIZE=28
     )
 
+anim_header_with_data = Struct("anim_header",
+    INCLUDE=anim_header,
+    STEPTREE=Container("data",
+        FloatArray("comp_angles",
+            POINTER="..comp_ang_pointer", SIZE=get_comp_angles_size
+            ),
+        FloatArray("comp_positions",
+            POINTER="..comp_pos_pointer", SIZE=get_comp_positions_size
+            ),
+        FloatArray("comp_scales",
+            POINTER="..comp_scale_pointer", SIZE=get_comp_scales_size
+            )
+        )
+    )
+
+world_animation = Struct("world_animation",
+    SInt16("world_object_index"),
+    SInt16("frame_count"),
+    Bool16("flags",
+        *((f"unknown{i}", 1<<i) for i in range(16))
+        ),
+    SInt16("state"),
+    Float("frame"),
+    Pointer32("seq_info_pointer"),
+
+    SIZE=16,
+    STEPTREE=Struct("anim_seq_info",
+        INCLUDE=anim_seq_info, POINTER=".seq_info_pointer"
+        )
+    )
+
+world_anims = Container("world_anims",
+    Struct("header",
+        INCLUDE=anim_header_with_data,
+        POINTER="..header.animation_header_offset"
+        ),
+    Array("animations",
+        SUB_STRUCT=world_animation,
+        SIZE="..header.animations_count",
+        POINTER="..header.animations_pointer",
+        ),
+    )
+
 worlds_header = Struct('header',
     UInt32("world_objects_count", EDITABLE=False, VISIBLE=False),
     Pointer32("world_objects_pointer", EDITABLE=False, VISIBLE=False),
@@ -311,8 +407,7 @@ worlds_header = Struct('header',
         DEFAULT=0xF00BAB02, EDITABLE=False
         ),
 
-    # NOTE: check struct named worldanim
-    UInt32("animation_headers_offset", EDITABLE=False, VISIBLE=False),
+    UInt32("animation_header_offset", EDITABLE=False, VISIBLE=False),
     UInt32("animations_count", EDITABLE=False, VISIBLE=False),
     Pointer32("animations_pointer", EDITABLE=False, VISIBLE=False),
 
@@ -358,15 +453,15 @@ worlds_ps2_def = TagDef("worlds",
         SIZE=".header.locator_count",
         POINTER=".header.locator_pointer",
         ),
-    #Array("animations",
-    #    SUB_STRUCT=????,
-    #    SIZE=".header.animations_count",
-    #    POINTER=".header.animations_pointer",
-    #    ),
     Array("particle_systems",
         SUB_STRUCT=particle_system,
         SIZE=".header.particle_systems_count",
         POINTER=".header.particle_systems_pointer",
+        ),
+    Switch("world_anims",
+        CASE=".header.animations_count",
+        CASES={ 0: Void("world_anims") },
+        DEFAULT=world_anims
         ),
     ext=".ps2", endian="<", tag_cls=WorldsTag, incomplete=True
     )
