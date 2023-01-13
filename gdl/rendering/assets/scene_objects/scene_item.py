@@ -2,7 +2,6 @@ import math
 import panda3d
 
 from ..collision import Collision
-from .scene_actor import SceneActor
 from .scene_object import SceneObject
 from . import constants as c
 from . import util
@@ -78,11 +77,11 @@ class SceneItemInfo:
     def properties(self): return dict(self._properties)
 
     def create_instance(self, **kwargs):
-        name        = kwargs.pop("name", "")
-        flags       = kwargs.pop("flags", {})
-        scene_actor = kwargs.pop("scene_actor", None)
-        min_players = kwargs.pop("min_players", 0)
-        params      = kwargs.pop("params", {})
+        name         = kwargs.pop("name", "")
+        flags        = kwargs.pop("flags", {})
+        scene_object = kwargs.pop("scene_object", None)
+        min_players  = kwargs.pop("min_players", 0)
+        params       = kwargs.pop("params", {})
 
         scene_item_class = (
             SceneItemPowerup    if self.item_type == c.ITEM_TYPE_POWERUP else
@@ -103,7 +102,7 @@ class SceneItemInfo:
             )
 
         scene_item = scene_item_class(
-            name=name, scene_actor=scene_actor, flags=flags,
+            name=name, scene_object=scene_object, flags=flags,
             item_info=self, params=params, min_players=min_players,
             )
 
@@ -111,6 +110,13 @@ class SceneItemInfo:
         p, h, r = kwargs.pop("rot", (0, 0, 0))
         # offset z by a certain amount to fix z-fighting
         z += 0.001
+
+        if 0 and sum(self.properties.values()):
+            print(getattr(scene_object, "name", name), scene_item_class,
+                  [round(x), round(y), round(z)],
+                  [int(r*180/math.pi), int(p*180/math.pi), int(h*180/math.pi)],
+                  )
+            z = 100
 
         nodepath = panda3d.core.NodePath(scene_item.p3d_node)
         nodepath.setPos(panda3d.core.LVecBase3f(x, y, z))
@@ -121,7 +127,7 @@ class SceneItemInfo:
 
 
 class SceneItem(SceneObject):
-    _scene_actor  = None
+    _scene_object  = None
     _min_players  = 0
     _flags = ()
 
@@ -135,7 +141,7 @@ class SceneItem(SceneObject):
         super().__init__(**kwargs)
         # TODO: initialize self using item_info and params
 
-        self.scene_actor  = kwargs.pop("scene_actor", self.scene_actor)
+        self.scene_object  = kwargs.pop("scene_object", self.scene_object)
         coll_shape = None
 
         cx, cz, cy = item_info.coll_offset
@@ -167,8 +173,8 @@ class SceneItem(SceneObject):
             self.attach_collision(collision, self.name)
 
     @property
-    def actor_name(self):
-        return self.scene_actor.name if self.scene_actor else ""
+    def object_name(self):
+        return self.scene_object.name if self.scene_object else ""
     @property
     def min_players(self):
         return self._min_players
@@ -176,19 +182,19 @@ class SceneItem(SceneObject):
     def flags(self): return dict(self._flags)
 
     @property
-    def scene_actor(self):
-        return self._scene_actor
-    @scene_actor.setter
-    def scene_actor(self, scene_actor):
-        if not isinstance(scene_actor, (type(None), SceneActor)):
-            raise TypeError(f"Scene actor must be either None or of type SceneActor, not {type(scene_actor)}")
+    def scene_object(self):
+        return self._scene_object
+    @scene_object.setter
+    def scene_object(self, scene_object):
+        if not isinstance(scene_object, (type(None), SceneObject)):
+            raise TypeError(f"Scene object must be either None or of type SceneObject, not {type(scene_object)}")
 
-        if self._scene_actor:
-            self.p3d_node.remove_child(self._scene_actor.p3d_node)
+        if self._scene_object:
+            self.p3d_node.remove_child(self._scene_object.p3d_node)
 
-        self._scene_actor = scene_actor
-        if scene_actor:
-            self.p3d_node.add_child(scene_actor.p3d_node)
+        self._scene_object = scene_object
+        if scene_object:
+            self.p3d_node.add_child(scene_object.p3d_node)
 
 
 class SceneItemRandom(SceneItem):
@@ -234,30 +240,49 @@ class SceneItemEnemy(SceneItem):
 
 
 class SceneItemGenerator(SceneItem):
-    strength    = 0
+    _strength   = 0
     ai_type     = 0
     max_enemies = 0
     interval    = 0.0
 
-    _generator_scene_actors = ()
+    _generator_objects = ()
 
     def __init__(self, **kwargs):
-        self._generator_scene_actors = tuple(kwargs.pop("generator_scene_actors", ()))
-        for scene_actor in self._generator_scene_actors:
-            if not isinstance(scene_actor, (type(None), SceneActor)):
-                raise TypeError(f"Generator scene actors must be either None or of type SceneActor, not {type(scene_actor)}")
+        self.generator_objects = kwargs.pop("generator_objects", ())
+
+        params = kwargs.pop("params", {})
+        if params:
+            params = params.generator_info
+            self.strength    = params["strength"]
+            self.ai_type     = params["ai"]
+            self.max_enemies = params["max_enemies"]
+            self.interval    = params["interval"]
 
         super().__init__(**kwargs)
 
     @property
-    def generator_scene_actors(self): return self._generator_scene_actors
+    def generator_objects(self):
+        return self._generator_objects
+    @generator_objects.setter
+    def generator_objects(self, generator_objects):
+        generator_objects = tuple(generator_objects)
+        for scene_object in generator_objects:
+            if not isinstance(scene_object, (type(None), SceneObject)):
+                raise TypeError(f"Generator scene objects must be either None or of type SceneObject, not {type(scene_object)}")
 
-    def set_strength(self, strength):
-        if not(isinstance(strength, int) and strength in range(len(self._generator_scene_actors))):
-            raise ValueError("No enemy varient for strength of '%s'" % strength)
-            
-        self.scene_actor = self._generator_scene_actors[strength]
-        self.strength = strength
+        self._generator_objects = generator_objects
+        self.strength = self.strength  # force refreshing generator model
+
+    @property
+    def strength(self): return self._strength
+    @strength.setter
+    def strength(self, strength):
+        if isinstance(strength, int) and strength in range(len(self._generator_objects)):
+            self.scene_object = self._generator_objects[strength]
+        else:
+            self.scene_object = None
+
+        self._strength = strength
 
 
 class SceneItemExit(SceneItem):

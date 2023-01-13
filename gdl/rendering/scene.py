@@ -26,14 +26,21 @@ class Scene(ShowBase):
     _scene_worlds  = ()
     _scene_actors  = ()
     _scene_objects = ()
+    _cached_resource_tags = ()
+    _cached_resource_textures = ()
 
     _world_root_node  = None
     _actor_root_node  = None
     _object_root_node = None
 
-    _curr_scene_world_name  = ""
-    _curr_scene_actor_name  = ""
-    _curr_scene_object_name = ""
+    _scene_type = SCENE_TYPE_WORLD
+
+    _curr_scene_world_name      = ""
+    _curr_scene_actor_set_name  = ""
+    _curr_scene_object_set_name = ""
+
+    _curr_scene_actor_name   = ""
+    _curr_scene_object_name  = ""
 
     _camera_light_intensity  = 4
     _ambient_light_intensity = 1
@@ -50,8 +57,6 @@ class Scene(ShowBase):
     _world_camera_rot  = None
     _actor_camera_rot  = None
     _object_camera_rot = None
-
-    _scene_type = SCENE_TYPE_WORLD
 
     def __init__(self, **kwargs):
         super().__init__()
@@ -93,6 +98,8 @@ class Scene(ShowBase):
         self._scene_worlds  = {}
         self._scene_actors  = {}
         self._scene_objects = {}
+        self._cached_resource_tags = {}
+        self._cached_resource_textures = {}
 
         self._world_root_node  = PandaNode("__world_root")
         self._actor_root_node  = PandaNode("__actor_root")
@@ -111,11 +118,13 @@ class Scene(ShowBase):
 
     @property
     def active_actor(self):
-        return self._scene_actors.get(self._curr_scene_actor_name)
+        return self._scene_actors.get(self._curr_scene_actor_set_name, {})\
+               .get(self._curr_scene_actor_name)
 
     @property
     def active_object(self):
-        return self._scene_objects.get(self._curr_scene_object_name)
+        return self._scene_objects.get(self._curr_scene_object_set_name, {})\
+               .get(self._curr_scene_object_name)
 
     def adjust_fov(self, angle, delta=True):
         lens = self.camNode.getLens(0)
@@ -208,12 +217,12 @@ class Scene(ShowBase):
 
         self._curr_scene_world_name = world_name
 
-    def switch_actor(self, actor_name):
+    def switch_actor(self, set_name, actor_name):
         if not self._scene_actors:
             return
 
         curr_scene_actor = self.active_actor
-        next_scene_actor = self._scene_actors.get(actor_name)
+        next_scene_actor = self._scene_actors.get(set_name, {}).get(actor_name)
         if curr_scene_actor:
             self._actor_root_node.remove_child(curr_scene_actor.p3d_node)
 
@@ -222,13 +231,14 @@ class Scene(ShowBase):
             NodePath(next_scene_actor.p3d_node).show()
 
         self._curr_scene_actor_name = actor_name
+        self._curr_scene_actor_set_name = set_name
 
-    def switch_object(self, object_name):
+    def switch_object(self, set_name, object_name):
         if not self._scene_objects:
             return
 
         curr_scene_object = self.active_object
-        next_scene_object = self._scene_objects.get(object_name)
+        next_scene_object = self._scene_objects.get(set_name, {}).get(object_name)
         if curr_scene_object:
             self._object_root_node.remove_child(curr_scene_object.p3d_node)
 
@@ -237,6 +247,7 @@ class Scene(ShowBase):
             NodePath(next_scene_object.p3d_node).show()
 
         self._curr_scene_object_name = object_name
+        self._curr_scene_object_set_name = set_name
 
     def switch_scene_type(self, scene_type):
         if scene_type not in (
@@ -255,17 +266,18 @@ class Scene(ShowBase):
             self._world_camera_pos = pos
             self._world_camera_rot = rot
             self._world_camera_controller.stop()
-            NodePath(self._world_root_node).hide()
         elif self._scene_type == self.SCENE_TYPE_ACTOR:
             self._actor_camera_pos = pos
             self._actor_camera_rot = rot
             self._actor_camera_controller.stop()
-            NodePath(self._actor_root_node).hide()
         elif self._scene_type == self.SCENE_TYPE_OBJECT:
             self._object_camera_pos = pos
             self._object_camera_rot = rot
             self._object_camera_controller.stop()
-            NodePath(self._object_root_node).hide()
+
+        NodePath(self._world_root_node).hide()
+        NodePath(self._actor_root_node).hide()
+        NodePath(self._object_root_node).hide()
 
         if scene_type == self.SCENE_TYPE_WORLD:
             pos = self._world_camera_pos
@@ -300,15 +312,54 @@ class Scene(ShowBase):
             NodePath(scene_world.p3d_node).removeNode()
             del self._scene_worlds[scene_world_name]
 
-        for scene_object_name in tuple(self._scene_objects.keys()):
-            scene_object = self._scene_objects[scene_object_name]
-            NodePath(scene_object.p3d_node).removeNode()
-            del self._scene_objects[scene_object_name]
+        for set_name in set(*self._scene_objects.keys(), *self._scene_actors.keys()):
+            for scene_object_name in tuple(self._scene_objects.get(set_name, {}).keys()):
+                scene_object = self._scene_objects[scene_object_name]
+                NodePath(scene_object.p3d_node).removeNode()
+                del self._scene_objects[set_name][scene_object_name]
 
-        for scene_actor_name in tuple(self._scene_actors.keys()):
-            scene_actor = self._scene_actors[scene_actor_name]
-            NodePath(scene_actor.p3d_node).removeNode()
-            del self._scene_actors[scene_actor_name]
+            for scene_actor_name in tuple(self._scene_actors.get(set_name, {}).keys()):
+                scene_actor = self._scene_actors[scene_actor_name]
+                NodePath(scene_actor.p3d_node).removeNode()
+                del self._scene_actors[set_name][scene_actor_name]
+
+            del self._scene_actors[set_name]
+
+    def get_resource_set_textures(self, filepath, is_ngc=False, recache=False):
+        resource_dir = os.path.dirname(filepath)
+        set_name = self.get_resource_set_name(resource_dir)
+        objects_data = self.get_resource_set_tags(resource_dir)
+        objects_tag  = objects_data["objects_tag"]
+
+        if set_name not in self._cached_resource_textures or recache:
+            self._cached_resource_textures[set_name] = load_textures_from_objects_tag(
+                objects_tag, filepath, is_ngc
+                )
+
+        return dict(self._cached_resource_textures[set_name])
+
+    def get_resource_set_tags(self, dirpath, recache=False):
+        set_name = self.get_resource_set_name(dirpath)
+        if set_name not in self._cached_resource_tags or recache:
+            self._cached_resource_tags[set_name] = dict(
+                **(load_objects_dir_files(dirpath) if dirpath else {})
+                )
+
+        return dict(self._cached_resource_tags[set_name])
+
+    def get_resource_set_name(self, dirpath):
+        set_name = ""
+        for part in pathlib.Path(dirpath).parts[::-1]:
+            part = part.upper()
+            set_name = part.upper() + "/" + set_name
+            if part in (
+                    "GEN", "ITEMS", "LEVELS", "MAPS",
+                    "MONSTERS", "PLAYERS", "POWERUPS", "WEAPONS",
+                    "SELECT", "GROUP1", "GROUP2", "SONY", "STATIC", "TITLE"
+                ):
+                break
+
+        return set_name.strip("/")
 
     def load_objects(self, objects_path):
         try:
@@ -321,35 +372,22 @@ class Scene(ShowBase):
             print(traceback.format_exc())
 
     def load_world(self, worlds_dir):
-        game_root_dir = pathlib.Path(worlds_dir).parent.parent
-
-        world_name = os.path.basename(worlds_dir).lower()
-        realm_name = world_name.rstrip("0123456789")
-
-        # locate the folder all the level items dirs are in
-        items_dirs = [
-            locate_objects_dir(game_root_dir, "items", world_name),
-            locate_objects_dir(game_root_dir, "items", realm_name),
-            locate_objects_dir(game_root_dir, "powerups"),
-            locate_objects_dir(game_root_dir, "weapons"),
-            ]
-
         try:
-            world_item_actors = {}
-            for items_dir in items_dirs:
-                world_item_actors.update(self._load_world_item_actors(items_dir))
-
-            self._load_world(worlds_dir, world_item_actors)
+            self._load_world(worlds_dir)
 
             self.switch_scene_type(self.SCENE_TYPE_WORLD)
         except Exception:
             print(traceback.format_exc())
 
-    def _load_objects(self, objects_dir):
+    def _load_objects(self, objects_dir, switch_display=True):
         start = time.time()
-        objects_data = load_objects_dir_files(objects_dir) if objects_dir else None
+
+        objects_data = self.get_resource_set_tags(objects_dir)
+        set_name = self.get_resource_set_name(objects_dir)
+        scene_actors = {}
+        scene_objects = {}
         if not objects_data:
-            return
+            return scene_actors, scene_objects
 
         print("Loading files took %s seconds" % (time.time() - start))
         is_ngc            = objects_data["is_ngc"]
@@ -357,24 +395,26 @@ class Scene(ShowBase):
         objects_tag       = objects_data["objects_tag"]
         textures_filepath = objects_data["textures_filepath"]
         if not objects_tag:
-            return
+            return scene_actors, scene_objects
 
-        textures = load_textures_from_objects_tag(
-            objects_tag, textures_filepath, is_ngc
-            )
+        textures = self.get_resource_set_textures(textures_filepath, is_ngc)
 
         actor_names  = anim_tag.actor_names if anim_tag else ()
         object_names = set()
         if objects_tag:
             object_names = set(objects_tag.get_cache_names(by_name=True)[0])
 
-        display_actor = display_object = True
+        display_actor = display_object = switch_display
         for actor_name in sorted(anim_tag.actor_names):
-            scene_actor = load_scene_actor_from_tags(
-                actor_name, anim_tag=anim_tag,
-                textures=textures, objects_tag=objects_tag,
-                )
-            self.add_scene_actor(scene_actor)
+            scene_actor = self.get_scene_actor(set_name, actor_name)
+            if not scene_actor:
+                scene_actor = load_scene_actor_from_tags(
+                    actor_name, anim_tag=anim_tag,
+                    textures=textures, objects_tag=objects_tag,
+                    )
+                self.add_scene_actor(set_name, scene_actor)
+
+            scene_actors[scene_actor.name] = scene_actor
 
             # remove all object names that will be rendered in an actor
             # TODO: implement removing all objets included in animations
@@ -383,24 +423,29 @@ class Scene(ShowBase):
                     object_names.remove(model_name)
 
             if display_actor:
-                self.switch_actor(actor_name)
+                self.switch_actor(set_name, actor_name)
                 display_actor = False
 
         for object_name in sorted(object_names):
-            scene_object = load_scene_object_from_tags(
-                object_name, textures=textures, objects_tag=objects_tag,
-                )
-            self.add_scene_object(scene_object)
+            scene_object = self.get_scene_object(set_name, object_name)
+            if not scene_object:
+                scene_object = load_scene_object_from_tags(
+                    object_name, textures=textures, objects_tag=objects_tag,
+                    )
+                self.add_scene_object(set_name, scene_object)
+
+            scene_objects[scene_object.name] = scene_object
             if display_object:
-                self.switch_object(object_name)
+                self.switch_object(set_name, object_name)
                 display_object = False
 
-    def _load_world(self, levels_dir, world_item_actors=()):
-        start = time.time()
-        if world_item_actors is None:
-            world_item_actors = {}
+        return scene_actors, scene_objects
 
-        objects_data = load_objects_dir_files(levels_dir) if levels_dir else None
+    def _load_world(self, levels_dir):
+        start = time.time()
+
+        objects_data = self.get_resource_set_tags(levels_dir)
+        set_name = self.get_resource_set_name(levels_dir)
         if not objects_data:
             return
 
@@ -413,40 +458,52 @@ class Scene(ShowBase):
         if not worlds_tag:
             return
 
-        textures = load_textures_from_objects_tag(
-            objects_tag, textures_filepath, is_ngc
-            )
+        game_root_dir = pathlib.Path(levels_dir).parent.parent
+        level_name = os.path.basename(levels_dir).lower()
+        realm_name = level_name.rstrip("0123456789")
+
+        # locate the folder all the level and shared item dirs are in
+        items_dirs = [
+            locate_objects_dir(game_root_dir, "ITEMS", level_name),
+            locate_objects_dir(game_root_dir, "ITEMS", realm_name),
+            locate_objects_dir(game_root_dir, "POWERUPS"),
+            locate_objects_dir(game_root_dir, "WEAPONS"),
+            ]
+
+        # loacate the monsters
+        for item_info in worlds_tag.data.item_infos:
+            if item_info.item_type.enum_name not in ("enemy", "generator"):
+                continue
+
+            enemy_name = item_info.data.name.upper().strip()
+            enemy_dirs = ("MONSTERS", enemy_name)
+            if enemy_name in ("GENERAL", "GOLEM"):
+                enemy_dirs += (realm_name, )
+
+            items_dirs.append(locate_objects_dir(game_root_dir, *enemy_dirs))
+
+        # load all necessary items
+        world_item_actors = {}
+        world_item_objects = {}
+        for items_dir in items_dirs:
+            scene_actors, scene_objects = self._load_objects(
+                items_dir, switch_display=False
+                )
+            world_item_actors.update(scene_actors)
+            world_item_objects.update(scene_objects)
+
+        # TODO: clean this up to treat different item classes differently
+        #       instead of lumping all scene objects and actors into one dict
+
+        textures = self.get_resource_set_textures(textures_filepath, is_ngc)
         scene_world = load_scene_world_from_tags(
             worlds_tag=worlds_tag, objects_tag=objects_tag,
             textures=textures, anim_tag=anim_tag,
             world_item_actors=world_item_actors,
+            world_item_objects=world_item_objects,
             )
         self.add_scene_world(scene_world)
         self.switch_world(scene_world.name)
-
-    def _load_world_item_actors(self, items_dir):
-        start = time.time()
-        objects_data = load_objects_dir_files(items_dir) if items_dir else None
-        world_item_actors = {}
-        if objects_data:
-            print("Loading files took %s seconds" % (time.time() - start))
-            is_ngc            = objects_data["is_ngc"]
-            anim_tag          = objects_data["anim_tag"]
-            objects_tag       = objects_data["objects_tag"]
-            textures_filepath = objects_data["textures_filepath"]
-
-            textures = load_textures_from_objects_tag(
-                objects_tag, textures_filepath, is_ngc
-                )
-
-            # load the actors so they're ready to map to items
-            for actor_name in (anim_tag.actor_names if anim_tag else ()):
-                world_item_actors[actor_name] = load_scene_actor_from_tags(
-                    actor_name, anim_tag=anim_tag,
-                    textures=textures, objects_tag=objects_tag,
-                    )
-
-        return world_item_actors
 
     def add_scene_world(self, world):
         if not isinstance(world, scene_world.SceneWorld):
@@ -457,23 +514,27 @@ class Scene(ShowBase):
 
         self._scene_worlds[world.name] = world
 
-    def add_scene_actor(self, actor):
+    def add_scene_actor(self, set_name, actor):
         if not isinstance(actor, scene_actor.SceneActor):
             raise TypeError(f"Scene actor must be of type SceneActor, not {type(actor)}")
-        elif actor.name in self._scene_actors:
-            # TODO: replace existing actor
-            return
 
-        self._scene_actors[actor.name] = actor
-
-    def add_scene_object(self, object):
-        if not isinstance(object, scene_object.SceneObject):
-            raise TypeError(f"Scene object must be of type SceneObject, not {type(object)}")
-        elif object.name in self._scene_objects:
+        self._scene_actors.setdefault(set_name, {})
+        if actor.name in self._scene_actors[set_name]:
             # TODO: replace existing object
             return
 
-        self._scene_objects[object.name] = object
+        self._scene_actors[set_name][actor.name] = actor
+
+    def add_scene_object(self, set_name, object):
+        if not isinstance(object, scene_object.SceneObject):
+            raise TypeError(f"Scene object must be of type SceneObject, not {type(object)}")
+
+        self._scene_objects.setdefault(set_name, {})
+        if object.name in self._scene_objects[set_name]:
+            # TODO: replace existing object
+            return
+
+        self._scene_objects[set_name][object.name] = object
 
     @property
     def scene_worlds(self):
@@ -481,8 +542,14 @@ class Scene(ShowBase):
 
     @property
     def scene_actors(self):
-        return dict(self._scene_actors)
+        return { k: dict(v) for k, v in self._scene_actors.items() }
 
     @property
     def scene_objects(self):
-        return dict(self._scene_objects)
+        return { k: dict(v) for k, v in self._scene_objects.items() }
+
+    def get_scene_actor(self, set_name, actor_name):
+        return self._scene_actors.get(set_name, {}).get(actor_name, None)
+
+    def get_scene_object(self, set_name, object_name):
+        return self._scene_objects.get(set_name, {}).get(object_name, None)

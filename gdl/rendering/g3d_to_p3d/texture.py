@@ -30,11 +30,15 @@ def load_textures_from_objects_tag(
             else:
                 f.seek(bitm.tex_pointer)
                 g3d_texture = G3DTexture()
-                g3d_texture.import_gtx(
-                    input_buffer=f, headerless=True, is_ngc=is_ngc, 
-                    format_name=bitm.format.enum_name, flags=bitm.flags.data,
-                    width=bitm.width, height=bitm.height,
-                    )
+                try:
+                    g3d_texture.import_gtx(
+                        input_buffer=f, headerless=True, is_ngc=is_ngc, 
+                        format_name=bitm.format.enum_name, flags=bitm.flags.data,
+                        width=bitm.width, height=bitm.height,
+                        )
+                except ValueError:
+                    # invalid bitmap
+                    continue
 
                 p3d_texture = util.g3d_texture_to_p3d_texture(g3d_texture)
 

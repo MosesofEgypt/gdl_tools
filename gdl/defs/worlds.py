@@ -209,6 +209,7 @@ item_info_data = Struct("item_info_data",
             weapon=weapon_types,
             armor=armor_types,
             special=special_types,
+            integer=QStruct("integer", SInt32("value")),
             ),
         SIZE=4
         ),
@@ -220,7 +221,7 @@ item_info_data = Struct("item_info_data",
             boss_key=UEnum16("boss_key", *BOSS_KEYS),
             legend_item=UEnum16("legend_item", *LEGEND_ITEMS),
             runestone=UEnum16("runestone", *RUNESTONES),
-            integer=UEnum16("integer"),
+            short=QStruct("short", SInt16("value")),
             ),
         SIZE=2
         ),
@@ -257,6 +258,7 @@ item_info = Struct("item_info",
 # normally appear transparent(columns, light rays, door frame, etc)
 world_object = Struct("world_object",
     StrNntLatin1("name", SIZE=16),
+    # NOTE: seems there's such a thing as "dynamic parent" world objects
     Bool32("flags",
         # flag1: unknown purpose. set on most surfaces
         # flag2: appears to be set(mostly) on floors(walkable floor?)

@@ -46,8 +46,8 @@ def load_nodes_from_worlds_tag(worlds_tag, root_p3d_node):
 
 
 def load_scene_world_from_tags(
-        *, worlds_tag, objects_tag, textures,
-        anim_tag=None, world_item_actors=()
+        *, worlds_tag, objects_tag, textures, anim_tag=None,
+        world_item_actors=(), world_item_objects=(),
         ):
     if world_item_actors is None:
         world_item_actors = {}
@@ -83,10 +83,12 @@ def load_scene_world_from_tags(
         try:
             scene_item = load_scene_item_from_item_instance(
                 worlds_tag = worlds_tag,
-                objects_tag = objects_tag, textures = textures,
+                objects_tag = objects_tag,
+                textures = textures,
                 item_instance = item_instance,
                 scene_item_infos = scene_item_infos,
-                world_item_actors = world_item_actors
+                world_item_actors = world_item_actors,
+                world_item_objects = world_item_objects
                 )
             scene_world.attach_scene_item(scene_item)
         except Exception:

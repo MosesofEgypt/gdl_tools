@@ -1,3 +1,4 @@
+import traceback
 import direct
 import os
 
@@ -59,7 +60,7 @@ class LegendViewer(Scene):
             self.accept(str(i), self.set_player_count, [i])
 
         self.accept("arrow_up",   self.cycle_scene_view, [1])
-        self.accept("arrow_down", self.cycle_scene_view, [1])
+        self.accept("arrow_down", self.cycle_scene_view, [-1])
         self.accept("arrow_left",     setattr, [self, "_cycle_subview_left", -1])
         self.accept("arrow_left-up",  setattr, [self, "_cycle_subview_left",  0])
         self.accept("arrow_right",    setattr, [self, "_cycle_subview_right", 1])
@@ -93,13 +94,20 @@ class LegendViewer(Scene):
         return direct.task.Task.cont
 
     @property
-    def title_prefix(self):
-        return self._title_prefix + (
-            "World: "  if self._scene_type == self.SCENE_TYPE_WORLD  else
-            "Actor: "  if self._scene_type == self.SCENE_TYPE_ACTOR  else
-            "Object: " if self._scene_type == self.SCENE_TYPE_OBJECT else
-            ""
-            )
+    def title_text(self):
+        if self._scene_type == self.SCENE_TYPE_WORLD:
+            name     = self._curr_scene_world_name
+            suffix   = "World: %s"
+        elif self._scene_type == self.SCENE_TYPE_ACTOR:
+            name     = self._curr_scene_actor_name
+            suffix   = f"Actor: {self._curr_scene_actor_set_name}: %s"
+        elif self._scene_type == self.SCENE_TYPE_OBJECT:
+            name     = self._curr_scene_object_name
+            suffix   = f"Object: {self._curr_scene_object_set_name}: %s"
+        else:
+            return self._title_prefix
+
+        return self._title_prefix + suffix % (name if name else "(none selected)")
 
     def resize(self, event):
         self.tk_root.update()
@@ -139,61 +147,84 @@ class LegendViewer(Scene):
         self.switch_scene_type((self._scene_type + increment) % 3)
 
     def cycle_scene_view(self, increment=0):
-        pass
+        if self._scene_type == self.SCENE_TYPE_WORLD:
+            curr_set_name = self._curr_scene_world_name
+            set_names = tuple(sorted(self._scene_worlds))
+        elif self._scene_type == self.SCENE_TYPE_ACTOR:
+            curr_set_name = self._curr_scene_actor_set_name
+            set_names = tuple(sorted(self._scene_actors))
+        elif self._scene_type == self.SCENE_TYPE_OBJECT:
+            curr_set_name = self._curr_scene_object_set_name
+            set_names = tuple(sorted(self._scene_objects))
+        else:
+            return
+
+        set_name = ""
+        if set_names:
+            try:
+                name_index = increment + set_names.index(curr_set_name)
+            except ValueError:
+                name_index = increment
+            set_name = set_names[name_index % len(set_names)]
+
+        if self._scene_type == self.SCENE_TYPE_WORLD:
+            self.switch_world(set_name)
+        elif self._scene_type == self.SCENE_TYPE_ACTOR:
+            self.switch_actor(set_name, self._curr_scene_actor_name)
+            self.switch_scene_subview()
+        elif self._scene_type == self.SCENE_TYPE_OBJECT:
+            self.switch_object(set_name, self._curr_scene_object_name)
+            self.switch_scene_subview()
+        else:
+            return
 
     def switch_scene_subview(self, increment=0):
         if self._scene_type == self.SCENE_TYPE_WORLD:
-            curr_name = self._curr_scene_world_name
-            curr_object = self.active_world
-            names = tuple(sorted(self._scene_worlds))
+            # TODO: implement switching between camera points
+            return
         elif self._scene_type == self.SCENE_TYPE_ACTOR:
             curr_name = self._curr_scene_actor_name
-            curr_object = self.active_actor
-            names = tuple(sorted(self._scene_actors))
+            names = tuple(sorted(self._scene_actors.get(
+                self._curr_scene_actor_set_name, {}
+                )))
         elif self._scene_type == self.SCENE_TYPE_OBJECT:
             curr_name = self._curr_scene_object_name
-            curr_object = self.active_object
-            names = tuple(sorted(self._scene_objects))
+            names = tuple(sorted(self._scene_objects.get(
+                self._curr_scene_object_set_name, {}
+                )))
         else:
             return
-        
+
         name = ""
         if names:
             name_index = increment
-            if curr_object:
-                name_index += names.index(curr_name)
+            try:
+                name_index = increment + names.index(curr_name)
+            except ValueError:
+                name_index = increment
             name = names[name_index % len(names)]
 
         if self._scene_type == self.SCENE_TYPE_WORLD:
             self.switch_world(name)
         elif self._scene_type == self.SCENE_TYPE_ACTOR:
-            self.switch_actor(name)
+            self.switch_actor(self._curr_scene_actor_set_name, name)
         elif self._scene_type == self.SCENE_TYPE_OBJECT:
-            self.switch_object(name)
+            self.switch_object(self._curr_scene_object_set_name, name)
         else:
             return
 
     def switch_world(self, world_name):
         super().switch_world(world_name)
-        name = self.active_world.name if self.active_world else "(none selected)"
-        self.tk_root.title(self.title_prefix + name)
+        self.tk_root.title(self.title_text)
 
-    def switch_actor(self, actor_name):
-        super().switch_actor(actor_name)
-        name = self.active_actor.name if self.active_actor else "(none selected)"
-        self.tk_root.title(self.title_prefix + name)
+    def switch_actor(self, set_name, actor_name):
+        super().switch_actor(set_name, actor_name)
+        self.tk_root.title(self.title_text)
 
-    def switch_object(self, object_name):
-        super().switch_object(object_name)
-        name = self.active_object.name if self.active_object else "(none selected)"
-        self.tk_root.title(self.title_prefix + name)
+    def switch_object(self, set_name, object_name):
+        super().switch_object(set_name, object_name)
+        self.tk_root.title(self.title_text)
 
     def switch_scene_type(self, scene_type):
         super().switch_scene_type(scene_type)
-        scene_object = (
-            self.active_world  if self._scene_type == self.SCENE_TYPE_WORLD else
-            self.active_actor  if self._scene_type == self.SCENE_TYPE_ACTOR else
-            self.active_object
-            )
-        name = scene_object.name if scene_object else "(none selected)"
-        self.tk_root.title(self.title_prefix + name)
+        self.tk_root.title(self.title_text)

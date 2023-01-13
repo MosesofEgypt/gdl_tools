@@ -1,6 +1,7 @@
 import traceback
 
-from ...assets.scene_objects.scene_item import SceneItemInfo, c
+from ...assets.scene_objects.scene_item import SceneItemInfo, c,\
+     SceneItemGenerator
 from ...assets.scene_objects.constants import COLL_TYPE_OBJECT
 from ..model import load_model_from_objects_tag
 from ..collision import load_collision_from_worlds_tag
@@ -51,7 +52,8 @@ def load_scene_item_infos_from_worlds_tag(worlds_tag):
 
 def load_scene_item_from_item_instance(
         *, worlds_tag, objects_tag, textures,
-        item_instance, scene_item_infos, world_item_actors
+        item_instance, scene_item_infos,
+        world_item_actors, world_item_objects
         ):
     instance_name = item_instance.name.upper().strip()
 
@@ -63,13 +65,27 @@ def load_scene_item_from_item_instance(
         params = item_instance.params,
         pos = item_instance.pos,
         rot = item_instance.rot,
-        scene_actor = world_item_actors.get(scene_item_info.actor_name),
+        scene_object = world_item_actors.get(scene_item_info.actor_name),
         flags = { n: bool(flags[n]) for n in flags.NAME_MAP }
         )
 
-    model = load_model_from_objects_tag(
-        objects_tag, instance_name, textures
-        ) if instance_name else None
+    if isinstance(scene_item, SceneItemGenerator):
+        # locate and attach generator objects
+        model = None
+        names = tuple(
+            c.OBJECT_NAME_GEN % (scene_item_info.actor_name, i)
+            for i in range(4)
+            )
+
+        generator_objects = (
+            world_item_objects.get(name, world_item_objects.get(name + "L1"))
+            for name in names
+            )
+        scene_item.generator_objects = generator_objects
+    else:
+        model = load_model_from_objects_tag(
+            objects_tag, instance_name, textures
+            ) if instance_name else None
 
     collision = load_collision_from_worlds_tag(
         worlds_tag, scene_item.name,
