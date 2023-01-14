@@ -282,8 +282,8 @@ world_object = Struct("world_object",
         # flag26: same as flag4
         # flag29: same as flag4
         # flag30: same as flag4
-        ("animated_collision", 1<<12),
         *((f"unknown{i}", 1<<i) for i in range(12)),
+        ("animated_collision", 1<<12),
         *((f"unknown{i}", 1<<i) for i in range(13,32))
         ),
     SEnum16("trigger_type"),
@@ -318,16 +318,17 @@ grid_list = Struct("grid_entry",
     )
 
 locator_type = SEnum8("type",
-    ("camera_start",    0x01),
-    ("camera_game",     0x02),
-    ("camera_attract_start", 0x03),
-    ("camera_attract",  0x04),
-    ("milestone",       0x05),
-    ("boss",            0x06),
-    ("start",           0x07),
-    ("sentry",          0x08),
-    ("trigger_camera",  0x09),
-    ("event",           0x0A),
+    "none",
+    "camera_start",
+    "camera_game",
+    "camera_attract_start",
+    "camera_attract",
+    "milestone",
+    "boss",
+    "start",
+    "sentry",
+    "trigger_camera",
+    "event",
     )
 
 locator = Struct("locator",

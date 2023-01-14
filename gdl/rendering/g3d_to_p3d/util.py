@@ -27,7 +27,7 @@ def locate_objects_dir(search_root, *folder_names):
                 objects_dir = locate_objects_dir(objects_dir, *folder_names)
 
             if objects_dir: break
-        if objects_dir: break
+        break
 
     return objects_dir
 

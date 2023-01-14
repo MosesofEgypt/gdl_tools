@@ -27,33 +27,35 @@ def load_geom_from_g3d_model(g3d_model, geom_shader):
     vdata = GeomVertexData('', G3DVertexFormat, Geom.UHDynamic)
     vdata.setNumRows(len(g3d_model.verts))
 
-    verts  = GeomVertexWriter(vdata, 'vertex')
-    norms  = GeomVertexWriter(vdata, 'normal')
-    uvs    = GeomVertexWriter(vdata, 'texcoord')
-    lmuvs  = GeomVertexWriter(vdata, 'texcoord.lm')
-    colors = GeomVertexWriter(vdata, 'color')
+    vertsAddData  = GeomVertexWriter(vdata, 'vertex').addData3f
+    normsAddData  = GeomVertexWriter(vdata, 'normal').addData3f
+    uvsAddData    = GeomVertexWriter(vdata, 'texcoord').addData2f
+    lmuvsAddData  = GeomVertexWriter(vdata, 'texcoord.lm').addData2f
+    colorsAddData = GeomVertexWriter(vdata, 'color').addData4f
+
+    tris = GeomTriangles(Geom.UHDynamic)
+    addVertices   = tris.addVertices
 
     for x, y, z in g3d_model.verts:
         # rotate coordinates
-        verts.addData3f(x, z, y)
+        vertsAddData(x, z, y)
 
     for i, j, k in g3d_model.norms:
-        norms.addData3f(i, k, j)
+        normsAddData(i, k, j)
 
     for r, g, b, a in g3d_model.colors:
-        colors.addData4f(r, g, b, a)
+        colorsAddData(r, g, b, a)
 
     # NOTE: uvs will be 3 component for DEMO level items
     for uv in g3d_model.uvs:
-        uvs.addData2f(uv[0], 1.0 - uv[1])
+        uvsAddData(uv[0], 1.0 - uv[1])
 
     for s, t in g3d_model.lm_uvs:
-        lmuvs.addData2f(s, 1.0 - t)
+        lmuvsAddData(s, 1.0 - t)
 
-    tris = GeomTriangles(Geom.UHDynamic)
     for tri_list in g3d_model.tri_lists.values():
         for tri in tri_list:
-            tris.addVertices(tri[0], tri[3], tri[6])
+            addVertices(tri[0], tri[3], tri[6])
 
     p3d_geometry = GeomNode("")
     geom = Geom(vdata)
@@ -79,18 +81,18 @@ def load_model_from_objects_tag(objects_tag, model_name, textures=()):
         obj = objects_tag.data.objects[obj_index]
 
         flags    = getattr(obj, "flags", None)
-        subobjs  = getattr(obj.data, "sub_objects", ())
+        subobjs  = (obj.sub_object_0, *getattr(obj.data, "sub_objects", ()))
         has_lmap = getattr(flags, "lmap", False)
         bnd_rad  = obj.bnd_rad
 
         datas = [ m.data for m in obj.data.sub_object_models ]
         tex_names = [
             bitmap_name_by_index.get(h.tex_index, {}).get('name')
-            for h in (obj.sub_object_0, *subobjs)
+            for h in subobjs
             ]
         lm_names = [
             bitmap_name_by_index.get(h.lm_index, {}).get('name') if has_lmap else ""
-            for h in (obj.sub_object_0, *subobjs)
+            for h in subobjs
             ]
     else:
         bnd_rad = 0

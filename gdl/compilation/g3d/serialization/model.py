@@ -177,6 +177,14 @@ class G3DModel():
         if stream_len < 0:
             stream_len = len(input_buffer) - input_buffer.tell()
 
+        # slight speedup to cache these
+        uint8_scale = 1/255
+        norm_scale  = 1/15
+        color_scale = 1/31
+        pos_scale   = 1/c.POS_SCALE
+        uv_scale    = 1/c.UV_SCALE
+        lm_uv_scale = 1/c.LM_UV_SCALE
+
         for i in range(subobj_count):
             buffer_start = input_buffer.tell()
             buffer_end   = len(input_buffer)
@@ -204,11 +212,6 @@ class G3DModel():
             lm_uvs      = []
             faces_drawn = []
             face_dirs   = []
-        
-            if c.DEBUG:
-                print('pos:%s,\ttex_name:"%s",\tlm_name:"%s",\tlod_k:%s' %
-                      (buffer_start, tex_name, lm_name, lod_k - 4)
-                      )
 
             #scan over all the data in the stream
             while input_buffer.tell() + STREAM_HEADER_STRUCT.size < g3d_end:
@@ -224,19 +227,6 @@ class G3DModel():
 
                 data_type, flags, count, storage_type = STREAM_HEADER_STRUCT.unpack(rawdata)
                 stream_struct = STREAM_DATA_STRUCTS.get((data_type, storage_type))
-
-                investigate = False
-                if (data_type != c.DATA_TYPE_GEOM and
-                    ((data_type != c.DATA_TYPE_UV and flags != c.STREAM_FLAGS_DEFAULT) or
-                     (data_type == c.DATA_TYPE_UV and flags != c.STREAM_FLAGS_UV_DEFAULT and flags != 4))
-                    ):
-                    investigate = True
-
-                if investigate or c.DEBUG or stream_struct is None:
-                    print('pos:%s,\tdata_type:%s,\tflags:%s,\tcount:%s,\tstorage_type:%s' %
-                          (input_buffer.tell() - STREAM_HEADER_STRUCT.size,
-                           data_type, flags, count, storage_type)
-                          )
 
                 if stream_struct is None:
                     raise ValueError('Unknown data stream')
@@ -280,8 +270,8 @@ class G3DModel():
 
                         # positions
                         for j in range(0, 12, 4):
-                            scale = data[j+3]
-                            x, y, z = data[j]/scale, data[j+1]/scale, data[j+2]/scale
+                            scale = 1/data[j+3]
+                            x, y, z = data[j]*scale, data[j+1]*scale, data[j+2]*scale
                             verts.append([x, y, z])
                             bnd_rad_square = max(x**2 + y**2 + z**2, bnd_rad_square)
 
@@ -292,8 +282,12 @@ class G3DModel():
 
                         # colors
                         for j in range(24, 36, 4):
-                            r, g, b, a = data[j]/255, data[j+1]/255, data[j+2]/255, data[j+3]/255
-                            colors.append([r, g, b, a])
+                            colors.append([
+                                data[j]*uint8_scale,    # r
+                                data[j+1]*uint8_scale,  # g
+                                data[j+2]*uint8_scale,  # b
+                                data[j+3]*uint8_scale   # a
+                                ])
 
                         # uv coords
                         for j in range(36, 48, 4):
@@ -303,7 +297,7 @@ class G3DModel():
                 elif data_type == c.DATA_TYPE_POS:
                     # make sure to ignore the last vertex
                     for j in range(0, len(data)-3, 3):
-                        x, y, z = data[j]/c.POS_SCALE, data[j+1]/c.POS_SCALE, data[j+2]/c.POS_SCALE
+                        x, y, z = data[j]*pos_scale, data[j+1]*pos_scale, data[j+2]*pos_scale
                         verts.append([x, y, z])
                         bnd_rad_square = max(x**2 + y**2 + z**2, bnd_rad_square)
 
@@ -311,16 +305,16 @@ class G3DModel():
                     dont_draw = []
 
                     for j in range(len(data)):
-                        norm = data[j]
-                        xn  = (norm&31)/15 - 1
-                        yn  = ((norm>>5)&31)/15 - 1
-                        zn  = ((norm>>10)&31)/15 - 1
-                        mag = sqrt(xn*xn + yn*yn + zn*zn) + 0.0000001
+                        packed_norm = data[j]
+                        xn  = (packed_norm&31)*norm_scale - 1
+                        yn  = ((packed_norm>>5)&31)*norm_scale - 1
+                        zn  = ((packed_norm>>10)&31)*norm_scale - 1
+                        inv_mag = 1/(sqrt(xn*xn + yn*yn + zn*zn) + 0.0000001)
 
-                        norms.append([xn/mag, yn/mag, zn/mag])  # x-axis is reversed
+                        norms.append([xn*inv_mag, yn*inv_mag, zn*inv_mag])  # x-axis is reversed
                         # the last bit determines if a face is to be
                         # drawn or not. 0 means draw, 1 means dont draw
-                        dont_draw.append(bool(norm&0x8000))
+                        dont_draw.append(bool(packed_norm&0x8000))
 
                     # make sure the first 2 are removed since they
                     # are always 1 and triangle strips are always
@@ -330,11 +324,12 @@ class G3DModel():
                 elif data_type == c.DATA_TYPE_COLOR:
                     for j in range(len(data)):
                         # colors are in RGBA order
+                        packed_color = data[j]
                         colors.append([
-                            (data[j]&31)/31,        # red
-                            ((data[j]>>5)&31)/31,   # green
-                            ((data[j]>>10)&31)/31,  # blue
-                            ((data[j]>>15)&1),      # alpha(always set?)
+                            (packed_color&31)*color_scale,        # red
+                            ((packed_color>>5)&31)*color_scale,   # green
+                            ((packed_color>>10)&31)*color_scale,  # blue
+                            ((packed_color>>15)&1),               # alpha(always set?)
                             ])
 
                 elif data_type == c.DATA_TYPE_UV:
@@ -343,19 +338,19 @@ class G3DModel():
                     if storage_type == c.STORAGE_TYPE_UINT16_LMUV:
                         for j in range(0, len(data), 4):
                             uvs.append([
-                                data[j]/c.UV_SCALE,
-                                data[j+1]/c.UV_SCALE
+                                data[j]*uv_scale,
+                                data[j+1]*uv_scale
                                 ])
                             lm_uvs.append([
-                                data[j+2]/c.LM_UV_SCALE,
-                                data[j+3]/c.LM_UV_SCALE
+                                data[j+2]*lm_uv_scale,
+                                data[j+3]*lm_uv_scale
                                 ])
 
                     else:
                         for j in range(0, len(data), 2):
                             uvs.append([
-                                data[j]/c.UV_SCALE,
-                                data[j+1]/c.UV_SCALE
+                                data[j]*uv_scale,
+                                data[j+1]*uv_scale
                                 ])
 
             #generate the triangles
