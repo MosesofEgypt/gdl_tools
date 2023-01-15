@@ -42,6 +42,13 @@ class SceneWorld(SceneObject):
         self.p3d_node.add_child(self._objects_root_node)
 
     @property
+    def node_world_objects(self): return { k: dict(v) for k, v in self._node_world_objects.items() }
+    @property
+    def node_scene_items(self): return { k: tuple(v) for k, v in self._node_scene_items.items() }
+    @property
+    def item_infos(self): return list(self._item_infos)
+
+    @property
     def player_count(self): return self._player_count
     @player_count.setter
     def player_count(self, count):
@@ -82,7 +89,7 @@ class SceneWorld(SceneObject):
         self._node_scene_items[item_type].append(scene_item)
 
         node_path = panda3d.core.NodePath(scene_item.p3d_node)
-        if scene_item.min_players > self.player_count:
+        if self.player_count < scene_item.min_players:
             node_path.hide()
         else:
             node_path.show()
@@ -101,9 +108,26 @@ class SceneWorld(SceneObject):
         node_collection[world_object.name] = world_object
         parent_node_path.node().add_child(world_object.p3d_node)
 
-    @property
-    def node_world_objects(self): return { k: dict(v) for k, v in self._node_world_objects.items() }
-    @property
-    def node_scene_items(self): return { k: tuple(v) for k, v in self._node_scene_items.items() }
-    @property
-    def item_infos(self): return list(self._item_infos)
+    def set_world_collision_visible(self, visible=None):
+        visible = self.set_collision_visible(visible)
+        for world_scene_objects in self.node_world_objects.values():
+            for scene_object in world_scene_objects.values():
+                visible = scene_object.set_collision_visible(visible)
+
+    def set_world_geometry_visible(self, visible=None):
+        visible = self.set_geometry_visible(visible)
+        for world_scene_objects in self.node_world_objects.values():
+            for scene_object in world_scene_objects.values():
+                visible = scene_object.set_geometry_visible(visible)
+
+    def set_item_collision_visible(self, visible=None):
+        for scene_items in self.node_scene_items.values():
+            for scene_item in scene_items:
+                if self.player_count >= scene_item.min_players:
+                    visible = scene_item.set_collision_visible(visible)
+
+    def set_item_geometry_visible(self, visible=None):
+        for scene_items in self.node_scene_items.values():
+            for scene_item in scene_items:
+                if self.player_count >= scene_item.min_players:
+                    visible = scene_item.set_geometry_visible(visible)

@@ -108,6 +108,30 @@ class SceneObject:
 
         self._texture_swap_animations[animaton.name] = animation
 
+    def set_collision_visible(self, visible=None):
+        for group in self.node_collision.values():
+            for coll in group.values():
+                node_path = panda3d.core.NodePath(coll.p3d_collision)
+                visible = node_path.isHidden() if visible is None else visible
+
+                if visible:
+                    node_path.show()
+                else:
+                    node_path.hide()
+        return visible
+
+    def set_geometry_visible(self, visible=None):
+        for group in self.node_models.values():
+            for model in group.values():
+                node_path = panda3d.core.NodePath(model.p3d_model)
+                visible = node_path.isHidden() if visible is None else visible
+
+                if visible:
+                    node_path.show()
+                else:
+                    node_path.hide()
+        return visible
+
     def play_animation(self, instance_id, anim_name):
         pass
 

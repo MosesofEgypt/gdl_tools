@@ -132,51 +132,24 @@ class Scene(ShowBase):
         lens.fov = new_fov
 
     def set_world_collision_visible(self, visible=None):
-        scene_world = self._scene_worlds.get(self._curr_scene_world_name)
-        if not scene_world:
-            return
-
-        for group in scene_world.node_collision.values():
-            for coll in group.values():
-                node_path = NodePath(coll.p3d_collision)
-                visible = node_path.isHidden() if visible is None else visible
-
-                if visible:
-                    node_path.show()
-                else:
-                    node_path.hide()
+        scene_world = self.active_world
+        if scene_world:
+            scene_world.set_world_collision_visible(visible)
 
     def set_item_collision_visible(self, visible=None):
-        scene_world = self._scene_worlds.get(self._curr_scene_world_name)
-        if not scene_world:
-            return
-
-        # TODO: write this
+        scene_world = self.active_world
+        if scene_world:
+            scene_world.set_item_collision_visible(visible)
 
     def set_world_geometry_visible(self, visible=None):
         scene_world = self.active_world
-        if not scene_world:
-            return
-
-        # TODO: move this logic into SceneObject and SceneWorld and SceneWorldObject
-        for world_scene_objects in scene_world.node_world_objects.values():
-            for scene_object in world_scene_objects.values():
-                for group in scene_object.node_models.values():
-                    for model in group.values():
-                        node_path = NodePath(model.p3d_model)
-                        visible = node_path.isHidden() if visible is None else visible
-
-                        if visible:
-                            node_path.show()
-                        else:
-                            node_path.hide()
+        if scene_world:
+            scene_world.set_world_geometry_visible(visible)
 
     def set_item_geometry_visible(self, visible=None):
         scene_world = self.active_world
-        if not scene_world:
-            return
-
-        # TODO: write this
+        if scene_world:
+            scene_world.set_item_geometry_visible(visible)
 
     def set_player_count(self, count):
         if self.active_world:
