@@ -7,7 +7,7 @@ class GeometryShader:
     sort  = False
     sort_alpha = False
 
-    additive_diffuse = False
+    framebuffer_add = False
     signed_alpha = True
 
     sharp  = False
@@ -98,7 +98,7 @@ class GeometryShader:
         if self.alpha:
             nodepath.setTransparency(panda3d.core.TransparencyAttrib.MAlpha)
             self._diff_texture_stage.setSort(GeometryShader.DRAW_SORT_OPAQUE)
-        elif self.additive_diffuse:
+        elif self.framebuffer_add:
             self._color_blend_attrib = panda3d.core.ColorBlendAttrib.make(
                 panda3d.core.ColorBlendAttrib.MAdd
                 )

@@ -8,7 +8,18 @@ def get(): return wdata_def
 enemy_data_lump = Lump('enemy_datas',
     SUB_STRUCT=Struct('enemy_data',
         SEnum32("type", *ENEMY_TYPES),
-        SInt32("subtype"),
+        UEnum32("subtype",
+            ("none",        0x0),
+            ("melee",       0x1),
+            ("suicider",    0x2),
+            ("ranged",      0x3),
+            ("aux",         0x4), # all enemy types with this subtype have an AUX
+            #                       folder variant. not sure what this means exactly.
+            ("miniboss",    0x5), # uses different dir depending on level/name
+            ("boss",        0x9),
+            ("special_1",   0x12), # uses strength suffixed dirname(used in TEMPLE.WAD)
+            ("special_2",   0x13), # uses strength suffixed dirname(used in HELL.WAD)
+            ),
         StrNntLatin1("audname", SIZE=8),
         StrNntLatin1("name", SIZE=8),
         SIZE=24

@@ -170,7 +170,6 @@ atree_seq = Struct("atree_seq",
     )
 
 anode_info = Struct("anode_info",
-    # NOTE: MB == multi-branch??? see MBNODE_TYPE
     StrNntLatin1("mb_desc", SIZE=32),
     QStruct("init_pos", INCLUDE=xyz_float),
     SEnum16("anim_type",
@@ -185,32 +184,49 @@ anode_info = Struct("anode_info",
         #           always set for object, particle_system, and texture
         #           set in 31.86% of skeletal and 23.83% of null
         ),
-    # NOTE: maybe flags relate to things like "is_dynamic_light"
-    # NOTE: Seems this might be ZATR_FLAGS
     Bool32("mb_flags",
         # these are the flags that are set across all animation files
         # its possible for no flags to be set on all node types
-        ("unknown6", 1<<6), # 0.79% of object, skeletal, and texture
-        ("unknown7", 1<<7), # 9.19% of all anim types
+        ("no_z_test",       1<<6),  # 0.79% of object, skeletal, and texture
+        ("no_z_write",      1<<7),  # 9.19% of all anim types
+        ("sort_alpha",      1<<11), # 13.20% of all anim types(set alone in null, object, skeletal, and texture)
+        ("no_shading",      1<<12), # 15.32% of all anim types
+        ("add_first",       1<<13), # 0.13% of object, skeletal, and texture
 
-        ("unknown11", 1<<11), # 13.20% of all anim types(set alone in null, object, skeletal, and texture)
-        ("unknown12", 1<<12), # 15.32% of all anim types
-        ("unknown13", 1<<13), # 0.13% of object, skeletal, and texture
-
-        ("chrome", 1<<15), # 1.62% of null and skeletal
-
-        ("unknown19", 1<<19), # 8.25% of all anim types
+        ("chrome",          1<<15), # 1.62% of null and skeletal
+        ("alpha_last",      1<<19), # 8.25% of all anim types
 
         # all flags below not set in particle system
-        ("unknown22", 1<<22), # 2.32% of all anim types
-        ("unknown23", 1<<23), # 2.31% of all anim types
-        ("unknown24", 1<<24), # 1.02% of null, skeletal, and texture
+        ("alpha_last_2",    1<<22), # 2.32% of all anim types
+        ("fb_add",          1<<23), # 2.31% of all anim types
 
-        ("unknown26", 1<<26), # 7.41% of all anim types
-        ("unknown27", 1<<27), # 0.17% of skeletal, and texture
+        ("front_face",      1<<24), # 1.02% of null, skeletal, and texture
+        ("camera_dir",      1<<26), # 7.41% of all anim types
+        ("top_face",        1<<27), # 0.17% of skeletal, and texture
 
-        ("unknown29", 1<<29), # 0.01% of object
-        ("unknown30", 1<<30), # 0.007% of skeletal
+        ("harden_a",        1<<29), # 0.01% of object
+        ("fb_mul",          1<<30), # 0.007% of skeletal
+
+        # some additional flags that overlap previous flags.
+        # leaving them here commented out since they don't seem
+        # to be accurate, but may prove useful in the future.
+        #("object_lmap",     1<<13),
+        #("object_o_chrome", 1<<17),
+        #("object_t_chrome", 1<<19),
+        #("object_keep_a",   1<<27),
+
+        dict(NAME="color_obj",          VALUE=1<<8,  VISIBLE=False),  # IS NEVER SET
+        dict(NAME="alpha_obj",          VALUE=1<<9,  VISIBLE=False),  # IS NEVER SET
+        dict(NAME="dist_alpha",         VALUE=1<<10, VISIBLE=False),  # IS NEVER SET
+        dict(NAME="temp_no_shade",      VALUE=1<<14, VISIBLE=False),  # IS NEVER SET
+        dict(NAME="no_alpha_z_write",   VALUE=1<<16, VISIBLE=False),  # IS NEVER SET
+        dict(NAME="car_body",           VALUE=1<<17, VISIBLE=False),  # IS NEVER SET
+        dict(NAME="local_light",        VALUE=1<<18, VISIBLE=False),  # IS NEVER SET
+        dict(NAME="dist_alpha_2",       VALUE=1<<20, VISIBLE=False),  # IS NEVER SET
+        dict(NAME="no_filter",          VALUE=1<<21, VISIBLE=False),  # IS NEVER SET
+        dict(NAME="front_dir",          VALUE=1<<25, VISIBLE=False),  # IS NEVER SET
+        dict(NAME="tex_shift",          VALUE=1<<28, VISIBLE=False),  # IS NEVER SET
+        dict(NAME="scrn_clip",          VALUE=1<<31, VISIBLE=False),  # IS NEVER SET
         ),
     SInt32("anim_seq_info_offset"),
     # anim_seq_info_offset points to an array of containing one

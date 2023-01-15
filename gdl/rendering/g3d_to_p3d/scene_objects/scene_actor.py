@@ -1,5 +1,3 @@
-import time
-
 from panda3d.core import NodePath, PandaNode, LVecBase3f
 from panda3d.physics import ActorNode
 
@@ -51,12 +49,8 @@ def load_nodes_from_anim_tag(object_name, anim_tag):
             parent_node.addChild(node_info["p3d_node"])
             flags = node_info["flags"]
             node_flags[node_info["name"]] = dict(
-                chrome = bool(flags.chrome),
-                # TODO: figure out which of the 3 flags indicates this
-                additive_diffuse = bool(
-                    flags.unknown7 |
-                    flags.unknown22 | flags.unknown23
-                    ),
+                chrome          = bool(flags.chrome),
+                framebuffer_add = bool(flags.fb_add),
                 )
 
     if root_node is None:
@@ -69,7 +63,6 @@ def load_nodes_from_anim_tag(object_name, anim_tag):
 def load_scene_actor_from_tags(
         actor_name, *, anim_tag, textures, objects_tag=None
         ):
-    start = time.time()
     actor_name = actor_name.upper().strip()
     actor_node = ActorNode(actor_name)
 
@@ -89,11 +82,10 @@ def load_scene_actor_from_tags(
             if flags.get("chrome"):
                 geometry.shader.chrome = shader_updated = True
 
-            if flags.get("additive_diffuse"):
-                geometry.shader.additive_diffuse = shader_updated = True
+            if flags.get("fb_add"):
+                geometry.shader.framebuffer_add = shader_updated = True
 
             if shader_updated:
                 geometry.apply_shader()
 
-    #print("Loading scene actor '%s' took %s seconds" % (actor_name, time.time() - start))
     return scene_actor

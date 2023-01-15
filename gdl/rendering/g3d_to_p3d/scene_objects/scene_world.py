@@ -1,5 +1,4 @@
 import traceback
-import time
 
 from panda3d.core import PandaNode, LVecBase3f, NodePath
 
@@ -52,7 +51,6 @@ def load_scene_world_from_tags(
     if world_item_actors is None:
         world_item_actors = {}
 
-    start = time.time()
     world_name = str(worlds_tag.filepath).upper().replace("\\", "/").\
                  split("LEVELS/")[-1].split("/")[0]
     scene_world = SceneWorld(name=world_name)
@@ -93,7 +91,5 @@ def load_scene_world_from_tags(
             scene_world.attach_scene_item(scene_item)
         except Exception:
             print(traceback.format_exc())
-            continue
 
-    #print("Loading scene world '%s' took %s seconds" % (world_name, time.time() - start))
     return scene_world
