@@ -340,7 +340,7 @@ class Scene(ShowBase):
 
     def get_resource_set_tags(self, dirpath, recache=False):
         set_name = self.get_resource_set_name(dirpath)
-        if set_name not in self._cached_resource_tags or recache:
+        if not self._cached_resource_tags.get(set_name) or recache:
             self._cached_resource_tags[set_name] = dict(
                 **(load_objects_dir_files(dirpath) if dirpath else {})
                 )
@@ -355,47 +355,56 @@ class Scene(ShowBase):
             if part in (
                     "GEN", "ITEMS", "LEVELS", "MAPS",
                     "MONSTERS", "PLAYERS", "POWERUPS", "WEAPONS",
-                    "SELECT", "GROUP1", "GROUP2", "SONY", "STATIC", "TITLE"
+                    "CREDITS", "GROUP1", "GROUP2", "SONY",
+                    "INVENTORY", "SELECT", "STATIC", "TITLE",
+                    "RETIRE", "LVLADV", "WORLDSEL", "HISCORE", "SHOP", "TEST",
                 ):
                 break
 
         return set_name.strip("/")
 
-    def load_objects(self, objects_path):
+    def load_objects(self, objects_path, switch_display=True):
         try:
-            self._load_objects(objects_path)
-            self.switch_scene_type(
-                self.SCENE_TYPE_ACTOR if self._scene_actors else
-                self.SCENE_TYPE_OBJECT
-                )
+            start = time.time()
+            result = self._load_objects(objects_path, switch_display)
+            if switch_display:
+                self.switch_scene_type(
+                    self.SCENE_TYPE_ACTOR if self._scene_actors else
+                    self.SCENE_TYPE_OBJECT
+                    )
+
+            print("Loading '%s' took %s seconds" % (objects_path, time.time() - start))
         except Exception:
             print(traceback.format_exc())
+            result = None
 
-    def load_world(self, worlds_dir):
+        return result
+
+    def load_world(self, worlds_dir, switch_display=True):
         try:
-            self._load_world(worlds_dir)
+            start = time.time()
+            print("Loading '%s'..." % worlds_dir)
+            result = self._load_world(worlds_dir, switch_display)
+            if switch_display:
+                self.switch_scene_type(self.SCENE_TYPE_WORLD)
 
-            self.switch_scene_type(self.SCENE_TYPE_WORLD)
+            print("Loading world took %s seconds" % (time.time() - start))
         except Exception:
             print(traceback.format_exc())
+            result = None
 
-    def _load_objects(self, objects_dir, switch_display=True):
-        start = time.time()
+        return result
 
+    def _load_objects(self, objects_dir, switch_display):
         objects_data = self.get_resource_set_tags(objects_dir)
         set_name = self.get_resource_set_name(objects_dir)
-        scene_actors = {}
-        scene_objects = {}
-        if not objects_data:
-            return scene_actors, scene_objects
 
-        print("Loading files took %s seconds" % (time.time() - start))
-        is_ngc            = objects_data["is_ngc"]
-        anim_tag          = objects_data["anim_tag"]
-        objects_tag       = objects_data["objects_tag"]
-        textures_filepath = objects_data["textures_filepath"]
+        is_ngc            = objects_data.get("is_ngc")
+        anim_tag          = objects_data.get("anim_tag")
+        objects_tag       = objects_data.get("objects_tag")
+        textures_filepath = objects_data.get("textures_filepath")
         if not objects_tag:
-            return scene_actors, scene_objects
+            return {}, {}
 
         textures = self.get_resource_set_textures(textures_filepath, is_ngc)
 
@@ -404,8 +413,9 @@ class Scene(ShowBase):
         if objects_tag:
             object_names = set(objects_tag.get_cache_names(by_name=True)[0])
 
-        display_actor = display_object = switch_display
-        for actor_name in sorted(anim_tag.actor_names):
+        scene_actors  = []
+        scene_objects = []
+        for actor_name in sorted(actor_names):
             scene_actor = self.get_scene_actor(set_name, actor_name)
             if not scene_actor:
                 scene_actor = load_scene_actor_from_tags(
@@ -414,17 +424,16 @@ class Scene(ShowBase):
                     )
                 self.add_scene_actor(set_name, scene_actor)
 
-            scene_actors[scene_actor.name] = scene_actor
-
+            scene_actors.append(scene_actor)
             # remove all object names that will be rendered in an actor
             # TODO: implement removing all objets included in animations
             for model_name in anim_tag.get_model_node_name_map(actor_name)[0]:
                 if model_name in object_names:
                     object_names.remove(model_name)
 
-            if display_actor:
+            if switch_display:
                 self.switch_actor(set_name, actor_name)
-                display_actor = False
+                switch_display = False
 
         for object_name in sorted(object_names):
             scene_object = self.get_scene_object(set_name, object_name)
@@ -434,63 +443,66 @@ class Scene(ShowBase):
                     )
                 self.add_scene_object(set_name, scene_object)
 
-            scene_objects[scene_object.name] = scene_object
-            if display_object:
+            scene_objects.append(scene_object)
+            if switch_display:
                 self.switch_object(set_name, object_name)
-                display_object = False
+                switch_display = False
 
-        return scene_actors, scene_objects
+        return (
+            {a.name: a for a in scene_actors},
+            {o.name: o for o in scene_objects}
+            )
 
-    def _load_world(self, levels_dir):
-        start = time.time()
-
+    def _load_world(self, levels_dir, switch_display):
         objects_data = self.get_resource_set_tags(levels_dir)
         set_name = self.get_resource_set_name(levels_dir)
-        if not objects_data:
-            return
 
-        print("Loading files took %s seconds" % (time.time() - start))
-        is_ngc            = objects_data["is_ngc"]
-        anim_tag          = objects_data["anim_tag"]
-        objects_tag       = objects_data["objects_tag"]
-        worlds_tag        = objects_data["worlds_tag"]
-        textures_filepath = objects_data["textures_filepath"]
+        is_ngc            = objects_data.get("is_ngc")
+        anim_tag          = objects_data.get("anim_tag")
+        objects_tag       = objects_data.get("objects_tag")
+        worlds_tag        = objects_data.get("worlds_tag")
+        textures_filepath = objects_data.get("textures_filepath")
         if not worlds_tag:
-            return
+            return None
 
         game_root_dir = pathlib.Path(levels_dir).parent.parent
         level_name = os.path.basename(levels_dir).lower()
         realm_name = level_name.rstrip("0123456789")
 
         # locate the folder all the level and shared item dirs are in
-        items_dirs = [
+        items_dirs = set([
             locate_objects_dir(game_root_dir, "ITEMS", level_name),
             locate_objects_dir(game_root_dir, "ITEMS", realm_name),
             locate_objects_dir(game_root_dir, "POWERUPS"),
             locate_objects_dir(game_root_dir, "WEAPONS"),
-            ]
+            ])
 
         # loacate the monsters
-        for item_info in worlds_tag.data.item_infos:
+        enemy_dirs = set()
+        for item_instance in worlds_tag.data.item_instances:
+            item_info = worlds_tag.data.item_infos[item_instance.item_index]
             if item_info.item_type.enum_name not in ("enemy", "generator"):
                 continue
 
             enemy_name = item_info.data.name.upper().strip()
-            enemy_dirs = ("MONSTERS", enemy_name)
+            enemy_dirnames = ("MONSTERS", enemy_name)
             if enemy_name in ("GENERAL", "GOLEM"):
-                enemy_dirs += (realm_name, )
+                enemy_dirnames += (realm_name, )
 
-            items_dirs.append(locate_objects_dir(game_root_dir, *enemy_dirs))
+            items_dirs.add(locate_objects_dir(game_root_dir, *enemy_dirnames))
 
         # load all necessary items
         world_item_actors = {}
         world_item_objects = {}
-        for items_dir in items_dirs:
-            scene_actors, scene_objects = self._load_objects(
+        for items_dir in sorted(items_dirs):
+            results = self.load_objects(
                 items_dir, switch_display=False
-                )
-            world_item_actors.update(scene_actors)
-            world_item_objects.update(scene_objects)
+                ) if items_dir else None
+
+            if results:
+                scene_actors, scene_objects = results
+                world_item_actors.update(scene_actors)
+                world_item_objects.update(scene_objects)
 
         # TODO: clean this up to treat different item classes differently
         #       instead of lumping all scene objects and actors into one dict
@@ -503,7 +515,10 @@ class Scene(ShowBase):
             world_item_objects=world_item_objects,
             )
         self.add_scene_world(scene_world)
-        self.switch_world(scene_world.name)
+        if switch_display:
+            self.switch_world(scene_world.name)
+
+        return scene_world
 
     def add_scene_world(self, world):
         if not isinstance(world, scene_world.SceneWorld):

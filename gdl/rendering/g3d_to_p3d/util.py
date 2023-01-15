@@ -6,8 +6,10 @@ from traceback import format_exc
 from supyr_struct.defs.bitmaps.dds import dds_def
 
 from arbytmap import arby, format_defs as fd
+from ...util import *
 from ...compilation.g3d import constants as g3d_const
 from ...defs.anim import anim_ps2_def
+
 from ...defs.objects import objects_ps2_def
 from ...defs.worlds import worlds_ps2_def
 
