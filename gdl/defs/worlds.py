@@ -65,7 +65,7 @@ trigger_info = Struct("trigger_info",
     )
 
 enemy_info = QStruct("enemy_info",
-    SInt16("strength"), # seto to 0, 1, 2, 3, 4, 5, 6
+    SInt16("strength"), # seen set to 0, 1, 2, 3, 4, 5, 6
     SInt16("ai"),  # seen set to: 0, 3, 7, 15, 16, 17, 18, 19, 23, 26, 27
     Float("rad"),
     SInt16("interval"),
@@ -96,7 +96,6 @@ exit_info = Struct("exit_info",
         "no",
         "yes"
         ),
-    
     StrNntLatin1("name", SIZE=4),
     SIZE=8
     )
@@ -190,6 +189,7 @@ item_info_data = Struct("item_info_data",
         "unknown",  # seems to indicate colliding with the item
         #             triggers it to do something(set on sound
         #             colliders and certain proximity based traps)
+        # NOTE: might map to COLNODE_FLAG
         ),
     Float("radius"),
     Float("height"),

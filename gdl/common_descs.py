@@ -98,6 +98,11 @@ def get_lump_pointer(*args, new_value=None, **kwargs):
 
 
 # shared structs
+UNIT_SCALE_RAD_TO_DEG = 180/math.pi
+xy_float = QStruct("",
+    Float("x"), Float("y"),
+    ORIENT='h'
+    )
 xyz_float = QStruct("",
     Float("x"), Float("y"), Float("z"),
     ORIENT='h'
@@ -107,14 +112,27 @@ ijk_float = QStruct("",
     ORIENT='h'
     )
 pyr_float = QStruct("",
-    Float("p", UNIT_SCALE=180/math.pi),
-    Float("y", UNIT_SCALE=180/math.pi),
-    Float("r", UNIT_SCALE=180/math.pi),
+    Float("p", UNIT_SCALE=UNIT_SCALE_RAD_TO_DEG),
+    Float("y", UNIT_SCALE=UNIT_SCALE_RAD_TO_DEG),
+    Float("r", UNIT_SCALE=UNIT_SCALE_RAD_TO_DEG),
+    ORIENT='h'
+    )
+radian_float_min_max = QStruct("",
+    Float("min", UNIT_SCALE=UNIT_SCALE_RAD_TO_DEG),
+    Float("max", UNIT_SCALE=UNIT_SCALE_RAD_TO_DEG),
     ORIENT='h'
     )
 ijkw_float = QStruct("",
     Float("i"), Float("j"), Float("k"), Float("w"),
     ORIENT='h'
+    )
+bgr_float = QStruct("",
+    Float("b"), Float("g"), Float("r"),
+    ORIENT='h'
+    )
+bgr_uint8 = QStruct("",
+    UInt8("b"), UInt8("g"), UInt8("r"),
+    ORIENT='h', WIDGET=ColorPickerFrame
     )
 bgra_uint8 = QStruct("",
     UInt8("b"), UInt8("g"), UInt8("r"), UInt8("a"),
@@ -233,7 +251,7 @@ ENEMY_TYPES = (
     "sky",
     "whirlwind",
     "garm2",
-    "ntypes",
+    "unused",
     "golem",
     "death",
     "it",
@@ -250,6 +268,24 @@ ENEMY_TYPES = (
     "skorne1",
     "skorne2",
     "garm",
+    ("none", -1),
+    )
+
+WAVE_TYPES = (
+    "test",
+    "castle",
+    "mountain",
+    "desert",
+    "forest",
+    "boss",
+    "hell",
+    "town",
+    "battle",
+    "ice",
+    "dream",
+    "sky",
+    "secret",
+    "tower",
     )
 
 WEAPON_TYPES = (
@@ -621,6 +657,7 @@ texmod_type = UEnum8("preset",
     )
 
 particle_system = Struct("particle_system",
+    # NOTE: "e" means emitter? "p" means phase?
     UEnum32("version",
         ("v257", 257),
         DEFAULT=257

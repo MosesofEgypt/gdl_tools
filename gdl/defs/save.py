@@ -11,7 +11,7 @@ def levels_bool(name, count):
     bools = []
     for i in range(count-1):
         bools.append('level_%s_beaten'%(i+1))
-    bools.append('bos_beaten')
+    bools.append('boss_beaten')
     return Bool8(name, *bools)
 
 help_disp_default = array('B', [0]*256)

@@ -170,7 +170,7 @@ atree_seq = Struct("atree_seq",
     )
 
 anode_info = Struct("anode_info",
-    # NOTE: MB == multi-branch???
+    # NOTE: MB == multi-branch??? see MBNODE_TYPE
     StrNntLatin1("mb_desc", SIZE=32),
     QStruct("init_pos", INCLUDE=xyz_float),
     SEnum16("anim_type",
@@ -186,6 +186,7 @@ anode_info = Struct("anode_info",
         #           set in 31.86% of skeletal and 23.83% of null
         ),
     # NOTE: maybe flags relate to things like "is_dynamic_light"
+    # NOTE: Seems this might be ZATR_FLAGS
     Bool32("mb_flags",
         # these are the flags that are set across all animation files
         # its possible for no flags to be set on all node types
