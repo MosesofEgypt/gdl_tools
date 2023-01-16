@@ -66,7 +66,9 @@ trigger_info = Struct("trigger_info",
 
 enemy_info = QStruct("enemy_info",
     SInt16("strength"), # seen set to 0, 1, 2, 3, 4, 5, 6
+    #   set to 0 for red death, and 2 for black
     SInt16("ai"),  # seen set to: 0, 3, 7, 15, 16, 17, 18, 19, 23, 26, 27
+    #   set to 3 for death
     Float("rad"),
     SInt16("interval"),
     SInt16("dummy"),
@@ -142,7 +144,8 @@ item_instance = Struct("item_instance",
     SInt16("item_index"),
     SInt8("min_players"),
     Bool8("flags",
-          # only 3 flags set across all files
+        # NOTE: might map to COLNODE_FLAG?
+        # only 3 flags set across all files
         "unknown0", # settable on container, damage_tile, enemy, 
         #             generator, obstacle, powerup, and trigger
         "unknown1", # settable on generator, powerup, rotator, and trigger
@@ -203,25 +206,26 @@ item_info_data = Struct("item_info_data",
         ("unknown", 0x8000),
         ),
     Union("properties",
+        # NOTE: only used for powerups and damage tiles
         CASES=dict(
             potion=damage_type,
             damage_tile=damage_type,
             weapon=weapon_types,
             armor=armor_types,
             special=special_types,
-            integer=QStruct("integer", SInt32("value")),
             ),
         SIZE=4
         ),
     Union("value",
         CASES=dict(
-            # TODO: see if there are other enumerators that apply here
-            gargoyle_item=UEnum16("gargoyle_item", *GARGOYLE_ITEMS),
+            # NOTE: only used for powerups and damage tiles
+            # NOTE: "amount" is used in the following subtypes:
+            #       food, key, gold, potion, special, speed, weapon
             crystal=UEnum16("crystal", *CRYSTAL_TYPES),
-            boss_key=UEnum16("boss_key", *BOSS_KEYS),
+            gargoyle_item=UEnum16("gargoyle_item", *GARGOYLE_ITEMS),
             legend_item=UEnum16("legend_item", *LEGEND_ITEMS),
             runestone=UEnum16("runestone", *RUNESTONES),
-            short=QStruct("short", SInt16("value")),
+            amount=QStruct("amount", SInt16("value")),
             ),
         SIZE=2
         ),
@@ -380,6 +384,7 @@ world_anims = Container("world_anims",
         SUB_STRUCT=world_animation,
         SIZE="..header.animations_count",
         POINTER="..header.animations_pointer",
+        DYN_NAME_PATH='.world_object_index', WIDGET=DynamicArrayFrame
         ),
     )
 
@@ -433,6 +438,7 @@ worlds_ps2_def = TagDef("worlds",
         SUB_STRUCT=world_object,
         SIZE=".header.world_objects_count",
         POINTER=".header.world_objects_pointer",
+        DYN_NAME_PATH='.name', WIDGET=DynamicArrayFrame
         ),
     # each grid_entry is a count offset
     #UInt32Array("grid_entries",
@@ -453,21 +459,25 @@ worlds_ps2_def = TagDef("worlds",
         SUB_STRUCT=item_info,
         SIZE=".header.item_info_count",
         POINTER=".header.item_info_pointer",
+        DYN_NAME_PATH='.item_type.enum_name', WIDGET=DynamicArrayFrame
         ),
     Array("item_instances",
         SUB_STRUCT=item_instance,
         SIZE=".header.item_instance_count",
         POINTER=".header.item_instance_pointer",
+        DYN_NAME_PATH='.item_index', WIDGET=DynamicArrayFrame
         ),
     Array("locators",
         SUB_STRUCT=locator,
         SIZE=".header.locator_count",
         POINTER=".header.locator_pointer",
+        DYN_NAME_PATH='.type.enum_name', WIDGET=DynamicArrayFrame
         ),
     Array("particle_systems",
         SUB_STRUCT=particle_system,
         SIZE=".header.particle_systems_count",
         POINTER=".header.particle_systems_pointer",
+        DYN_NAME_PATH='.p_texname', WIDGET=DynamicArrayFrame
         ),
     Switch("world_anims",
         CASE=".header.animations_count",

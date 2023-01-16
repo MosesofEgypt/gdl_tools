@@ -1,7 +1,6 @@
 from supyr_struct.defs.tag_def import TagDef
 from .objs.anim import AnimTag
 from ..common_descs import *
-from ..field_types import *
 
 def get(): return anim_ps2_def
 
@@ -148,7 +147,8 @@ obj_anim_header = Struct("obj_anim_header",
             *a, pointer_field_names=[
                 "....offset", "...obj_anim_header_pointer", ".obj_anim_pointer", 
                 ], **kw
-            )
+            ),
+        DYN_NAME_PATH='.mb_desc', WIDGET=DynamicArrayFrame
         )
     )
 
@@ -248,18 +248,20 @@ atree_data = Container("atree_data",
         POINTER=lambda *a, **kw: get_atree_data_array_pointer(
             *a, pointer_field_names=["...offset", "..atree_seq_pointer"], **kw
             ),
+        DYN_NAME_PATH='.name', WIDGET=DynamicArrayFrame
         ),
     Array("anode_infos",
         SUB_STRUCT=anode_info, SIZE="..anode_count",
         POINTER=lambda *a, **kw: get_atree_data_array_pointer(
             *a, pointer_field_names=["...offset", "..anode_info_pointer"], **kw
             ),
+        DYN_NAME_PATH='.mb_desc', WIDGET=DynamicArrayFrame
         ),
     Struct("obj_anim_header",
         INCLUDE=obj_anim_header,
         POINTER=lambda *a, **kw: get_atree_data_array_pointer(
             *a, pointer_field_names=["...offset", "..obj_anim_header_pointer"], **kw
-            ),
+            )
         ),
     )
 
@@ -332,12 +334,14 @@ anim_ps2_def = TagDef("anim",
     Array("atrees",
         SUB_STRUCT=atree_info,
         SIZE=".atree_count",
-        POINTER=".atree_infos_pointer"
+        POINTER=".atree_infos_pointer",
+        DYN_NAME_PATH='.name', WIDGET=DynamicArrayFrame
         ),
     Array("texmods",
         SUB_STRUCT=texmod,
         SIZE=".atree_list_header.texmod_count",
-        POINTER=".atree_list_header.texmod_pointer"
+        POINTER=".atree_list_header.texmod_pointer",
+        DYN_NAME_PATH='.name', WIDGET=DynamicArrayFrame
         ),
     Switch("particle_systems",
         CASE=".version.enum_name",
@@ -345,7 +349,8 @@ anim_ps2_def = TagDef("anim",
             v8=Array("particle_systems",
                 SUB_STRUCT=particle_system,
                 SIZE=".atree_list_header.particle_system_count",
-                POINTER=".atree_list_header.particle_system_pointer"
+                POINTER=".atree_list_header.particle_system_pointer",
+                DYN_NAME_PATH='.p_texname', WIDGET=DynamicArrayFrame
                 ),
             )
         ),

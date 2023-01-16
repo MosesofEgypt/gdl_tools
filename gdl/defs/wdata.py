@@ -10,20 +10,20 @@ enemy_data_lump = Lump('enemy_datas',
         SEnum32("type", *ENEMY_TYPES),
         UEnum32("subtype",
             ("none",        0x0),
-            ("melee",       0x1),
-            ("suicider",    0x2),
-            ("ranged",      0x3),
-            ("aux",         0x4), # all enemy types with this subtype have an AUX
-            #                       folder variant. not sure what this means exactly.
+            ("anklebiter",  0x1),
+            ("unknown1",    0x2), # subset of aux, with whirlwind added
+            ("unknown2",    0x3), # mix of ranged and melee enemies?
+            ("non_melee",   0x4), # uses "aux" folder(bomb, crossbow, and suicider)
             ("miniboss",    0x5), # uses different dir depending on level/name
             ("boss",        0x9),
-            ("special_1",   0x12), # uses strength suffixed dirname(used in TEMPLE.WAD)
-            ("special_2",   0x13), # uses strength suffixed dirname(used in HELL.WAD)
+            ("special_l2", 0x12), # uses strength suffixed dirname(used in TEMPLE.WAD)
+            ("special_l3", 0x13), # uses strength suffixed dirname(used in HELL.WAD)
             ),
         StrNntLatin1("audname", SIZE=8),
         StrNntLatin1("name", SIZE=8),
         SIZE=24
-        )
+        ),
+    DYN_NAME_PATH='.type.enum_name', WIDGET=DynamicArrayFrame
     )
 
 bosscam_data_lump = Lump('bosscam_datas',
@@ -49,7 +49,7 @@ bosscam_data_lump = Lump('bosscam_datas',
         Float("max_dist"),
         Float("max_pdist"),
 
-        Struct("pitch", INCLUDE=float_min_max),
+        Struct("pitch", INCLUDE=radian_float_min_max),
 
         QStruct("min_attn", INCLUDE=xyz_float),
         QStruct("max_attn", INCLUDE=xyz_float),
@@ -78,10 +78,10 @@ camera_data_lump = Lump('camera_datas',
         SInt16("enemy_max"),
         SInt16("special_radius"),
 
-        Float("max_pitch"),
-        Float("pitch_sub"),
+        Float("max_pitch", UNIT_SCALE=UNIT_SCALE_RAD_TO_DEG),
+        Float("pitch_sub", UNIT_SCALE=UNIT_SCALE_RAD_TO_DEG),
         Float("pitch_mul"),
-        Float("pitch_add"),
+        Float("pitch_add", UNIT_SCALE=UNIT_SCALE_RAD_TO_DEG),
 
         Float("dist_mul_add"),
         Float("dist_mul_fac"),
@@ -101,7 +101,8 @@ sound_data_lump = Lump('sound_datas',
         SInt16("volume"),
         SInt16("priority"),
         SIZE=24
-        )
+        ),
+    DYN_NAME_PATH='.name', WIDGET=DynamicArrayFrame
     )
 
 audio_data_lump = Lump('audio_datas',
@@ -115,7 +116,8 @@ audio_data_lump = Lump('audio_datas',
         SInt16("stereo"),
         SInt16Array("part_counts", SIZE=2*8),
         SIZE=60
-        )
+        ),
+    DYN_NAME_PATH='.bank', WIDGET=DynamicArrayFrame
     )
 
 map_data_lump = Lump('map_datas',
@@ -177,8 +179,8 @@ level_data_lump = Lump('level_datas',
         fog_data,
         SInt16("boss_camera_index"),
         SInt16("max_enemies"),
-        SInt16("rune"),
-        SInt16("legend"),
+        SEnum16("rune", *RUNESTONES),
+        SEnum16("legend", *LEGEND_ITEMS),
         Float("music_volume"),
         Float("sound_volume"),
         Float("p_level"),
@@ -206,14 +208,15 @@ level_data_lump = Lump('level_datas',
         Float("light_color_fp", INCLUDE=bgr_float),
         Float("light_inten"),
         SIZE=268
-        )
+        ),
+    DYN_NAME_PATH='.name', WIDGET=DynamicArrayFrame
     )
 
 world_data_lump = Lump('world_datas',
     SUB_STRUCT=Struct('world_data',
         SEnum32("type", *WAVE_TYPES),
         StrNntLatin1("wave_name", SIZE=16),
-        SInt16("boss_key"),
+        SInt16("boss_key"),  # doesn't determine the boss key(most WDATAs have wrong values)
         SInt16("curr_level"),
         SInt16("num_levels"),
         SInt16("num_sounds"),
@@ -225,7 +228,8 @@ world_data_lump = Lump('world_datas',
         Pointer32("map_data_pointer", VISIBLE=False),
         Pointer32("boss_cam_data_pointer", VISIBLE=False),
         SIZE=56
-        )
+        ),
+    DYN_NAME_PATH='.wave_name', WIDGET=DynamicArrayFrame
     )
 
 wdata_lump_headers = lump_headers(

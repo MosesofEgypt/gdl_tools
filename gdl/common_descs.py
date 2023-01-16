@@ -6,6 +6,12 @@ from binilla.widgets.field_widgets import *
 from binilla.constants import *
 from .field_types import *
 
+try:
+    from binilla.widgets.field_widgets import DynamicArrayFrame, TextFrame
+except Exception:
+    DynamicArrayFrame = TextFrame = None
+
+
 def lump_fcc(value):
     return fourcc_to_int(value, 'big')
 
@@ -297,6 +303,7 @@ WEAPON_TYPES = (
     )
 
 ITEM_TYPES = (
+    "none",
     "powerup",
     "container",
     "generator",
@@ -448,6 +455,7 @@ effects_lump = Lump('effects',
         QStruct('color', INCLUDE=bgra_uint8),
         SIZE=80,
         ),
+    DYN_NAME_PATH='.fx_desc', WIDGET=DynamicArrayFrame
     )
 
 damage_type = BitStruct('damage_type',
@@ -751,9 +759,9 @@ cheat_struct = Struct("cheat",
     Union("flags",
         CASE='.type.enum_name',
         CASES=dict(
-            gold=Bool32("flags"),
-            key=Bool32("flags"),
-            potion=Bool32("flags"),
+            gold=Void("flags"),
+            key=Void("flags"),
+            potion=Void("flags"),
             weapon=weapon_types,
             armor=armor_types,
             special=special_types,

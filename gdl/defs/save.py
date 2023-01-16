@@ -1,7 +1,6 @@
 from array import array
 
 from supyr_struct.defs.tag_def import TagDef
-from ..field_types import *
 from ..common_descs import *
 from .objs.save import GdlSaveTag
 
@@ -28,6 +27,7 @@ def make_name_map(suffix=''):
 
 
 p_attrs = QStruct('character_attrs',
+    # exp-to-level formula seems to fit to:  f(exp)=170*(exp^1.66)
     SInt32('exp', GUI_NAME='experience'),
     Float('health'),
     Float('strength_added'),
@@ -171,14 +171,26 @@ gdl_savemeta_def = TagDef("save",
             ),
         UInt16('level_total'),
         
-        Array('character_attrs',  SUB_STRUCT=p_attrs,
-            SIZE=16, NAME_MAP=make_name_map('_attrs')),
-        Array('character_stats',  SUB_STRUCT=p_stats,
-            SIZE=16, NAME_MAP=make_name_map('_stats')),
-        Array('character_stuff',  SUB_STRUCT=p_stuff,
-            SIZE=16, NAME_MAP=make_name_map('_stuff')),
-        Array('character_levels', SUB_STRUCT=p_waves,
-            SIZE=16, NAME_MAP=make_name_map('_levels')),
+        Array('character_attrs',
+            SUB_STRUCT=p_attrs,
+            SIZE=16,
+            NAME_MAP=make_name_map('_attrs')
+            ),
+        Array('character_stats',
+            SUB_STRUCT=p_stats,
+            SIZE=16,
+            NAME_MAP=make_name_map('_stats')
+            ),
+        Array('character_stuff',
+            SUB_STRUCT=p_stuff,
+            SIZE=16,
+            NAME_MAP=make_name_map('_stuff')
+            ),
+        Array('character_levels',
+            SUB_STRUCT=p_waves,
+            SIZE=16,
+            NAME_MAP=make_name_map('_levels')
+            ),
         
         UEnum8('control_scheme',
             "ps2",

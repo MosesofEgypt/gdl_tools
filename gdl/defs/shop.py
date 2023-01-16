@@ -1,12 +1,6 @@
 from supyr_struct.defs.tag_def import TagDef
 from .objs.wad import WadTag
-try:
-    from binilla.field_widgets import TextFrame
-except Exception:
-    TextFrame = None
-
 from ..common_descs import *
-from ..field_types import *
 
 def get(): return shop_def
 
@@ -70,7 +64,8 @@ item_lump = Lump('items',
         UInt32('price'),
         UInt32('amount'),
         SIZE=80,
-        )
+        ),
+    DYN_NAME_PATH='.item_type.enum_name', WIDGET=DynamicArrayFrame
     )
 
 shop_lump_headers = lump_headers(

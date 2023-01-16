@@ -1,7 +1,6 @@
 from supyr_struct.defs.tag_def import TagDef
 from .objs.rom import RomTag
 from ..common_descs import *
-from ..field_types import *
 
 def get(): return rom_def, rom_old_def
 
@@ -10,7 +9,8 @@ font_lump = Lump('fonts',
     SUB_STRUCT=Struct('font',
         StrLatin1('description', SIZE=16),
         UInt32('font_id'),
-        )
+        ),
+    DYN_NAME_PATH='.description', WIDGET=DynamicArrayFrame
     )
 
 string_data_lump = Lump('string_data',
