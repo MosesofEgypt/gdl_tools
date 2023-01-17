@@ -148,6 +148,10 @@ item_instance = Struct("item_instance",
         # only 3 flags set across all files
         "unknown0", # settable on container, damage_tile, enemy, 
         #             generator, obstacle, powerup, and trigger
+        # unknown1 seems to indicate the object is invisible until destroyed?
+        # see this video and watch for the destroyed generator that appears:
+        #   https://youtu.be/NFHoL4RCm60?t=83
+        #   this is item instance 123 in LEVELG2
         "unknown1", # settable on generator, powerup, rotator, and trigger
         "unknown2", # settable on obstacle
         ),

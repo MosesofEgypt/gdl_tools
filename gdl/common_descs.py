@@ -400,7 +400,7 @@ BOSS_KEYS = (
     )
 
 LEGEND_ITEMS = (
-    'unused0',
+    'none',
     'scimitar',
     'ice_axe',
     'lamp',

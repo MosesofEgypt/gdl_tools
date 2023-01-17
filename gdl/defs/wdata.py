@@ -9,15 +9,15 @@ enemy_data_lump = Lump('enemy_datas',
     SUB_STRUCT=Struct('enemy_data',
         SEnum32("type", *ENEMY_TYPES),
         UEnum32("subtype",
-            ("none",        0x0),
-            ("anklebiter",  0x1),
-            ("unknown1",    0x2), # subset of aux, with whirlwind added
-            ("unknown2",    0x3), # mix of ranged and melee enemies?
-            ("non_melee",   0x4), # uses "aux" folder(bomb, crossbow, and suicider)
-            ("miniboss",    0x5), # uses different dir depending on level/name
-            ("boss",        0x9),
-            ("special_l2", 0x12), # uses strength suffixed dirname(used in TEMPLE.WAD)
-            ("special_l3", 0x13), # uses strength suffixed dirname(used in HELL.WAD)
+            ("none",          0x0),
+            ("ankle_biter",   0x1),
+            ("generator_pri", 0x2), # used as main enemy in most levels(GUESS)
+            ("generator_sec", 0x3), # used as main enemy in few/one levels(GUESS)
+            ("aux",           0x4), # uses "aux" folder(doesn't seem to determine ranged/not)
+            ("mini_boss",     0x5), # uses different dir depending on level/name
+            ("main_boss",     0x9),
+            ("special_l2",    0xC), # uses strength suffixed dirname(used in TEMPLE.WAD)
+            ("special_l3",    0xD), # uses strength suffixed dirname(used in HELL.WAD)
             ),
         StrNntLatin1("audname", SIZE=8),
         StrNntLatin1("name", SIZE=8),
@@ -167,7 +167,19 @@ level_data_lump = Lump('level_datas',
         StrNntLatin1("movie", SIZE=16),
         SEnum32("boss_type", *ENEMY_TYPES),
         SInt32("early_enemies"),
-        SInt16Array("enemy_type", SIZE=2*6),
+        QStruct("enemy_types",
+            # seems like the first defined enemy of each subtype gets used
+            # for that purpose. This is based on ghost and zombie are defined
+            # in G4, but only ghost is used(ghost is defined before zombie)
+            # The "special" generator type seems to spawn from
+            # all valid "generator" palette enemy types
+            SInt16("enemy_0"),
+            SInt16("enemy_1"),
+            SInt16("enemy_2"),
+            SInt16("enemy_3"),
+            SInt16("enemy_4"),
+            SInt16("enemy_5"),
+            ),
         SInt16("camera_idx"),
         SInt16("audio_idx"),
         SInt16("map_idx"),
@@ -179,7 +191,10 @@ level_data_lump = Lump('level_datas',
         fog_data,
         SInt16("boss_camera_index"),
         SInt16("max_enemies"),
-        SEnum16("rune", *RUNESTONES),
+        SEnum16("rune",
+            "none",
+            *RUNESTONES
+            ),
         SEnum16("legend", *LEGEND_ITEMS),
         Float("music_volume"),
         Float("sound_volume"),
