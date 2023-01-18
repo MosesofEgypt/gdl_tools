@@ -8,17 +8,53 @@ from .anim import anim_seq_info, anim_header, \
 def get(): return worlds_ps2_def
 
 
-def grid_entry_size(parent=None, **kwargs):
-    try:
-        return parent.header.grid_entry_count * 4
-    except Exception:
-        return 0
-
 def item_info_data_case(parent=None, **kwargs):
     try:
         return "random" if parent.item_type.enum_name == "random" else "normal"
     except Exception:
         return None
+
+
+def uint16_array_size(parent=None, **kwargs):
+    try:
+        return parent.size * 2
+    except Exception:
+        return 0
+
+def gridlist_indices_array_size(parent=None, **kwargs):
+    try:
+        return parent.header.size * 2
+    except Exception:
+        return 0
+
+
+def grid_entry_size(parent=None, **kwargs):
+    try:
+        return max(0, (parent.last - parent.first) + 1)
+    except Exception:
+        return 0
+
+
+def grid_entry_pointer(parent=None, **kwargs):
+    try:
+        return parent.parent.parent.header.grid_entry_pointer + parent.offset * 4
+    except Exception:
+        return 0
+
+
+def grid_entry_list_pointer(parent=None, **kwargs):
+    try:
+        return parent.parent.parent.parent.parent.header.grid_list_pointer + parent.header.offset
+    except Exception:
+        return 0
+
+
+def grid_list_indices_pointer(parent=None, **kwargs):
+    try:
+        return parent.parent.header.grid_list_pointer + parent.header.offset
+    except Exception:
+        return 0
+
 
 coll_tri = Struct("coll_tri",
     SInt16("min_y"),  # unknown purpose(runtime optimization?)
@@ -313,16 +349,44 @@ world_object = Struct("world_object",
     SIZE=60
     )
 
+grid_entry_list = Container("grid_entry_list",
+    UInt16("unknown"),
+    UInt16("size"),
+    #Array("indices",
+    #    SUB_STRUCT=QStruct("idx", UInt16("idx")),
+    #    SIZE=".size"
+    #    ),
+    UInt16Array("indices", SIZE=uint16_array_size)
+    )
+
+grid_entry_header = BitStruct("header",
+    UBitInt("offset", SIZE=22),
+    UBitInt("size",  SIZE=10),
+    SIZE=4,
+    )
+
+grid_entry = Struct("grid_entry",
+    grid_entry_header,
+    STEPTREE=Array("grid_entry_list",
+        SUB_STRUCT=grid_entry_list,
+        SIZE=".header.size", POINTER=grid_entry_list_pointer
+        )
+    )
+
 # related to pathfinding and item placement?
-grid_row = Struct("grid_row",
+# NOTE: grid x and z numbers match the width and length of
+#       the worlds bounds divided by the gridsize, rounded up
+grid_row = QStruct("grid_row",
     # debug symbols say first and last are unsigned, but i've seen -1 and -2 as values
     SInt16("first"),
     SInt16("last"),
-    UInt32("offset"),
-    SIZE=8
-    )
-
-grid_list = Struct("grid_entry",
+    UInt32("offset"),  # index into grid_entry array
+    SIZE=8,
+    STEPTREE=Array("grid_entries",
+        SUB_STRUCT=grid_entry,
+        POINTER=grid_entry_pointer,
+        SIZE=grid_entry_size,
+        )
     )
 
 locator_type = SEnum8("type",
@@ -402,7 +466,7 @@ worlds_header = Struct('header',
     UInt32("grid_entry_count", EDITABLE=False, VISIBLE=False),
     Pointer32("grid_entry_pointer", EDITABLE=False, VISIBLE=False),
 
-    UInt32("grid_list_entry_count", EDITABLE=False, VISIBLE=False),
+    UInt32("grid_list_value_count", EDITABLE=False, VISIBLE=False),  # always 0
     Pointer32("grid_list_pointer", EDITABLE=False, VISIBLE=False),
     Pointer32("grid_row_pointer", EDITABLE=False, VISIBLE=False),
 
@@ -411,7 +475,7 @@ worlds_header = Struct('header',
 
     Float("grid_size", VISIBLE=False),
     UInt32("grid_number_x", EDITABLE=False),
-    UInt32("grid_number_y", EDITABLE=False),
+    UInt32("grid_number_z", EDITABLE=False),
 
     UInt32("item_info_count", EDITABLE=False, VISIBLE=False),
     Pointer32("item_info_pointer", EDITABLE=False, VISIBLE=False),
@@ -444,14 +508,22 @@ worlds_ps2_def = TagDef("worlds",
         POINTER=".header.world_objects_pointer",
         DYN_NAME_PATH='.name', WIDGET=DynamicArrayFrame
         ),
-    # each grid_entry is a count offset
-    #UInt32Array("grid_entries",
-    #    SIZE=grid_entry_size,
-    #    POINTER=".header.grid_entry_pointer",
-    #    ),
+    Struct("grid_list_indices",
+        grid_entry_header,
+        POINTER=".header.grid_entry_pointer",
+        STEPTREE=Array("indices",
+            SUB_STRUCT=QStruct("idx", UInt16("idx")),
+            SIZE=".header.size",
+            POINTER=grid_list_indices_pointer
+            ),
+        #STEPTREE=UInt16Array("indices",
+        #    SIZE=gridlist_indices_array_size,
+        #    POINTER=grid_list_indices_pointer
+        #    )
+        ),
     Array("grid_rows",
         SUB_STRUCT=grid_row,
-        SIZE=".header.grid_number_y",
+        SIZE=".header.grid_number_z",
         POINTER=".header.grid_row_pointer",
         ),
     Array("coll_tris",
