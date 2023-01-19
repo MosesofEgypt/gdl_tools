@@ -356,7 +356,12 @@ grid_entry_list = Container("grid_entry_list",
     #    SUB_STRUCT=QStruct("idx", UInt16("idx")),
     #    SIZE=".size"
     #    ),
-    # NOTE: might be y-axis indices
+    # NOTE: this is quite puzzling..... vast majority of the time this is only
+    #       a few entries, and the entry values themselves don't go very high.
+    #       vast majority of the time the entry values themselves are single digits.
+    #       number doesn't match up with dynamic object count(sometimes higher or lower).
+    #       the numbers seen seem to be contiguous, but this isn't confirmed.
+    #       lower numbers more common, but number value not linearly linked to commonality
     UInt16Array("indices", SIZE=uint16_array_size)
     )
 
@@ -374,7 +379,8 @@ grid_entry = Struct("grid_entry",
         )
     )
 
-# related to pathfinding and item placement?
+# gridrows seem to be used for determining what world
+# objects to consider when calculating collisions.
 # NOTE: grid x and z numbers match the width and length of
 #       the worlds bounds divided by the gridsize, rounded up
 grid_row = QStruct("grid_row",
@@ -519,7 +525,12 @@ worlds_ps2_def = TagDef("worlds",
         STEPTREE=UInt16Array("world_object_indices",
             SIZE=dynamic_grid_object_indices_array_size,
             POINTER=grid_list_indices_pointer
-            )
+            ),
+        #STEPTREE=Array("world_object_indices",
+        #    SUB_STRUCT=QStruct("idx", UInt16("idx")),
+        #    SIZE=".header.size",
+        #    POINTER=grid_list_indices_pointer
+        #    ),
         ),
     Array("grid_rows",
         SUB_STRUCT=grid_row,
