@@ -21,7 +21,7 @@ def uint16_array_size(parent=None, **kwargs):
     except Exception:
         return 0
 
-def gridlist_indices_array_size(parent=None, **kwargs):
+def dynamic_grid_object_indices_array_size(parent=None, **kwargs):
     try:
         return parent.header.size * 2
     except Exception:
@@ -350,19 +350,20 @@ world_object = Struct("world_object",
     )
 
 grid_entry_list = Container("grid_entry_list",
-    UInt16("unknown"),
-    UInt16("size"),
+    UInt16("collision_object_index"),
+    UInt16("size", VISIBLE=False, EDITABLE=False),
     #Array("indices",
     #    SUB_STRUCT=QStruct("idx", UInt16("idx")),
     #    SIZE=".size"
     #    ),
+    # NOTE: might be y-axis indices
     UInt16Array("indices", SIZE=uint16_array_size)
     )
 
 grid_entry_header = BitStruct("header",
     UBitInt("offset", SIZE=22),
     UBitInt("size",  SIZE=10),
-    SIZE=4,
+    SIZE=4, VISIBLE=False, EDITABLE=False,
     )
 
 grid_entry = Struct("grid_entry",
@@ -377,10 +378,13 @@ grid_entry = Struct("grid_entry",
 # NOTE: grid x and z numbers match the width and length of
 #       the worlds bounds divided by the gridsize, rounded up
 grid_row = QStruct("grid_row",
-    # debug symbols say first and last are unsigned, but i've seen -1 and -2 as values
-    SInt16("first"),
-    SInt16("last"),
-    UInt32("offset"),  # index into grid_entry array
+    # first and last are grid cell indices. if the grid row is an
+    # entire row, then first and last define the first and last cell
+    # in the row. A grid translates directly into 3d space using the
+    # world min and max bounds defined in the world header.
+    UInt16("first"),
+    UInt16("last"),
+    UInt32("offset", VISIBLE=False, EDITABLE=False),
     SIZE=8,
     STEPTREE=Array("grid_entries",
         SUB_STRUCT=grid_entry,
@@ -508,18 +512,14 @@ worlds_ps2_def = TagDef("worlds",
         POINTER=".header.world_objects_pointer",
         DYN_NAME_PATH='.name', WIDGET=DynamicArrayFrame
         ),
-    Struct("grid_list_indices",
+    Struct("dynamic_grid_objects",
         grid_entry_header,
+        # indices of world objects that can move
         POINTER=".header.grid_entry_pointer",
-        STEPTREE=Array("indices",
-            SUB_STRUCT=QStruct("idx", UInt16("idx")),
-            SIZE=".header.size",
+        STEPTREE=UInt16Array("world_object_indices",
+            SIZE=dynamic_grid_object_indices_array_size,
             POINTER=grid_list_indices_pointer
-            ),
-        #STEPTREE=UInt16Array("indices",
-        #    SIZE=gridlist_indices_array_size,
-        #    POINTER=grid_list_indices_pointer
-        #    )
+            )
         ),
     Array("grid_rows",
         SUB_STRUCT=grid_row,
