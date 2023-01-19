@@ -352,17 +352,8 @@ world_object = Struct("world_object",
 grid_entry_list = Container("grid_entry_list",
     UInt16("collision_object_index"),
     UInt16("size", VISIBLE=False, EDITABLE=False),
-    #Array("indices",
-    #    SUB_STRUCT=QStruct("idx", UInt16("idx")),
-    #    SIZE=".size"
-    #    ),
-    # NOTE: this is quite puzzling..... vast majority of the time this is only
-    #       a few entries, and the entry values themselves don't go very high.
-    #       vast majority of the time the entry values themselves are single digits.
-    #       number doesn't match up with dynamic object count(sometimes higher or lower).
-    #       the numbers seen seem to be contiguous, but this isn't confirmed.
-    #       lower numbers more common, but number value not linearly linked to commonality
-    UInt16Array("indices", SIZE=uint16_array_size)
+    # a list of triangles in the collision object to test collisions against
+    UInt16Array("tri_indices", SIZE=uint16_array_size)
     )
 
 grid_entry_header = BitStruct("header",
@@ -379,7 +370,7 @@ grid_entry = Struct("grid_entry",
         )
     )
 
-# gridrows seem to be used for determining what world
+# gridrows are used for determining what world
 # objects to consider when calculating collisions.
 # NOTE: grid x and z numbers match the width and length of
 #       the worlds bounds divided by the gridsize, rounded up
@@ -526,11 +517,6 @@ worlds_ps2_def = TagDef("worlds",
             SIZE=dynamic_grid_object_indices_array_size,
             POINTER=grid_list_indices_pointer
             ),
-        #STEPTREE=Array("world_object_indices",
-        #    SUB_STRUCT=QStruct("idx", UInt16("idx")),
-        #    SIZE=".header.size",
-        #    POINTER=grid_list_indices_pointer
-        #    ),
         ),
     Array("grid_rows",
         SUB_STRUCT=grid_row,
