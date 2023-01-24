@@ -2,6 +2,10 @@ from ..constants import *
 
 DEBUG = False
 
+FLOAT_INFINITY = float("inf")
+Y_GRID_SNAP_TOLERANCE = 0.01
+Z_FIGHT_OFFSET = 0.05
+
 # MODEL CONSTANTS
 # These are the highest tested strip lengths the systems will properly load
 RETAIL_MAX_STRIP_LEN = 30  # safe max length from looking at retail files

@@ -42,14 +42,8 @@ def decompile_collision(
     assets_dir = os.path.join(data_dir, c.EXPORT_FOLDERNAME, c.COLL_FOLDERNAME)
     cache_dir  = os.path.join(data_dir, c.IMPORT_FOLDERNAME, c.COLL_FOLDERNAME)
 
-    coll_tris = [
-        dict(
-            scale=tri.scale, norm=tuple(tri.norm), v0=tuple(tri.v0),
-            v1_x=tri.v1_x, v1_z=tri.v1_z, min_y=tri.min_y,
-            v2_x=tri.v2_x, v2_z=tri.v2_z, max_y=tri.max_y, 
-            )
-        for tri in worlds_tag.data.coll_tris
-        ]
+    coll_tris = worlds_tag.get_collision_tris()
+
     object_mesh_indices = {
         w_obj.name.upper().strip(): dict(index=w_obj.coll_tri_index, count=w_obj.coll_tri_count)
         for w_obj in worlds_tag.data.world_objects

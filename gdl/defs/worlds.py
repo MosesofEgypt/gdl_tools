@@ -229,10 +229,9 @@ item_info_data = Struct("item_info_data",
     Bool16("coll_flags",
         # yes, only one flag.
         # only set on sound, damage_tile, obstacle, trigger, and rotator types
-        "unknown",  # seems to indicate colliding with the item
-        #             triggers it to do something(set on sound
-        #             colliders and certain proximity based traps)
-        # NOTE: might map to COLNODE_FLAG
+        # set on sound colliders, certain proximity based traps, walls and more
+        # NOTE: TESTING IF THIS IS THE PURPOSE. CURRENTLY UNCONFIRMED
+        "no_gravity",
         ),
     Float("radius"),
     Float("height"),

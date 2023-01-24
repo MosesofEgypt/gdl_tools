@@ -151,6 +151,11 @@ class Scene(ShowBase):
         if scene_world:
             scene_world.set_item_geometry_visible(visible)
 
+    def set_collision_grid_visible(self, visible=None):
+        scene_world = self.active_world
+        if scene_world:
+            scene_world.set_collision_grid_visible(visible)
+
     def set_player_count(self, count):
         if self.active_world:
             self.active_world.player_count = count

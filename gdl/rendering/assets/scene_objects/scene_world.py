@@ -10,7 +10,8 @@ class SceneWorld(SceneObject):
 
     _scene_item_infos = ()
 
-    _objects_root_node = None
+    _coll_grid = None
+    _coll_grid_model_node = None
     _items_root_nodes  = ()
 
     _player_count = 4
@@ -19,6 +20,7 @@ class SceneWorld(SceneObject):
         self._node_world_objects = {}
         self._node_scene_items   = {}
 
+        self._coll_grid = kwargs.pop("collision_grid")
         self._scene_item_infos = tuple(kwargs.pop("scene_item_infos", ()))
 
         for scene_item_info in self._scene_item_infos:
@@ -27,7 +29,8 @@ class SceneWorld(SceneObject):
 
         super().__init__(**kwargs)
 
-        self._objects_root_node = panda3d.core.PandaNode("__objects_root")
+        self._objects_root_node    = panda3d.core.PandaNode("__objects_root")
+        self._coll_grid_model_node = panda3d.core.ModelNode("__coll_grid_model")
         self._items_root_nodes = {}
         for item_type in (
                 "powerup", "container", "generator", "enemy", "trigger",
@@ -40,11 +43,18 @@ class SceneWorld(SceneObject):
             self.p3d_node.add_child(self._items_root_nodes[item_type])
 
         self.p3d_node.add_child(self._objects_root_node)
+        self.p3d_node.add_child(self._coll_grid_model_node)
 
     @property
     def node_world_objects(self): return { k: dict(v) for k, v in self._node_world_objects.items() }
     @property
     def node_scene_items(self): return { k: tuple(v) for k, v in self._node_scene_items.items() }
+    @property
+    def objects_root_node(self): return self._objects_root_node
+    @property
+    def items_root_nodes(self): return { k: tuple(v) for k, v in self._objects_root_node.items() }
+    @property
+    def coll_grid_model_node(self): return self._coll_grid_model_node
     @property
     def item_infos(self): return list(self._item_infos)
 
@@ -131,3 +141,16 @@ class SceneWorld(SceneObject):
             for scene_item in scene_items:
                 if self.player_count >= scene_item.min_players:
                     visible = scene_item.set_geometry_visible(visible)
+
+    def set_collision_grid_visible(self, visible=None):
+        node_path = panda3d.core.NodePath(self._coll_grid_model_node)
+        visible = node_path.isHidden() if visible is None else visible
+        if visible:
+            node_path.show()
+        else:
+            node_path.hide()
+
+    def snap_pos_to_grid(self, x, y, z, max_dist=float("inf")):
+        return self._coll_grid.snap_pos_to_grid(
+            x, y, z, panda3d.core.NodePath(self.p3d_node), max_dist
+            )

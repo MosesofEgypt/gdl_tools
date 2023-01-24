@@ -26,14 +26,15 @@ def load_scene_item_infos_from_worlds_tag(worlds_tag):
                     coll_width  = item_data.x_dim,
                     coll_length = item_data.z_dim,
 
-                    properties  = {},
+                    properties   = {},
 
-                    value       = item_data.value,
-                    armor       = item_data.armor,
-                    health      = item_data.hit_points,
-                    active_type = item_data.active_type,
-                    active_off  = item_data.active_off,
-                    active_on   = item_data.active_on,
+                    value        = item_data.value,
+                    armor        = item_data.armor,
+                    health       = item_data.hit_points,
+                    active_type  = item_data.active_type,
+                    active_off   = item_data.active_off,
+                    active_on    = item_data.active_on,
+                    snap_to_grid = not item_data.coll_flags.no_gravity
                     )
             else:
                 scene_item_info = SceneItemInfo(
@@ -59,6 +60,7 @@ def load_scene_item_from_item_instance(
 
     flags = item_instance.flags
     scene_item_info = scene_item_infos[item_instance.item_index]
+
     scene_item = scene_item_info.create_instance(
         name = instance_name,
         min_players = item_instance.min_players,

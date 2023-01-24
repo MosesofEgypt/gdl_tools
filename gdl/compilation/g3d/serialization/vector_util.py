@@ -48,3 +48,25 @@ def rotate_vector_by_quaternion(v, q):
 
     scale = vm / sqrt(vrm_sq)
     return (vr[0] * scale, vr[1] * scale, vr[2] * scale)
+
+
+def point_inside_2d_triangle(p, v0, v1, v2):
+    # didn't want to have to figure this out, so
+    # I borrowed the code from stackoverflow:
+    #   https://stackoverflow.com/a/9755252
+    dx_p0 =  p[0] - v0[0]
+    dy_p0 =  p[1] - v0[1]
+    dx_10 = v1[0] - v0[0]
+    dy_10 = v1[1] - v0[1]
+    dx_20 = v2[0] - v0[0]
+    dy_20 = v2[1] - v0[1]
+    sign = dx_10*dy_p0 > dy_10*dx_p0
+
+    if (dx_20*dy_p0 > dy_20*dx_p0) == sign:
+        return False
+
+    dx_p1 =  p[0] - v1[0]
+    dy_p1 =  p[1] - v1[1]
+    dx_21 = v2[0] - v1[0]
+    dy_21 = v2[1] - v1[1]
+    return (dx_21*dy_p1 > dy_21*dx_p1) == sign

@@ -22,6 +22,7 @@ class SceneItemInfo:
 
     radius = 0.0
     height = 0.0
+    snap_to_grid = True
 
     value  = 0
     armor  = 0
@@ -48,9 +49,10 @@ class SceneItemInfo:
         self.armor  = kwargs.pop("armor",  self.armor)
         self.health = kwargs.pop("health", self.health)
 
-        self.active_type = kwargs.pop("active_type", self.active_type)
-        self.active_off  = kwargs.pop("active_off",  self.active_off)
-        self.active_on   = kwargs.pop("active_on",   self.active_on)
+        self.snap_to_grid = bool(kwargs.pop("snap_to_grid", self.snap_to_grid))
+        self.active_type  = kwargs.pop("active_type", self.active_type)
+        self.active_off   = kwargs.pop("active_off",  self.active_off)
+        self.active_on    = kwargs.pop("active_on",   self.active_on)
 
         if self._item_type not in c.ITEM_TYPES:
             raise ValueError("Unknown item type '%s'" % self._item_type)
@@ -108,18 +110,9 @@ class SceneItemInfo:
 
         x, z, y = kwargs.pop("pos", (0, 0, 0))
         p, h, r = kwargs.pop("rot", (0, 0, 0))
-        # offset z by a certain amount to fix z-fighting
-        z += 0.001
-
-        if 0 and sum(self.properties.values()):
-            print(getattr(scene_object, "name", name), scene_item_class,
-                  [round(x), round(y), round(z)],
-                  [int(r*180/math.pi), int(p*180/math.pi), int(h*180/math.pi)],
-                  )
-            z = 100
 
         nodepath = panda3d.core.NodePath(scene_item.p3d_node)
-        nodepath.setPos(panda3d.core.LVecBase3f(x, y, z))
+        nodepath.setPos(x, y, z)
         nodepath.setQuat(panda3d.core.LQuaternionf(
             *util.gdl_euler_to_quaternion(r, h, p)
             ))
