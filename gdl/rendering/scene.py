@@ -42,9 +42,7 @@ class Scene(ShowBase):
     _curr_scene_actor_name   = ""
     _curr_scene_object_name  = ""
 
-    _camera_light_intensity  = 4
     _ambient_light_intensity = 1
-    _camera_light_levels  = 5
     _ambient_light_levels = 5
 
     _world_camera_controller  = None
@@ -62,15 +60,12 @@ class Scene(ShowBase):
         super().__init__()
 
         # put lighting on the main scene
-        self._camera_light  = DirectionalLight('dlight')
         self._ambient_light = AmbientLight('alight')
         self.adjust_ambient_light(0)
         self.adjust_ambient_light(0)
 
-        dlnp = self.camera.attachNewNode(self._camera_light)
         alnp = render.attachNewNode(self._ambient_light)
 
-        render.setLight(dlnp)
         render.setLight(alnp)
 
         object_camera_parent = NodePath(PandaNode("object_camera_node"))
@@ -159,16 +154,6 @@ class Scene(ShowBase):
     def set_player_count(self, count):
         if self.active_world:
             self.active_world.player_count = count
-
-    def adjust_camera_light(self, amount):
-        self._camera_light_intensity += amount
-        self._camera_light_intensity %= self._camera_light_levels + 1
-        self._camera_light.setColor((
-            self._camera_light_intensity / self._camera_light_levels,
-            self._camera_light_intensity / self._camera_light_levels,
-            self._camera_light_intensity / self._camera_light_levels,
-            1
-            ))
 
     def adjust_ambient_light(self, amount):
         self._ambient_light_intensity += amount

@@ -7,7 +7,6 @@ class SceneObject:
     _name = ""
 
     _p3d_node = None
-    _shape_morph_animations = ()
     _texture_swap_animations = ()
 
     _node_models = ()
@@ -20,7 +19,6 @@ class SceneObject:
         if self._p3d_node is None:
             self._p3d_node = panda3d.core.PandaNode(self.name)
 
-        self._shape_morph_animations = {}
         self._texture_swap_animations = {}
         self._node_models = {}
         self._node_collision = {}
@@ -48,8 +46,6 @@ class SceneObject:
     def node_models(self): return {k: dict(v) for k, v in self._node_models.items()}
     @property
     def node_collision(self): return {k: dict(v) for k, v in self._node_collision.items()}
-    @property
-    def shape_morph_animations(self): return dict(self._shape_morph_animations)
     @property
     def texture_swap_animations(self): return dict(self._texture_swap_animations)
 
@@ -92,14 +88,6 @@ class SceneObject:
         node_collection[collision.name] = collision
         parent_node_path.node().add_child(collision.p3d_collision)
 
-    def add_shape_morph_animation(self, animation):
-        if not isinstance(animation, scene_animation.ShapeMorphAnimation):
-            raise TypeError(f"animation must be of type ShapeMorphAnimation, not {type(animation)}")
-        elif animation.name in self._shape_morph_animations:
-            raise ValueError(f"animation with name '{animation.name}' already exists")
-
-        self._shape_morph_animations[animaton.name] = animation
-
     def add_texture_swap_animation(self, animation):
         if not isinstance(animation, scene_animation.TextureSwapAnimation):
             raise TypeError(f"animation must be of type TextureSwapAnimation, {type(animation)}")
@@ -131,12 +119,3 @@ class SceneObject:
                 else:
                     node_path.hide()
         return visible
-
-    def play_animation(self, instance_id, anim_name):
-        pass
-
-    def stop_animation(self, instance_id, anim_name):
-        pass
-
-    def set_animation_time(self, instance_id, anim_name, frame_time):
-        pass

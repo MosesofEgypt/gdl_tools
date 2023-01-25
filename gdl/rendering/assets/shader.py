@@ -3,19 +3,29 @@ import panda3d
 from . import texture
 
 class GeometryShader:
-    alpha = False
-    sort  = False
-    sort_alpha = False
+    alpha       = False
+    sort        = False
+    sort_alpha  = False
 
-    framebuffer_add = False
-    signed_alpha = True
+    no_z_test   = False
+    no_z_write  = False
 
-    sharp  = False
-    blur   = False
-    chrome = False
+    add_first   = False
+    sort_alpha  = False
+    alpha_last  = False
+    no_shading  = False
 
-    _diff_texture = None
-    _lm_texture = None
+    fb_add      = False
+    fb_mul      = False
+
+    chrome      = False
+    sharp       = False
+    blur        = False
+
+    signed_alpha    = True
+
+    _diff_texture   = None
+    _lm_texture     = None
 
     _diff_texture_stage = None
     _lm_texture_stage   = None
@@ -98,11 +108,10 @@ class GeometryShader:
         if self.alpha:
             nodepath.setTransparency(panda3d.core.TransparencyAttrib.MAlpha)
             self._diff_texture_stage.setSort(GeometryShader.DRAW_SORT_OPAQUE)
-        elif self.framebuffer_add:
+        elif self.fb_add:
             self._color_blend_attrib = panda3d.core.ColorBlendAttrib.make(
                 panda3d.core.ColorBlendAttrib.MAdd
                 )
-            nodepath.setTransparency(panda3d.core.TransparencyAttrib.MAlpha)
             nodepath.setAttrib(self._color_blend_attrib)
             self._diff_texture_stage.setSort(GeometryShader.DRAW_SORT_SFX)
         else:

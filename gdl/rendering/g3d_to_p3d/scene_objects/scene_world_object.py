@@ -11,15 +11,19 @@ def load_scene_world_object_from_tags(
         objects_tag, world_object.name, textures
         )
 
-    framebuffer_add = False #world_object.flags.unknown
-    chrome          = False
+    fb_add = False #world_object.flags.unknown
+    chrome = False
     for geom in model.geometries:
         shader_updated = False
+        # TODO: fix this to be more accurate. This is only correct
+        #       in some circumstances, but is wrong in others.
+        #fb_add = not geom.shader.lm_texture
+
         if chrome:
             geom.shader.chrome = shader_updated = True
 
-        if framebuffer_add:
-            geom.shader.framebuffer_add = shader_updated = True
+        if fb_add:
+            geom.shader.fb_add = shader_updated = True
 
         if shader_updated:
             geom.apply_shader()

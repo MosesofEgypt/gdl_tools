@@ -132,7 +132,7 @@ def load_scene_world_from_tags(
             )
 
         if collision:
-            if world_object.flags.animated_collision:
+            if world_object.flags.animated:
                 node_name = scene_world_object.name
             else:
                 node_name = world_name

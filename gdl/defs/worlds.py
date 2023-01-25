@@ -326,12 +326,12 @@ world_object = Struct("world_object",
         # flag29: same as flag4
         # flag30: same as flag4
         *((f"unknown{i}", 1<<i) for i in range(12)),
-        ("animated_collision", 1<<12),
+        ("animated", 1<<12),
         *((f"unknown{i}", 1<<i) for i in range(13,32))
         ),
-    SEnum16("trigger_type"),
-    SEnum8("trigger_state"),
-    SEnum8("p_trigger_state"),
+    SInt16("trigger_type"),
+    SInt8("trigger_state"),
+    SInt8("p_trigger_state"),
 
     Pointer32("parent_object_pointer"),
     QStruct("pos", INCLUDE=xyz_float),

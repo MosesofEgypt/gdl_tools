@@ -54,8 +54,7 @@ class LegendViewer(Scene):
         self.accept("f8", self.toggleParticles, [])
 
         self.accept("f9",  self.set_collision_grid_visible, [])
-        self.accept("f11", self.adjust_ambient_light, [1])
-        self.accept("f12", self.adjust_camera_light,  [1])
+        self.accept("f12", self.adjust_ambient_light, [1])
 
         for i in range(5):
             self.accept(str(i), self.set_player_count, [i])
