@@ -61,6 +61,12 @@ def get_comp_positions_size(*args, parent=None, new_value=None, **kwargs):
 def get_comp_scales_size(*args, parent=None, new_value=None, **kwargs):
     return 0 if (new_value or not parent) or parent.parent.comp_scale_pointer == 0 else 256 * 4
 
+def texmod_case(parent=None, **kwargs):
+    try:
+        return "transform" if parent.type.source_index.idx < 0 else "source_index"
+    except Exception:
+        return "source_index"
+
 
 obj_anim = Struct("obj_anim",
     StrNntLatin1("mb_desc", SIZE=32),
@@ -161,7 +167,7 @@ atree_seq = Struct("atree_seq",
         "yes"
         ),
     SInt16("fix_pos", VISIBLE=False), # always 0
-    SInt16("texmod_count"),
+    SInt16("texmod_count"), # number of texmods starting at texmod_index to play together
     Bool16("flags",
         "play_reversed"  # only applies to object animations
         ),
@@ -288,10 +294,24 @@ texmod = Struct("texmod",
     SInt16("seq_index"),
     StrNntLatin1("name", SIZE=32),
     StrNntLatin1("source_name", SIZE=32),
-    SInt32("tex_index"),  # index of texture defining texture swap, or
-                          # texture to scroll horizontally
-    SInt32("source_index"), # if >= 0, first index of texture swap array
-                            # if -1, is horizonal-scroll animation
+    SInt32("tex_index"),  # index of animated texture(empty nub)
+    Union("type",
+        CASES=dict(
+            transform=SEnum32("transform",
+                ("mip_blend",   -6),
+                ("fade_out",    -5),
+                ("fade_in",     -4),
+                ("scroll_v",    -3),
+                ("scroll_u",    -2),  # also "special"
+                #("special",    -2),
+                ("external",    -1),
+                ),
+            source_index=QStruct("source_index",
+                SInt32("idx"), # index of the first texture in the sequence
+                ),
+            ),
+        CASE=texmod_case
+        ),
     SInt16("frame_count"),  # number of texture swap frames, or
                             # number of frames to complete one scroll.
                             # values < 0 mean scroll in opposite direction

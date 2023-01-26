@@ -51,7 +51,7 @@ class CollisionObject:
 
 class CollisionObjectGrid:
     _rows = ()
-    _grid_size = 1
+    _grid_size = 1.0
     _min_x = 0
     _min_z = 0
     _width  = 0
@@ -64,7 +64,7 @@ class CollisionObjectGrid:
         self._min_z     = int(kwargs.pop("min_z",  self._min_z))
         self._width     = int(kwargs.pop("width",  self._width))
         self._height    = int(kwargs.pop("height", self._height))
-        self._grid_size = max(1, int(kwargs.pop("grid_size", self._grid_size)))
+        self._grid_size = max(1, kwargs.pop("grid_size", self._grid_size))
         self._dyn_collision_objects = dict(kwargs.pop("dyn_collision_objects", {}))
         self._rows = tuple(
             tuple(
@@ -83,8 +83,8 @@ class CollisionObjectGrid:
 
     def world_pos_to_grid_pos(self, x, z):
         return (
-            int((x - self._min_x) // self._grid_size),
-            int((z - self._min_z) // self._grid_size),
+            int((x - self._min_x) / self._grid_size),
+            int((z - self._min_z) / self._grid_size),
             )
 
     def get_collision_cell_at_world_pos(self, x, z):

@@ -1,4 +1,5 @@
 import panda3d
+from . import constants
 from .scene_world_object import SceneWorldObject
 from .scene_object import SceneObject
 from .scene_item import *
@@ -151,6 +152,7 @@ class SceneWorld(SceneObject):
             node_path.hide()
 
     def snap_pos_to_grid(self, x, y, z, max_dist=float("inf")):
-        return self._coll_grid.snap_pos_to_grid(
+        x, y, z = self._coll_grid.snap_pos_to_grid(
             x, y, z, panda3d.core.NodePath(self.p3d_node), max_dist
             )
+        return x, y + constants.Z_FIGHT_OFFSET, z

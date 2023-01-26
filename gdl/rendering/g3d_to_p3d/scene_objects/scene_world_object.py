@@ -19,11 +19,8 @@ def load_scene_world_object_from_tags(
         #       in some circumstances, but is wrong in others.
         #fb_add = not geom.shader.lm_texture
 
-        if chrome:
-            geom.shader.chrome = shader_updated = True
-
-        if fb_add:
-            geom.shader.fb_add = shader_updated = True
+        if chrome: geom.shader.chrome = shader_updated = True
+        if fb_add: geom.shader.fb_add = shader_updated = True
 
         if shader_updated:
             geom.apply_shader()

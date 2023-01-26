@@ -651,19 +651,6 @@ particle_system_enables = Bool32("enables",
     ("e_delay", 0x80000),
     )
 
-# NOTE: enum size not confirmed
-texmod_type = UEnum8("preset",
-    "unknown",
-    "local",
-    ("mip_blend",   0xFA),
-    ("fade_out",    0xFB),
-    ("fade_in",     0xFC),
-    ("scroll_v",    0xFD),
-    ("scroll_u",    0xFE),  # also "special"
-    #("special",    0xFE),
-    ("external",    0xFF),
-    )
-
 particle_system = Struct("particle_system",
     # NOTE: "e" means emitter? "p" means phase?
     UEnum32("version",

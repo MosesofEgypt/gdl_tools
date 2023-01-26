@@ -22,6 +22,14 @@ class SceneActor(SceneObject):
         pass
 
     @property
+    def has_animation(self):
+        return (
+            super().has_animation or
+            bool(self._actor_animations) or
+            bool(self._shape_morph_animations)
+            )
+
+    @property
     def p3d_actor(self): return self._p3d_actor
     @property
     def shape_morph_animations(self): return dict(self._shape_morph_animations)

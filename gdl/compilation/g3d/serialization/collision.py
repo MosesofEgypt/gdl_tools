@@ -90,7 +90,7 @@ class CollisionTriangle:
             abs(y - new_y) > max_dist or 
             new_y - c.Y_GRID_SNAP_TOLERANCE > self.max_y or
             new_y + c.Y_GRID_SNAP_TOLERANCE < self.min_y
-            ) else new_y + c.Z_FIGHT_OFFSET
+            ) else new_y
 
 
 class G3DCollision:
