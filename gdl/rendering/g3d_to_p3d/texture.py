@@ -51,7 +51,8 @@ def load_textures_from_objects_tag(
 
             texture = Texture(name=name, p3d_texture=p3d_texture)
 
-            # TODO: consider changing this? pick a style?
+            # in some instances we need to reference textures by
+            # index, while in others we need to reference by name
             textures[name]  = texture
             textures[index] = texture
 

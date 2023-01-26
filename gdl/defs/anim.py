@@ -169,7 +169,7 @@ atree_seq = Struct("atree_seq",
     SInt16("fix_pos", VISIBLE=False), # always 0
     SInt16("texmod_count"), # number of texmods starting at texmod_index to play together
     Bool16("flags",
-        "play_reversed"  # only applies to object animations
+        "play_reversed"  # applies to object and texmod animations
         ),
     SInt32("texmod_index", DEFAULT=-1),
     SIZE=48,
@@ -316,9 +316,9 @@ texmod = Struct("texmod",
                             # number of frames to complete one scroll.
                             # values < 0 mean scroll in opposite direction
     SInt16("start_frame"),  # unused?
-    SInt32("rate"),  # number of frames to display each texture before swap
-                     # must be nonzero if texture swap animation
-    SInt32("frame"), # texture swap frame to start on
+    SInt32("frames_per_tex"),   # number of frames to display each texture before swap
+                                # must be nonzero if texture swap animation
+    SInt32("tex_start_frame"),  # texture swap frame to start on
     SIZE=88
     )
 
