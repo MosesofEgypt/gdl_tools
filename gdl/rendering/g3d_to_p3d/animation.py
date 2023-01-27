@@ -35,9 +35,7 @@ def load_texmods_from_anim_tag(anim_tag, textures):
             ))
         texmod_type = texmod.type.transform.enum_name
 
-        # subtract 1 to account for frame 0 being t=0
-        frame_steps     = max(1, texmod.frame_count - 1)
-        frame_rate      = 30 / frame_steps
+        frame_rate      = 30 / (texmod.frame_count if texmod.frame_count else 1)
         tex_swap_rate   = 30 / max(1, texmod.frames_per_tex)
         transform_start = (texmod.start_frame / 30) * frame_rate
 
@@ -49,10 +47,10 @@ def load_texmods_from_anim_tag(anim_tag, textures):
             tex_anim.fade_rate  = frame_rate * (-1 if texmod_type in "fade_out" else 1)
             tex_anim.fade_start = transform_start
         elif texmod_type == "scroll_u":
-            tex_anim.scroll_rate_u = -frame_rate # scroll opposite direction
+            tex_anim.scroll_rate_u = frame_rate # scroll opposite direction
             tex_anim.fade_start = transform_start # TODO: determine if this is used here
         elif texmod_type == "scroll_v":
-            tex_anim.scroll_rate_v = frame_rate
+            tex_anim.scroll_rate_v = -frame_rate
             tex_anim.fade_start = transform_start # TODO: determine if this is used here
         elif texmod_type == "external":
             # global textures in each texmod seem to be loaded in a
@@ -69,7 +67,7 @@ def load_texmods_from_anim_tag(anim_tag, textures):
                     # TODO: throw an error about missing frame textures
                     pass
 
-            tex_anim.frame_rate  = frame_rate * tex_swap_rate
+            tex_anim.frame_rate  = tex_swap_rate
             tex_anim.start_frame = texmod.tex_start_frame
             tex_anim.frame_data  = texture_frames
 

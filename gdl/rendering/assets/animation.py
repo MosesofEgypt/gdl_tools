@@ -166,6 +166,8 @@ class TextureAnimation(Animation):
             if geometry is None:
                 self.unbind(id)
                 continue
+            elif geometry.actor_tex_anim not in (self, None):
+                continue
 
             nodepath = panda3d.core.NodePath(geometry.p3d_geometry)
             shader   = geometry.shader
@@ -175,7 +177,7 @@ class TextureAnimation(Animation):
             if self.has_fade_animation:
                 shader.set_diffuse_alpha_level(nodepath, alpha)
 
-            if texture and self.has_swap_animation:
+            if shader.diff_texture is not texture and self.has_swap_animation:
                 shader.diff_texture = texture
                 shader.apply_diffuse(nodepath)
 

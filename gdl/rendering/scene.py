@@ -114,11 +114,11 @@ class Scene(ShowBase):
         self.taskMgr.add(self.shader_main_loop, 'main_loop::shader_update')
 
     def shader_main_loop(self, task):
-        self._time = task.time
+        # TODO: replace this with a proper animation handler
         for set_name, anim_set in self._cached_resource_texture_anims.items():
             for anim_name, global_anim in anim_set.get("global_anims", {}).items():
                 if not global_anim.external:
-                    global_anim.update(task.time*30/1000)
+                    global_anim.update(task.time)
 
         return direct.task.Task.cont
 
@@ -304,9 +304,22 @@ class Scene(ShowBase):
             del self._scene_actors[set_name]
 
     def build_external_tex_anim_cache(self):
-        # TODO: loop through all texture animations and link external
-        #       textures to the global texture they reference.
-        pass
+        # loop through all texture animations and link external
+        # textures to the global texture they reference.
+        anims_by_name = {}
+        for set_name, anim_set in self._cached_resource_texture_anims.items():
+            for anim_name, global_anim in anim_set.get("global_anims", {}).items():
+                if global_anim.external:
+                    anims_by_name.setdefault(global_anim.name, []).append(global_anim)
+
+        for set_name, anim_set in self._cached_resource_texture_anims.items():
+            for anim_name, global_anim in anim_set.get("global_anims", {}).items():
+                external_anims = anims_by_name.get(global_anim.name, ())
+                if global_anim.external or not external_anims:
+                    continue
+
+                for external_anim in external_anims:
+                    external_anim.external_anim = global_anim
 
     def get_resource_set_textures(self, filepath, is_ngc=False, recache=False):
         resource_dir = os.path.dirname(filepath)

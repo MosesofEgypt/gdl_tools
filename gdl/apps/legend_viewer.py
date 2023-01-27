@@ -17,7 +17,7 @@ class LegendViewer(Scene):
 
     _last_selected_dir = ""
 
-    _time = 0
+    _update_task_timer = 0
     _cycle_subview_timer = 0
     _cycle_subview_left  = 0
     _cycle_subview_right = 0
@@ -77,7 +77,7 @@ class LegendViewer(Scene):
         self.taskMgr.add(self.update_task, 'LegendViewer::update_task')
 
     def update_task(self, task):
-        delta_t = task.time - self._time
+        delta_t = task.time - self._update_task_timer
 
         if self._cycle_subview_left or self._cycle_subview_right:
             cycle_time = self._cycle_subview_timer - self.CYCLE_SUBVIEW_MIN_TIME
@@ -90,7 +90,7 @@ class LegendViewer(Scene):
         else:
             self._cycle_subview_timer = 0
 
-        self._time = task.time
+        self._update_task_timer = task.time
         return direct.task.Task.cont
 
     @property

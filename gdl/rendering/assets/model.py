@@ -1,11 +1,13 @@
 import panda3d
 
 from . import shader
+from . import animation
 
 
 class Geometry:
     _shader = None
     _p3d_geometry = None
+    _actor_tex_anim = None
 
     def __init__(self, **kwargs):
         self._shader       = kwargs.pop("shader", self._shader)
@@ -28,11 +30,18 @@ class Geometry:
         self.apply_shader()
 
     @property
-    def shader(self):
-        return self._shader
+    def shader(self): return self._shader
     @property
-    def p3d_geometry(self):
-        return self._p3d_geometry
+    def p3d_geometry(self): return self._p3d_geometry
+    @property
+    def actor_tex_anim(self): return self._actor_tex_anim
+    @actor_tex_anim.setter
+    def actor_tex_anim(self, tex_anim):
+        if not isinstance(tex_anim, (type(None), animation.TextureAnimation)):
+            raise TypeError(
+                f"tex_anim must be either None, or of type TextureAnimation, not {type(tex_anim)}"
+                )
+        self._actor_tex_anim = tex_anim
 
     def apply_shader(self):
         self.shader.apply(panda3d.core.NodePath(self.p3d_geometry))
