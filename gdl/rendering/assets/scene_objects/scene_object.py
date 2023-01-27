@@ -1,13 +1,10 @@
 import panda3d
 
-from .. import animation
-
 
 class SceneObject:
     _name = ""
 
     _p3d_node = None
-    _texture_animations = ()
 
     _node_models = ()
     _node_collision = ()
@@ -19,7 +16,6 @@ class SceneObject:
         if self._p3d_node is None:
             self._p3d_node = panda3d.core.PandaNode(self.name)
 
-        self._texture_animations = {}
         self._node_models = {}
         self._node_collision = {}
         self.cache_node_paths()
@@ -37,10 +33,6 @@ class SceneObject:
             self._cache_node_paths(child)
 
     @property
-    def has_animation(self):
-        return bool(self._texture_animations)
-
-    @property
     def name(self): return self._name.upper()
     @property
     def p3d_node(self): return self._p3d_node
@@ -50,8 +42,6 @@ class SceneObject:
     def node_models(self): return {k: dict(v) for k, v in self._node_models.items()}
     @property
     def node_collision(self): return {k: dict(v) for k, v in self._node_collision.items()}
-    @property
-    def texture_animations(self): return dict(self._texture_animations)
 
     def _get_node_path(self, node_name):
         parent_node_path = self._node_paths.get(node_name)
@@ -91,14 +81,6 @@ class SceneObject:
 
         node_collection[collision.name] = collision
         parent_node_path.node().add_child(collision.p3d_collision)
-
-    def add_texture_animation(self, animation):
-        if not isinstance(animation, scene_animation.TextureAnimation):
-            raise TypeError(f"animation must be of type TextureAnimation, {type(animation)}")
-        elif animation.name in self._texture_animations:
-            raise ValueError(f"animation with name '{animation.name}' already exists")
-
-        self._texture_animations[animaton.name] = animation
 
     def set_collision_visible(self, visible=None):
         for group in self.node_collision.values():

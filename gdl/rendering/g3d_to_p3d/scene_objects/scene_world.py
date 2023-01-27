@@ -95,6 +95,7 @@ def generate_collision_grid_model(coll_grid):
 def load_scene_world_from_tags(
         *, worlds_tag, objects_tag, textures, anim_tag=None,
         world_item_actors=(), world_item_objects=(),
+        global_tex_anims=(),
         ):
     if world_item_actors is None:
         world_item_actors = {}
@@ -123,7 +124,8 @@ def load_scene_world_from_tags(
     for i, world_object in enumerate(worlds_tag.data.world_objects):
         scene_world_object = load_scene_world_object_from_tags(
             world_object, textures=textures,
-            worlds_tag=worlds_tag, objects_tag=objects_tag
+            worlds_tag=worlds_tag, objects_tag=objects_tag,
+            global_tex_anims=global_tex_anims
             )
         collision = load_collision_from_worlds_tag(
             worlds_tag, world_object.name,

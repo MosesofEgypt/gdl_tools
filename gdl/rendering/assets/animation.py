@@ -1,3 +1,6 @@
+import panda3d
+import weakref
+
 from . import model
 from . import texture
 
@@ -14,13 +17,13 @@ class Animation:
     _start_frame = 0
 
     def __init__(self, **kwargs):
-        self._name       = kwargs.pop("name",      self._name)
+        self._name       = kwargs.pop("name",      self._name).upper().strip()
         self.loop        = kwargs.pop("loop",      self.loop)
         self.reverse     = kwargs.pop("reverse",   self.reverse)
         self.frame_rate  = kwargs.pop("frame_rate",  self.frame_rate)
         self.start_frame = kwargs.pop("start_frame", self.start_frame)
 
-        self.frame_data   = kwargs.pop("frame_data", ())
+        self.frame_data  = kwargs.pop("frame_data", ())
 
         if kwargs:
             raise ValueError("Unknown parameters detected: %s" % ', '.join(kwargs.keys()))
@@ -36,13 +39,17 @@ class Animation:
     @start_frame.setter
     def start_frame(self, val): self._start_frame = max(0, int(val))
     @property
-    def frame_count(self): return max(1, len(self.frame_data))
+    def frame_count(self): return max(0, len(self.frame_data))
     @property
     def length(self): return self.frame_count / self.frame_rate
     @property
     def frame_data(self): return self._frame_data
     @frame_data.setter
     def frame_data(self, frame_data):
+        self._set_frame_data(frame_data)
+
+    def _set_frame_data(self, frame_data):
+        # setter properties are broken on subclasses
         frame_data = tuple(frame_data)
         for frame in frame_data:
             if not isinstance(frame, self._frame_data_cls):
@@ -65,7 +72,7 @@ class Animation:
         return (anim_frame + self.start_frame) % self.frame_count
 
     def get_frame_data(self, frame_time):
-        return self._frame_data[self.get_anim_frame(frame_time)]
+        return self.frame_data[self.get_anim_frame(frame_time)]
 
 
 class ActorAnimation(Animation):
@@ -82,13 +89,18 @@ class TextureAnimation(Animation):
     _scroll_rate_v = 0
     _fade_rate  = 0
     _fade_start = 0
-    # TODO: figure out what mip_blend is
+    _geometry_binds = ()
+    _external_anim = None
+    external = False
 
     def __init__(self, **kwargs):
         self.scroll_rate_u = kwargs.pop("scroll_rate_u", self.scroll_rate_u)
         self.scroll_rate_v = kwargs.pop("scroll_rate_v", self.scroll_rate_v)
         self.fade_rate     = kwargs.pop("fade_rate",     self.fade_rate)
         self.fade_start    = kwargs.pop("fade_start",    self.fade_start)
+        self.external_anim = kwargs.pop("external_anim", self.external_anim)
+        self.external      = kwargs.pop("external",      self.external) or self.external_anim
+        self._geometry_binds = {}
         super().__init__(**kwargs)
 
     @property
@@ -107,6 +119,16 @@ class TextureAnimation(Animation):
     def fade_start(self): return self._fade_start
     @fade_start.setter
     def fade_start(self, value): self._fade_start = float(value)
+    @property
+    def external_anim(self): return self._external_anim
+    @external_anim.setter
+    def external_anim(self, external_anim):
+        if not isinstance(external_anim, (type(None), TextureAnimation)):
+            raise TypeError(
+                "Invalid frame data type found. Expected "
+                f"TextureAnimation, but got {type(external_anim)}"
+                )
+        self._external_anim = external_anim
 
     @property
     def has_uv_animation(self):  return self.scroll_rate_u or self.scroll_rate_v
@@ -114,6 +136,48 @@ class TextureAnimation(Animation):
     def has_fade_animation(self): return bool(self.fade_rate)
     @property
     def has_swap_animation(self): return bool(self.frame_count)
+    @property
+    def frame_data(self):
+        return getattr(self.external_anim, "frame_data", (None,)) if self.external else self._frame_data
+    @frame_data.setter
+    def frame_data(self, frame_data):
+        self._set_frame_data(frame_data)
+
+    @property
+    def binds(self): return tuple(self._geometry_binds.values())
+    def bind(self, geometry):
+        self._geometry_binds[id(geometry)] = weakref.ref(geometry)
+    def unbind(self, geometry):
+        try:
+            del self._geometry_binds[id(geometry)]
+        except KeyError:
+            try:
+                del self._geometry_binds[geometry]
+            except TypeError:
+                pass
+
+    def update(self, frame_time):
+        u, v    = self.get_uv(frame_time)
+        alpha   = self.get_fade(frame_time)
+        texture = self.get_frame_data(frame_time) if self.has_swap_animation else None
+
+        for id, geometry_ref in self._geometry_binds.items():
+            geometry = geometry_ref()
+            if geometry is None:
+                self.unbind(id)
+                continue
+
+            nodepath = panda3d.core.NodePath(geometry.p3d_geometry)
+            shader   = geometry.shader
+            if self.has_uv_animation:
+                shader.set_diffuse_offset(nodepath, u, v)
+
+            if self.has_fade_animation:
+                shader.set_diffuse_alpha_level(nodepath, alpha)
+
+            if texture and self.has_swap_animation:
+                shader.diff_texture = texture
+                shader.apply_diffuse(nodepath)
 
     def get_uv(self, frame_time):
         rate_u = self.scroll_rate_u

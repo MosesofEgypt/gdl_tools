@@ -35,7 +35,7 @@ class Geometry:
         return self._p3d_geometry
 
     def apply_shader(self):
-        self.shader.apply_to_geometry(self.p3d_geometry)
+        self.shader.apply(panda3d.core.NodePath(self.p3d_geometry))
 
 
 class Model:

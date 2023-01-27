@@ -3,12 +3,13 @@ from ..model import load_model_from_objects_tag
 
 
 def load_scene_world_object_from_tags(
-        world_object, *, textures, worlds_tag, objects_tag
+        world_object, *, textures, worlds_tag, objects_tag,
+        global_tex_anims=(),
         ):
     scene_world_object = SceneWorldObject(name=world_object.name)
 
     model = load_model_from_objects_tag(
-        objects_tag, world_object.name, textures
+        objects_tag, world_object.name, textures, global_tex_anims
         )
 
     fb_add = False #world_object.flags.unknown

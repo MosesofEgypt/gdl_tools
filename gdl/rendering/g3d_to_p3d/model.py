@@ -67,7 +67,8 @@ def load_geom_from_g3d_model(g3d_model, geom_shader):
         )
 
 
-def load_model_from_objects_tag(objects_tag, model_name, textures=()):
+def load_model_from_objects_tag(objects_tag, model_name,
+                                textures=(), global_tex_anims=()):
     if not textures:
         textures = {}
 
@@ -119,7 +120,10 @@ def load_model_from_objects_tag(objects_tag, model_name, textures=()):
         geom_shader.sort       = getattr(flags, "sort", False)
         geom_shader.sort_alpha = getattr(flags, "sort_a", False)
 
-        model.add_geometry(load_geom_from_g3d_model(g3d_model, geom_shader))
+        geometry = load_geom_from_g3d_model(g3d_model, geom_shader)
+        model.add_geometry(geometry)
+        if tex_name in global_tex_anims:
+            global_tex_anims[tex_name].bind(geometry)
 
     return model
 

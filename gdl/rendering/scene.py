@@ -1,3 +1,4 @@
+import direct
 import os
 import time
 import pathlib
@@ -15,6 +16,7 @@ from .g3d_to_p3d.util import load_objects_dir_files, locate_objects_dir
 from .g3d_to_p3d.scene_objects.scene_actor import load_scene_actor_from_tags
 from .g3d_to_p3d.scene_objects.scene_object import load_scene_object_from_tags
 from .g3d_to_p3d.scene_objects.scene_world import load_scene_world_from_tags
+from .g3d_to_p3d.animation import load_texmods_from_anim_tag
 from .g3d_to_p3d.texture import load_textures_from_objects_tag
 
 
@@ -28,6 +30,7 @@ class Scene(ShowBase):
     _scene_objects = ()
     _cached_resource_tags = ()
     _cached_resource_textures = ()
+    _cached_resource_texture_anims = ()
 
     _world_root_node  = None
     _actor_root_node  = None
@@ -95,6 +98,7 @@ class Scene(ShowBase):
         self._scene_objects = {}
         self._cached_resource_tags = {}
         self._cached_resource_textures = {}
+        self._cached_resource_texture_anims = {}
 
         self._world_root_node  = PandaNode("__world_root")
         self._actor_root_node  = PandaNode("__actor_root")
@@ -106,6 +110,17 @@ class Scene(ShowBase):
 
         self._ambient_light_intensity = self._ambient_light_levels
         self.adjust_ambient_light(0)
+
+        self.taskMgr.add(self.shader_main_loop, 'main_loop::shader_update')
+
+    def shader_main_loop(self, task):
+        self._time = task.time
+        for set_name, anim_set in self._cached_resource_texture_anims.items():
+            for anim_name, global_anim in anim_set.get("global_anims", {}).items():
+                if not global_anim.external:
+                    global_anim.update(task.time*30/1000)
+
+        return direct.task.Task.cont
 
     @property
     def active_world(self):
@@ -288,18 +303,40 @@ class Scene(ShowBase):
 
             del self._scene_actors[set_name]
 
+    def build_external_tex_anim_cache(self):
+        # TODO: loop through all texture animations and link external
+        #       textures to the global texture they reference.
+        pass
+
     def get_resource_set_textures(self, filepath, is_ngc=False, recache=False):
         resource_dir = os.path.dirname(filepath)
         set_name = self.get_resource_set_name(resource_dir)
         objects_data = self.get_resource_set_tags(resource_dir)
-        objects_tag  = objects_data["objects_tag"]
+        objects_tag  = objects_data.get("objects_tag")
 
         if set_name not in self._cached_resource_textures or recache:
             self._cached_resource_textures[set_name] = load_textures_from_objects_tag(
                 objects_tag, filepath, is_ngc
-                )
+                ) if objects_tag else {}
 
         return dict(self._cached_resource_textures[set_name])
+
+    def get_resource_set_texture_anims(self, dirpath, recache=False):
+        set_name = self.get_resource_set_name(dirpath)
+        objects_data = self.get_resource_set_tags(dirpath)
+        anim_tag = objects_data.get("anim_tag")
+
+        if set_name not in self._cached_resource_texture_anims or recache:
+            textures = self.get_resource_set_textures(
+                objects_data["textures_filepath"],
+                objects_data["is_ngc"],
+                recache
+                )
+            self._cached_resource_texture_anims[set_name] = load_texmods_from_anim_tag(
+                anim_tag, textures
+                ) if anim_tag else {}
+
+        return dict(self._cached_resource_texture_anims[set_name])
 
     def get_resource_set_tags(self, dirpath, recache=False):
         set_name = self.get_resource_set_name(dirpath)
@@ -330,6 +367,7 @@ class Scene(ShowBase):
         try:
             start = time.time()
             result = self._load_objects(objects_path, switch_display)
+            self.build_external_tex_anim_cache()
             if switch_display:
                 self.switch_scene_type(
                     self.SCENE_TYPE_ACTOR if self._scene_actors else
@@ -348,6 +386,7 @@ class Scene(ShowBase):
             start = time.time()
             print("Loading '%s'..." % worlds_dir)
             result = self._load_world(worlds_dir, switch_display)
+            self.build_external_tex_anim_cache()
             if switch_display:
                 self.switch_scene_type(self.SCENE_TYPE_WORLD)
 
@@ -361,11 +400,14 @@ class Scene(ShowBase):
     def _load_objects(self, objects_dir, switch_display):
         objects_data = self.get_resource_set_tags(objects_dir)
         set_name = self.get_resource_set_name(objects_dir)
+        texture_anims = self.get_resource_set_texture_anims(objects_dir)
 
         is_ngc            = objects_data.get("is_ngc")
         anim_tag          = objects_data.get("anim_tag")
         objects_tag       = objects_data.get("objects_tag")
         textures_filepath = objects_data.get("textures_filepath")
+        atree_tex_anims   = texture_anims.get("atree_anims", {})
+        global_tex_anims  = texture_anims.get("global_anims", {})
         if not objects_tag:
             return {}, {}
 
@@ -384,6 +426,8 @@ class Scene(ShowBase):
                 scene_actor = load_scene_actor_from_tags(
                     actor_name, anim_tag=anim_tag,
                     textures=textures, objects_tag=objects_tag,
+                    global_tex_anims=global_tex_anims,
+                    seq_tex_anims=atree_tex_anims.get(actor_name, {}),
                     )
                 self.add_scene_actor(set_name, scene_actor)
 
@@ -403,6 +447,7 @@ class Scene(ShowBase):
             if not scene_object:
                 scene_object = load_scene_object_from_tags(
                     object_name, textures=textures, objects_tag=objects_tag,
+                    global_tex_anims=global_tex_anims,
                     )
                 self.add_scene_object(set_name, scene_object)
 
@@ -419,12 +464,15 @@ class Scene(ShowBase):
     def _load_world(self, levels_dir, switch_display):
         objects_data = self.get_resource_set_tags(levels_dir)
         set_name = self.get_resource_set_name(levels_dir)
+        texture_anims = self.get_resource_set_texture_anims(levels_dir)
 
         is_ngc            = objects_data.get("is_ngc")
         anim_tag          = objects_data.get("anim_tag")
         objects_tag       = objects_data.get("objects_tag")
         worlds_tag        = objects_data.get("worlds_tag")
         textures_filepath = objects_data.get("textures_filepath")
+        atree_tex_anims   = texture_anims.get("atree_anims", {})
+        global_tex_anims  = texture_anims.get("global_anims", {})
         if not worlds_tag:
             return None
 
@@ -476,6 +524,7 @@ class Scene(ShowBase):
             textures=textures, anim_tag=anim_tag,
             world_item_actors=world_item_actors,
             world_item_objects=world_item_objects,
+            global_tex_anims=global_tex_anims,
             )
         self.add_scene_world(scene_world)
         if switch_display:

@@ -73,7 +73,8 @@ def load_nodes_from_anim_tag(object_name, anim_tag):
 
 
 def load_scene_actor_from_tags(
-        actor_name, *, anim_tag, textures, objects_tag=None
+        actor_name, *, anim_tag, textures, objects_tag=None,
+        global_tex_anims=(), seq_tex_anims=(),
         ):
     actor_name = actor_name.upper().strip()
     actor_node = ActorNode(actor_name)
@@ -85,7 +86,9 @@ def load_scene_actor_from_tags(
 
     # load and attach models
     for model_name, node_name in zip(*anim_tag.get_model_node_name_map(actor_name)):
-        model = load_model_from_objects_tag(objects_tag, model_name, textures)
+        model = load_model_from_objects_tag(
+            objects_tag, model_name, textures, global_tex_anims
+            )
         scene_actor.attach_model(model, node_name)
         flags = node_flags.get(node_name, {})
 

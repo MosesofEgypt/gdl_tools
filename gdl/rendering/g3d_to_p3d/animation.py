@@ -5,12 +5,12 @@ from ..assets.texture import Texture
 from ..assets.animation import TextureAnimation
 
 
-def load_texmods_from_anim_tag(anim_tag, textures, ext_textures):
+def load_texmods_from_anim_tag(anim_tag, textures):
     atree_tex_anims  = {}
     global_tex_anims = {}
     atrees = anim_tag.data.atrees
 
-    for i, texmod in anim_tag.data.texmods:
+    for i, texmod in enumerate(anim_tag.data.texmods):
         reverse = False
         loop    = True
         if texmod.atree >= 0 and texmod.seq_index >= 0:
@@ -19,10 +19,10 @@ def load_texmods_from_anim_tag(anim_tag, textures, ext_textures):
             if texmod.atree in range(len(atrees)):
                 atree      = atrees[texmod.atree]
                 sequences  = atree.atree_header.atree_data.atree_sequences
-                actor_name = atree.name
+                actor_name = atree.name.upper().strip()
                 if texmod.seq_index in range(len(sequences)):
                     sequence = sequences[texmod.seq_index]
-                    seq_name = sequence.name
+                    seq_name = sequence.name.upper().strip()
                     reverse  = bool(sequence.flags.play_reversed)
                     loop     = bool(sequence.repeat.data)
 
@@ -42,24 +42,29 @@ def load_texmods_from_anim_tag(anim_tag, textures, ext_textures):
         transform_start = (texmod.start_frame / 30) * frame_rate
 
         if texmod_type == "mip_blend":
-            pass # TODO: figure this out
+            # NOTE: this isn't utilized in any files in the game, so
+            #       it's not likely this is actually implemented
+            pass
         elif texmod_type in ("fade_in", "fade_out"):
             tex_anim.fade_rate  = frame_rate * (-1 if texmod_type in "fade_out" else 1)
             tex_anim.fade_start = transform_start
-        elif texmod_type == "scroll_h":
-            tex_anim.scroll_rate_h = frame_rate
+        elif texmod_type == "scroll_u":
+            tex_anim.scroll_rate_u = -frame_rate # scroll opposite direction
             tex_anim.fade_start = transform_start # TODO: determine if this is used here
         elif texmod_type == "scroll_v":
             tex_anim.scroll_rate_v = frame_rate
             tex_anim.fade_start = transform_start # TODO: determine if this is used here
         elif texmod_type == "external":
-            pass # TODO: figure this out
+            # global textures in each texmod seem to be loaded in a
+            # global scope, such that any "external" texture in another
+            # resource will use it, no matter what file it was defined in.
+            tex_anim.external = True
         else:
             texture_frames = []
             for j in range(texmod.type.source_index.idx,
                            texmod.type.source_index.idx + abs(texmod.frame_count)):
                 if j in textures:
-                    texture_frames.append(textures[i])
+                    texture_frames.append(textures[j])
                 else:
                     # TODO: throw an error about missing frame textures
                     pass
@@ -68,4 +73,7 @@ def load_texmods_from_anim_tag(anim_tag, textures, ext_textures):
             tex_anim.start_frame = texmod.tex_start_frame
             tex_anim.frame_data  = texture_frames
 
-    return atree_tex_anims, global_tex_anims
+    return dict(
+        atree_anims=atree_tex_anims,
+        global_anims=global_tex_anims
+        )
