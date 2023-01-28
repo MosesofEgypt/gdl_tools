@@ -109,7 +109,7 @@ def load_scene_world_from_tags(
         name=world_name, collision_grid=collision_grid,
         )
 
-    load_nodes_from_worlds_tag(worlds_tag, scene_world.p3d_node)
+    load_nodes_from_worlds_tag(worlds_tag, scene_world.objects_root_node)
     scene_world.cache_node_paths()
 
     scene_item_infos = load_scene_item_infos_from_worlds_tag(worlds_tag)
@@ -122,6 +122,10 @@ def load_scene_world_from_tags(
 
     # load and attach models and collision
     for i, world_object in enumerate(worlds_tag.data.world_objects):
+        # TODO: pass animations list to have them bound to the object and
+        #       allow determining if the node hierarchy can be flattened.
+        # TODO: figure out how collision transforms will need to be handled.
+        #       maybe look at world_object.flags.animated???
         scene_world_object = load_scene_world_object_from_tags(
             world_object, textures=textures,
             worlds_tag=worlds_tag, objects_tag=objects_tag,
@@ -148,7 +152,8 @@ def load_scene_world_from_tags(
 
     # NOTE: this will need to be carefully controlled to prevent
     #       flattening too much and preventing world animations playing
-    NodePath(scene_world.objects_root_node).flatten_medium()
+    objects_nodepath = NodePath(scene_world.objects_root_node)
+    objects_nodepath.flatten_strong()
 
     scene_world_nodepath = NodePath(scene_world.p3d_node)
     for item_instance in worlds_tag.data.item_instances:

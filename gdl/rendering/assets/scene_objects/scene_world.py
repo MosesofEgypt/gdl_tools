@@ -53,7 +53,7 @@ class SceneWorld(SceneObject):
     @property
     def objects_root_node(self): return self._objects_root_node
     @property
-    def items_root_nodes(self): return { k: tuple(v) for k, v in self._objects_root_node.items() }
+    def items_root_nodes(self): return { k: tuple(v) for k, v in self._items_root_nodes.items() }
     @property
     def coll_grid_model_node(self): return self._coll_grid_model_node
     @property

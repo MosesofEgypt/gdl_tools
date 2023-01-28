@@ -9,7 +9,8 @@ def load_scene_world_object_from_tags(
     scene_world_object = SceneWorldObject(name=world_object.name)
 
     model = load_model_from_objects_tag(
-        objects_tag, world_object.name, textures, global_tex_anims
+        objects_tag, world_object.name, textures, global_tex_anims,
+        allow_model_flatten=True
         )
 
     fb_add = False #world_object.flags.unknown
