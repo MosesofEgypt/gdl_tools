@@ -17,6 +17,11 @@ class LegendViewer(Scene):
 
     _last_selected_dir = ""
 
+    _fps_counter_toggle = False
+    _animation_timer_toggle = False
+    _animation_timer_paused = False
+    _animation_timer = 0
+    _prev_animation_timer = 0
     _update_task_timer = 0
     _cycle_subview_timer = 0
     _cycle_subview_left  = 0
@@ -53,7 +58,8 @@ class LegendViewer(Scene):
         self.accept("f7", self.toggleTexture, [])
         self.accept("f8", self.toggleParticles, [])
 
-        self.accept("f9",  self.set_collision_grid_visible, [])
+        self.accept("f9",  setattr, [self, "_fps_counter_toggle", True])
+        self.accept("f11", self.set_collision_grid_visible, [])
         self.accept("f12", self.adjust_ambient_light, [1])
 
         for i in range(5):
@@ -65,6 +71,7 @@ class LegendViewer(Scene):
         self.accept("arrow_left-up",  setattr, [self, "_cycle_subview_left",  0])
         self.accept("arrow_right",    setattr, [self, "_cycle_subview_right", 1])
         self.accept("arrow_right-up", setattr, [self, "_cycle_subview_right", 0])
+        self.accept("space",          setattr, [self, "_animation_timer_toggle", True])
 
         self.accept("tab", self.cycle_scene_type, [1])
 
@@ -75,6 +82,25 @@ class LegendViewer(Scene):
 
         self.cycle_scene_type()
         self.taskMgr.add(self.update_task, 'LegendViewer::update_task')
+        self.taskMgr.add(self.shader_main_loop, 'main_loop::shader_update')
+
+    def shader_main_loop(self, task):
+        if self._animation_timer_toggle:
+            self._animation_timer_paused = not self._animation_timer_paused
+            self._animation_timer_toggle = False
+
+        if not self._animation_timer_paused:
+            self._animation_timer += task.time - self._prev_animation_timer
+            
+        # TODO: replace this with a proper animation handler
+        if not self._animation_timer_paused:
+            for set_name, anim_set in self._cached_resource_texture_anims.items():
+                for anim_name, global_anim in anim_set.get("global_anims", {}).items():
+                    if not global_anim.external:
+                        global_anim.update(self._animation_timer)
+
+        self._prev_animation_timer = task.time
+        return direct.task.Task.cont
 
     def update_task(self, task):
         delta_t = task.time - self._update_task_timer
@@ -89,6 +115,10 @@ class LegendViewer(Scene):
             self._cycle_subview_timer += delta_t
         else:
             self._cycle_subview_timer = 0
+
+        if self._fps_counter_toggle:
+            self._fps_counter_toggle = False
+            self.setFrameRateMeter(not self.frameRateMeter)
 
         self._update_task_timer = task.time
         return direct.task.Task.cont

@@ -84,10 +84,16 @@ def load_scene_actor_from_tags(
 
     scene_actor = SceneActor(name=actor_name, p3d_node=actor_node)
 
+    tex_anims_by_tex_name = {}
+    for anims_by_tex_name in seq_tex_anims.values():
+        for tex_name, anim in anims_by_tex_name.items():
+            tex_anims_by_tex_name.setdefault(tex_name, []).append(anim)
+
     # load and attach models
     for model_name, node_name in zip(*anim_tag.get_model_node_name_map(actor_name)):
         model = load_model_from_objects_tag(
-            objects_tag, model_name, textures, global_tex_anims
+            objects_tag, model_name, textures,
+            global_tex_anims, tex_anims_by_tex_name
             )
         scene_actor.attach_model(model, node_name)
         flags = node_flags.get(node_name, {})
@@ -104,5 +110,9 @@ def load_scene_actor_from_tags(
 
             if shader_updated:
                 geometry.apply_shader()
+
+    for anims in tex_anims_by_tex_name.values():
+        for anim in anims:
+            scene_actor.add_texture_animation(anim)
 
     return scene_actor

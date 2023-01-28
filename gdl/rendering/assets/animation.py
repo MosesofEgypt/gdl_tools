@@ -22,14 +22,13 @@ class Animation:
         self.reverse     = kwargs.pop("reverse",   self.reverse)
         self.frame_rate  = kwargs.pop("frame_rate",  self.frame_rate)
         self.start_frame = kwargs.pop("start_frame", self.start_frame)
-
-        self.frame_data  = kwargs.pop("frame_data", ())
+        self.frame_data  = kwargs.pop("frame_data",  self.frame_data)
 
         if kwargs:
             raise ValueError("Unknown parameters detected: %s" % ', '.join(kwargs.keys()))
 
     @property
-    def name(self): return self._name.upper()
+    def name(self): return self._name
     @property
     def frame_rate(self): return max(1, self._frame_rate)
     @frame_rate.setter
@@ -91,9 +90,11 @@ class TextureAnimation(Animation):
     _fade_start = 0
     _geometry_binds = ()
     _external_anim = None
+    _tex_name = ""
     external = False
 
     def __init__(self, **kwargs):
+        self._tex_name     = kwargs.pop("tex_name",      self._tex_name).upper()
         self.scroll_rate_u = kwargs.pop("scroll_rate_u", self.scroll_rate_u)
         self.scroll_rate_v = kwargs.pop("scroll_rate_v", self.scroll_rate_v)
         self.fade_rate     = kwargs.pop("fade_rate",     self.fade_rate)
@@ -103,6 +104,8 @@ class TextureAnimation(Animation):
         self._geometry_binds = {}
         super().__init__(**kwargs)
 
+    @property
+    def tex_name(self): return self._tex_name.upper().strip()
     @property
     def scroll_rate_u(self): return self._scroll_rate_u
     @scroll_rate_u.setter
@@ -161,7 +164,8 @@ class TextureAnimation(Animation):
         alpha   = self.get_fade(frame_time)
         texture = self.get_frame_data(frame_time) if self.has_swap_animation else None
 
-        for id, geometry_ref in self._geometry_binds.items():
+        # iterate as tuple in case we unbind it in the loop
+        for id, geometry_ref in tuple(self._geometry_binds.items()):
             geometry = geometry_ref()
             if geometry is None:
                 self.unbind(id)
@@ -177,7 +181,7 @@ class TextureAnimation(Animation):
             if self.has_fade_animation:
                 shader.set_diffuse_alpha_level(nodepath, alpha)
 
-            if shader.diff_texture is not texture and self.has_swap_animation:
+            if shader.diff_texture is not texture and texture:
                 shader.diff_texture = texture
                 shader.apply_diffuse(nodepath)
 

@@ -1,7 +1,7 @@
 import panda3d
 
 from .scene_object import SceneObject
-from .. import animation
+from ..animation import TextureAnimation, ShapeMorphAnimation, ActorAnimation
 
 
 class SceneActor(SceneObject):
@@ -32,18 +32,20 @@ class SceneActor(SceneObject):
     def add_actor_animation(self, animation):
         pass
 
-    def add_texture_animation(self, animation):
-        if not isinstance(animation, scene_animation.TextureAnimation):
-            raise TypeError(f"animation must be of type TextureAnimation, {type(animation)}")
-        elif animation.name in self._texture_animations:
-            raise ValueError(f"animation with name '{animation.name}' already exists")
+    def add_texture_animation(self, anim):
+        if not isinstance(anim, TextureAnimation):
+            raise TypeError(f"animation must be of type TextureAnimation, {type(anim)}")
 
-        self._texture_animations[animaton.name] = animation
+        seq_tex_anims = self._texture_animations.setdefault(anim.name, {})
+        if anim.tex_name in seq_tex_anims:
+            raise ValueError(f"animation with name '{anim.name}' already exists for texture {anim.tex_name}")
 
-    def add_shape_morph_animation(self, animation):
-        if not isinstance(animation, scene_animation.ShapeMorphAnimation):
-            raise TypeError(f"animation must be of type ShapeMorphAnimation, not {type(animation)}")
-        elif animation.name in self._shape_morph_animations:
-            raise ValueError(f"animation with name '{animation.name}' already exists")
+        seq_tex_anims[anim.tex_name] = anim
 
-        self._shape_morph_animations[animaton.name] = animation
+    def add_shape_morph_animation(self, anim):
+        if not isinstance(anim, ShapeMorphAnimation):
+            raise TypeError(f"animation must be of type ShapeMorphAnimation, not {type(anim)}")
+        elif anim.name in self._shape_morph_animations:
+            raise ValueError(f"animation with name '{anim.name}' already exists")
+
+        self._shape_morph_animations[anim.name] = anim

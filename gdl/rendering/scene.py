@@ -111,17 +111,6 @@ class Scene(ShowBase):
         self._ambient_light_intensity = self._ambient_light_levels
         self.adjust_ambient_light(0)
 
-        self.taskMgr.add(self.shader_main_loop, 'main_loop::shader_update')
-
-    def shader_main_loop(self, task):
-        # TODO: replace this with a proper animation handler
-        for set_name, anim_set in self._cached_resource_texture_anims.items():
-            for anim_name, global_anim in anim_set.get("global_anims", {}).items():
-                if not global_anim.external:
-                    global_anim.update(task.time)
-
-        return direct.task.Task.cont
-
     @property
     def active_world(self):
         return self._scene_worlds.get(self._curr_scene_world_name)

@@ -13,6 +13,7 @@ def load_texmods_from_anim_tag(anim_tag, textures):
     for i, texmod in enumerate(anim_tag.data.texmods):
         reverse = False
         loop    = True
+        anim_name = ""
         if texmod.atree >= 0 and texmod.seq_index >= 0:
             actor_name = ""
             seq_name   = ""
@@ -27,11 +28,12 @@ def load_texmods_from_anim_tag(anim_tag, textures):
                     loop     = bool(sequence.repeat.data)
 
             tex_anims = atree_tex_anims.setdefault(actor_name, {}).setdefault(seq_name, {})
+            anim_name = seq_name
         else:
             tex_anims = global_tex_anims
             
         tex_anim = tex_anims.setdefault(texmod.name, TextureAnimation(
-            name=texmod.name, loop=loop, reverse=reverse
+            name=anim_name, tex_name=texmod.name, loop=loop, reverse=reverse
             ))
         texmod_type = texmod.type.transform.enum_name
 

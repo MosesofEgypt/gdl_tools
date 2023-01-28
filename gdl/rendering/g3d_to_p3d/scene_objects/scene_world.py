@@ -146,6 +146,10 @@ def load_scene_world_from_tags(
 
         scene_world.attach_world_object(scene_world_object, world_object.name)
 
+    # NOTE: this will need to be carefully controlled to prevent
+    #       flattening too much and preventing world animations playing
+    NodePath(scene_world.objects_root_node).flatten_medium()
+
     scene_world_nodepath = NodePath(scene_world.p3d_node)
     for item_instance in worlds_tag.data.item_instances:
         try:

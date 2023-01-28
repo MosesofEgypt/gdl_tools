@@ -67,8 +67,8 @@ def load_geom_from_g3d_model(g3d_model, geom_shader):
         )
 
 
-def load_model_from_objects_tag(objects_tag, model_name,
-                                textures=(), global_tex_anims=()):
+def load_model_from_objects_tag(objects_tag, model_name, textures=(),
+                                global_tex_anims=(), seq_tex_anims=()):
     if not textures:
         textures = {}
 
@@ -124,6 +124,10 @@ def load_model_from_objects_tag(objects_tag, model_name,
         model.add_geometry(geometry)
         if tex_name in global_tex_anims:
             global_tex_anims[tex_name].bind(geometry)
+
+        if tex_name in seq_tex_anims:
+            for tex_anim in seq_tex_anims[tex_name]:
+                tex_anim.bind(geometry)
 
     return model
 
