@@ -70,12 +70,14 @@ class CollisionTriangle:
     def snap_to_y_plane(self, x, y, z, max_dist=float("inf")):
         # check to ensure the triangle is at all level with the x/z plane,
         # and the point is inside the triangle(viewed from the x/z plane)
-        if not (self.n_j and vector_util.point_inside_2d_triangle(
-                (x, z),
-                (self.v0_x,   self.v0_z),
-                (self._v1[0], self._v1[2]),
-                (self._v2[0], self._v2[2])
-                )):
+        is_inside_coll_tri = vector_util.point_inside_2d_triangle(
+            (x, z),
+            (self.v0_x,   self.v0_z),
+            (self._v1[0], self._v1[2]),
+            (self._v2[0], self._v2[2])
+            )
+
+        if not (self.n_j and is_inside_coll_tri):
             return None
 
         # using the equation of a plane, solve for the y coordinate
@@ -83,7 +85,6 @@ class CollisionTriangle:
             self.n_i*(x - self.v0_x) +
             self.n_k*(z - self.v0_z)
             ) / -self.n_j
-        
 
         # if the y delta is too large, don't snap
         return None if (

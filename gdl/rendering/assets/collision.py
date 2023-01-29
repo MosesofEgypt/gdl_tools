@@ -82,6 +82,7 @@ class CollisionObjectGrid:
             )
 
     def world_pos_to_grid_pos(self, x, z):
+        # TODO: fix this so it's accurate. some things aren't snapping that should
         return (
             int((x - self._min_x) / self._grid_size),
             int((z - self._min_z) / self._grid_size),

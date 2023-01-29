@@ -104,7 +104,8 @@ class SceneItemInfo:
             )
 
         scene_item = scene_item_class(
-            name=name, scene_object=scene_object, flags=flags,
+            name=name if name else getattr(scene_object, "name", ""),
+            scene_object=scene_object, flags=flags,
             item_info=self, params=params, min_players=min_players,
             )
 

@@ -8,7 +8,7 @@ from tkinter import TclError
 from ..rendering.scene import Scene
 from panda3d.core import WindowProperties
 
-__version__ = (0, 0, 2)
+__version__ = (0, 1, 0)
 
 class LegendViewer(Scene):
     # cycle at the rate the game is hardcoded to animate at

@@ -13,9 +13,10 @@ class SceneWorld(SceneObject):
     _scene_item_infos = ()
 
     _coll_grid = None
-    _static_objects_node  = None
-    _dynamic_objects_node = None
-    _coll_grid_model_node = None
+    _static_collision_node = None
+    _static_objects_node   = None
+    _dynamic_objects_node  = None
+    _coll_grid_model_node  = None
     _items_root_nodes   = ()
     _flattened_static_geometries = ()
     _flattened_texmod_models = ()
@@ -37,9 +38,10 @@ class SceneWorld(SceneObject):
 
         super().__init__(**kwargs)
 
-        self._static_objects_node  = panda3d.core.PandaNode("__STATIC_OBJECTS_ROOT")
-        self._dynamic_objects_node = panda3d.core.PandaNode("__DYNAMIC_OBJECTS_ROOT")
-        self._coll_grid_model_node = panda3d.core.ModelNode("__COLL_GRID_MODEL")
+        self._static_objects_node   = panda3d.core.PandaNode("__STATIC_OBJECTS_ROOT")
+        self._dynamic_objects_node  = panda3d.core.PandaNode("__DYNAMIC_OBJECTS_ROOT")
+        self._coll_grid_model_node  = panda3d.core.ModelNode("__COLL_GRID_MODEL")
+        self._static_collision_node = panda3d.core.ModelNode("__STATIC_COLLISION_ROOT")
         self._items_root_nodes = {}
         for item_type in (
                 "powerup", "container", "generator", "enemy", "trigger",
@@ -53,9 +55,14 @@ class SceneWorld(SceneObject):
 
             self.p3d_node.add_child(self._items_root_nodes[item_type])
 
+        self.p3d_node.add_child(self._static_collision_node)
         self.p3d_node.add_child(self._static_objects_node)
         self.p3d_node.add_child(self._dynamic_objects_node)
         self.p3d_node.add_child(self._coll_grid_model_node)
+
+        self._static_collision_node.setPreserveTransform(
+            panda3d.core.ModelNode.PT_no_touch
+            )
 
     @property
     def node_world_objects(self): return { k: dict(v) for k, v in self._node_world_objects.items() }
@@ -63,6 +70,8 @@ class SceneWorld(SceneObject):
     def node_scene_items(self): return { k: tuple(v) for k, v in self._node_scene_items.items() }
     @property
     def static_objects_node(self): return self._static_objects_node
+    @property
+    def static_collision_node(self): return self._static_collision_node
     @property
     def dynamic_objects_node(self): return self._dynamic_objects_node
     @property
@@ -96,7 +105,7 @@ class SceneWorld(SceneObject):
         for node_name, world_scene_objects in self.node_world_objects.items():
             for object_name, scene_object in world_scene_objects.items():
                 if not scene_object.p3d_node.children:
-                    self.detach_world_object(object_name, node_name)
+                    self.remove_world_object(object_name)
 
     def flatten_static_geometries(self, global_tex_anims, flatten_tex_animated=True):
         # NOTE: this will need to be carefully controlled to prevent
@@ -165,7 +174,7 @@ class SceneWorld(SceneObject):
                         combined_geometry.p3d_geometry
                         )
 
-        print(objects_nodepath.flatten_strong())
+        objects_nodepath.flatten_strong()
         self.clean_orphaned_world_objects()
 
         # recache the nodepaths now that everything's been flattened
@@ -176,8 +185,8 @@ class SceneWorld(SceneObject):
         for name, nodepath in self.get_node_paths(panda3d.core.GeomNode).items():
             if name and nodepath.node().getNumGeoms() > 1:
                 self._flattened_static_geometries.setdefault(name, []).append(nodepath.node())
-        for child in panda3d.core.NodePath(self.p3d_node).findAllMatches('**'):
-            print(type(child.node()), child)
+        #for child in panda3d.core.NodePath(self.p3d_node).findAllMatches('**'):
+        #    print(child, type(child.node()))
 
     def attach_scene_item(self, scene_item):
         item_type = ""
@@ -209,27 +218,20 @@ class SceneWorld(SceneObject):
         else:
             node_path.show()
 
-    def detach_world_object(self, object_name, node_name=""):
-        node_name = node_name.upper().strip()
-        parent_node_path = self.get_node_path(node_name)
-        if parent_node_path:
-            world_object = self._node_world_objects.get(node_name, {}).pop(object_name, None)
-            if world_object:
-                parent_node_path.node().remove_child(world_object.p3d_node)
+    def remove_world_object(self, object_name):
+        object_name = object_name.upper().strip()
+        node_collection = self._node_world_objects.get(object_name, {})
+        node_collection.pop(object_name, None)
+        if not node_collection:
+            self._node_world_objects.pop(object_name, None)
 
-    def attach_world_object(self, world_object, node_name=""):
+    def add_world_object(self, world_object):
         if not isinstance(world_object, SceneWorldObject):
             raise TypeError(f"World object must be of type SceneWorldObject, not {type(world_object)}")
 
-        node_name = node_name.upper().strip()
-        node_collection = self._node_world_objects.setdefault(node_name, dict())
-        parent_node_path = self.get_node_path(node_name)
-
-        if world_object.name in node_collection or parent_node_path is None:
-            return
-
+        # TODO: simplify this(multiple world objects per name not possible?)
+        node_collection = self._node_world_objects.setdefault(world_object.name, dict())
         node_collection[world_object.name] = world_object
-        parent_node_path.node().add_child(world_object.p3d_node)
 
     def set_world_collision_visible(self, visible=None):
         for world_scene_objects in self.node_world_objects.values():
@@ -279,7 +281,7 @@ class SceneWorld(SceneObject):
         else:
             node_path.hide()
 
-    def snap_to_grid(self, nodepath, max_dist=float("inf")):
+    def snap_to_grid(self, nodepath, max_dist=float("inf"), debug=False):
         root_nodepath = panda3d.core.NodePath(self.p3d_node)
         x, z, y = nodepath.getPos(root_nodepath)
         new_pos = self._coll_grid.snap_pos_to_grid(
@@ -288,5 +290,7 @@ class SceneWorld(SceneObject):
         if new_pos:
             x, y, z = new_pos[0], new_pos[1] + constants.Z_FIGHT_OFFSET, new_pos[2]
             nodepath.setPos(root_nodepath, x, z, y)
+        elif debug:
+            print(f"Failed to snap object {nodepath} to collision grid at {(x, z, y)}")
 
         return bool(new_pos)

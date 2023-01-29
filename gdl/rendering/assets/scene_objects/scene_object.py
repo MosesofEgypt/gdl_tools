@@ -25,12 +25,12 @@ class SceneObject:
         # cache the nodepaths for quicker scene building
         self._get_node_paths(
             panda3d.core.NodePath(self._p3d_node), self._node_paths,
-            frozenset((panda3d.core.PandaNode, ))
+            (panda3d.core.PandaNode, )
             )
 
     def _get_node_paths(self, node_path, collection, types):
-        if type(node_path.node()) in types:
-            collection[node_path.name] = node_path
+        if isinstance(node_path.node(), types):
+            collection.setdefault(node_path.name, node_path)
 
         for child in node_path.getChildren():
             self._get_node_paths(child, collection, types)
@@ -66,7 +66,7 @@ class SceneObject:
             if not parent_node_path.is_empty():
                 self._get_node_paths(
                     parent_node_path, self._node_paths,
-                    frozenset((panda3d.core.PandaNode, ))
+                    (panda3d.core.PandaNode, )
                     )
             else:
                 raise KeyError(f"Cannot locate node '{node_name}'")

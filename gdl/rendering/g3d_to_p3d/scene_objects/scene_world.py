@@ -117,9 +117,8 @@ def load_scene_world_from_tags(
 
     dyn_p3d_nodepath = NodePath(scene_world.dynamic_objects_node)
     dyn_coll_objects = collision_grid.dyn_collision_objects
-    dyn_root_indices = set(
-        anim.world_object_index
-        for anim in worlds_tag.data.world_anims.animations
+    dyn_obj_indices = set(
+        worlds_tag.data.dynamic_grid_objects.world_object_indices
         )
 
     scene_world.cache_node_paths()
@@ -137,11 +136,13 @@ def load_scene_world_from_tags(
         #       allow determining if the node hierarchy can be flattened.
         # TODO: figure out how collision transforms will need to be handled.
         #       maybe look at world_object.flags.animated???
+        p3d_node = scene_world.get_node_path(world_object.name).node()
         scene_world_object = load_scene_world_object_from_tags(
             world_object, textures=textures,
             worlds_tag=worlds_tag, objects_tag=objects_tag,
             global_tex_anims=global_tex_anims,
-            allow_model_flatten=flatten_static
+            allow_model_flatten=flatten_static,
+            p3d_node=p3d_node
             )
         collision = load_collision_from_worlds_tag(
             worlds_tag, world_object.name,
@@ -153,17 +154,17 @@ def load_scene_world_from_tags(
             if world_object.flags.animated:
                 node_name = scene_world_object.name
             else:
-                node_name = scene_world.static_objects_node.name
+                node_name = scene_world.static_collision_node.name
 
             if node_name in dyn_coll_objects:
                 dyn_coll_objects[node_name].scene_object = scene_world_object
 
             scene_world.attach_collision(collision, node_name)
 
-        scene_world.attach_world_object(scene_world_object, scene_world_object.name)
+        scene_world.add_world_object(scene_world_object)
 
-        if i in dyn_root_indices:
-            # reparent the animation root node to the dynamic root
+        # reparent the dynamic object to the dynamic root if it's not already under it
+        if i in dyn_obj_indices and dyn_p3d_nodepath.find_path_to(p3d_node).is_empty():
             child_p3d_nodepath = scene_world.get_node_path(scene_world_object.name)
             world_pos = child_p3d_nodepath.get_pos(dyn_p3d_nodepath)
             child_p3d_nodepath.reparent_to(dyn_p3d_nodepath)
