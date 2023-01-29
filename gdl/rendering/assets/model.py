@@ -16,7 +16,7 @@ class Geometry:
         if self._shader is None:
             self._shader = shader.GeometryShader()
         if self._p3d_geometry is None:
-            self._p3d_geometry = panda3d.core.GeomNode()
+            self._p3d_geometry = panda3d.core.GeomNode("")
 
         if not isinstance(self._shader, shader.GeometryShader):
             raise TypeError(
@@ -42,6 +42,14 @@ class Geometry:
                 f"tex_anim must be either None, or of type TextureAnimation, not {type(tex_anim)}"
                 )
         self._actor_tex_anim = tex_anim
+
+    def clear_shader(self):
+        nodepath = panda3d.core.NodePath(self.p3d_geometry)
+        nodepath.clearTexture()
+        nodepath.clearTexGen()
+        nodepath.clearTexTransform()
+        nodepath.clearAttrib(panda3d.core.ColorBlendAttrib)
+        nodepath.clearTransparency()
 
     def apply_shader(self):
         self.shader.apply(panda3d.core.NodePath(self.p3d_geometry))

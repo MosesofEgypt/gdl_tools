@@ -56,25 +56,27 @@ class SceneObject:
     @property
     def node_collision(self): return {k: dict(v) for k, v in self._node_collision.items()}
 
-    def _get_node_path(self, node_name):
+    def get_node_path(self, node_name):
         parent_node_path = self._node_paths.get(node_name)
         if parent_node_path is None:
             parent_node_path = panda3d.core.NodePath(self.p3d_node)
             if node_name and node_name != self.p3d_node.name.lower().strip():
                 parent_node_path = parent_node_path.find("**/" + node_name)
 
-            if parent_node_path is not None:
-                self._cache_node_paths(parent_node_path)
+            if not parent_node_path.is_empty():
+                self._get_node_paths(
+                    parent_node_path, self._node_paths,
+                    frozenset((panda3d.core.PandaNode, ))
+                    )
             else:
-                # TODO: raise error since node doesnt exist
-                pass
+                raise KeyError(f"Cannot locate node '{node_name}'")
 
         return parent_node_path
 
     def attach_model(self, model, node_name=""):
         node_name = node_name.upper().strip()
         node_collection = self._node_models.setdefault(node_name, dict())
-        parent_node_path = self._get_node_path(node_name)
+        parent_node_path = self.get_node_path(node_name)
 
         if model.name in node_collection or parent_node_path is None:
             # TODO: raise error
@@ -86,7 +88,7 @@ class SceneObject:
     def attach_collision(self, collision, node_name=""):
         node_name = node_name.upper().strip()
         node_collection = self._node_collision.setdefault(node_name, dict())
-        parent_node_path = self._get_node_path(node_name)
+        parent_node_path = self.get_node_path(node_name)
 
         if collision.name in node_collection or parent_node_path is None:
             # TODO: raise error

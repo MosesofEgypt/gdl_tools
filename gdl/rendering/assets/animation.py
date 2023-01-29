@@ -148,7 +148,7 @@ class TextureAnimation(Animation):
 
     @property
     def binds(self):
-        return tuple(ref() for ref in self._binds.values())
+        return tuple(ref() for ref in self._binds.values() if ref())
     def bind(self, geometry):
         self._binds[id(geometry)] = weakref.ref(geometry)
     def unbind(self, geometry):
@@ -185,10 +185,10 @@ class TextureAnimation(Animation):
         texture = self.get_frame_data(frame_time) if self.has_swap_animation else None
 
         # iterate as tuple in case we unbind it in the loop
-        for id, geometry_ref in tuple(self._binds.items()):
+        for ref_id, geometry_ref in tuple(self._binds.items()):
             geometry = geometry_ref()
             if geometry is None:
-                self.unbind(id)
+                self.unbind(ref_id)
                 continue
             elif geometry.actor_tex_anim not in (self, None):
                 continue

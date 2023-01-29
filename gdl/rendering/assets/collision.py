@@ -113,7 +113,8 @@ class CollisionObjectGrid:
 
     def snap_pos_to_grid(self, x, y, z, root_nodepath, max_dist=float("inf")):
         min_dist = max_dist
-        new_pos = orig_pos = (x, y, z)
+        new_pos = None
+        orig_pos = (x, y, z)
 
         # test against static collision
         for obj_name, coll_obj in self.get_collision_cell_at_world_pos(x, z).items():

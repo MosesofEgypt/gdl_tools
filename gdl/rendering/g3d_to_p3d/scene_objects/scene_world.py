@@ -11,15 +11,16 @@ from .scene_item import load_scene_item_infos_from_worlds_tag,\
      load_scene_item_from_item_instance
 
 
-def _load_nodes_from_worlds_tag(world_objects, parent_p3d_node, child_index, seen):
-    if child_index in seen:
+def _load_nodes_from_worlds_tag(
+        parent_p3d_node, world_objects, child_index, parent_index, nodes
+        ):
+    if child_index in nodes:
         return
 
     while child_index >= 0:
-        seen.add(child_index)
-
         child_obj = world_objects[child_index]
         child_p3d_node = PandaNode(child_obj.name.upper().strip())
+        nodes[child_index] = child_p3d_node
 
         x, y, z = child_obj.pos
         node_trans = child_p3d_node.get_transform().set_pos(
@@ -30,18 +31,22 @@ def _load_nodes_from_worlds_tag(world_objects, parent_p3d_node, child_index, see
 
         if child_obj.child_index >= 0:
             _load_nodes_from_worlds_tag(
-                world_objects, child_p3d_node, child_obj.child_index, seen
+                child_p3d_node, world_objects,
+                child_obj.child_index, child_index, nodes
                 )
 
         child_index = child_obj.next_index
 
 
 def load_nodes_from_worlds_tag(worlds_tag, root_p3d_node):
-    seen = set()
-    for i in range(len(worlds_tag.data.world_objects)):
+    nodes = {}
+    world_objects = worlds_tag.data.world_objects
+    for i in range(len(world_objects)):
         _load_nodes_from_worlds_tag(
-            worlds_tag.data.world_objects, root_p3d_node, i, seen
+            root_p3d_node, world_objects, i, -1, nodes
             )
+
+    return nodes
 
 
 def generate_collision_grid_model(coll_grid):
@@ -102,16 +107,22 @@ def load_scene_world_from_tags(
 
     world_name = str(worlds_tag.filepath).upper().replace("\\", "/").\
                  split("LEVELS/")[-1].split("/")[0]
-    collision_grid  = load_collision_grid_from_worlds_tag(worlds_tag)
-    dyn_coll_objects = collision_grid.dyn_collision_objects
-
+    collision_grid   = load_collision_grid_from_worlds_tag(worlds_tag)
     scene_world = SceneWorld(
         name=world_name, collision_grid=collision_grid,
         )
+    child_nodes = load_nodes_from_worlds_tag(
+        worlds_tag, scene_world.static_objects_node
+        )
 
-    load_nodes_from_worlds_tag(worlds_tag, scene_world.objects_root_node)
+    dyn_p3d_nodepath = NodePath(scene_world.dynamic_objects_node)
+    dyn_coll_objects = collision_grid.dyn_collision_objects
+    dyn_root_indices = set(
+        anim.world_object_index
+        for anim in worlds_tag.data.world_anims.animations
+        )
+
     scene_world.cache_node_paths()
-
     scene_item_infos = load_scene_item_infos_from_worlds_tag(worlds_tag)
 
     # load the grid for use in debugging
@@ -142,21 +153,27 @@ def load_scene_world_from_tags(
             if world_object.flags.animated:
                 node_name = scene_world_object.name
             else:
-                node_name = world_name
+                node_name = scene_world.static_objects_node.name
 
             if node_name in dyn_coll_objects:
                 dyn_coll_objects[node_name].scene_object = scene_world_object
 
             scene_world.attach_collision(collision, node_name)
 
-        scene_world.attach_world_object(scene_world_object, world_object.name)
+        scene_world.attach_world_object(scene_world_object, scene_world_object.name)
+
+        if i in dyn_root_indices:
+            # reparent the animation root node to the dynamic root
+            child_p3d_nodepath = scene_world.get_node_path(scene_world_object.name)
+            world_pos = child_p3d_nodepath.get_pos(dyn_p3d_nodepath)
+            child_p3d_nodepath.reparent_to(dyn_p3d_nodepath)
+            child_p3d_nodepath.set_pos(dyn_p3d_nodepath, world_pos)
 
     if flatten_static:
         scene_world.flatten_static_geometries(
             global_tex_anims, flatten_static_tex_anims
             )
 
-    scene_world_nodepath = NodePath(scene_world.p3d_node)
     for item_instance in worlds_tag.data.item_instances:
         try:
             scene_item = load_scene_item_from_item_instance(
@@ -170,10 +187,7 @@ def load_scene_world_from_tags(
                 )
             scene_world.attach_scene_item(scene_item)
             if scene_item_infos[item_instance.item_index].snap_to_grid:
-                scene_item_nodepath = NodePath(scene_item.p3d_node)
-                x, z, y = scene_item_nodepath.getPos(scene_world_nodepath)
-                x, y, z = scene_world.snap_pos_to_grid(x, y, z)
-                scene_item_nodepath.setPos(scene_world_nodepath, x, z, y)
+                scene_world.snap_to_grid(NodePath(scene_item.p3d_node))
 
         except Exception:
             print(traceback.format_exc())
