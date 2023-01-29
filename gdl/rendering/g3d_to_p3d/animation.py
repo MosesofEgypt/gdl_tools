@@ -13,7 +13,6 @@ def load_texmods_from_anim_tag(anim_tag, textures):
     for i, texmod in enumerate(anim_tag.data.texmods):
         reverse = False
         loop    = True
-        anim_name = ""
         if texmod.atree >= 0 and texmod.seq_index >= 0:
             actor_name = ""
             seq_name   = ""
@@ -31,6 +30,7 @@ def load_texmods_from_anim_tag(anim_tag, textures):
             anim_name = seq_name
         else:
             tex_anims = global_tex_anims
+            anim_name = ""
             
         tex_anim = tex_anims.setdefault(texmod.name, TextureAnimation(
             name=anim_name, tex_name=texmod.name, loop=loop, reverse=reverse

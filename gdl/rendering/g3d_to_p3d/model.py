@@ -69,7 +69,7 @@ def load_geom_from_g3d_model(g3d_model, geom_shader):
 
 def load_model_from_objects_tag(objects_tag, model_name, textures=(),
                                 global_tex_anims=(), seq_tex_anims=(),
-                                allow_model_flatten=False):
+                                is_static=False):
     if not textures:
         textures = {}
 
@@ -125,14 +125,14 @@ def load_model_from_objects_tag(objects_tag, model_name, textures=(),
         model.add_geometry(geometry)
         if tex_name in global_tex_anims:
             global_tex_anims[tex_name].bind(geometry)
-            allow_model_flatten = False
+            is_static = False
 
         if tex_name in seq_tex_anims:
             for tex_anim in seq_tex_anims[tex_name]:
                 tex_anim.bind(geometry)
-                allow_model_flatten = False
+                is_static = False
 
-    if allow_model_flatten:
+    if is_static:
         model.p3d_model.set_preserve_transform(ModelNode.PT_drop_node)
     else:
         model.p3d_model.set_preserve_transform(ModelNode.PT_no_touch)

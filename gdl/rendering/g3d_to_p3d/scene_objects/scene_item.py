@@ -86,7 +86,8 @@ def load_scene_item_from_item_instance(
         scene_item.generator_objects = generator_objects
     else:
         model = load_model_from_objects_tag(
-            objects_tag, instance_name, textures
+            objects_tag, instance_name, textures,
+            is_static=False
             ) if instance_name else None
 
     collision = load_collision_from_worlds_tag(

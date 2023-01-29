@@ -93,7 +93,8 @@ def load_scene_actor_from_tags(
     for model_name, node_name in zip(*anim_tag.get_model_node_name_map(actor_name)):
         model = load_model_from_objects_tag(
             objects_tag, model_name, textures,
-            global_tex_anims, tex_anims_by_tex_name
+            global_tex_anims, tex_anims_by_tex_name,
+            is_static=False
             )
         scene_actor.attach_model(model, node_name)
         flags = node_flags.get(node_name, {})
@@ -105,7 +106,7 @@ def load_scene_actor_from_tags(
                     "add_first", "sort_alpha", "alpha_last", "no_shading",
                     ):
                 if flags.get(flag_name):
-                    setattr(geometry.shader, flag_name, flags[flag_name])
+                    setattr(geometry.shader, flag_name, True)
                     shader_updated = True
 
             if shader_updated:

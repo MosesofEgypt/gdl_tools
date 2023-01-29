@@ -23,14 +23,27 @@ class SceneObject:
     def cache_node_paths(self):
         self._node_paths = {}
         # cache the nodepaths for quicker scene building
-        self._cache_node_paths(self._p3d_node)
+        self._get_node_paths(
+            panda3d.core.NodePath(self._p3d_node), self._node_paths,
+            frozenset((panda3d.core.PandaNode, ))
+            )
 
-    def _cache_node_paths(self, p3d_node):
-        node_path = panda3d.core.NodePath(p3d_node)
-        self._node_paths[p3d_node.name] = node_path
+    def _get_node_paths(self, node_path, collection, types):
+        if type(node_path.node()) in types:
+            collection[node_path.name] = node_path
 
         for child in node_path.getChildren():
-            self._cache_node_paths(child)
+            self._get_node_paths(child, collection, types)
+
+    def get_node_paths(self, types=None):
+        collection = {}
+        if types is None:
+            types = panda3d.core.PandaNode
+        if isinstance(types, type):
+            types = (types, )
+
+        self._get_node_paths(panda3d.core.NodePath(self._p3d_node), collection, types)
+        return collection
 
     @property
     def name(self): return self._name.upper()

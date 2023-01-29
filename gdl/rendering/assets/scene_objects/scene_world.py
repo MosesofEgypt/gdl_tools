@@ -12,14 +12,17 @@ class SceneWorld(SceneObject):
     _scene_item_infos = ()
 
     _coll_grid = None
+    _objects_root_node = None
     _coll_grid_model_node = None
-    _items_root_nodes  = ()
+    _items_root_nodes   = ()
+    _flattened_geometries = ()
 
     _player_count = 4
 
     def __init__(self, **kwargs):
         self._node_world_objects = {}
         self._node_scene_items   = {}
+        self._flattened_geometries = {}
 
         self._coll_grid = kwargs.pop("collision_grid")
         self._scene_item_infos = tuple(kwargs.pop("scene_item_infos", ()))
@@ -30,8 +33,8 @@ class SceneWorld(SceneObject):
 
         super().__init__(**kwargs)
 
-        self._objects_root_node    = panda3d.core.PandaNode("__objects_root")
-        self._coll_grid_model_node = panda3d.core.ModelNode("__coll_grid_model")
+        self._objects_root_node      = panda3d.core.PandaNode("__objects_root")
+        self._coll_grid_model_node   = panda3d.core.ModelNode("__coll_grid_model")
         self._items_root_nodes = {}
         for item_type in (
                 "powerup", "container", "generator", "enemy", "trigger",
@@ -75,6 +78,40 @@ class SceneWorld(SceneObject):
                 else:
                     node_path.show()
 
+    def clean_orphaned_world_objects(self):
+        for node_name, world_scene_objects in self.node_world_objects.items():
+            for object_name, scene_object in world_scene_objects.items():
+                if not scene_object.p3d_node.children:
+                    self.detach_world_object(object_name, node_name)
+
+    def flatten_static_geometries(self, global_tex_anims, flatten_tex_animated=True):
+        # NOTE: this will need to be carefully controlled to prevent
+        #       flattening too much and preventing world animations playing
+        objects_nodepath = panda3d.core.NodePath(self.objects_root_node)
+        #for child in objects_nodepath.findAllMatches('**'):
+        #    if isinstance(child.node(), panda3d.core.GeomNode):
+        #        print(child.node().getNumGeoms(), child)
+
+        objects_nodepath.flatten_strong()
+        self.clean_orphaned_world_objects()
+
+        if flatten_tex_animated:
+            # if we are flattening static objects that use the same global
+            # texture animations, we loop over all geometries bound to each
+            # one, reparent them to a new node under a new node, and then
+            # do a strong flatten on everything
+
+            objects_nodepath.flatten_strong()
+
+        # recache the nodepaths now that everything's been flattened
+        self.cache_node_paths()
+
+        # locate all flattened geometries(they'll have been autonamed
+        # and have more than one geom) and add them to the tracking dict
+        for name, nodepath in self.get_node_paths(panda3d.core.GeomNode).items():
+            if name and nodepath.node().getNumGeoms() > 1:
+                self._flattened_geometries.setdefault(name, []).append(nodepath.node())
+
     def attach_scene_item(self, scene_item):
         item_type = ""
         if   isinstance(scene_item, SceneItemPowerup):      item_type = "powerup"
@@ -105,6 +142,14 @@ class SceneWorld(SceneObject):
         else:
             node_path.show()
 
+    def detach_world_object(self, object_name, node_name=""):
+        node_name = node_name.upper().strip()
+        parent_node_path = self._get_node_path(node_name)
+        if parent_node_path:
+            world_object = self._node_world_objects.get(node_name, {}).pop(object_name, None)
+            if world_object:
+                parent_node_path.node().remove_child(world_object.p3d_node)
+
     def attach_world_object(self, world_object, node_name=""):
         if not isinstance(world_object, SceneWorldObject):
             raise TypeError(f"World object must be of type SceneWorldObject, not {type(world_object)}")
@@ -125,11 +170,26 @@ class SceneWorld(SceneObject):
             for scene_object in world_scene_objects.values():
                 visible = scene_object.set_collision_visible(visible)
 
-    def set_world_geometry_visible(self, visible=None):
+    def set_world_geometry_visible(self, visible=None, include_flattened=True):
         visible = self.set_geometry_visible(visible)
         for world_scene_objects in self.node_world_objects.values():
             for scene_object in world_scene_objects.values():
                 visible = scene_object.set_geometry_visible(visible)
+
+        if include_flattened:
+            self.set_flattened_geometry_visible(visible)
+
+    def set_flattened_geometry_visible(self, visible=None):
+        for geometries in self._flattened_geometries.values():
+            for p3d_geometry in geometries:
+                node_path = panda3d.core.NodePath(p3d_geometry)
+                visible = node_path.isHidden() if visible is None else visible
+
+                if visible:
+                    node_path.show()
+                else:
+                    node_path.hide()
+        return visible
 
     def set_item_collision_visible(self, visible=None):
         for scene_items in self.node_scene_items.values():

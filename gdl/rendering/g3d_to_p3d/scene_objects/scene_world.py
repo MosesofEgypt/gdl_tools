@@ -94,8 +94,8 @@ def generate_collision_grid_model(coll_grid):
 
 def load_scene_world_from_tags(
         *, worlds_tag, objects_tag, textures, anim_tag=None,
-        world_item_actors=(), world_item_objects=(),
-        global_tex_anims=(),
+        world_item_actors=(), world_item_objects=(), global_tex_anims=(),
+        flatten_static=True, flatten_static_tex_anims=True
         ):
     if world_item_actors is None:
         world_item_actors = {}
@@ -129,7 +129,8 @@ def load_scene_world_from_tags(
         scene_world_object = load_scene_world_object_from_tags(
             world_object, textures=textures,
             worlds_tag=worlds_tag, objects_tag=objects_tag,
-            global_tex_anims=global_tex_anims
+            global_tex_anims=global_tex_anims,
+            allow_model_flatten=flatten_static
             )
         collision = load_collision_from_worlds_tag(
             worlds_tag, world_object.name,
@@ -150,10 +151,10 @@ def load_scene_world_from_tags(
 
         scene_world.attach_world_object(scene_world_object, world_object.name)
 
-    # NOTE: this will need to be carefully controlled to prevent
-    #       flattening too much and preventing world animations playing
-    objects_nodepath = NodePath(scene_world.objects_root_node)
-    objects_nodepath.flatten_strong()
+    if flatten_static:
+        scene_world.flatten_static_geometries(
+            global_tex_anims, flatten_static_tex_anims
+            )
 
     scene_world_nodepath = NodePath(scene_world.p3d_node)
     for item_instance in worlds_tag.data.item_instances:

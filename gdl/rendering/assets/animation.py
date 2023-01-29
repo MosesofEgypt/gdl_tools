@@ -88,7 +88,7 @@ class TextureAnimation(Animation):
     _scroll_rate_v = 0
     _fade_rate  = 0
     _fade_start = 0
-    _geometry_binds = ()
+    _binds = ()
     _external_anim = None
     _tex_name = ""
     external = False
@@ -101,7 +101,7 @@ class TextureAnimation(Animation):
         self.fade_start    = kwargs.pop("fade_start",    self.fade_start)
         self.external_anim = kwargs.pop("external_anim", self.external_anim)
         self.external      = kwargs.pop("external",      self.external) or self.external_anim
-        self._geometry_binds = {}
+        self.clear_binds()
         super().__init__(**kwargs)
 
     @property
@@ -147,17 +147,37 @@ class TextureAnimation(Animation):
         self._set_frame_data(frame_data)
 
     @property
-    def binds(self): return tuple(self._geometry_binds.values())
+    def binds(self):
+        return tuple(ref() for ref in self._binds.values())
     def bind(self, geometry):
-        self._geometry_binds[id(geometry)] = weakref.ref(geometry)
+        self._binds[id(geometry)] = weakref.ref(geometry)
     def unbind(self, geometry):
         try:
-            del self._geometry_binds[id(geometry)]
+            del self._binds[id(geometry)]
         except KeyError:
             try:
-                del self._geometry_binds[geometry]
+                del self._binds[geometry]
             except TypeError:
                 pass
+
+    def clear_binds(self):
+        self._binds = {}
+
+    def __eq__(self, other):
+        if self is other:
+            return True
+        elif not isinstance(other, TextureAnimation):
+            return False
+
+        return not sum(
+            getattr(self, name) != getattr(other, name)
+            for name in (
+                "_scroll_rate_u", "_scroll_rate_v",
+                "_fade_rate", "_fade_start",
+                "external", "loop", "reverse", "_tex_name", "_name",
+                "_start_frame", "_frame_rate", "_frame_data"
+                )
+            )
 
     def update(self, frame_time):
         u, v    = self.get_uv(frame_time)
@@ -165,7 +185,7 @@ class TextureAnimation(Animation):
         texture = self.get_frame_data(frame_time) if self.has_swap_animation else None
 
         # iterate as tuple in case we unbind it in the loop
-        for id, geometry_ref in tuple(self._geometry_binds.items()):
+        for id, geometry_ref in tuple(self._binds.items()):
             geometry = geometry_ref()
             if geometry is None:
                 self.unbind(id)
