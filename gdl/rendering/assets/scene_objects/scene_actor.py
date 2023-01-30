@@ -5,6 +5,7 @@ from ..animation import TextureAnimation, ShapeMorphAnimation, ActorAnimation
 
 
 class SceneActor(SceneObject):
+    _dont_cache_root = True
     _p3d_actor = None
     _actor_animations = ()
     _texture_animations = ()

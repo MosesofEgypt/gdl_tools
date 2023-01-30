@@ -134,6 +134,7 @@ class CollisionObjectGrid:
             #       they need to be converted to be relative to the collision objects
             #       position, and then converted back to world when returned
             coll_obj_nodepath = panda3d.core.NodePath(coll_obj.scene_object.p3d_node)
+            # TODO: update this to pass the calculated "up" vector
             px, pz, py = coll_obj_nodepath.getPos(root_nodepath)
 
             # since we're snapping infinitely far vertically, we

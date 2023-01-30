@@ -4,6 +4,7 @@ import panda3d
 class SceneObject:
     _name = ""
 
+    _dont_cache_root = False
     _p3d_node = None
 
     _node_models = ()
@@ -21,18 +22,14 @@ class SceneObject:
         self.cache_node_paths()
 
     def cache_node_paths(self):
-        self._node_paths = {}
         # cache the nodepaths for quicker scene building
-        self._get_node_paths(
-            panda3d.core.NodePath(self._p3d_node), self._node_paths,
-            (panda3d.core.PandaNode, )
-            )
+        self._node_paths = self.get_node_paths()
 
     def _get_node_paths(self, node_path, collection, types):
-        if isinstance(node_path.node(), types):
-            collection.setdefault(node_path.name, node_path)
-
         for child in node_path.getChildren():
+            if isinstance(child.node(), types):
+                collection.setdefault(child.name, child)
+
             self._get_node_paths(child, collection, types)
 
     def get_node_paths(self, types=None):
@@ -42,7 +39,22 @@ class SceneObject:
         if isinstance(types, type):
             types = (types, )
 
-        self._get_node_paths(panda3d.core.NodePath(self._p3d_node), collection, types)
+        # NOTE: this is a bit of a hack. we don't want to cache the
+        #       root node on actors, as it may be the same name as
+        #       one of the nodes within it. Since we're doing a bit
+        #       of a weird thing with caching each node by its name
+        #       instead of its full path. This can lead to instances
+        #       where models become attached to the root node instead
+        #       of a child node inside it. To prevent this, we only
+        #       cache the root node if this is a simple object, such
+        #       as SceneObject or SceneWorldObject. We can also skip
+        #       caching it on SceneWorld since nothing gets attached
+        #       to the root anyway.
+        root_nodepath = panda3d.core.NodePath(self._p3d_node)
+        if not self._dont_cache_root and isinstance(self._p3d_node, types):
+            collection.setdefault(root_nodepath.name, root_nodepath)
+
+        self._get_node_paths(root_nodepath, collection, types)
         return collection
 
     @property

@@ -281,7 +281,7 @@ class SceneWorld(SceneObject):
         else:
             node_path.hide()
 
-    def snap_to_grid(self, nodepath, max_dist=float("inf"), debug=False):
+    def snap_to_grid(self, nodepath, max_dist=float("inf"), debug=True):
         root_nodepath = panda3d.core.NodePath(self.p3d_node)
         x, z, y = nodepath.getPos(root_nodepath)
         new_pos = self._coll_grid.snap_pos_to_grid(
