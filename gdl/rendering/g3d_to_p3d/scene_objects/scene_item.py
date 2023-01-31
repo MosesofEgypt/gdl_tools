@@ -71,6 +71,7 @@ def load_scene_item_from_item_instance(
         flags = { n: bool(flags[n]) for n in flags.NAME_MAP }
         )
 
+    # NOTE: temporary hack
     if isinstance(scene_item, SceneItemGenerator):
         # locate and attach generator objects
         model = None
@@ -90,13 +91,20 @@ def load_scene_item_from_item_instance(
             is_static=False
             ) if instance_name else None
 
+    # NOTE: might be worth keeping scene items root node
+    #       separate to allow moving them in world?
     collision = load_collision_from_worlds_tag(
         worlds_tag, scene_item.name,
         item_instance.coll_tri_index,
         item_instance.coll_tri_count,
         ) if scene_item_info.coll_type == c.COLL_TYPE_OBJECT else None
 
-    if model:     scene_item.attach_model(model, scene_item.name)
-    if collision: scene_item.attach_collision(collision, scene_item.name)
+    if model:
+        scene_item.add_model(model)
+        scene_item.p3d_node.add_child(model.p3d_model)
+
+    if collision:
+        scene_item.add_collision(collision)
+        scene_item.p3d_node.add_child(collision.p3d_collision)
 
     return scene_item

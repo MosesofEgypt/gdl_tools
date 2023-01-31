@@ -1,7 +1,7 @@
 import panda3d
 
 from . import shader
-from . import animation
+#from . import animation
 
 
 class Geometry:
@@ -37,10 +37,10 @@ class Geometry:
     def actor_tex_anim(self): return self._actor_tex_anim
     @actor_tex_anim.setter
     def actor_tex_anim(self, tex_anim):
-        if not isinstance(tex_anim, (type(None), animation.TextureAnimation)):
-            raise TypeError(
-                f"tex_anim must be either None, or of type TextureAnimation, not {type(tex_anim)}"
-                )
+        #if not isinstance(tex_anim, (type(None), animation.TextureAnimation)):
+        #    raise TypeError(
+        #        f"tex_anim must be either None, or of type TextureAnimation, not {type(tex_anim)}"
+        #        )
         self._actor_tex_anim = tex_anim
 
     def clear_shader(self):

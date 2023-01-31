@@ -164,7 +164,8 @@ class SceneItem(SceneObject):
         if coll_shape:
             collision = Collision(name=self.name)
             collision.p3d_collision.add_solid(coll_shape)
-            self.attach_collision(collision, self.name)
+            self.p3d_node.add_child(collision.p3d_collision)
+            self.add_collision(collision)
 
     @property
     def object_name(self):

@@ -177,16 +177,12 @@ class SceneWorld(SceneObject):
         objects_nodepath.flatten_strong()
         self.clean_orphaned_world_objects()
 
-        # recache the nodepaths now that everything's been flattened
-        self.cache_node_paths()
-
         # locate all flattened geometries(they'll have been autonamed
         # and have more than one geom) and add them to the tracking dict
-        for name, nodepath in self.get_node_paths(panda3d.core.GeomNode).items():
-            if name and nodepath.node().getNumGeoms() > 1:
-                self._flattened_static_geometries.setdefault(name, []).append(nodepath.node())
-        #for child in panda3d.core.NodePath(self.p3d_node).findAllMatches('**'):
-        #    print(child, type(child.node()))
+        for child in panda3d.core.NodePath(self.p3d_node).findAllMatches('**'):
+            node = child.node()
+            if isinstance(node, panda3d.core.GeomNode) and node.getNumGeoms() > 1:
+                self._flattened_static_geometries.setdefault(child.name, []).append(node)
 
     def attach_scene_item(self, scene_item):
         item_type = ""

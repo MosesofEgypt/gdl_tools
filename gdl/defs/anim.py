@@ -182,7 +182,7 @@ anode_info = Struct("anode_info",
         "null",
         "skeletal",
         "object",
-        "texture",
+        "texture",  # plays tex_anim on objects below this off the global timer
         "particle_system",
         ),
     Bool16("flags",

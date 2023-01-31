@@ -1,6 +1,6 @@
 import traceback
 
-from panda3d.core import NodePath, PandaNode, LVecBase3f, GeomNode, Geom,\
+from panda3d.core import NodePath, ModelNode, LVecBase3f, GeomNode, Geom,\
      GeomTriangles, GeomVertexFormat, GeomVertexData, GeomVertexWriter
 
 from ...assets.scene_objects.scene_world import SceneWorld
@@ -19,7 +19,7 @@ def _load_nodes_from_worlds_tag(
 
     while child_index >= 0:
         child_obj = world_objects[child_index]
-        child_p3d_node = PandaNode(child_obj.name.upper().strip())
+        child_p3d_node = ModelNode(child_obj.name.upper().strip())
         nodes[child_index] = child_p3d_node
 
         x, y, z = child_obj.pos
@@ -52,9 +52,13 @@ def load_nodes_from_worlds_tag(worlds_tag, root_p3d_node):
 def generate_collision_grid_model(coll_grid):
     tris  = GeomTriangles(Geom.UHDynamic)
     vdata = GeomVertexData('', GeomVertexFormat.getV3c4(), Geom.UHDynamic)
-    # create enough rows to hold every vert we COULD create.
-    # its possible to optimize this, but it's not really necessary
-    vdata.setNumRows((coll_grid.height * 4) * coll_grid.width)
+    vert_count = 0
+    for z in range(coll_grid.height):
+        for x in range(coll_grid.width):
+            if coll_grid.get_collision_cell_at_grid_pos(x, z):
+                vert_count += 4
+
+    vdata.setNumRows(vert_count)
 
     addPosData   = GeomVertexWriter(vdata, 'vertex').addData3f
     addColorData = GeomVertexWriter(vdata, 'color').addData4f
@@ -111,7 +115,7 @@ def load_scene_world_from_tags(
     scene_world = SceneWorld(
         name=world_name, collision_grid=collision_grid,
         )
-    child_nodes = load_nodes_from_worlds_tag(
+    world_nodes = load_nodes_from_worlds_tag(
         worlds_tag, scene_world.static_objects_node
         )
 
@@ -121,7 +125,6 @@ def load_scene_world_from_tags(
         worlds_tag.data.dynamic_grid_objects.world_object_indices
         )
 
-    scene_world.cache_node_paths()
     scene_item_infos = load_scene_item_infos_from_worlds_tag(worlds_tag)
 
     # load the grid for use in debugging
@@ -136,40 +139,40 @@ def load_scene_world_from_tags(
         #       allow determining if the node hierarchy can be flattened.
         # TODO: figure out how collision transforms will need to be handled.
         #       maybe look at world_object.flags.animated???
-        p3d_node = scene_world.get_node_path(world_object.name).node()
+        object_name = world_object.name.upper().strip()
+        p3d_node = world_nodes[i]
         scene_world_object = load_scene_world_object_from_tags(
             world_object, textures=textures,
             worlds_tag=worlds_tag, objects_tag=objects_tag,
             global_tex_anims=global_tex_anims,
             allow_model_flatten=flatten_static,
-            p3d_node=p3d_node
+            p3d_model=p3d_node
             )
         collision = load_collision_from_worlds_tag(
-            worlds_tag, world_object.name,
+            worlds_tag, object_name,
             world_object.coll_tri_index,
             world_object.coll_tri_count,
             )
 
         if collision:
-            if world_object.flags.animated:
-                node_name = scene_world_object.name
-            else:
-                node_name = scene_world.static_collision_node.name
+            parent_node = (p3d_node if world_object.flags.animated
+                           else scene_world.static_collision_node)
 
-            if node_name in dyn_coll_objects:
-                dyn_coll_objects[node_name].scene_object = scene_world_object
-
-            scene_world.attach_collision(collision, node_name)
+            parent_node.add_child(collision.p3d_collision)
+            scene_world.add_collision(collision)
+            if object_name in dyn_coll_objects:
+                dyn_coll_objects[object_name].scene_object = scene_world_object
 
         scene_world.add_world_object(scene_world_object)
 
         # reparent the dynamic object to the dynamic root if it's not already under it
         if i in dyn_obj_indices and dyn_p3d_nodepath.find_path_to(p3d_node).is_empty():
-            child_p3d_nodepath = scene_world.get_node_path(scene_world_object.name)
+            child_p3d_nodepath = NodePath(p3d_node)
             world_pos = child_p3d_nodepath.get_pos(dyn_p3d_nodepath)
             child_p3d_nodepath.reparent_to(dyn_p3d_nodepath)
             child_p3d_nodepath.set_pos(dyn_p3d_nodepath, world_pos)
 
+    # optimize the world by flattening all statics
     if flatten_static:
         scene_world.flatten_static_geometries(
             global_tex_anims, flatten_static_tex_anims

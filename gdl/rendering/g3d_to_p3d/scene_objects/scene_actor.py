@@ -18,6 +18,7 @@ def load_nodes_from_anim_tag(object_name, anim_tag):
     node_map = {}
     for anode_info in anodes:
         node_name = anode_info.mb_desc.upper().strip()
+        # TODO: create different node depending on node_type
         p3d_node = PandaNode(node_name)
         x, y, z = anode_info.init_pos
 
@@ -81,22 +82,26 @@ def load_scene_actor_from_tags(
 
     nodes, node_flags = load_nodes_from_anim_tag(actor_name, anim_tag)
     actor_node.add_child(nodes)
+    # TODO: restructure this to work with models being attached directly
 
     scene_actor = SceneActor(name=actor_name, p3d_node=actor_node)
 
     tex_anims_by_tex_name = {}
+    # reorganize the texture animations
     for anims_by_tex_name in seq_tex_anims.values():
         for tex_name, anim in anims_by_tex_name.items():
             tex_anims_by_tex_name.setdefault(tex_name, []).append(anim)
 
     # load and attach models
     for model_name, node_name in zip(*anim_tag.get_model_node_name_map(actor_name)):
+        # TODO: collect model nodes and pass this one as the p3d_model
+        #       when calling load_model_from_objects_tag
         model = load_model_from_objects_tag(
             objects_tag, model_name, textures,
             global_tex_anims, tex_anims_by_tex_name,
             is_static=False
             )
-        scene_actor.attach_model(model, node_name)
+        scene_actor.add_model(model)
         flags = node_flags.get(node_name, {})
 
         for geometry in model.geometries:

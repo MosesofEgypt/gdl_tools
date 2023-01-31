@@ -4,16 +4,17 @@ from ..model import load_model_from_objects_tag
 
 def load_scene_world_object_from_tags(
         world_object, *, textures, worlds_tag, objects_tag,
-        global_tex_anims=(), allow_model_flatten=True, p3d_node=None
+        global_tex_anims=(), allow_model_flatten=True, p3d_model=None
         ):
-    scene_world_object = SceneWorldObject(
-        name=world_object.name, p3d_node=p3d_node
-        )
-
     model = load_model_from_objects_tag(
-        objects_tag, world_object.name, textures, global_tex_anims,
-        is_static=allow_model_flatten
+        objects_tag, world_object.name, textures,
+        global_tex_anims, is_static=allow_model_flatten,
+        p3d_model=p3d_model
         )
+    scene_world_object = SceneWorldObject(
+        name=world_object.name, p3d_node=model.p3d_model
+        )
+    scene_world_object.add_model(model)
 
     fb_add = False #world_object.flags.unknown
     chrome = False
@@ -29,5 +30,4 @@ def load_scene_world_object_from_tags(
         if shader_updated:
             geom.apply_shader()
 
-    scene_world_object.attach_model(model, scene_world_object.name)
     return scene_world_object

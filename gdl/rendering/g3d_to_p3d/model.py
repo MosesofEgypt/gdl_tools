@@ -69,7 +69,7 @@ def load_geom_from_g3d_model(g3d_model, geom_shader):
 
 def load_model_from_objects_tag(objects_tag, model_name, textures=(),
                                 global_tex_anims=(), seq_tex_anims=(),
-                                is_static=False):
+                                is_static=False, p3d_model=None):
     if not textures:
         textures = {}
 
@@ -101,9 +101,7 @@ def load_model_from_objects_tag(objects_tag, model_name, textures=(),
         datas = tex_names = lm_names = ()
 
     model = Model(
-        name=model_name,
-        p3d_model=ModelNode(model_name),
-        bounding_radius=bnd_rad
+        name=model_name, p3d_model=p3d_model, bounding_radius=bnd_rad
         )
     for data, tex_name, lm_name in zip(datas, tex_names, lm_names):
         g3d_model = G3DModel()

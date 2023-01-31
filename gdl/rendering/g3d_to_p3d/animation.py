@@ -16,6 +16,10 @@ def load_texmods_from_anim_tag(anim_tag, textures):
         if texmod.atree >= 0 and texmod.seq_index >= 0:
             actor_name = ""
             seq_name   = ""
+            # TODO: redo this to allow seq_index to be empty. this can happen
+            #       on texmods that play through a "texture" node on the actor.
+            #       these seem to be animations that play off the global timer,
+            #       but aren't tied to any actor animation in particular.
             if texmod.atree in range(len(atrees)):
                 atree      = atrees[texmod.atree]
                 sequences  = atree.atree_header.atree_data.atree_sequences
