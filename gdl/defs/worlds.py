@@ -309,7 +309,7 @@ world_object = Struct("world_object",
         # flag5: set on slanted walkable surfaces(walkable slope?)
         # flag6: same as flag4
         # flag9: same as flag4
-        # flag11: set on invisible sconce fire(trigger collision/particle death plane?)
+        # flag11: set on invisible sconce fire(particle system flag?)
         # flag12: parent-relative position(possibly for animation?)
         # flag13: same as flag12
         # flag14: same as flag4
@@ -325,7 +325,8 @@ world_object = Struct("world_object",
         # flag26: same as flag4
         # flag29: same as flag4
         # flag30: same as flag4
-        *((f"unknown{i}", 1<<i) for i in range(12)),
+        *((f"unknown{i}", 1<<i) for i in range(11)),
+        ("particle_system", 1<<11),
         ("animated", 1<<12),
         *((f"unknown{i}", 1<<i) for i in range(13,32))
         ),

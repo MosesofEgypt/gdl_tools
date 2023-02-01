@@ -408,7 +408,8 @@ class Scene(ShowBase):
         anim_tag          = objects_data.get("anim_tag")
         objects_tag       = objects_data.get("objects_tag")
         textures_filepath = objects_data.get("textures_filepath")
-        atree_tex_anims   = texture_anims.get("atree_anims", {})
+        actor_tex_anims   = texture_anims.get("actor_anims", {})
+        seq_tex_anims     = texture_anims.get("seq_anims", {})
         global_tex_anims  = texture_anims.get("global_anims", {})
         if not objects_tag:
             return {}, {}
@@ -428,15 +429,18 @@ class Scene(ShowBase):
                 scene_actor = load_scene_actor_from_tags(
                     actor_name, anim_tag=anim_tag,
                     textures=textures, objects_tag=objects_tag,
-                    global_tex_anims=global_tex_anims,
-                    seq_tex_anims=atree_tex_anims.get(actor_name, {}),
+                    global_tex_anims={
+                        **global_tex_anims,
+                        **actor_tex_anims.get(actor_name, {})
+                        },
+                    seq_tex_anims=seq_tex_anims.get(actor_name, {}),
                     )
                 self.add_scene_actor(set_name, scene_actor)
 
             scene_actors.append(scene_actor)
             # remove all object names that will be rendered in an actor
             # TODO: implement removing all objets included in animations
-            for model_name in anim_tag.get_model_node_name_map(actor_name)[0]:
+            for model_name in scene_actor.node_models:
                 if model_name in object_names:
                     object_names.remove(model_name)
 
@@ -473,7 +477,6 @@ class Scene(ShowBase):
         objects_tag       = objects_data.get("objects_tag")
         worlds_tag        = objects_data.get("worlds_tag")
         textures_filepath = objects_data.get("textures_filepath")
-        atree_tex_anims   = texture_anims.get("atree_anims", {})
         global_tex_anims  = texture_anims.get("global_anims", {})
         if not worlds_tag:
             return None

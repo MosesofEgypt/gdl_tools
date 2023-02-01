@@ -94,9 +94,13 @@ class LegendViewer(Scene):
 
         # TODO: replace this with a proper animation handler
         if not self._animation_timer_paused:
-            for set_name, anim_set in self._cached_resource_texture_anims.items():
-                for anim_name, global_anim in anim_set.get("global_anims", {}).items():
+            for set_name, resource_set in self._cached_resource_texture_anims.items():
+                for anim_name, global_anim in resource_set.get("global_anims", {}).items():
                     global_anim.update(self._animation_timer)
+
+                for actor_name, anim_set in resource_set.get("actor_anims", {}).items():
+                    for anim_name, actor_anim in anim_set.items():
+                        actor_anim.update(self._animation_timer)
 
         self._prev_animation_timer = task.time
         return direct.task.Task.cont

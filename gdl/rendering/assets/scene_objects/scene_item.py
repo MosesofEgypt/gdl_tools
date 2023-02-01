@@ -130,7 +130,7 @@ class SceneItem(SceneObject):
         params    = kwargs.pop("params", {})
 
         self._min_players = kwargs.pop("min_players", self._min_players)
-        self._flags        = dict(kwargs.pop("flags", self._flags))
+        self._flags       = dict(kwargs.pop("flags", self._flags))
 
         super().__init__(**kwargs)
         # TODO: initialize self using item_info and params

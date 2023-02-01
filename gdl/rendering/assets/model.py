@@ -1,7 +1,6 @@
 import panda3d
 
 from . import shader
-#from . import animation
 
 
 class Geometry:
@@ -37,10 +36,6 @@ class Geometry:
     def actor_tex_anim(self): return self._actor_tex_anim
     @actor_tex_anim.setter
     def actor_tex_anim(self, tex_anim):
-        #if not isinstance(tex_anim, (type(None), animation.TextureAnimation)):
-        #    raise TypeError(
-        #        f"tex_anim must be either None, or of type TextureAnimation, not {type(tex_anim)}"
-        #        )
         self._actor_tex_anim = tex_anim
 
     def clear_shader(self):
@@ -55,6 +50,40 @@ class Geometry:
         self.shader.apply(panda3d.core.NodePath(self.p3d_geometry))
 
 
+class MultiGeometry(Geometry):
+    _p3d_geometries = ()
+
+    def __init__(self, **kwargs):
+        p3d_geometries = kwargs.pop("p3d_geometries", ())
+        self._p3d_geometries = dict()
+
+        super().__init__(**kwargs)
+
+        for p3d_geometry in p3d_geometries:
+            self.add_p3d_geometry(p3d_geometry)
+
+    @property
+    def p3d_geometries(self): return tuple(self._p3d_geometries.values())
+
+    def add_p3d_geometry(self, p3d_geometry):
+        if not isinstance(p3d_geometry, panda3d.core.GeomNode):
+            raise TypeError(
+                f"p3d_geometry must be of type panda3d.core.GeomNode, not {type(p3d_geometry)}"
+                )
+        self._p3d_geometries[id(p3d_geometry)] = p3d_geometry
+        for geom in p3d_geometry.get_geoms():
+            self.p3d_node.add_child(geom)
+
+    def remove_p3d_geometry(self, p3d_geometry):
+        if not isinstance(p3d_geometry, panda3d.core.GeomNode):
+            raise TypeError(
+                f"p3d_geometry must be of type panda3d.core.GeomNode, not {type(p3d_geometry)}"
+                )
+        self._p3d_geometries.pop(id(p3d_geometry), None)
+        for geom in p3d_geometry.get_geoms():
+            self.p3d_node.add_child(geom)
+
+
 class Model:
     _name = ""
     _geometries = ()
@@ -62,7 +91,7 @@ class Model:
     _p3d_model = None
 
     def __init__(self, **kwargs):
-        self._name       = kwargs.pop("name", self._name)
+        self._name       = kwargs.pop("name", self._name).upper().strip()
         self._p3d_model  = kwargs.pop("p3d_model", self._p3d_model)
         self._bound_rad  = kwargs.pop("bounding_radius", self._bound_rad)
         self._geometries = {}
@@ -84,7 +113,7 @@ class Model:
         self.p3d_model.addChild(geometry.p3d_geometry)
 
     @property
-    def name(self): return self._name.upper()
+    def name(self): return self._name
 
     @property
     def p3d_model(self):

@@ -8,7 +8,7 @@ class Collision:
     _p3d_collision = None
 
     def __init__(self, **kwargs):
-        self._name          = kwargs.pop("name", self._name)
+        self._name          = kwargs.pop("name", self._name).upper().strip()
         self._p3d_collision = kwargs.pop("p3d_collision", self._p3d_collision)
 
         if self._p3d_collision is None:
@@ -24,7 +24,7 @@ class Collision:
         return self._p3d_collision
 
     @property
-    def name(self): return self._name.upper()
+    def name(self): return self._name
 
 
 class CollisionObject:

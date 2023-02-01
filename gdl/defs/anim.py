@@ -183,7 +183,7 @@ anode_info = Struct("anode_info",
         "skeletal",
         "object",
         "texture",  # plays tex_anim on objects below this off the global timer
-        "particle_system",
+        "particle_system", # how tf do you determine what psys to attach?
         ),
     Bool16("flags",
         "no_object_def" # seems to indicate that there is no object def to locate for this node

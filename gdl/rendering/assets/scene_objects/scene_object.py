@@ -1,6 +1,7 @@
 import panda3d
 from ..model import Model
 from ..collision import Collision
+from ..particle_system import ParticleSystem
 
 
 class SceneObject:
@@ -11,6 +12,7 @@ class SceneObject:
 
     _node_models = ()
     _node_collision = ()
+    _node_particle_systems = ()
     
     def __init__(self, **kwargs):
         self._name = kwargs.pop("name", self._name)
@@ -20,6 +22,7 @@ class SceneObject:
 
         self._node_models = {}
         self._node_collision = {}
+        self._node_particle_systems = {}
 
     @property
     def name(self): return self._name.upper()
@@ -29,6 +32,8 @@ class SceneObject:
     def node_models(self): return {k: dict(v) for k, v in self._node_models.items()}
     @property
     def node_collision(self): return {k: dict(v) for k, v in self._node_collision.items()}
+    @property
+    def node_particle_systems(self): return {k: dict(v) for k, v in self._node_particle_systems.items()}
 
     def add_model(self, model):
         if not isinstance(model, Model):
@@ -45,6 +50,14 @@ class SceneObject:
         # TODO: simplify this(multiple collision per name not possible?)
         node_collection = self._node_collision.setdefault(collision.name, dict())
         node_collection[collision.name] = collision
+
+    def add_particle_system(self, particle_system):
+        if not isinstance(particle_system, ParticleSystem):
+            raise TypeError(f"particle_system must be of type ParticleSystem, not {type(particle_system)}")
+
+        # TODO: simplify this(multiple collision per name not possible?)
+        node_collection = self._node_particle_systems.setdefault(particle_system.name, dict())
+        node_collection[particle_system.name] = particle_system
 
     def set_collision_visible(self, visible=None):
         for group in self.node_collision.values():

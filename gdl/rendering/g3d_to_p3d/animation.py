@@ -6,36 +6,31 @@ from ..assets.animation import TextureAnimation
 
 
 def load_texmods_from_anim_tag(anim_tag, textures):
-    atree_tex_anims  = {}
+    seq_tex_anims    = {}
+    actor_tex_anims  = {}
     global_tex_anims = {}
     atrees = anim_tag.data.atrees
 
     for i, texmod in enumerate(anim_tag.data.texmods):
         reverse = False
         loop    = True
-        if texmod.atree >= 0 and texmod.seq_index >= 0:
-            actor_name = ""
-            seq_name   = ""
-            # TODO: redo this to allow seq_index to be empty. this can happen
-            #       on texmods that play through a "texture" node on the actor.
-            #       these seem to be animations that play off the global timer,
-            #       but aren't tied to any actor animation in particular.
-            if texmod.atree in range(len(atrees)):
-                atree      = atrees[texmod.atree]
-                sequences  = atree.atree_header.atree_data.atree_sequences
-                actor_name = atree.name.upper().strip()
-                if texmod.seq_index in range(len(sequences)):
-                    sequence = sequences[texmod.seq_index]
-                    seq_name = sequence.name.upper().strip()
-                    reverse  = bool(sequence.flags.play_reversed)
-                    loop     = bool(sequence.repeat.data)
-
-            tex_anims = atree_tex_anims.setdefault(actor_name, {}).setdefault(seq_name, {})
-            anim_name = seq_name
+        if texmod.atree in range(len(atrees)):
+            atree      = atrees[texmod.atree]
+            sequences  = atree.atree_header.atree_data.atree_sequences
+            actor_name = atree.name.upper().strip()
+            anim_name  = ""
+            if texmod.seq_index in range(len(sequences)):
+                sequence  = sequences[texmod.seq_index]
+                anim_name = sequence.name.upper().strip()
+                reverse   = bool(sequence.flags.play_reversed)
+                loop      = bool(sequence.repeat.data)
+                tex_anims = seq_tex_anims.setdefault(actor_name, {}).setdefault(anim_name, {})
+            else:
+                tex_anims = actor_tex_anims.setdefault(actor_name, {})
         else:
             tex_anims = global_tex_anims
             anim_name = ""
-            
+
         tex_anim = tex_anims.setdefault(texmod.name, TextureAnimation(
             name=anim_name, tex_name=texmod.name, loop=loop, reverse=reverse
             ))
@@ -78,6 +73,7 @@ def load_texmods_from_anim_tag(anim_tag, textures):
             tex_anim.frame_data  = texture_frames
 
     return dict(
-        atree_anims=atree_tex_anims,
+        actor_anims=actor_tex_anims,
+        seq_anims=seq_tex_anims,
         global_anims=global_tex_anims
         )
