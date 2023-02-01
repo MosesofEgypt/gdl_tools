@@ -127,6 +127,4 @@ def load_scene_actor_from_tags(
         for anim in anims:
             scene_actor.add_texture_animation(anim)
 
-    if actor_name == "STARTFX":
-        print(global_tex_anims["CHARWARP"].binds)
     return scene_actor
