@@ -85,11 +85,13 @@ def load_scene_item_from_item_instance(
             for name in names
             )
         scene_item.generator_objects = generator_objects
-    else:
+    elif instance_name:
         model = load_model_from_objects_tag(
-            objects_tag, instance_name, textures,
-            is_static=False
-            ) if instance_name else None
+            objects_tag, instance_name, textures, is_static=False
+            )
+        if model:
+            scene_item.add_model(model)
+            scene_item.p3d_node.add_child(model.p3d_model)
 
     # NOTE: might be worth keeping scene items root node
     #       separate to allow moving them in world?
@@ -98,10 +100,6 @@ def load_scene_item_from_item_instance(
         item_instance.coll_tri_index,
         item_instance.coll_tri_count,
         ) if scene_item_info.coll_type == c.COLL_TYPE_OBJECT else None
-
-    if model:
-        scene_item.add_model(model)
-        scene_item.p3d_node.add_child(model.p3d_model)
 
     if collision:
         scene_item.add_collision(collision)

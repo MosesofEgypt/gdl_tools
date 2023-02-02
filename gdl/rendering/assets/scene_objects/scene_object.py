@@ -7,7 +7,6 @@ from ..particle_system import ParticleSystem
 class SceneObject:
     _name = ""
 
-    _dont_cache_root = False
     _p3d_node = None
 
     _node_models = ()

@@ -7,8 +7,44 @@ from . import texture
 
 class Animation:
     _name = "UNNAMED"
-
-    loop = False
+    # these are the animations bound to each item type:
+    #       generator enemies:
+    #           ACTIVE ATTACK1 ATTACK1R ATTACK2 ATTACK2R ATTACK3 ATTACK3R
+    #           ATTTOREADY EXPLODE GETUP HIT1 HIT2
+    #           READY READYTOWALK RUN RUNATTACK1 RUNATTACK2 START
+    #           THROW1 THROW2 THROWF WALK WALKTOREADY
+    #       gargoyles:
+    #           ACTIVE BITE CLAW DEATH FIRE
+    #           FLY HIT1 HOVER IDLE INIT JUMP2FLY LAND
+    #           LEFT READY RIGHT ROAR START WALK
+    #       generals:
+    #           ATTACK1 ATTACK2 ATTACK3 BLOCK CHARGE CHARGEATK
+    #           DEATH GETUP HIT1 HIT2 HIT3 INIT READY START WALK
+    #       gates found in level items:
+    #           ACTIV CLOSE OPEN
+    #       chests found in level items(including explosion):
+    #           ACTIVE CLOSED OPEN
+    #       all barrel animations:
+    #           ACTIVE DONE IDLE
+    #       exit portal's animations:
+    #           ACTIVE1 ACTIVE2 ACTIVE3 IDLE READY
+    #       pojo's animations:
+    #           ATTACK ATTPWR DEATH HIT READY RUN
+    #       phoenix familiar's animations:
+    #           ATTACK READY
+    #       wizard ghost's animations:
+    #           READY
+    #       sawblade in LEVELD items:
+    #           OBC (along with other trap animations)
+    #       sumner in LEVELL items:
+    #           GESTLEFT GESTRIGHT GOAWAY
+    #           READING READY THINKING WELCOME
+    #       most items otherwise just have the following animation:
+    #           ACTIVE
+    #       ignoring bosses and players, these are the animation
+    #       names found across the remaining files:
+    #           ACTIVE OFF ON OFFA ONA ONB ON2
+    loop    = False
     reverse = False
 
     _frame_data = ()

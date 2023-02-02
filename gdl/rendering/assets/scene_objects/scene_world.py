@@ -60,7 +60,7 @@ class SceneWorld(SceneObject):
         self.p3d_node.add_child(self._dynamic_objects_node)
         self.p3d_node.add_child(self._coll_grid_model_node)
 
-        self._static_collision_node.setPreserveTransform(
+        self._static_collision_node.set_preserve_transform(
             panda3d.core.ModelNode.PT_no_touch
             )
 
@@ -154,7 +154,7 @@ class SceneWorld(SceneObject):
                     # right after flattening, update the preserve to not be touched
                     # by the flatten we're gonna run after. without this, something
                     # in the way animated textures work breaks, and they dont swap.
-                    model_nodepath.node().setPreserveTransform(
+                    model_nodepath.node().set_preserve_transform(
                         panda3d.core.ModelNode.PT_no_touch
                         )
 

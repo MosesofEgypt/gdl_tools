@@ -72,6 +72,7 @@ class LegendViewer(Scene):
         self.accept("arrow_right",    setattr, [self, "_cycle_subview_right", 1])
         self.accept("arrow_right-up", setattr, [self, "_cycle_subview_right", 0])
         self.accept("space",          setattr, [self, "_animation_timer_toggle", True])
+        self.accept("backspace",      setattr, [self, "_animation_timer", 0.0])
 
         self.accept("tab", self.cycle_scene_type, [1])
 
