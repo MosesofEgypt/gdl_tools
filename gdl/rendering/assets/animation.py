@@ -34,16 +34,18 @@ class Animation:
     #           ATTACK READY
     #       wizard ghost's animations:
     #           READY
+    #       triggers:
+    #           OFF OFFA ON ONA
+    #       traps:
+    #           OFF OFFA ON ONA ONB
     #       sawblade in LEVELD items:
-    #           OBC (along with other trap animations)
+    #           OFF OFFA ON ONA ONB OBC ON2
     #       sumner in LEVELL items:
     #           GESTLEFT GESTRIGHT GOAWAY
     #           READING READY THINKING WELCOME
-    #       most items otherwise just have the following animation:
+    #       most items just have the following animation(including destroyed traps):
     #           ACTIVE
-    #       ignoring bosses and players, these are the animation
-    #       names found across the remaining files:
-    #           ACTIVE OFF ON OFFA ONA ONB ON2
+    #       TODO: list player and boss animations
     loop    = False
     reverse = False
 

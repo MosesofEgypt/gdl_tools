@@ -38,12 +38,12 @@ class Scene(ShowBase):
 
     _scene_type = SCENE_TYPE_WORLD
 
-    _curr_scene_world_name      = ""
-    _curr_scene_actor_set_name  = ""
-    _curr_scene_object_set_name = ""
+    _curr_world_name      = ""
+    _curr_actor_set_name  = ""
+    _curr_object_set_name = ""
 
-    _curr_scene_actor_name   = ""
-    _curr_scene_object_name  = ""
+    _curr_actor_name   = ""
+    _curr_object_name  = ""
 
     _ambient_light_intensity = 1
     _ambient_light_levels = 5
@@ -112,18 +112,31 @@ class Scene(ShowBase):
         self.adjust_ambient_light(0)
 
     @property
+    def scene_type(self): return self._scene_type
+    @property
+    def curr_world_name(self):return self._curr_world_name
+    @property
+    def curr_actor_name(self): return self._curr_actor_name
+    @property
+    def curr_actor_set_name(self): return self._curr_actor_set_name
+    @property
+    def curr_object_name(self): return self._curr_object_name
+    @property
+    def curr_object_set_name(self): return self._curr_object_set_name
+
+    @property
     def active_world(self):
-        return self._scene_worlds.get(self._curr_scene_world_name)
+        return self._scene_worlds.get(self.curr_world_name)
 
     @property
     def active_actor(self):
-        return self._scene_actors.get(self._curr_scene_actor_set_name, {})\
-               .get(self._curr_scene_actor_name)
+        return self._scene_actors.get(self.curr_actor_set_name, {})\
+               .get(self.curr_actor_name)
 
     @property
     def active_object(self):
-        return self._scene_objects.get(self._curr_scene_object_set_name, {})\
-               .get(self._curr_scene_object_name)
+        return self._scene_objects.get(self.curr_object_set_name, {})\
+               .get(self.curr_object_name)
 
     def adjust_fov(self, angle, delta=True):
         lens = self.camNode.getLens(0)
@@ -173,48 +186,48 @@ class Scene(ShowBase):
         if not self._scene_worlds:
             return
 
-        curr_scene_world = self.active_world
+        curr_world = self.active_world
         next_scene_world = self._scene_worlds.get(world_name)
-        if curr_scene_world:
-            self._world_root_node.remove_child(curr_scene_world.p3d_node)
+        if curr_world:
+            self._world_root_node.remove_child(curr_world.p3d_node)
 
         if next_scene_world:
             self._world_root_node.add_child(next_scene_world.p3d_node)
             NodePath(next_scene_world.p3d_node).show()
 
-        self._curr_scene_world_name = world_name
+        self._curr_world_name = world_name
 
     def switch_actor(self, set_name, actor_name):
         if not self._scene_actors:
             return
 
-        curr_scene_actor = self.active_actor
+        curr_actor = self.active_actor
         next_scene_actor = self._scene_actors.get(set_name, {}).get(actor_name)
-        if curr_scene_actor:
-            self._actor_root_node.remove_child(curr_scene_actor.p3d_node)
+        if curr_actor:
+            self._actor_root_node.remove_child(curr_actor.p3d_node)
 
         if next_scene_actor:
             self._actor_root_node.add_child(next_scene_actor.p3d_node)
             NodePath(next_scene_actor.p3d_node).show()
 
-        self._curr_scene_actor_name = actor_name
-        self._curr_scene_actor_set_name = set_name
+        self._curr_actor_name = actor_name
+        self._curr_actor_set_name = set_name
 
     def switch_object(self, set_name, object_name):
         if not self._scene_objects:
             return
 
-        curr_scene_object = self.active_object
+        curr_object = self.active_object
         next_scene_object = self._scene_objects.get(set_name, {}).get(object_name)
-        if curr_scene_object:
-            self._object_root_node.remove_child(curr_scene_object.p3d_node)
+        if curr_object:
+            self._object_root_node.remove_child(curr_object.p3d_node)
 
         if next_scene_object:
             self._object_root_node.add_child(next_scene_object.p3d_node)
             NodePath(next_scene_object.p3d_node).show()
 
-        self._curr_scene_object_name = object_name
-        self._curr_scene_object_set_name = set_name
+        self._curr_object_name = object_name
+        self._curr_object_set_name = set_name
 
     def switch_scene_type(self, scene_type):
         if scene_type not in (

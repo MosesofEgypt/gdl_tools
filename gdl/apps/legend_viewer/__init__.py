@@ -1,0 +1,178 @@
+import traceback
+import direct
+import os
+
+import tkinter.filedialog
+
+from .main_window import MainWindow
+from ...rendering.scene import Scene
+from .hotkey_menu_binder import HotkeyMenuBinder
+from panda3d.core import WindowProperties
+
+class LegendViewer(Scene, HotkeyMenuBinder):
+    # cycle at the rate the game is hardcoded to animate at
+    CYCLE_SUBVIEW_RATE     = 1/30
+    CYCLE_SUBVIEW_MIN_TIME = 0.75
+
+    _animation_timer_paused = False
+    _animation_timer = 0
+    _prev_animation_timer = 0
+    _update_task_timer = 0
+    _cycle_subview_timer = 0
+    _cycle_subview_left  = 0
+    _cycle_subview_right = 0
+
+    main_window = None
+
+    _hotkey_menu_binds = [
+        dict(key="-",           func="self.adjust_fov", args=[-5]),
+        dict(key="=",           func="self.adjust_fov", args=[5]),
+        dict(key="tab",         func="self.cycle_scene_type", args=[1]),
+        dict(key="arrow_up",    func="self.cycle_scene_view", args=[1]),
+        dict(key="arrow_down",  func="self.cycle_scene_view", args=[-1]),
+        ]
+
+    def __init__(self):
+        super().__init__(windowType='none')
+        self.main_window = MainWindow(scene=self)
+
+        self.startTk()
+
+        props = WindowProperties()
+        props.setParentWindow(self.main_window.winfo_id())
+        props.setSize(1, 1)  # will be overridden by resize below
+        self.openDefaultWindow(props=props)
+        self.main_window.resize(None) # force screen refresh and size update
+
+        for key, func, args in [
+                ("arrow_left",     "setattr", [self, "_cycle_subview_left", -1]),
+                ("arrow_left-up",  "setattr", [self, "_cycle_subview_left",  0]),
+                ("arrow_right",    "setattr", [self, "_cycle_subview_right", 1]),
+                ("arrow_right-up", "setattr", [self, "_cycle_subview_right", 0]),
+                ]:
+            self._hotkey_menu_binds.append(dict(key=key, func=func, args=args))
+
+        self.bind_hotkeys(self)
+
+        self.cycle_scene_type()
+        self.taskMgr.add(self.update_task, 'LegendViewer::update_task')
+        self.taskMgr.add(self.shader_main_loop, 'main_loop::shader_update')
+
+    def shader_main_loop(self, task):
+        # TODO: replace this with a proper animation handler
+        if not self._animation_timer_paused:
+            self._animation_timer += task.time - self._prev_animation_timer
+            for set_name, resource_set in self._cached_resource_texture_anims.items():
+                for anim_name, global_anim in resource_set.get("global_anims", {}).items():
+                    global_anim.update(self._animation_timer)
+
+                for actor_name, anim_set in resource_set.get("actor_anims", {}).items():
+                    for anim_name, actor_anim in anim_set.items():
+                        actor_anim.update(self._animation_timer)
+
+        self._prev_animation_timer = task.time
+        return direct.task.Task.cont
+
+    def toggleFpsCounter(self):
+        self.setFrameRateMeter(not self.frameRateMeter)
+
+    def toggleAnimations(self):
+        self._animation_timer_paused = not self._animation_timer_paused
+
+    def resetAnimationTimer(self):
+        self._animation_timer = 0.0
+
+    def update_task(self, task):
+        delta_t = task.time - self._update_task_timer
+
+        if self._cycle_subview_left or self._cycle_subview_right:
+            cycle_time = self._cycle_subview_timer - self.CYCLE_SUBVIEW_MIN_TIME
+
+            if self._cycle_subview_timer == 0 or cycle_time >= self.CYCLE_SUBVIEW_RATE:
+                self.switch_scene_subview(self._cycle_subview_left + self._cycle_subview_right)
+                self._cycle_subview_timer -= self.CYCLE_SUBVIEW_RATE
+
+            self._cycle_subview_timer += delta_t
+        else:
+            self._cycle_subview_timer = 0
+
+        self._update_task_timer = task.time
+        return direct.task.Task.cont
+
+    def cycle_scene_type(self, increment=0):
+        self.switch_scene_type((self._scene_type + increment) % 3)
+
+    def switch_scene_type(self, scene_type):
+        super().switch_scene_type(scene_type)
+        self.main_window.update_title()
+
+    def cycle_scene_view(self, increment=0):
+        if self._scene_type == self.SCENE_TYPE_WORLD:
+            curr_set_name = self.curr_world_name
+            set_names = tuple(sorted(self._scene_worlds))
+        elif self._scene_type == self.SCENE_TYPE_ACTOR:
+            curr_set_name = self.curr_actor_set_name
+            set_names = tuple(sorted(self._scene_actors))
+        elif self._scene_type == self.SCENE_TYPE_OBJECT:
+            curr_set_name = self.curr_object_set_name
+            set_names = tuple(sorted(self._scene_objects))
+        else:
+            return
+
+        set_name = ""
+        if set_names:
+            try:
+                name_index = increment + set_names.index(curr_set_name)
+            except ValueError:
+                name_index = increment
+            set_name = set_names[name_index % len(set_names)]
+
+        if self._scene_type == self.SCENE_TYPE_WORLD:
+            self.switch_world(set_name)
+            self.switch_scene_subview()
+        elif self._scene_type == self.SCENE_TYPE_ACTOR:
+            self.switch_actor(set_name, self.curr_actor_name)
+            self.switch_scene_subview()
+        elif self._scene_type == self.SCENE_TYPE_OBJECT:
+            self.switch_object(set_name, self.curr_object_name)
+            self.switch_scene_subview()
+        else:
+            return
+
+    def switch_scene_subview(self, increment=0):
+        if self.scene_type == self.SCENE_TYPE_WORLD:
+            # TODO: implement switching between camera points
+            curr_name = self.curr_world_name
+            names = tuple(sorted(self._scene_worlds))
+        elif self.scene_type == self.SCENE_TYPE_ACTOR:
+            curr_name = self.curr_actor_name
+            names = tuple(sorted(self._scene_actors.get(
+                self.curr_actor_set_name, {}
+                )))
+        elif self.scene_type == self.SCENE_TYPE_OBJECT:
+            curr_name = self.curr_object_name
+            names = tuple(sorted(self._scene_objects.get(
+                self.curr_object_set_name, {}
+                )))
+        else:
+            return
+
+        name = ""
+        if names:
+            name_index = increment
+            try:
+                name_index = increment + names.index(curr_name)
+            except ValueError:
+                name_index = increment
+            name = names[name_index % len(names)]
+
+        if self.scene_type == self.SCENE_TYPE_WORLD:
+            self.switch_world(name)
+        elif self.scene_type == self.SCENE_TYPE_ACTOR:
+            self.switch_actor(self.curr_actor_set_name, name)
+        elif self.scene_type == self.SCENE_TYPE_OBJECT:
+            self.switch_object(self.curr_object_set_name, name)
+        else:
+            return
+
+        self.main_window.update_title()

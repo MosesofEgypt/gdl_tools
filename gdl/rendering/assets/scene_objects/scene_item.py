@@ -121,7 +121,8 @@ class SceneItemInfo:
 
 
 class SceneItem(SceneObject):
-    _scene_object  = None
+    _copy_object  = True
+    _scene_object = None
     _min_players  = 0
     _flags = ()
 
@@ -137,6 +138,7 @@ class SceneItem(SceneObject):
 
         self.scene_object  = kwargs.pop("scene_object", self.scene_object)
         coll_shape = None
+        # TODO: copy self.scene_object if self._copy_object is True
 
         cx, cz, cy = item_info.coll_offset
         if item_info.coll_type == c.COLL_TYPE_CYLINDER:
@@ -209,6 +211,7 @@ class SceneItem(SceneObject):
 
 
 class SceneItemRandom(SceneItem):
+    _copy_object  = False
     _item_indices = ()
 
     def __init__(self, **kwargs):
@@ -251,10 +254,11 @@ class SceneItemEnemy(SceneItem):
 
 
 class SceneItemGenerator(SceneItem):
-    _strength   = 0
-    ai_type     = 0
-    max_enemies = 0
-    interval    = 0.0
+    _copy_object = False
+    _strength    = 0
+    ai_type      = 0
+    max_enemies  = 0
+    interval     = 0.0
 
     _generator_objects = ()
 
@@ -302,6 +306,7 @@ class SceneItemExit(SceneItem):
 
 
 class SceneItemTeleporter(SceneItem):
+    _copy_object  = False
     id      = -1
     dest_id = -1
 
@@ -313,6 +318,7 @@ class SceneItemRotator(SceneItem):
 
 
 class SceneItemSound(SceneItem):
+    _copy_object = False
     radius     = 0.0
     music_area = 0.0
     fade       = 0.0
@@ -320,11 +326,13 @@ class SceneItemSound(SceneItem):
 
 
 class SceneItemObstacle(SceneItem):
+    _copy_object = False
     subtype  = c.OBSTACLE_TYPE_NONE
     strength = 0.0
 
 
 class SceneItemPowerup(SceneItem):
+    _copy_object = False
     value = 0.0
 
 

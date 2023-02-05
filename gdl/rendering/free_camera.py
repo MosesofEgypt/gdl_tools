@@ -78,15 +78,17 @@ class FreeCamera(direct.showbase.DirectObject.DirectObject):
         self._camera.setR(self._camera, self._camera.getR(self._camera) + delta_r)
 
     def update_camera_task(self, task):
-        if self._show_base.win.getProperties().getForeground() and self._enabled and self._active:
-            try:
-                self.update_camera(task.time - self._time)
-            except Exception:
-                print(traceback.format_exc())
-        else:
-            mouse_pointer = self._show_base.win.getPointer(0)
-            self._center_x = mouse_pointer.getX()
-            self._center_y = mouse_pointer.getY()
+        win = self._show_base.win
+        if win:
+            if win.getProperties().getForeground() and self._enabled and self._active:
+                try:
+                    self.update_camera(task.time - self._time)
+                except Exception:
+                    print(traceback.format_exc())
+            else:
+                mouse_pointer = self._show_base.win.getPointer(0)
+                self._center_x = mouse_pointer.getX()
+                self._center_y = mouse_pointer.getY()
 
         self._time = task.time
         return direct.task.Task.cont
