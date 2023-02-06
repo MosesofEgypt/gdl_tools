@@ -7,6 +7,8 @@ from .hotkey_menu_binder import HotkeyMenuBinder
 class AnimationControlsWindow(tk.Toplevel, HotkeyMenuBinder):
     scene = None
     _hotkey_menu_binds = (
+        dict(key="space",     name="Play/pause animations", func="self.scene.toggle_animations"),
+        dict(key="backspace", name="Reset animations",      func="self.scene.reset_animation_timer"),
         )
 
     def __init__(self, parent, *args, **kwargs):
@@ -18,6 +20,21 @@ class AnimationControlsWindow(tk.Toplevel, HotkeyMenuBinder):
         self.bind_hotkeys(self.scene)
         self.generate_menu()
         self.transient(self.master)
+
+        # things to implement:
+        #   segmentation by animation location:
+        #       separate section for world animations
+        #       separate section for actor animations
+        #       separate section for item animations
+        #   ability to play default animations everywhere applicable
+        #   ability to clear animations being played
+        #   ability to queue animation to play
+        #   ability to specify loop/reverse/framerate override while queueing
+        #   ability to specify end state(loop/rewind to start/stop on last frame)
+        #   button to process queue
+        #   animation handler object for each resource set
+        #   main loop that will start animation playing in handlers, and
+        #       will remove them when user selects a different animation
 
     def toggle_visible(self):
         self.geometry('350x200+%d+%d' % (self.master.winfo_x(),
