@@ -8,7 +8,7 @@ from .scene_controls import SceneControlsWindow
 from .animation_controls import AnimationControlsWindow
 from .hotkey_menu_binder import HotkeyMenuBinder
 
-__version__ = (0, 1, 0)
+__version__ = (0, 1, 1)
 
 class MainWindow(tk.Tk, HotkeyMenuBinder):
     scene = None
@@ -18,38 +18,39 @@ class MainWindow(tk.Tk, HotkeyMenuBinder):
     scene_controls = None
     animation_controls = None
 
-    _hotkey_menu_binds = [
-        dict(key="l",   name="File|Load world",   func="self.select_and_load_world",   args=[]),
-        dict(key="o",   name="File|Load objects", func="self.select_and_load_objects", args=[]),
+    _hotkey_menu_binds = (
+        dict(key="control-l",   name="File|Load world",   func="self.select_and_load_world"),
+        dict(key="control-o",   name="File|Load objects", func="self.select_and_load_objects"),
         dict(name="File|"),
-        dict(name="File|Quit", func="self.destroy", args=[]),
-        dict(key="f1",  name="World|Toggle world geometry", func="self.scene.set_world_geometry_visible",  args=[]),
-        dict(key="f2",  name="World|Toggle world collison", func="self.scene.set_world_collision_visible", args=[]),
-        dict(key="f3",  name="World|Toggle item geometry",  func="self.scene.set_item_geometry_visible",   args=[]),
-        dict(key="f4",  name="World|Toggle item collison",  func="self.scene.set_item_collision_visible",  args=[]),
-        dict(key="f5",  name="World|Toggle collision grid", func="self.scene.set_collision_grid_visible",  args=[]),
+        dict(name="File|Quit", func="self.destroy"),
+        dict(key="f1",  name="World|Toggle world geometry", func="self.scene.set_world_geometry_visible"),
+        dict(key="f2",  name="World|Toggle world collison", func="self.scene.set_world_collision_visible"),
+        dict(key="f3",  name="World|Toggle item geometry",  func="self.scene.set_item_geometry_visible"),
+        dict(key="f4",  name="World|Toggle item collison",  func="self.scene.set_item_collision_visible"),
+        dict(key="f5",  name="World|Toggle collision grid", func="self.scene.set_collision_grid_visible"),
         dict(name="World|"),
         dict(key="`",   name="World|Set 0-players", func="self.scene.set_player_count", args=[0]),
         dict(key="1",   name="World|Set 1-players", func="self.scene.set_player_count", args=[1]),
         dict(key="2",   name="World|Set 2-players", func="self.scene.set_player_count", args=[2]),
         dict(key="3",   name="World|Set 3-players", func="self.scene.set_player_count", args=[3]),
         dict(key="4",   name="World|Set 4-players", func="self.scene.set_player_count", args=[4]),
-        dict(key="space",     name="Animation|Play/pause animations", func="self.scene.toggleAnimations", args=[]),
-        dict(key="backspace", name="Animation|Reset animations",  func="self.scene.resetAnimationTimer",  args=[]),
-        #dict(key="f9",  name="Window|Scene controls", func="self.scene_controls.toggle_visible", args=[]),
-        #dict(key="f10", name="Window|Animation controls", func="self.animation_controls.toggle_visible", args=[]),
-        #dict(key="",  name="Debug|Toggle vertices",    func="self.scene.toggleShowVertices", args=[]),
-        dict(key="f6",  name="Debug|Toggle wireframe",   func="self.scene.toggleWireframe",    args=[]),
-        dict(key="f7",  name="Debug|Toggle textures",    func="self.scene.toggleTexture",      args=[]),
-        dict(key="f8",  name="Debug|Toggle FPS counter", func="self.scene.toggleFpsCounter",   args=[]),
-        ]
+        dict(key="space",     name="Animation|Play/pause animations", func="self.scene.toggle_animations"),
+        dict(key="backspace", name="Animation|Reset animations",  func="self.scene.reset_animation_timer"),
+        dict(name="Window|Scene controls", func="self.scene_controls.toggle_visible"),
+        #dict(name="Window|Animation controls", func="self.animation_controls.toggle_visible"),
+        #dict(key="",  name="Debug|Toggle vertices",    func="self.scene.toggleShowVertices"),
+        dict(key="f9",  name="Debug|Toggle framerate",      func="self.scene.toggle_fps_counter"),
+        dict(key="f10", name="Debug|Toggle wireframe",      func="self.scene.toggleWireframe"),
+        dict(key="f11", name="Debug|Toggle textures",       func="self.scene.toggleTexture"),
+        #dict(key="f12", name="Debug|Toggle particles",      func="self.scene.toggle_particles"),
+        )
 
     def __init__(self, *args, **kwargs):
         self.scene = kwargs.pop("scene")
         super().__init__(*args, **kwargs)
 
         self.geometry("640x480")
-        self.update_title()
+        self.title(self.get_title_text())
         self.update()  # necessary to allow focus to shift to window
 
         self.scene_controls     = SceneControlsWindow(self, scene=self.scene)
@@ -61,8 +62,9 @@ class MainWindow(tk.Tk, HotkeyMenuBinder):
         self.bind_hotkeys(self.scene)
         self.generate_menu()
 
-    def update_title(self):
+    def scene_updated(self):
         self.title(self.get_title_text())
+        self.scene_controls.scene_updated()
 
     def get_title_text(self):
         if self.scene.scene_type == self.scene.SCENE_TYPE_WORLD:

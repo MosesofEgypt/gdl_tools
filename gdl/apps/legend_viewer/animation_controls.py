@@ -6,8 +6,8 @@ from .hotkey_menu_binder import HotkeyMenuBinder
 
 class AnimationControlsWindow(tk.Toplevel, HotkeyMenuBinder):
     scene = None
-    _hotkey_menu_binds = [
-        ]
+    _hotkey_menu_binds = (
+        )
 
     def __init__(self, parent, *args, **kwargs):
         self.scene = kwargs.pop("scene")

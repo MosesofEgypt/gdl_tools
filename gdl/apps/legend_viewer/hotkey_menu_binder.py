@@ -33,9 +33,10 @@ class HotkeyMenuBinder:
 
             # add the command/separator
             if cmd_name:
+                accel = "+".join(s.capitalize() for s in hk.get("key", "").split("-"))
                 parent_menu.add_command(
-                    label=cmd_name, accelerator=hk.get("key", "").capitalize(),
-                    command=lambda func=eval(hk["func"]), args=hk["args"]: func(*args)
+                    label=cmd_name, accelerator=accel,
+                    command=lambda func=eval(hk["func"]), args=hk.get("args", []): func(*args)
                     )
             else:
                 parent_menu.add_separator()
@@ -44,7 +45,7 @@ class HotkeyMenuBinder:
         if not scene: return
         for hk in self._hotkey_menu_binds:
             if "key" in hk:
-                scene.accept(hk["key"], eval(hk["func"]), hk["args"])
+                scene.accept(hk["key"], eval(hk["func"]), hk.get("args", []))
 
     def unbind_hotkeys(self, scene):
         if not scene: return

@@ -8,7 +8,7 @@ import tkinter.filedialog
 
 from direct.showbase.ShowBase import ShowBase
 from panda3d.core import AmbientLight, DirectionalLight, PointLight,\
-     NodePath, WindowProperties, CollisionVisualizer, PandaNode
+     NodePath, PandaNode, ConfigVariableBool
 
 from . import free_camera
 from .assets.scene_objects import scene_actor, scene_object, scene_world
@@ -18,6 +18,13 @@ from .g3d_to_p3d.scene_objects.scene_object import load_scene_object_from_tags
 from .g3d_to_p3d.scene_objects.scene_world import load_scene_world_from_tags
 from .g3d_to_p3d.animation import load_texmods_from_anim_tag
 from .g3d_to_p3d.texture import load_textures_from_objects_tag
+
+
+# not letting tkinter be in charge of the main loop gives a serious
+# speed increase in windows because tkinter has to be emulated there.
+# don't enable this in Mac because according to the docs it will
+# lock up the GUI(no explanation as to why though)
+TK_CONTROL_MAINLOOP = os.name != "nt"
 
 
 class Scene(ShowBase):
@@ -45,9 +52,6 @@ class Scene(ShowBase):
     _curr_actor_name   = ""
     _curr_object_name  = ""
 
-    _ambient_light_intensity = 1
-    _ambient_light_levels = 5
-
     _world_camera_controller  = None
     _actor_camera_controller  = None
     _object_camera_controller = None
@@ -60,16 +64,15 @@ class Scene(ShowBase):
     _object_camera_rot = None
 
     def __init__(self, **kwargs):
+        # do this before anything
+        ConfigVariableBool("tk-main-loop").setValue(TK_CONTROL_MAINLOOP)
+
         super().__init__()
 
         # put lighting on the main scene
         self._ambient_light = AmbientLight('alight')
-        self.adjust_ambient_light(0)
-        self.adjust_ambient_light(0)
-
-        alnp = render.attachNewNode(self._ambient_light)
-
-        render.setLight(alnp)
+        self._ambient_light.setColor((1, 1, 1, 1))
+        render.setLight(render.attachNewNode(self._ambient_light))
 
         object_camera_parent = NodePath(PandaNode("object_camera_node"))
 
@@ -77,13 +80,14 @@ class Scene(ShowBase):
         self._world_camera_pos = self.camera.getPos()
         self._world_camera_rot = self.camera.getHpr()
 
-        # put camera in a reasonable starting position
+        # put camera in a reasonable starting position and FOV
         self.camera.setX(5)
         self.camera.setY(-5)
         self.camera.setZ(5)
         self.camera.setH(45)
         self.camera.setP(-35)
-        self.adjust_fov(90, delta=False)
+        self.camera.setR(0)
+        self.set_fov(90)
 
         self._actor_camera_pos = self._object_camera_pos = self.camera.getPos()
         self._actor_camera_rot = self._object_camera_rot = self.camera.getHpr()
@@ -107,9 +111,6 @@ class Scene(ShowBase):
         render.node().add_child(self._world_root_node)
         render.node().add_child(self._actor_root_node)
         render.node().add_child(self._object_root_node)
-
-        self._ambient_light_intensity = self._ambient_light_levels
-        self.adjust_ambient_light(0)
 
     @property
     def scene_type(self): return self._scene_type
@@ -138,10 +139,10 @@ class Scene(ShowBase):
         return self._scene_objects.get(self.curr_object_set_name, {})\
                .get(self.curr_object_name)
 
-    def adjust_fov(self, angle, delta=True):
-        lens = self.camNode.getLens(0)
-        new_fov = min(180, max(5, (lens.fov.getX() if delta else 0) + angle))
-        lens.fov = new_fov
+    def get_fov(self):
+        return self.camNode.getLens(0).fov.getX()
+    def set_fov(self, angle):
+        self.camNode.getLens(0).fov = min(180, max(5, angle))
 
     def set_world_collision_visible(self, visible=None):
         scene_world = self.active_world
@@ -168,19 +169,11 @@ class Scene(ShowBase):
         if scene_world:
             scene_world.set_collision_grid_visible(visible)
 
+    def get_player_count(self):
+        return self.active_world.player_count if self.active_world else 0
     def set_player_count(self, count):
         if self.active_world:
             self.active_world.player_count = count
-
-    def adjust_ambient_light(self, amount):
-        self._ambient_light_intensity += amount
-        self._ambient_light_intensity %= self._ambient_light_levels + 1
-        self._ambient_light.setColor((
-            self._ambient_light_intensity / self._ambient_light_levels,
-            self._ambient_light_intensity / self._ambient_light_levels,
-            self._ambient_light_intensity / self._ambient_light_levels,
-            1
-            ))
 
     def switch_world(self, world_name):
         if not self._scene_worlds:

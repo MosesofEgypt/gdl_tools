@@ -9,6 +9,7 @@ from ...rendering.scene import Scene
 from .hotkey_menu_binder import HotkeyMenuBinder
 from panda3d.core import WindowProperties
 
+
 class LegendViewer(Scene, HotkeyMenuBinder):
     # cycle at the rate the game is hardcoded to animate at
     CYCLE_SUBVIEW_RATE     = 1/30
@@ -24,18 +25,19 @@ class LegendViewer(Scene, HotkeyMenuBinder):
 
     main_window = None
 
-    _hotkey_menu_binds = [
-        dict(key="-",           func="self.adjust_fov", args=[-5]),
-        dict(key="=",           func="self.adjust_fov", args=[5]),
-        dict(key="tab",         func="self.cycle_scene_type", args=[1]),
-        dict(key="arrow_up",    func="self.cycle_scene_view", args=[1]),
-        dict(key="arrow_down",  func="self.cycle_scene_view", args=[-1]),
-        ]
+    _hotkey_menu_binds = (
+        dict(key="tab",            func="self.cycle_scene_type", args=[1]),
+        dict(key="arrow_up",       func="self.cycle_scene_view", args=[1]),
+        dict(key="arrow_down",     func="self.cycle_scene_view", args=[-1]),
+        dict(key="arrow_left",     func="lambda s=self: setattr(s, '_cycle_subview_left', -1)"),
+        dict(key="arrow_left-up",  func="lambda s=self: setattr(s, '_cycle_subview_left',  0)"),
+        dict(key="arrow_right",    func="lambda s=self: setattr(s, '_cycle_subview_right', 1)"),
+        dict(key="arrow_right-up", func="lambda s=self: setattr(s, '_cycle_subview_right', 0)"),
+        )
 
     def __init__(self):
         super().__init__(windowType='none')
         self.main_window = MainWindow(scene=self)
-
         self.startTk()
 
         props = WindowProperties()
@@ -43,14 +45,6 @@ class LegendViewer(Scene, HotkeyMenuBinder):
         props.setSize(1, 1)  # will be overridden by resize below
         self.openDefaultWindow(props=props)
         self.main_window.resize(None) # force screen refresh and size update
-
-        for key, func, args in [
-                ("arrow_left",     "setattr", [self, "_cycle_subview_left", -1]),
-                ("arrow_left-up",  "setattr", [self, "_cycle_subview_left",  0]),
-                ("arrow_right",    "setattr", [self, "_cycle_subview_right", 1]),
-                ("arrow_right-up", "setattr", [self, "_cycle_subview_right", 0]),
-                ]:
-            self._hotkey_menu_binds.append(dict(key=key, func=func, args=args))
 
         self.bind_hotkeys(self)
 
@@ -73,13 +67,13 @@ class LegendViewer(Scene, HotkeyMenuBinder):
         self._prev_animation_timer = task.time
         return direct.task.Task.cont
 
-    def toggleFpsCounter(self):
+    def toggle_fps_counter(self):
         self.setFrameRateMeter(not self.frameRateMeter)
 
-    def toggleAnimations(self):
+    def toggle_animations(self):
         self._animation_timer_paused = not self._animation_timer_paused
 
-    def resetAnimationTimer(self):
+    def reset_animation_timer(self):
         self._animation_timer = 0.0
 
     def update_task(self, task):
@@ -100,20 +94,20 @@ class LegendViewer(Scene, HotkeyMenuBinder):
         return direct.task.Task.cont
 
     def cycle_scene_type(self, increment=0):
-        self.switch_scene_type((self._scene_type + increment) % 3)
+        self.switch_scene_type((self.scene_type + increment) % 3)
 
     def switch_scene_type(self, scene_type):
         super().switch_scene_type(scene_type)
-        self.main_window.update_title()
+        self.main_window.scene_updated()
 
     def cycle_scene_view(self, increment=0):
-        if self._scene_type == self.SCENE_TYPE_WORLD:
+        if self.scene_type == self.SCENE_TYPE_WORLD:
             curr_set_name = self.curr_world_name
             set_names = tuple(sorted(self._scene_worlds))
-        elif self._scene_type == self.SCENE_TYPE_ACTOR:
+        elif self.scene_type == self.SCENE_TYPE_ACTOR:
             curr_set_name = self.curr_actor_set_name
             set_names = tuple(sorted(self._scene_actors))
-        elif self._scene_type == self.SCENE_TYPE_OBJECT:
+        elif self.scene_type == self.SCENE_TYPE_OBJECT:
             curr_set_name = self.curr_object_set_name
             set_names = tuple(sorted(self._scene_objects))
         else:
@@ -127,13 +121,13 @@ class LegendViewer(Scene, HotkeyMenuBinder):
                 name_index = increment
             set_name = set_names[name_index % len(set_names)]
 
-        if self._scene_type == self.SCENE_TYPE_WORLD:
+        if self.scene_type == self.SCENE_TYPE_WORLD:
             self.switch_world(set_name)
             self.switch_scene_subview()
-        elif self._scene_type == self.SCENE_TYPE_ACTOR:
+        elif self.scene_type == self.SCENE_TYPE_ACTOR:
             self.switch_actor(set_name, self.curr_actor_name)
             self.switch_scene_subview()
-        elif self._scene_type == self.SCENE_TYPE_OBJECT:
+        elif self.scene_type == self.SCENE_TYPE_OBJECT:
             self.switch_object(set_name, self.curr_object_name)
             self.switch_scene_subview()
         else:
@@ -175,4 +169,4 @@ class LegendViewer(Scene, HotkeyMenuBinder):
         else:
             return
 
-        self.main_window.update_title()
+        self.main_window.scene_updated()
