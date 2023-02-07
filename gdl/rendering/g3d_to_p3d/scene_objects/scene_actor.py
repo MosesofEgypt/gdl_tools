@@ -40,13 +40,23 @@ def load_nodes_from_anim_tag(actor_name, anim_tag):
         elif parent < 0:
             root_node = p3d_node
 
+        if node_type == "object":
+            # TEMPORARY HACK
+            # find a suitable "idle" frame to attach
+            for obj_anim in atree.atree_header.atree_data.obj_anim_header.obj_anims:
+                model_name = obj_anim.mb_desc
+                break
+        elif anode_info.flags.no_object_def:
+            model_name = ""
+        else:
+            model_name = actor_prefix + node_name
+
         p3d_nodes.append(p3d_node)
         nodes_infos.append(dict(
             node_type=node_type,
             p3d_node=p3d_node,
             name=node_name,
-            model_name=("" if anode_info.flags.no_object_def
-                        else actor_prefix + node_name),
+            model_name=model_name,
             flags=dict(
                 no_z_test   = bool(flags.no_z_test),
                 no_z_write  = bool(flags.no_z_write),

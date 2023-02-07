@@ -102,7 +102,7 @@ def generate_collision_grid_model(coll_grid):
 
 
 def load_scene_world_from_tags(
-        *, worlds_tag, objects_tag, textures, anim_tag=None,
+        *, level_data, worlds_tag, objects_tag, textures, anim_tag=None,
         world_item_actors=(), world_item_objects=(), global_tex_anims=(),
         flatten_static=True, flatten_static_tex_anims=True
         ):
@@ -125,7 +125,9 @@ def load_scene_world_from_tags(
         worlds_tag.data.dynamic_grid_objects.world_object_indices
         )
 
-    scene_item_infos = load_scene_item_infos_from_worlds_tag(worlds_tag)
+    scene_item_infos = load_scene_item_infos_from_worlds_tag(
+        worlds_tag, level_data
+        )
 
     # load the grid for use in debugging
     scene_world.coll_grid_model_node.addChild(

@@ -1,21 +1,40 @@
 import traceback
 
-from ...assets.scene_objects.scene_item import SceneItemInfo, c,\
+from ...assets.scene_objects.scene_item import SceneItemInfo,\
      SceneItemGenerator
-from ...assets.scene_objects.constants import COLL_TYPE_OBJECT
+from ...assets import constants as c
 from ..model import load_model_from_objects_tag
 from ..collision import load_collision_from_worlds_tag
 from .scene_object import load_scene_object_from_tags
 
 
-def load_scene_item_infos_from_worlds_tag(worlds_tag):
+def load_scene_item_infos_from_worlds_tag(worlds_tag, level_data=None):
     scene_item_infos = []
     for item_info in worlds_tag.data.item_infos:
         try:
             item_data = item_info.data
             if hasattr(item_data, "item_subtype"):
+                actor_name = item_data.name.upper().strip()
+                # TEMPORARY HACK(blame midway)
+                if item_info.item_type.enum_name == "enemy":
+                    if actor_name == "DEATH":
+                        actor_name = c.STATUE_NAME_DEATH1
+                    elif actor_name == "GENERAL":
+                        actor_name = c.ACTOR_NAME_GENERAL
+                    elif actor_name == "GAR":
+                        actor_name = c.STATUE_NAME_GAR
+                    elif actor_name == "GOLEM":
+                        actor_name = c.STATUE_NAME_GOL
+                elif item_info.item_type.enum_name == "generator":
+                    if actor_name == c.DEFAULT_ENEMY_TYPE_TINY:
+                        actor_name = level_data.enemy_type_gen_small
+                    elif actor_name in (
+                            c.DEFAULT_ENEMY_TYPE_PRI, c.DEFAULT_ENEMY_TYPE_SEC
+                            ):
+                        actor_name = level_data.enemy_type_gen_large
+
                 scene_item_info = SceneItemInfo(
-                    actor_name   = item_data.name.upper().strip(),
+                    actor_name   = actor_name,
                     item_type    = item_info.item_type.data,
                     item_subtype = item_data.item_subtype.data,
                     radius       = item_data.radius,
@@ -75,15 +94,15 @@ def load_scene_item_from_item_instance(
     if isinstance(scene_item, SceneItemGenerator):
         # locate and attach generator objects
         model = None
-        names = tuple(
-            c.OBJECT_NAME_GEN % (scene_item_info.actor_name, i)
-            for i in range(4)
-            )
+        generator_objects = []
+        for i in range(4):
+            for object_set in (world_item_actors, world_item_objects):
+                name = c.OBJECT_NAME_GEN % (scene_item_info.actor_name, i)
+                if name in object_set:
+                    generator_objects.append(object_set[name])
+                elif name + "L1" in object_set:
+                    generator_objects.append(object_set[name + "L1"])
 
-        generator_objects = (
-            world_item_objects.get(name, world_item_objects.get(name + "L1"))
-            for name in names
-            )
         scene_item.generator_objects = generator_objects
     elif instance_name:
         model = load_model_from_objects_tag(

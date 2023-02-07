@@ -3,7 +3,7 @@ import panda3d
 
 from ..collision import Collision
 from .scene_object import SceneObject
-from . import constants as c
+from .. import constants as c
 from . import util
 
 

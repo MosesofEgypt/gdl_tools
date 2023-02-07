@@ -12,7 +12,7 @@ from panda3d.core import AmbientLight, DirectionalLight, PointLight,\
 
 from . import free_camera
 from .assets.scene_objects import scene_actor, scene_object, scene_world
-from .g3d_to_p3d.util import load_objects_dir_files, locate_objects_dir
+from .g3d_to_p3d.util import load_objects_dir_files, load_realm_data, locate_dir
 from .g3d_to_p3d.scene_objects.scene_actor import load_scene_actor_from_tags
 from .g3d_to_p3d.scene_objects.scene_object import load_scene_object_from_tags
 from .g3d_to_p3d.scene_objects.scene_world import load_scene_world_from_tags
@@ -51,6 +51,7 @@ class Scene(ShowBase):
 
     _curr_actor_name   = ""
     _curr_object_name  = ""
+    _realm_data = ()
 
     _world_camera_controller  = None
     _actor_camera_controller  = None
@@ -103,6 +104,7 @@ class Scene(ShowBase):
         self._cached_resource_tags = {}
         self._cached_resource_textures = {}
         self._cached_resource_texture_anims = {}
+        self._realm_data = {}
 
         self._world_root_node  = PandaNode("__world_root")
         self._actor_root_node  = PandaNode("__actor_root")
@@ -144,6 +146,12 @@ class Scene(ShowBase):
     def set_fov(self, angle):
         self.camNode.getLens(0).fov = min(180, max(5, angle))
 
+    def get_player_count(self):
+        return self.active_world.player_count if self.active_world else 0
+    def set_player_count(self, count):
+        if self.active_world:
+            self.active_world.player_count = count
+
     def set_world_collision_visible(self, visible=None):
         scene_world = self.active_world
         if scene_world:
@@ -168,12 +176,6 @@ class Scene(ShowBase):
         scene_world = self.active_world
         if scene_world:
             scene_world.set_collision_grid_visible(visible)
-
-    def get_player_count(self):
-        return self.active_world.player_count if self.active_world else 0
-    def set_player_count(self, count):
-        if self.active_world:
-            self.active_world.player_count = count
 
     def switch_world(self, world_name):
         if not self._scene_worlds:
@@ -346,6 +348,22 @@ class Scene(ShowBase):
 
         return dict(self._cached_resource_texture_anims[set_name])
 
+    def get_realm_level(self, dirpath, level_name, recache=False):
+        level_name = level_name.upper().strip()
+        realm_name = level_name.rstrip("0123456789") # HAAAAAACK
+        realm = self.get_realm(dirpath, realm_name, recache=recache)
+        for level in realm.levels:
+            if "LEVEL" + level.name == level_name:
+                return level
+
+    def get_realm(self, dirpath, realm_name, recache=False):
+        realm_name = realm_name.upper().strip()
+        if realm_name not in self._realm_data or recache:
+            realm_datas = load_realm_data(dirpath, realm_name)
+            self._realm_data[realm_name] = realm_datas.get(realm_name)
+
+        return self._realm_data[realm_name]
+
     def get_resource_set_tags(self, dirpath, recache=False):
         set_name = self.get_resource_set_name(dirpath)
         if not self._cached_resource_tags.get(set_name) or recache:
@@ -491,27 +509,36 @@ class Scene(ShowBase):
         level_name = os.path.basename(levels_dir).lower()
         realm_name = level_name.rstrip("0123456789")
 
+        level_data = self.get_realm_level(
+            locate_dir(game_root_dir, "WDATA"), level_name
+            )
+
         # locate the folder all the level and shared item dirs are in
         items_dirs = set([
-            locate_objects_dir(game_root_dir, "ITEMS", level_name),
-            locate_objects_dir(game_root_dir, "ITEMS", realm_name),
-            locate_objects_dir(game_root_dir, "POWERUPS"),
-            locate_objects_dir(game_root_dir, "WEAPONS"),
+            locate_dir(game_root_dir, "ITEMS", level_name),
+            locate_dir(game_root_dir, "ITEMS", realm_name),
+            locate_dir(game_root_dir, "POWERUPS"),
+            locate_dir(game_root_dir, "WEAPONS"),
             ])
 
-        # loacate the monsters
-        enemy_dirs = set()
-        for item_instance in worlds_tag.data.item_instances:
-            item_info = worlds_tag.data.item_infos[item_instance.item_index]
-            if item_info.item_type.enum_name not in ("enemy", "generator"):
-                continue
+        # locate the monsters
+        monster_dirs = [
+            ["DEATH"],  # always load this fuck
+            ]
+        if level_data is not None:
+            if level_data.enemy_type_boss:      monster_dirs.append([level_data.enemy_type_boss])
+            if level_data.enemy_type_aux:       monster_dirs.append([level_data.enemy_type_aux])
+            if level_data.enemy_type_gen_small: monster_dirs.append([level_data.enemy_type_gen_small])
+            if level_data.enemy_type_gen_large: monster_dirs.append([level_data.enemy_type_gen_large])
+            if level_data.enemy_type_gargoyle:  monster_dirs.append([level_data.enemy_type_gargoyle])
+            if level_data.enemy_type_golem:     monster_dirs.append(["GOLEM", level_data.enemy_type_golem])
+            if level_data.enemy_type_general:   monster_dirs.append(["GENERAL", level_data.enemy_type_general])
 
-            enemy_name = item_info.data.name.upper().strip()
-            enemy_dirnames = ("MONSTERS", enemy_name)
-            if enemy_name in ("GENERAL", "GOLEM"):
-                enemy_dirnames += (realm_name, )
+            for enemy_type in level_data.enemy_types_special:
+                monster_dirs.append([enemy_type])
 
-            items_dirs.add(locate_objects_dir(game_root_dir, *enemy_dirnames))
+        for dirs in monster_dirs:
+            items_dirs.add(locate_dir(game_root_dir, "MONSTERS", *dirs))
 
         # load all necessary items
         world_item_actors = {}
@@ -531,8 +558,8 @@ class Scene(ShowBase):
 
         textures = self.get_resource_set_textures(textures_filepath, is_ngc)
         scene_world = load_scene_world_from_tags(
-            worlds_tag=worlds_tag, objects_tag=objects_tag,
-            textures=textures, anim_tag=anim_tag,
+            level_data=level_data, worlds_tag=worlds_tag,
+            objects_tag=objects_tag, textures=textures, anim_tag=anim_tag,
             world_item_actors=world_item_actors,
             world_item_objects=world_item_objects,
             global_tex_anims=global_tex_anims,

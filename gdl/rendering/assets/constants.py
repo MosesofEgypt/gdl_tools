@@ -5,6 +5,7 @@ MONSTER_NAME_GAR = "GAR_%s"
 MONSTER_NAME_AUX = "%sAUX"
 MONSTER_NAME_NUM = "%s%d"
 
+ACTOR_NAME_GENERAL      = "GENERAL1"
 ACTOR_NAME_BOSSGEN      = "BOSSGEN"
 OBJECT_NAME_GEN_SPECIAL = "GEN_SPECIAL%d"
 OBJECT_NAME_GEN         = "GEN_%s%d"
@@ -27,6 +28,13 @@ OBJECT_NAME_SHADOW    = "SHADOWL1"
 OBJECT_NAME_SHADOW1   = "SHADOW1L1"
 OBJECT_NAME_SHADOW2   = "SHADOW2L1"
 OBJECT_NAME_SHADOW3   = "SHADOW3L1"
+
+# if these are found, they will be replaced real-time
+# with those found in the level data. fucking Midway...
+DEFAULT_ENEMY_TYPE_TINY = "RAT"
+DEFAULT_ENEMY_TYPE_PRI  = "GRU"
+DEFAULT_ENEMY_TYPE_SEC  = "KNI"
+DEFAULT_ENEMY_TYPE_AUX  = DEFAULT_ENEMY_TYPE_PRI
 
 ENEMY_TYPE_TO_DIRNAME = dict(
     scorp       = "SCO",
@@ -60,8 +68,8 @@ ENEMY_TYPE_TO_DIRNAME = dict(
     unused      = "",
     golem       = "GOLEM",
     death       = "DEATH",
-    it          = "IT", # ????
-    gargoyle    = "GAR",
+    it          = "",
+    gargoyle    = "",
     general     = "GENERAL",
     dragon      = "DRAGON",
     chimera     = "CHIMERA",

@@ -6,16 +6,18 @@ from traceback import format_exc
 from supyr_struct.defs.bitmaps.dds import dds_def
 
 from arbytmap import arby, format_defs as fd
+from .systems.realm import load_realm_from_wdata_tag
 from ...util import *
 from ...compilation.g3d import constants as g3d_const
 from ...defs.anim import anim_ps2_def
 
 from ...defs.objects import objects_ps2_def
 from ...defs.worlds import worlds_ps2_def
+from ...defs.wdata import wdata_def
 
 
-def locate_objects_dir(search_root, *folder_names):
-    objects_dir = ""
+def locate_dir(search_root, *folder_names):
+    dir = ""
 
     folder_to_find = folder_names[0].lower()
     folder_names = folder_names[1:]
@@ -24,14 +26,41 @@ def locate_objects_dir(search_root, *folder_names):
             if dirname.lower() != folder_to_find:
                 continue
 
-            objects_dir = os.path.join(root, dirname)
+            dir = os.path.join(root, dirname)
             if folder_names:
-                objects_dir = locate_objects_dir(objects_dir, *folder_names)
+                dir = locate_dir(dir, *folder_names)
 
-            if objects_dir: break
+            if dir: break
         break
 
-    return objects_dir
+    return dir
+
+
+def load_realm_data(wdata_dir, realm_name=""):
+    realms = {}
+    realm_name = realm_name.upper().strip()
+
+    for _, __, files in os.walk(wdata_dir):
+        for filename in files:
+            filetype, ext = os.path.splitext(filename.lower())
+            if ext != ".wad":
+                continue
+
+            realm = load_realm_from_wdata_tag(wdata_tag=wdata_def.build(
+                filepath=os.path.join(wdata_dir, filename)
+                ))
+            if not realm:
+                continue
+            elif realm_name and realm_name != realm.name:
+                continue
+            elif realm.name in realms:
+                print("Warning: Duplicate realm of name '{realm.name}' found. Skipping.")
+                continue
+            else:
+                realms[realm.name] = realm
+        break
+
+    return realms
 
 
 def load_objects_dir_files(objects_dir):

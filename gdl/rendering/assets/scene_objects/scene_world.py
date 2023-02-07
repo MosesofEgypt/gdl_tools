@@ -1,5 +1,5 @@
 import panda3d
-from . import constants
+from .. import constants
 from .scene_world_object import SceneWorldObject
 from .scene_object import SceneObject
 from .scene_item import *
