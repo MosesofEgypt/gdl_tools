@@ -152,30 +152,30 @@ class Scene(ShowBase):
         if self.active_world:
             self.active_world.player_count = count
 
+    def set_world_geometry_visible(self, visible=None):
+        scene_world = self.active_world
+        if scene_world:
+            scene_world.set_world_geometry_visible(visible)
+
     def set_world_collision_visible(self, visible=None):
         scene_world = self.active_world
         if scene_world:
             scene_world.set_world_collision_visible(visible)
 
-    def set_item_collision_visible(self, visible=None):
+    def set_collision_grid_visible(self, visible=None):
         scene_world = self.active_world
         if scene_world:
-            scene_world.set_item_collision_visible(visible)
-
-    def set_world_geometry_visible(self, visible=None):
-        scene_world = self.active_world
-        if scene_world:
-            scene_world.set_world_geometry_visible(visible)
+            scene_world.set_collision_grid_visible(visible)
 
     def set_item_geometry_visible(self, visible=None):
         scene_world = self.active_world
         if scene_world:
             scene_world.set_item_geometry_visible(visible)
 
-    def set_collision_grid_visible(self, visible=None):
+    def set_item_collision_visible(self, visible=None):
         scene_world = self.active_world
         if scene_world:
-            scene_world.set_collision_grid_visible(visible)
+            scene_world.set_item_collision_visible(visible)
 
     def switch_world(self, world_name):
         if not self._scene_worlds:

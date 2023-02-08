@@ -50,40 +50,6 @@ class Geometry:
         self.shader.apply(panda3d.core.NodePath(self.p3d_geometry))
 
 
-class MultiGeometry(Geometry):
-    _p3d_geometries = ()
-
-    def __init__(self, **kwargs):
-        p3d_geometries = kwargs.pop("p3d_geometries", ())
-        self._p3d_geometries = dict()
-
-        super().__init__(**kwargs)
-
-        for p3d_geometry in p3d_geometries:
-            self.add_p3d_geometry(p3d_geometry)
-
-    @property
-    def p3d_geometries(self): return tuple(self._p3d_geometries.values())
-
-    def add_p3d_geometry(self, p3d_geometry):
-        if not isinstance(p3d_geometry, panda3d.core.GeomNode):
-            raise TypeError(
-                f"p3d_geometry must be of type panda3d.core.GeomNode, not {type(p3d_geometry)}"
-                )
-        self._p3d_geometries[id(p3d_geometry)] = p3d_geometry
-        for geom in p3d_geometry.get_geoms():
-            self.p3d_node.add_child(geom)
-
-    def remove_p3d_geometry(self, p3d_geometry):
-        if not isinstance(p3d_geometry, panda3d.core.GeomNode):
-            raise TypeError(
-                f"p3d_geometry must be of type panda3d.core.GeomNode, not {type(p3d_geometry)}"
-                )
-        self._p3d_geometries.pop(id(p3d_geometry), None)
-        for geom in p3d_geometry.get_geoms():
-            self.p3d_node.add_child(geom)
-
-
 class Model:
     _name = ""
     _geometries = ()
@@ -110,7 +76,7 @@ class Model:
             return
 
         self._geometries[id(geometry)] = geometry
-        self.p3d_model.addChild(geometry.p3d_geometry)
+        self.p3d_model.add_child(geometry.p3d_geometry)
 
     @property
     def name(self): return self._name
@@ -129,3 +95,30 @@ class Model:
     @bounding_radius.setter
     def bounding_radius(self, val):
         self._bound_rad = float(val)
+
+
+class ObjectAnimModel(Model):
+    _obj_anim_model = None
+
+    def __init__(self, **kwargs):
+        obj_anim_model = kwargs.pop("obj_anim_model", self._obj_anim_model)
+        super().__init__(**kwargs)
+        # do this after initializing self so self.p3d_model exists
+        self.obj_anim_model = obj_anim_model
+
+    @property
+    def obj_anim_model(self):
+        return self._obj_anim_model
+    @obj_anim_model.setter
+    def obj_anim_model(self, obj_anim_model):
+        if not isinstance(obj_anim_model, (type(None), Model)):
+            raise TypeError(
+                f"obj_anim_model must be either None, or of type Model, not {type(obj_anim_model)}"
+                )
+        if self.obj_anim_model:
+            self.p3d_model.remove_child(self.obj_anim_model.p3d_model)
+
+        if obj_anim_model:
+            self.p3d_model.add_child(obj_anim_model.p3d_model)
+
+        self._obj_anim_model = obj_anim_model

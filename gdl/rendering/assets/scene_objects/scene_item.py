@@ -117,6 +117,7 @@ class SceneItemInfo:
         nodepath.setQuat(panda3d.core.LQuaternionf(
             *util.gdl_euler_to_quaternion(r, h, p)
             ))
+
         return scene_item
 
 
@@ -124,14 +125,13 @@ class SceneItem(SceneObject):
     _copy_object  = True
     _scene_object = None
     _min_players  = 0
-    _flags = ()
 
     def __init__(self, **kwargs):
         item_info = kwargs.pop("item_info", None)
         params    = kwargs.pop("params", {})
+        flags     = dict(kwargs.pop("flags", {}))
 
         self._min_players = kwargs.pop("min_players", self._min_players)
-        self._flags       = dict(kwargs.pop("flags", self._flags))
 
         super().__init__(**kwargs)
         # TODO: initialize self using item_info and params
@@ -175,8 +175,6 @@ class SceneItem(SceneObject):
     @property
     def min_players(self):
         return self._min_players
-    @property
-    def flags(self): return dict(self._flags)
 
     @property
     def scene_object(self):

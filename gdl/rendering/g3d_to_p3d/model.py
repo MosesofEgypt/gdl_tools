@@ -3,7 +3,7 @@ from panda3d.core import NodePath, ModelNode, GeomNode, Geom,\
      GeomVertexArrayFormat, GeomVertexFormat
 
 from ..assets.shader import GeometryShader
-from ..assets.model import Model, Geometry
+from ..assets.model import Model, ObjectAnimModel, Geometry
 from ...compilation.g3d.serialization.model import G3DModel
 
 
@@ -69,7 +69,8 @@ def load_geom_from_g3d_model(g3d_model, geom_shader):
 
 def load_model_from_objects_tag(objects_tag, model_name, textures=(),
                                 global_tex_anims=(), seq_tex_anims=(),
-                                is_static=False, p3d_model=None):
+                                shape_morph_anims=(), p3d_model=None,
+                                is_static=False, is_obj_anim=False):
     if not textures:
         textures = {}
 
@@ -79,7 +80,10 @@ def load_model_from_objects_tag(objects_tag, model_name, textures=(),
     obj_index = object_indices_by_name.get(model_name, {}).get("index", -1)
 
     flags = None
-    if obj_index >= 0:
+    if is_obj_anim or obj_index < 0:
+        bnd_rad = 0
+        datas = tex_names = lm_names = ()
+    else:
         obj = objects_tag.data.objects[obj_index]
 
         flags    = getattr(obj, "flags", None)
@@ -96,11 +100,9 @@ def load_model_from_objects_tag(objects_tag, model_name, textures=(),
             bitmap_name_by_index.get(h.lm_index, {}).get('name') if has_lmap else ""
             for h in subobjs
             ]
-    else:
-        bnd_rad = 0
-        datas = tex_names = lm_names = ()
 
-    model = Model(
+    model_class = ObjectAnimModel if is_obj_anim else Model
+    model = model_class(
         name=model_name, p3d_model=p3d_model, bounding_radius=bnd_rad
         )
     for data, tex_name, lm_name in zip(datas, tex_names, lm_names):
@@ -128,6 +130,12 @@ def load_model_from_objects_tag(objects_tag, model_name, textures=(),
         if tex_name in seq_tex_anims:
             for tex_anim in seq_tex_anims[tex_name]:
                 tex_anim.bind(geometry)
+                is_static = False
+
+    if is_obj_anim:
+        if model_name in shape_morph_anims:
+            for shape_morph_anim in shape_morph_anims[model_name]:
+                shape_morph_anim.bind(model)
                 is_static = False
 
     if is_static:

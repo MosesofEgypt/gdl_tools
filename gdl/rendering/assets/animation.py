@@ -119,6 +119,37 @@ class ActorAnimation(Animation):
 class ShapeMorphAnimation(Animation):
     _frame_data_cls = model.Model
 
+    @property
+    def binds(self):
+        return tuple(ref() for ref in self._binds.values() if ref())
+    def bind(self, model):
+        self._binds[id(model)] = weakref.ref(model)
+    def unbind(self, model):
+        try:
+            del self._binds[id(model)]
+        except KeyError:
+            try:
+                del self._binds[model]
+            except TypeError:
+                pass
+
+    def clear_binds(self):
+        self._binds = {}
+
+    def update(self, frame_time):
+        frame_model = self.get_frame_data(frame_time)
+
+        # iterate as tuple in case we unbind it in the loop
+        for ref_id, model_ref in tuple(self._binds.items()):
+            parent_model = model_ref()
+            if parent_model is None:
+                self.unbind(ref_id)
+                continue
+            elif parent_model.obj_anim_model is frame_model:
+                continue
+
+            parent_model.obj_anim_model = frame_model
+
 
 class TextureAnimation(Animation):
     _frame_data_cls = texture.Texture
