@@ -25,7 +25,7 @@ def load_scene_item_infos_from_worlds_tag(worlds_tag, level_data=None):
                         actor_name = c.STATUE_NAME_GAR
                     elif actor_name == "GOLEM":
                         actor_name = c.STATUE_NAME_GOL
-                elif item_info.item_type.enum_name == "generator":
+                elif level_data and item_info.item_type.enum_name == "generator":
                     if actor_name == c.DEFAULT_ENEMY_TYPE_TINY:
                         actor_name = level_data.enemy_type_gen_small
                     elif actor_name in (

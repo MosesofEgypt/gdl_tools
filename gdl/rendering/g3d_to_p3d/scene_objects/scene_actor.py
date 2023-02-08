@@ -50,6 +50,9 @@ def load_nodes_from_anim_tag(actor_name, anim_tag):
             # TEMPORARY HACK
             # find a suitable "idle" frame to attach
             for obj_anim in atree.atree_header.atree_data.obj_anim_header.obj_anims:
+                if node_type != "object":
+                    break
+
                 model_prefix = obj_anim.mb_desc[:-4]
                 if not anim_model_prefix:
                     anim_model_prefix = model_prefix

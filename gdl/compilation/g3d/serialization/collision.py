@@ -101,6 +101,9 @@ class CollisionTriangle:
 class G3DCollision:
     source_file_hash = b'\x00'*16
 
+    def __init__(self):
+        self.clear()
+
     def clear(self):
         # Stores the unorganized verts, norms, and uvs
         self.verts  = []
