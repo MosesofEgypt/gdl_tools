@@ -262,7 +262,7 @@ class TextureAnimation(Animation):
             elif geometry.actor_tex_anim not in (self, None):
                 continue
 
-            nodepath = panda3d.core.NodePath(geometry.p3d_geometry)
+            nodepath = geometry.p3d_nodepath
             shader   = geometry.shader
             if self.has_uv_animation:
                 shader.set_diffuse_offset(nodepath, u, v)

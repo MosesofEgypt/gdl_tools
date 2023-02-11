@@ -5,23 +5,25 @@ from . import shader
 
 class Collision:
     _name = ""
-    _p3d_collision = None
+    _p3d_nodepath = None
 
     def __init__(self, **kwargs):
-        self._name          = kwargs.pop("name", self._name).upper().strip()
-        self._p3d_collision = kwargs.pop("p3d_collision", self._p3d_collision)
+        self._name    = kwargs.pop("name", self._name).upper().strip()
+        p3d_collision = kwargs.pop("p3d_collision", None)
+        if p3d_collision is None:
+            p3d_collision = panda3d.core.CollisionNode(self.name)
 
-        if self._p3d_collision is None:
-            self._p3d_collision = panda3d.core.CollisionNode(self._name)
-
-        if not isinstance(self._p3d_collision, panda3d.core.CollisionNode):
+        if not isinstance(p3d_collision, panda3d.core.CollisionNode):
             raise TypeError(
-                f"p3d_collision must be of type panda3d.core.CollisionNode, not {type(self._p3d_collision)}"
+                f"p3d_collision must be of type panda3d.core.CollisionNode, not {type(p3d_collision)}"
                 )
 
+        self._p3d_nodepath = panda3d.core.NodePath(p3d_collision)
+
     @property
-    def p3d_collision(self):
-        return self._p3d_collision
+    def p3d_collision(self): return self._p3d_nodepath.node()
+    @property
+    def p3d_nodepath(self): return self._p3d_nodepath
 
     @property
     def name(self): return self._name

@@ -112,9 +112,8 @@ class SceneItemInfo:
         x, z, y = kwargs.pop("pos", (0, 0, 0))
         p, h, r = kwargs.pop("rot", (0, 0, 0))
 
-        nodepath = panda3d.core.NodePath(scene_item.p3d_node)
-        nodepath.setPos(x, y, z)
-        nodepath.setQuat(panda3d.core.LQuaternionf(
+        scene_item.p3d_nodepath.setPos(x, y, z)
+        scene_item.p3d_nodepath.setQuat(panda3d.core.LQuaternionf(
             *util.gdl_euler_to_quaternion(r, h, p)
             ))
 

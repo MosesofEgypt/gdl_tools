@@ -7,7 +7,7 @@ from ..particle_system import ParticleSystem
 class SceneObject:
     _name = ""
 
-    _p3d_node = None
+    _p3d_nodepath = None
 
     _node_models = ()
     _node_collision = ()
@@ -15,10 +15,12 @@ class SceneObject:
     
     def __init__(self, **kwargs):
         self._name = kwargs.pop("name", self._name)
-        self._p3d_node = kwargs.pop("p3d_node", self._p3d_node)
-        if self._p3d_node is None:
-            self._p3d_node = panda3d.core.ModelNode(self.name)
 
+        p3d_node = kwargs.pop("p3d_node", None)
+        if p3d_node is None:
+            p3d_node = panda3d.core.ModelNode(self.name)
+
+        self._p3d_nodepath = panda3d.core.NodePath(p3d_node)
         self._node_models = {}
         self._node_collision = {}
         self._node_particle_systems = {}
@@ -26,7 +28,9 @@ class SceneObject:
     @property
     def name(self): return self._name.upper()
     @property
-    def p3d_node(self): return self._p3d_node
+    def p3d_node(self): return self._p3d_nodepath.node()
+    @property
+    def p3d_nodepath(self): return self._p3d_nodepath
     @property
     def node_models(self): return {k: dict(v) for k, v in self._node_models.items()}
     @property
@@ -61,24 +65,22 @@ class SceneObject:
     def set_collision_visible(self, visible=None):
         for group in self.node_collision.values():
             for coll in group.values():
-                node_path = panda3d.core.NodePath(coll.p3d_collision)
-                visible = node_path.isHidden() if visible is None else visible
+                visible = coll.p3d_nodepath.isHidden() if visible is None else visible
 
                 if visible:
-                    node_path.show()
+                    coll.p3d_nodepath.show()
                 else:
-                    node_path.hide()
+                    coll.p3d_nodepath.hide()
         return visible
 
     def set_geometry_visible(self, visible=None):
         for group in self.node_models.values():
             for model in group.values():
                 for geometry in model.geometries:
-                    node_path = panda3d.core.NodePath(geometry.p3d_geometry)
-                    visible = node_path.isHidden() if visible is None else visible
+                    visible = geometry.p3d_nodepath.isHidden() if visible is None else visible
 
                     if visible:
-                        node_path.show()
+                        geometry.p3d_nodepath.show()
                     else:
-                        node_path.hide()
+                        geometry.p3d_nodepath.hide()
         return visible

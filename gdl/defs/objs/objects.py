@@ -9,7 +9,6 @@ from ...compilation.g3d import constants as c
 
 
 class ObjectsPs2Tag(GdlTag):
-
     texdef_names  = None
 
     _object_assets_by_name  = None
@@ -27,7 +26,12 @@ class ObjectsPs2Tag(GdlTag):
 
         texdef_tag = texdef_ps2_def.build(filepath=filepath)
         bitmap_defs = texdef_tag.data.bitmap_defs
-        self.texdef_names = [bitmap_defs[i].name for i in range(len(bitmap_defs))]
+        bitmaps     = texdef_tag.data.bitmaps
+        self.texdef_names = {
+            bitmaps[i].tex_pointer: bitmap_defs[i].name
+            for i in range(min(len(bitmap_defs), len(bitmaps)))
+            if bitmap_defs[i].name
+            }
 
     def generate_cache_names(self):
         bitmaps     = self.data.bitmaps
@@ -45,14 +49,15 @@ class ObjectsPs2Tag(GdlTag):
             }
         if texdef_names:
             # grab additional names from texdefs
-            bitm_i, def_i = 0, 0
-            while bitm_i < len(bitmaps) and def_i < len(texdef_names):
+            bitm_i = 0
+            texdef_names = dict(self.texdef_names)
+            while bitm_i < len(bitmaps):
                 bitm = bitmaps[bitm_i]
-                if not bitm.frame_count:
+                if bitm.tex_pointer in texdef_names and not bitmap_names.get(bitm_i):
                     # bitmaps with frame counts are sequences
-                    name = texdef_names[def_i]
+                    name = texdef_names.pop(bitm.tex_pointer)
                     bitmap_names[bitm_i] = dict(name=name, asset_name=name, index=bitm_i)
-                    def_i += 1
+
                 bitm_i += 1
 
         object_frame_counts = {b.obj_index: b.frames + 1 for b in object_defs if b.name}

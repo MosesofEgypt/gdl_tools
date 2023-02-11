@@ -1,4 +1,4 @@
-from panda3d.core import NodePath, ModelNode, LVecBase3f
+from panda3d.core import ModelNode, LVecBase3f
 from panda3d.physics import ActorNode
 
 from ...assets.scene_objects.scene_actor import SceneActor
@@ -88,7 +88,7 @@ def load_nodes_from_anim_tag(actor_name, anim_tag):
             ))
 
     # link the nodes together
-    for i in node_map:
+    for i in sorted(node_map):
         parent_node = p3d_nodes[i]
         for p3d_node in node_map[i]:
             parent_node.add_child(p3d_node)

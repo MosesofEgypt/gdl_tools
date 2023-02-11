@@ -31,14 +31,15 @@ class GeometryShader:
     _lm_texture_stage   = None
 
     _color_blend_attrib = None
+    _shade_model_attrib = None
 
     _alpha_level = 1.0
     _u_offset    = 0.0
     _v_offset    = 0.0
 
     DRAW_SORT_LMAP   = 0
-    DRAW_SORT_OPAQUE = 1
-    DRAW_SORT_ALPHA  = 2
+    DRAW_SORT_OPAQUE = 10
+    DRAW_SORT_ALPHA  = 20
     DRAW_SORT_SFX    = 1000
 
     ALPHA_SCALE_PRIORITY = 10000
@@ -131,10 +132,26 @@ class GeometryShader:
             panda3d.core.TextureStage.CSTexture,
             panda3d.core.TextureStage.COSrcAlpha,
             )
+        
+        nodepath.clearDepthTest()
+        nodepath.clearDepthWrite()
+
+        nodepath.setDepthTest(not self.no_z_test)
+        nodepath.setDepthWrite(not self.no_z_write)
 
         if self._color_blend_attrib:
             nodepath.clearAttrib(panda3d.core.ColorBlendAttrib)
             self._color_blend_attrib = None
+
+        if self._shade_model_attrib:
+            nodepath.clearAttrib(panda3d.core.ShadeModelAttrib)
+            self._shade_model_attrib = None
+
+        if self.no_shading:
+            self._shade_model_attrib = panda3d.core.ShadeModelAttrib.make(
+                panda3d.core.ShadeModelAttrib.M_flat 
+                )
+            nodepath.setAttrib(self._shade_model_attrib)
 
         if self.alpha:
             nodepath.setTransparency(panda3d.core.TransparencyAttrib.MAlpha)

@@ -8,6 +8,7 @@ from ..assets.animation import TextureAnimation, ShapeMorphAnimation
 
 def load_shape_morphs_from_tags(anim_tag, objects_tag, textures,
                                 global_tex_anims=(), seq_tex_anims=()):
+    seq_obj_anims = {}
     pass
 
 

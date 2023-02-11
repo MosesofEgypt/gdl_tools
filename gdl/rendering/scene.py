@@ -188,7 +188,7 @@ class Scene(ShowBase):
 
         if next_scene_world:
             self._world_root_node.add_child(next_scene_world.p3d_node)
-            NodePath(next_scene_world.p3d_node).show()
+            next_scene_world.p3d_nodepath.show()
 
         self._curr_world_name = world_name
 
@@ -203,7 +203,7 @@ class Scene(ShowBase):
 
         if next_scene_actor:
             self._actor_root_node.add_child(next_scene_actor.p3d_node)
-            NodePath(next_scene_actor.p3d_node).show()
+            next_scene_actor.p3d_nodepath.show()
 
         self._curr_actor_name = actor_name
         self._curr_actor_set_name = set_name
@@ -219,7 +219,7 @@ class Scene(ShowBase):
 
         if next_scene_object:
             self._object_root_node.add_child(next_scene_object.p3d_node)
-            NodePath(next_scene_object.p3d_node).show()
+            next_scene_object.p3d_nodepath.show()
 
         self._curr_object_name = object_name
         self._curr_object_set_name = set_name
@@ -284,18 +284,18 @@ class Scene(ShowBase):
     def clear_scene(self):
         for scene_world_name in tuple(self._scene_worlds.keys()):
             scene_world = self._scene_worlds[scene_world_name]
-            NodePath(scene_world.p3d_node).removeNode()
+            scene_world.p3d_nodepath.removeNode()
             del self._scene_worlds[scene_world_name]
 
         for set_name in set(*self._scene_objects.keys(), *self._scene_actors.keys()):
             for scene_object_name in tuple(self._scene_objects.get(set_name, {}).keys()):
                 scene_object = self._scene_objects[scene_object_name]
-                NodePath(scene_object.p3d_node).removeNode()
+                scene_object.p3d_nodepath.removeNode()
                 del self._scene_objects[set_name][scene_object_name]
 
             for scene_actor_name in tuple(self._scene_actors.get(set_name, {}).keys()):
                 scene_actor = self._scene_actors[scene_actor_name]
-                NodePath(scene_actor.p3d_node).removeNode()
+                scene_actor.p3d_nodepath.removeNode()
                 del self._scene_actors[set_name][scene_actor_name]
 
             del self._scene_actors[set_name]

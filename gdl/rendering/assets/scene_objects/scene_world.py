@@ -95,11 +95,10 @@ class SceneWorld(SceneObject):
         self._player_count = count
         for scene_items in self._node_scene_items.values():
             for scene_item in scene_items:
-                node_path = panda3d.core.NodePath(scene_item.p3d_node)
                 if scene_item.min_players > self.player_count:
-                    node_path.hide()
+                    scene_item.p3d_nodepath.hide()
                 else:
-                    node_path.show()
+                    scene_item.p3d_nodepath.show()
 
     def clean_orphaned_world_objects(self):
         for node_name, world_scene_objects in self.node_world_objects.items():
@@ -134,7 +133,6 @@ class SceneWorld(SceneObject):
                     # create a new model to hold the combination of these geoms
                     combined_model = Model(name=f"__texmod_{tex_name}_{lm_name}model")
 
-                    model_nodepath = panda3d.core.NodePath(combined_model.p3d_model)
                     self.static_objects_node.add_child(combined_model.p3d_model)
                     geometry_shader = None
                     for geometry in geometries:
@@ -145,20 +143,20 @@ class SceneWorld(SceneObject):
                         if geometry_shader is None:
                             geometry_shader = geometry.shader
 
-                        geometry_nodepath = panda3d.core.NodePath(geometry.p3d_geometry)
-                        geom_world_pos = geometry_nodepath.get_pos(model_nodepath)
-                        geometry_nodepath.reparent_to(model_nodepath)
-                        geometry_nodepath.set_pos(model_nodepath, geom_world_pos)
+                        geometry_nodepath = geometry.p3d_nodepath
+                        geom_world_pos = geometry_nodepath.get_pos(combined_model.p3d_nodepath)
+                        geometry_nodepath.reparent_to(combined_model.p3d_nodepath)
+                        geometry_nodepath.set_pos(combined_model.p3d_nodepath, geom_world_pos)
 
-                    model_nodepath.flatten_strong()
+                    combined_model.p3d_nodepath.flatten_strong()
                     # right after flattening, update the preserve to not be touched
                     # by the flatten we're gonna run after. without this, something
                     # in the way animated textures work breaks, and they dont swap.
-                    model_nodepath.node().set_preserve_transform(
+                    combined_model.p3d_model.set_preserve_transform(
                         panda3d.core.ModelNode.PT_no_touch
                         )
 
-                    for geom_nodepath in model_nodepath.children:
+                    for geom_nodepath in combined_model.p3d_nodepath.children:
                         combined_geometry = Geometry(
                             shader=geometry_shader,
                             p3d_geometry=geom_nodepath.node()
@@ -179,7 +177,7 @@ class SceneWorld(SceneObject):
 
         # locate all flattened geometries(they'll have been autonamed
         # and have more than one geom) and add them to the tracking dict
-        for child in panda3d.core.NodePath(self.p3d_node).findAllMatches('**'):
+        for child in self.p3d_nodepath.findAllMatches('**'):
             node = child.node()
             if isinstance(node, panda3d.core.GeomNode) and node.getNumGeoms() > 1:
                 self._flattened_static_geometries.setdefault(child.name, []).append(node)
@@ -208,11 +206,10 @@ class SceneWorld(SceneObject):
         self._items_root_nodes[item_type].add_child(scene_item.p3d_node)
         self._node_scene_items[item_type].append(scene_item)
 
-        node_path = panda3d.core.NodePath(scene_item.p3d_node)
         if self.player_count < scene_item.min_players:
-            node_path.hide()
+            scene_item.p3d_nodepath.hide()
         else:
-            node_path.show()
+            scene_item.p3d_nodepath.show()
 
     def remove_world_object(self, object_name):
         object_name = object_name.upper().strip()
@@ -278,14 +275,13 @@ class SceneWorld(SceneObject):
             node_path.hide()
 
     def snap_to_grid(self, nodepath, max_dist=float("inf"), debug=True):
-        root_nodepath = panda3d.core.NodePath(self.p3d_node)
-        x, z, y = nodepath.getPos(root_nodepath)
+        x, z, y = nodepath.getPos(self.p3d_nodepath)
         new_pos = self._coll_grid.snap_pos_to_grid(
-            x, y, z, root_nodepath, max_dist
+            x, y, z, self.p3d_nodepath, max_dist
             )
         if new_pos:
             x, y, z = new_pos[0], new_pos[1] + constants.Z_FIGHT_OFFSET, new_pos[2]
-            nodepath.setPos(root_nodepath, x, z, y)
+            nodepath.setPos(self.p3d_nodepath, x, z, y)
         elif debug:
             print(f"Failed to snap object {nodepath} to collision grid at {(x, z, y)}")
 

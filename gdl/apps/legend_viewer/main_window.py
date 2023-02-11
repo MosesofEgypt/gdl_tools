@@ -8,7 +8,7 @@ from .scene_controls import SceneControlsWindow
 from .animation_controls import AnimationControlsWindow
 from .hotkey_menu_binder import HotkeyMenuBinder
 
-__version__ = (0, 1, 1)
+__version__ = (0, 1, 2)
 
 class MainWindow(tk.Tk, HotkeyMenuBinder):
     scene = None

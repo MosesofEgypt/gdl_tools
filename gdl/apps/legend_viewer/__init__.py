@@ -100,6 +100,10 @@ class LegendViewer(Scene, HotkeyMenuBinder):
         super().switch_scene_type(scene_type)
         self.main_window.scene_updated()
 
+    def set_player_count(self, count):
+        super().set_player_count(count)
+        self.main_window.scene_updated()
+
     def cycle_scene_view(self, increment=0):
         if self.scene_type == self.SCENE_TYPE_WORLD:
             curr_set_name = self.curr_world_name

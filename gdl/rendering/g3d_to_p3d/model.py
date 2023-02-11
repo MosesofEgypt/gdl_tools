@@ -1,4 +1,4 @@
-from panda3d.core import NodePath, ModelNode, GeomNode, Geom,\
+from panda3d.core import ModelNode, GeomNode, Geom,\
      GeomTriangles, GeomVertexData, GeomVertexWriter,\
      GeomVertexArrayFormat, GeomVertexFormat
 

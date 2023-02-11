@@ -142,22 +142,22 @@ def load_scene_world_from_tags(
         # TODO: figure out how collision transforms will need to be handled.
         #       maybe look at world_object.flags.animated???
         object_name = world_object.name.upper().strip()
-        p3d_node = world_nodes[i]
         scene_world_object = load_scene_world_object_from_tags(
             world_object, textures=textures,
             worlds_tag=worlds_tag, objects_tag=objects_tag,
             global_tex_anims=global_tex_anims,
             allow_model_flatten=flatten_static,
-            p3d_model=p3d_node
+            p3d_model=world_nodes[i]
             )
         collision = load_collision_from_worlds_tag(
             worlds_tag, object_name,
             world_object.coll_tri_index,
             world_object.coll_tri_count,
             )
+        p3d_nodepath = scene_world_object.p3d_nodepath
 
         if collision:
-            parent_node = (p3d_node if world_object.flags.animated
+            parent_node = (p3d_nodepath.node() if world_object.flags.animated
                            else scene_world.static_collision_node)
 
             parent_node.add_child(collision.p3d_collision)
@@ -168,11 +168,10 @@ def load_scene_world_from_tags(
         scene_world.add_world_object(scene_world_object)
 
         # reparent the dynamic object to the dynamic root if it's not already under it
-        if i in dyn_obj_indices and dyn_p3d_nodepath.find_path_to(p3d_node).is_empty():
-            child_p3d_nodepath = NodePath(p3d_node)
-            world_pos = child_p3d_nodepath.get_pos(dyn_p3d_nodepath)
-            child_p3d_nodepath.reparent_to(dyn_p3d_nodepath)
-            child_p3d_nodepath.set_pos(dyn_p3d_nodepath, world_pos)
+        if i in dyn_obj_indices and dyn_p3d_nodepath.find_path_to(p3d_nodepath.node()).is_empty():
+            world_pos = p3d_nodepath.get_pos(dyn_p3d_nodepath)
+            p3d_nodepath.reparent_to(dyn_p3d_nodepath)
+            p3d_nodepath.set_pos(dyn_p3d_nodepath, world_pos)
 
     # optimize the world by flattening all statics
     if flatten_static:
@@ -193,7 +192,7 @@ def load_scene_world_from_tags(
                 )
             scene_world.attach_scene_item(scene_item)
             if scene_item_infos[item_instance.item_index].snap_to_grid:
-                scene_world.snap_to_grid(NodePath(scene_item.p3d_node))
+                scene_world.snap_to_grid(scene_item.p3d_nodepath)
 
         except Exception:
             print(traceback.format_exc())

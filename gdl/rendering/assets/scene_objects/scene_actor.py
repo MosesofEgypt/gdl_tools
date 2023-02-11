@@ -5,23 +5,24 @@ from ..animation import TextureAnimation, ShapeMorphAnimation, ActorAnimation
 
 
 class SceneActor(SceneObject):
-    _p3d_actor = None
+    _p3d_nodepath = None
     _actor_animations = ()
     _texture_animations = ()
     _shape_morph_animations = ()
     
     def __init__(self, **kwargs):
-        self._p3d_actor = kwargs.pop("p3d_actor", self._p3d_actor)
         self._actor_animations = {}
         self._texture_animations = {}
         self._shape_morph_animations = {}
-        if self._p3d_actor is None:
-            self._p3d_actor = panda3d.physics.ActorNode(self.name)
 
+        p3d_actor = kwargs.pop("p3d_actor", panda3d.physics.ActorNode(self.name))
+        self._p3d_nodepath = panda3d.core.NodePath(p3d_actor)
         super().__init__(**kwargs)
 
     @property
-    def p3d_actor(self): return self._p3d_actor
+    def p3d_actor(self): return self._p3d_nodepath.node()
+    @property
+    def p3d_nodepath(self): return self._p3d_nodepath
     @property
     def actor_animations(self): return dict(self._actor_animations)
     @property

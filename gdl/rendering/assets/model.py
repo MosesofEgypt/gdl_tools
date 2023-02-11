@@ -5,33 +5,36 @@ from . import shader
 
 class Geometry:
     _shader = None
-    _p3d_geometry = None
+    _p3d_nodepath = None
     _actor_tex_anim = None
 
     def __init__(self, **kwargs):
-        self._shader       = kwargs.pop("shader", self._shader)
-        self._p3d_geometry = kwargs.pop("p3d_geometry", self._p3d_geometry)
-
+        self._shader  = kwargs.pop("shader", self._shader)
         if self._shader is None:
             self._shader = shader.GeometryShader()
-        if self._p3d_geometry is None:
-            self._p3d_geometry = panda3d.core.GeomNode("")
+
+        p3d_geometry = kwargs.pop("p3d_geometry", None)
+        if p3d_geometry is None:
+            p3d_geometry = panda3d.core.GeomNode("")
 
         if not isinstance(self._shader, shader.GeometryShader):
             raise TypeError(
                 f"shader must be of type GeometryShader, not {type(self._shader)}"
                 )
-        elif not isinstance(self._p3d_geometry, panda3d.core.GeomNode):
+        elif not isinstance(p3d_geometry, panda3d.core.GeomNode):
             raise TypeError(
-                f"p3d_geometry must be of type panda3d.core.GeomNode, not {type(self._p3d_geometry)}"
+                f"p3d_geometry must be of type panda3d.core.GeomNode, not {type(p3d_geometry)}"
                 )
 
+        self._p3d_nodepath = panda3d.core.NodePath(p3d_geometry)
         self.apply_shader()
 
     @property
     def shader(self): return self._shader
     @property
-    def p3d_geometry(self): return self._p3d_geometry
+    def p3d_geometry(self): return self._p3d_nodepath.node()
+    @property
+    def p3d_nodepath(self): return self._p3d_nodepath
     @property
     def actor_tex_anim(self): return self._actor_tex_anim
     @actor_tex_anim.setter
@@ -39,35 +42,37 @@ class Geometry:
         self._actor_tex_anim = tex_anim
 
     def clear_shader(self):
-        nodepath = panda3d.core.NodePath(self.p3d_geometry)
-        nodepath.clearTexture()
-        nodepath.clearTexGen()
-        nodepath.clearTexTransform()
-        nodepath.clearAttrib(panda3d.core.ColorBlendAttrib)
-        nodepath.clearTransparency()
+        self.p3d_nodepath.clearTexture()
+        self.p3d_nodepath.clearTexGen()
+        self.p3d_nodepath.clearTexTransform()
+        self.p3d_nodepath.clearAttrib(panda3d.core.ColorBlendAttrib)
+        self.p3d_nodepath.clearTransparency()
 
     def apply_shader(self):
-        self.shader.apply(panda3d.core.NodePath(self.p3d_geometry))
+        self.shader.apply(self.p3d_nodepath)
 
 
 class Model:
     _name = ""
     _geometries = ()
     _bound_rad = 0.0
-    _p3d_model = None
+    _p3d_nodepath = None
 
     def __init__(self, **kwargs):
         self._name       = kwargs.pop("name", self._name).upper().strip()
-        self._p3d_model  = kwargs.pop("p3d_model", self._p3d_model)
         self._bound_rad  = kwargs.pop("bounding_radius", self._bound_rad)
         self._geometries = {}
-        if self._p3d_model is None:
-            self._p3d_model = panda3d.core.ModelNode(self.name)
 
-        if not isinstance(self._p3d_model, panda3d.core.ModelNode):
+        p3d_model = kwargs.pop("p3d_model", None)
+        if p3d_model is None:
+            p3d_model = panda3d.core.ModelNode(self.name)
+
+        if not isinstance(p3d_model, panda3d.core.ModelNode):
             raise TypeError(
-                f"p3d_model must be of type panda3d.core.ModelNode, not {type(self._p3d_model)}"
+                f"p3d_model must be of type panda3d.core.ModelNode, not {type(p3d_model)}"
                 )
+
+        self._p3d_nodepath = panda3d.core.NodePath(p3d_model)
 
     def add_geometry(self, geometry):
         if not isinstance(geometry, Geometry):
@@ -82,8 +87,9 @@ class Model:
     def name(self): return self._name
 
     @property
-    def p3d_model(self):
-        return self._p3d_model
+    def p3d_model(self): return self._p3d_nodepath.node()
+    @property
+    def p3d_nodepath(self): return self._p3d_nodepath
 
     @property
     def geometries(self):
