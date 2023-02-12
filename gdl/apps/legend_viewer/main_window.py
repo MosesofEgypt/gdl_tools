@@ -8,7 +8,7 @@ from .scene_controls import SceneControlsWindow
 from .animation_controls import AnimationControlsWindow
 from .hotkey_menu_binder import HotkeyMenuBinder
 
-__version__ = (0, 1, 2)
+__version__ = (0, 1, 3)
 
 class MainWindow(tk.Tk, HotkeyMenuBinder):
     scene = None
@@ -37,7 +37,7 @@ class MainWindow(tk.Tk, HotkeyMenuBinder):
         dict(name="Debug|"),
         dict(key="f5",  name="Debug|Toggle item geometry",  func="self.scene.set_item_geometry_visible"),
         dict(key="f6",  name="Debug|Toggle item collison",  func="self.scene.set_item_collision_visible"),
-        #dict(key="f7",  name="Debug|Toggle hidden item geometry",  func="self.scene.set_hidden_item_geometry_visible"),
+        dict(key="f7",  name="Debug|Toggle container items",  func="self.scene.set_container_items_visible"),
         #dict(key="f8",  name="Debug|Toggle hidden item collison",  func="self.scene.set_hidden_item_collision_visible"),
         dict(name="Debug|"),
         dict(key="f9",  name="Debug|Toggle framerate",      func="self.scene.toggle_fps_counter"),

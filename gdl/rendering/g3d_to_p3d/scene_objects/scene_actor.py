@@ -60,7 +60,7 @@ def load_nodes_from_anim_tag(actor_name, anim_tag):
                 if model_prefix == anim_model_prefix and obj_anim.mb_desc not in seen_anim_models:
                     model_name = obj_anim.mb_desc
                     seen_anim_models.add(model_name)
-                    #node_type = "skeletal"
+                    node_type = "skeletal"
                     break
 
         p3d_nodes.append(p3d_node)

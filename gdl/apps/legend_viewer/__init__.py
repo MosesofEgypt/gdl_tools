@@ -6,6 +6,7 @@ import tkinter.filedialog
 
 from .main_window import MainWindow
 from ...rendering.scene import Scene
+from ...rendering.assets.scene_objects.scene_item import SceneItemRandom
 from .hotkey_menu_binder import HotkeyMenuBinder
 from panda3d.core import WindowProperties
 
@@ -63,6 +64,12 @@ class LegendViewer(Scene, HotkeyMenuBinder):
                 for actor_name, anim_set in resource_set.get("actor_anims", {}).items():
                     for anim_name, actor_anim in anim_set.items():
                         actor_anim.update(self._animation_timer)
+
+            for scene_item in getattr(self.active_world, "node_scene_items", {}).get("container", ()):
+                contained_item = scene_item.contained_item
+                if isinstance(contained_item, SceneItemRandom):
+                    contained_item.update(self._animation_timer)
+                
 
         self._prev_animation_timer = task.time
         return direct.task.Task.cont

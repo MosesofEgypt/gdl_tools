@@ -86,8 +86,9 @@ def load_scene_item_from_item_instance(
         params = item_instance.params,
         pos = item_instance.pos,
         rot = item_instance.rot,
-        scene_object = world_item_actors.get(scene_item_info.actor_name),
-        flags = { n: bool(flags[n]) for n in flags.NAME_MAP }
+        scene_objects = world_item_actors,
+        flags = { n: bool(flags[n]) for n in flags.NAME_MAP },
+        item_infos = scene_item_infos,
         )
 
     # NOTE: temporary hack

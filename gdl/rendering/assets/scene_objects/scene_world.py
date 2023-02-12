@@ -266,6 +266,12 @@ class SceneWorld(SceneObject):
                 if self.player_count >= scene_item.min_players:
                     visible = scene_item.set_geometry_visible(visible)
 
+    def set_container_items_visible(self, visible=None):
+        for scene_items in self.node_scene_items.values():
+            for scene_item in scene_items:
+                if hasattr(scene_item, "set_conatiner_item_visible"):
+                    visible = scene_item.set_conatiner_item_visible(visible)
+
     def set_collision_grid_visible(self, visible=None):
         node_path = panda3d.core.NodePath(self._coll_grid_model_node)
         visible = node_path.isHidden() if visible is None else visible

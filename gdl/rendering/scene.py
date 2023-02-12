@@ -172,6 +172,11 @@ class Scene(ShowBase):
         if scene_world:
             scene_world.set_item_geometry_visible(visible)
 
+    def set_container_items_visible(self, visible=None):
+        scene_world = self.active_world
+        if scene_world:
+            scene_world.set_container_items_visible(visible)
+
     def set_item_collision_visible(self, visible=None):
         scene_world = self.active_world
         if scene_world:
