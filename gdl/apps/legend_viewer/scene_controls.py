@@ -21,8 +21,6 @@ class SceneControlsWindow(tk.Toplevel, HotkeyMenuBinder):
         self.bind_hotkeys(self.scene)
         self.generate_menu()
         self.transient(self.master)
-        self.minsize(400, 300)
-        self.resizable(0, 0)
 
         self.fov_var = tk.DoubleVar(self, self.scene.get_fov())
         self.player_count_var = tk.IntVar(self, self.scene.get_player_count())
@@ -93,6 +91,21 @@ class SceneControlsWindow(tk.Toplevel, HotkeyMenuBinder):
 
         self.fov_var.trace("w", self.update_camera_fov)
         self.player_count_var.trace("w", self.update_player_count)
+
+        self.update()
+        width  = max((
+            self.menus[""].winfo_reqwidth(),  # width of the root menu
+            self.resource_frame.winfo_reqwidth(),
+            self.camera_frame.winfo_reqwidth(),
+            self.world_frame.winfo_reqwidth()
+            )) + 4  # account for padding
+        height = sum((
+            self.resource_frame.winfo_reqheight(),
+            self.camera_frame.winfo_reqheight(),
+            self.world_frame.winfo_reqheight()
+            )) + 4*3 # account for padding
+        self.geometry("%dx%d" % (width, height))
+        self.resizable(0, 0)
 
     def reset_camera_rotation(self):
         self.scene.camera.setH(0)
@@ -205,8 +218,11 @@ class SceneControlsWindow(tk.Toplevel, HotkeyMenuBinder):
             return
 
     def toggle_visible(self):
-        self.geometry('350x200+%d+%d' % (self.master.winfo_x(),
-                                         self.master.winfo_y()))
+        self.geometry('%s+%d+%d' % (
+            self.geometry().split("+")[0],
+            self.master.winfo_x(),
+            self.master.winfo_y()
+            ))
         if self.winfo_viewable():
             self.withdraw()
         else:

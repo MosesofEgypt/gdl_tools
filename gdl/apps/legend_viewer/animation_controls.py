@@ -35,10 +35,22 @@ class AnimationControlsWindow(tk.Toplevel, HotkeyMenuBinder):
         #   animation handler object for each resource set
         #   main loop that will start animation playing in handlers, and
         #       will remove them when user selects a different animation
+        self.update()
+        width  = max((
+            self.menus[""].winfo_reqwidth(),  # width of the root menu
+            )) + 4  # account for padding
+        height = sum((
+            0,
+            )) + 4*0 # account for padding
+        self.geometry("%dx%d" % (width, height))
+        self.resizable(0, 0)
 
     def toggle_visible(self):
-        self.geometry('350x200+%d+%d' % (self.master.winfo_x(),
-                                         self.master.winfo_y()))
+        self.geometry('%s+%d+%d' % (
+            self.geometry().split("+")[0],
+            self.master.winfo_x(),
+            self.master.winfo_y()
+            ))
         if self.winfo_viewable():
             self.withdraw()
         else:
