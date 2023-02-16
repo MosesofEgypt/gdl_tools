@@ -91,11 +91,17 @@ anim_seq_info = Struct("anim_seq_info",
         ("scale_y_data", 1<<9),
         ("scale_z_data", 1<<10),
 
+        # if uncompressed, framedata contains uncompressed floats. if not,
+        # framedata is indices into the comp_angles/positions/scales arrays
         ("compressed_data", 1<<13),
         ("unknown", 1<<14), # seems to be completely independent of other flags
         ),
     UInt16("size"), # number of transform axis types(sum flag counts 0-9)
     UInt32("data_offset"),
+    # NOTE: start of animation data is an array of bytes of length (frame_count+7)//8
+    #       each bit indicates if there is framedata for that frame. If not, interpolate.
+    #       framedata comes directly after bitfields array. data of all transform types
+    #       is interleaved per frame(x,y,h,p,x,y,h,p,x,y,h,p...)
     SIZE=8
     )
 
@@ -179,16 +185,15 @@ anode_info = Struct("anode_info",
     StrNntLatin1("mb_desc", SIZE=32),
     QStruct("init_pos", INCLUDE=xyz_float),
     SEnum16("anim_type",
-        "null",
-        "skeletal",
-        "object",
-        "texture",  # plays tex_anim on objects below this off the global timer
-        "particle_system", # how tf do you determine what psys to attach?
+        "null",  # plain, hierarchial node
+        "skeletal", # same as null, except can have animation node data(only type that can actually)
+        "object", # attach object animation model.
+        "texture",  # plays tex_anim on objects below this on a local timer
+        "particle_system",
         ),
     Bool16("flags",
         "no_object_def" # seems to indicate that there is no object def to locate for this node
         #           always set for object, particle_system, and texture
-        #           set in 31.86% of skeletal and 23.83% of null
         ),
     Bool32("mb_flags",
         # these are the flags that are set across all animation files
@@ -234,10 +239,14 @@ anode_info = Struct("anode_info",
         dict(NAME="tex_shift",          VALUE=1<<28, VISIBLE=False),  # IS NEVER SET
         dict(NAME="scrn_clip",          VALUE=1<<31, VISIBLE=False),  # IS NEVER SET
         ),
+    # anim_seq_info_offset is a relative pointer into one of four different
+    # arrays depending on the node type(skeletal, object, texture, particle_system)
+    #   skeletal:       relative to atree_data.anim_header (points to an anim_seq_info struct)
+    #   object:         relative to atree_data.obj_anim_header (points to an obj_anim struct)
+    #   texture:        relative to atree_data.atree_sequences (points to a texmod struct)
+    #   particle_sys:   relative to atree_data.atree_sequences (points to a particle_system struct)
+    #   NOTE: still not sure how particle systems are specified for worlds
     SInt32("anim_seq_info_offset"),
-    # anim_seq_info_offset points to an array of containing one
-    # anode_seq_info for each animation in the atree_sequences.
-    # data_offset of anim_seq_info points to animation data
     SInt32("parent_index", DEFAULT=-1),
     SIZE=60,
     )
