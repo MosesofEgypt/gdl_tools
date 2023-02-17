@@ -247,9 +247,11 @@ anode_info = Struct("anode_info",
     #   particle_sys:   relative to atree_data.atree_sequences (points to a particle_system struct)
     #   NOTE: still not sure how particle systems are specified for worlds
     SInt32("anim_seq_info_offset"),
+    Computed("anim_seq_info_index", SIZE=0),
     SInt32("parent_index", DEFAULT=-1),
     SIZE=60,
     )
+
 
 atree_data = Container("atree_data",
     Struct("anim_header",
