@@ -4,6 +4,13 @@ from ..common_descs import *
 
 def get(): return anim_ps2_def
 
+# convert all possible frame flag values to the
+# number of frames they indicate exist in the data
+FRAME_FLAGS_TO_FRAME_SIZE = [
+    sum(bool(i & (1<<b)) for b in range(8))
+    for i in range(256)
+    ]
+
 
 def get_atree_data_array_pointer(
         *args, node=None, parent=None, new_value=None,
@@ -24,31 +31,67 @@ def get_atree_data_array_pointer(
     parent.set_neighbor(pointer_field_names[-1], new_value - base_pointer)
 
 
-def get_anim_seq_info_size(
-        *args, node=None, parent=None, new_value=None,
-        pointer_field_names=None, **kwargs
-    ):
+def get_anim_seq_info_size(*args, node=None, parent=None, new_value=None, **kwargs):
     if parent is None:
         if not node:
             return 0
         parent = node.parent
 
-    parent = parent.parent
-    if new_value is None:
-        return parent.sequence_count * parent.object_count
+    if new_value is not None or parent.anim_type.enum_name != "skeletal":
+        return 0
 
-def get_block_data_size(
-        *args, node=None, parent=None, new_value=None,
-        pointer_field_names=None, **kwargs
-    ):
-    if parent is None:
-        if not node:
-            return 0
-        parent = node.parent
+    return parent.parent.parent.parent.atree_seq_count
 
-    parent = parent.parent
-    if new_value is None:
-        return parent.sequence_count * parent.object_count
+
+def get_frame_header_flags_size(*args, parent=None, new_value=None, **kwargs):
+    if new_value is not None or parent is None:
+        return 0
+
+    seq_info = parent.parent
+    if seq_info.type.initial_frame_only:
+        return 0
+
+    frame_count = getattr(seq_info.parent, "frame_count", None)
+    has_initial_frame = bool(seq_info.type.compressed_data)
+    # NOTE: for world animations, frame count is in the seq_info parent struct
+    if frame_count is None:
+        seq_info_array = seq_info.parent
+        seq_index = seq_info_array.index_by_id(seq_info)
+        atree_seq_array = seq_info_array.parent.parent.parent.atree_sequences
+        frame_count = atree_seq_array[seq_index].frame_count
+
+    # round to single byte. subtract initial frame if in compressed
+    required_bytes = (frame_count + (7 - has_initial_frame)) // 8
+    return required_bytes + ((4 - required_bytes%4) % 4) # round to multiple of 4
+
+
+def get_initial_frame_size(*args, node=None, parent=None, new_value=None, **kwargs):
+    if parent is None or new_value is not None:
+        return
+    elif not parent.parent.type.compressed_data:
+        return 0
+    return parent.parent.size * 4
+
+
+def _get_frame_data_size(*args, node=None, parent=None, new_value=None,
+                         want_compressed=False, **kwargs):
+    if parent is None or new_value is not None:
+        return 0
+    elif bool(parent.parent.type.compressed_data) == want_compressed:
+        return sum(
+            FRAME_FLAGS_TO_FRAME_SIZE[flags]
+            for flags in parent.frame_header_flags
+            )
+    return 0
+
+
+def get_comp_frame_data_size(*args, **kwargs):
+    return _get_frame_data_size(*args, want_compressed=True, **kwargs)
+
+
+def get_uncomp_frame_data_size(*args, **kwargs):
+    return 4 * _get_frame_data_size(*args, want_compressed=False, **kwargs)
+
 
 def get_comp_angles_size(*args, parent=None, new_value=None, **kwargs):
     return 0 if (new_value or not parent) or parent.parent.comp_ang_pointer == 0 else 256 * 4
@@ -60,6 +103,7 @@ def get_comp_positions_size(*args, parent=None, new_value=None, **kwargs):
 
 def get_comp_scales_size(*args, parent=None, new_value=None, **kwargs):
     return 0 if (new_value or not parent) or parent.parent.comp_scale_pointer == 0 else 256 * 4
+
 
 def texmod_case(parent=None, **kwargs):
     try:
@@ -91,18 +135,27 @@ anim_seq_info = Struct("anim_seq_info",
         ("scale_y_data", 1<<9),
         ("scale_z_data", 1<<10),
 
-        # if uncompressed, framedata contains uncompressed floats. if not,
-        # framedata is indices into the comp_angles/positions/scales arrays
+        # if uncompressed, data for every frame contains uncompressed floats.
+        # if not, framedata AFTER the first frame are uint8 indices into the
+        # comp_angles/positions/scales arrays.
+        # TODO: determine if compressed data are deltas from initial
         ("compressed_data", 1<<13),
-        ("unknown", 1<<14), # seems to be completely independent of other flags
+        ("initial_frame_only", 1<<14),
         ),
     UInt16("size"), # number of transform axis types(sum flag counts 0-9)
     UInt32("data_offset"),
-    # NOTE: start of animation data is an array of bytes of length (frame_count+7)//8
+    # NOTE: start of animation data is an array of bytes of length (frame_count+6)//8
     #       each bit indicates if there is framedata for that frame. If not, interpolate.
     #       framedata comes directly after bitfields array. data of all transform types
     #       is interleaved per frame(x,y,h,p,x,y,h,p,x,y,h,p...)
-    SIZE=8
+    SIZE=8,
+    )
+
+frame_data = Container("frame_data",
+    UInt8Array("frame_header_flags", SIZE=get_frame_header_flags_size),
+    FloatArray("initial_frame_data", SIZE=get_initial_frame_size),
+    UInt8Array("comp_frame_data",    SIZE=get_comp_frame_data_size),
+    FloatArray("uncomp_frame_data",  SIZE=get_uncomp_frame_data_size),
     )
 
 anim_header = Struct("anim_header",
@@ -114,11 +167,7 @@ anim_header = Struct("anim_header",
     SInt32("sequence_count", EDITABLE=False, VISIBLE=False),
     SInt32("object_count", EDITABLE=False, VISIBLE=False),
     SIZE=28,
-    )
-
-anim_header_with_data = Struct("anim_header",
-    INCLUDE=anim_header,
-    STEPTREE=Container("data",
+    STEPTREE=Container("compressed_data",
         FloatArray("comp_angles",
             POINTER="..comp_ang_pointer", SIZE=get_comp_angles_size
             ),
@@ -127,26 +176,8 @@ anim_header_with_data = Struct("anim_header",
             ),
         FloatArray("comp_scales",
             POINTER="..comp_scale_pointer", SIZE=get_comp_scales_size
-            ),
-        Array("anim_seq_infos",
-            SUB_STRUCT=anim_seq_info,
-            SIZE=get_anim_seq_info_size,
-            POINTER=lambda *a, **kw: get_atree_data_array_pointer(
-                *a, pointer_field_names=[
-                    ".....offset", "....anim_header_pointer", "..sequence_info_pointer"
-                    ], **kw
-                )
             )
-        ),
-        # TODO
-        #UInt8Array("block_data",
-        #    SIZE=get_block_data_size,
-        #    POINTER=lambda *a, **kw: get_atree_data_array_pointer(
-        #        *a, pointer_field_names=[
-        #            ".....offset", "....anim_header_pointer", "...anim_header.blocks_pointer"
-        #            ], **kw
-        #        ),
-        #    ),
+        )
     )
 
 obj_anim_header = Struct("obj_anim_header",
@@ -250,16 +281,33 @@ anode_info = Struct("anode_info",
     Computed("anim_seq_info_index", SIZE=0),
     SInt32("parent_index", DEFAULT=-1),
     SIZE=60,
+    STEPTREE=Array("anim_seq_infos",
+        SUB_STRUCT=Struct("anim_seq_info",
+            INCLUDE=anim_seq_info,
+            STEPTREE=Container("frame_data",
+                INCLUDE=frame_data,
+                POINTER=lambda *a, **kw: get_atree_data_array_pointer(
+                    *a, pointer_field_names=[
+                        # i fucking hate this
+                        ".......offset",
+                        "......anim_header_pointer",
+                        ".....anim_header.blocks_pointer",
+                        ".data_offset", 
+                        ], **kw
+                    )
+                )
+            ),
+        SIZE=get_anim_seq_info_size,
+        POINTER=lambda *a, **kw: get_atree_data_array_pointer(
+            *a, pointer_field_names=[
+                ".....offset", "....anim_header_pointer", ".anim_seq_info_offset"
+                ], **kw
+            )
+        ),
     )
 
 
 atree_data = Container("atree_data",
-    Struct("anim_header",
-        INCLUDE=anim_header_with_data,
-        POINTER=lambda *a, **kw: get_atree_data_array_pointer(
-            *a, pointer_field_names=["...offset", "..anim_header_pointer"], **kw
-            ),
-        ),
     Array("atree_sequences",
         SUB_STRUCT=atree_seq, SIZE="..atree_seq_count",
         POINTER=lambda *a, **kw: get_atree_data_array_pointer(
@@ -279,6 +327,12 @@ atree_data = Container("atree_data",
         POINTER=lambda *a, **kw: get_atree_data_array_pointer(
             *a, pointer_field_names=["...offset", "..obj_anim_header_pointer"], **kw
             )
+        ),
+    Struct("anim_header",
+        INCLUDE=anim_header,
+        POINTER=lambda *a, **kw: get_atree_data_array_pointer(
+            *a, pointer_field_names=["...offset", "..anim_header_pointer"], **kw
+            ),
         ),
     )
 
@@ -336,7 +390,7 @@ texmod = Struct("texmod",
 atree_list_header_v0 = Struct("atree_list_header",
     UInt32("texmod_count", VISIBLE=False),
     UInt32("texmod_pointer", VISIBLE=False),
-    SIZE=12
+    SIZE=8
     )
 
 atree_list_header_v8 = Struct("atree_list_header",
@@ -344,7 +398,7 @@ atree_list_header_v8 = Struct("atree_list_header",
     UInt32("texmod_pointer", VISIBLE=False),
     UInt32("particle_system_count", VISIBLE=False),
     UInt32("particle_system_pointer", VISIBLE=False),
-    SIZE=20
+    SIZE=16
     )
 
 anim_ps2_def = TagDef("anim",

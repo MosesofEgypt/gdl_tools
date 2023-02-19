@@ -3,13 +3,20 @@ import panda3d
 from . import util
 from ..assets.model import Model
 from ..assets.texture import Texture
-from ..assets.animation import TextureAnimation, ShapeMorphAnimation
+from ..assets.animation import SkeletalAnimation, TextureAnimation, ShapeMorphAnimation
+
+
+def load_skeletal_from_tags(anim_tag):
+    seq_anims = {}
+
+    return seq_anims
 
 
 def load_shape_morphs_from_tags(anim_tag, objects_tag, textures,
                                 global_tex_anims=(), seq_tex_anims=()):
-    seq_obj_anims = {}
-    pass
+    seq_anims = {}
+
+    return seq_anims
 
 
 def load_texmods_from_anim_tag(anim_tag, textures):

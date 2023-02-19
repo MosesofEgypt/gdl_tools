@@ -1,7 +1,7 @@
 import panda3d
 
 from .scene_object import SceneObject
-from ..animation import TextureAnimation, ShapeMorphAnimation, ActorAnimation
+from ..animation import TextureAnimation, ShapeMorphAnimation, SkeletalAnimation
 
 
 class SceneActor(SceneObject):

@@ -13,7 +13,7 @@ class AnimTag(GdlTag):
         self._calculate_sequence_info_data(calc_indices=True)
 
     def set_pointers(self, offset):
-        super().set_pointers(offset)
+        # TODO: write pointer calculation code
         self._calculate_sequence_info_data(calc_indices=False)
 
     def _calculate_sequence_info_data(self, calc_indices=True):
@@ -22,8 +22,8 @@ class AnimTag(GdlTag):
         disk, as well as indices into the associated array. The indices are
         useful when actually operating on the data after it's been parsed.
         '''
-        texmod_pointer_base = self.data.atree_list_header.texmod_pointer
-        psys_pointer_base   = self.data.atree_list_header.particle_system_pointer
+        texmod_pointer_base = getattr(self.data.atree_list_header, "texmod_pointer", 0)
+        psys_pointer_base   = getattr(self.data.atree_list_header, "particle_system_pointer", 0)
 
         for atree in self.data.atrees:
             atree_data = atree.atree_header.atree_data
@@ -52,9 +52,9 @@ class AnimTag(GdlTag):
                     continue
 
                 if calc_indices:
-                    anode.anim_seq_info_index = (
-                        (anode.anim_seq_info_offset - array_offset) // blocksize
-                    )
+                    item_offset = anode.anim_seq_info_offset - array_offset
+                    assert item_offset % blocksize == 0
+                    anode.anim_seq_info_index = item_offset // blocksize
                 else:
                     anode.anim_seq_info_offset = (
                         anode.anim_seq_info_index*blocksize + array_offset

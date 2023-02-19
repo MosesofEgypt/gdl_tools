@@ -132,11 +132,10 @@ def load_model_from_objects_tag(objects_tag, model_name, textures=(),
                 tex_anim.bind(geometry)
                 is_static = False
 
-    if is_obj_anim:
-        if model_name in shape_morph_anims:
-            for shape_morph_anim in shape_morph_anims[model_name]:
-                shape_morph_anim.bind(model)
-                is_static = False
+    if is_obj_anim and model_name in shape_morph_anims:
+        for shape_morph_anim in shape_morph_anims[model_name]:
+            shape_morph_anim.bind(model)
+            is_static = False
 
     if is_static:
         model.p3d_model.set_preserve_transform(ModelNode.PT_drop_node)

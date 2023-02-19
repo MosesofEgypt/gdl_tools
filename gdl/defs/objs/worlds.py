@@ -24,3 +24,7 @@ class WorldsTag(GdlTag):
                 )
 
         return self._collision_grid_tris
+
+    def set_pointers(self, offset):
+        # TODO: write pointer calculation code
+        pass

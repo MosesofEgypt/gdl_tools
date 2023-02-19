@@ -112,7 +112,7 @@ class Animation:
         return self.frame_data[self.get_anim_frame(frame_time)]
 
 
-class ActorAnimation(Animation):
+class SkeletalAnimation(Animation):
     pass
 
 

@@ -2,8 +2,8 @@ from supyr_struct.defs.tag_def import TagDef
 from .objs.worlds import WorldsTag
 from ..common_descs import *
 from ..field_types import *
-from .anim import anim_seq_info, anim_header, \
-     get_comp_angles_size, get_comp_positions_size, get_comp_scales_size
+from .anim import anim_seq_info, frame_data, anim_header,\
+     get_atree_data_array_pointer
 
 def get(): return worlds_ps2_def
 
@@ -413,21 +413,6 @@ locator = Struct("locator",
     SIZE=28
     )
 
-anim_header_with_data = Struct("anim_header",
-    INCLUDE=anim_header,
-    STEPTREE=Container("data",
-        FloatArray("comp_angles",
-            POINTER="..comp_ang_pointer", SIZE=get_comp_angles_size
-            ),
-        FloatArray("comp_positions",
-            POINTER="..comp_pos_pointer", SIZE=get_comp_positions_size
-            ),
-        FloatArray("comp_scales",
-            POINTER="..comp_scale_pointer", SIZE=get_comp_scales_size
-            )
-        )
-    )
-
 world_animation = Struct("world_animation",
     SInt16("world_object_index"),
     SInt16("frame_count"),
@@ -440,20 +425,32 @@ world_animation = Struct("world_animation",
 
     SIZE=16,
     STEPTREE=Struct("anim_seq_info",
-        INCLUDE=anim_seq_info, POINTER=".seq_info_pointer"
+        INCLUDE=anim_seq_info,
+        STEPTREE=Container("frame_data",
+            INCLUDE=frame_data,
+            POINTER=lambda *a, **kw: get_atree_data_array_pointer(
+                *a, pointer_field_names=[
+                    # i fucking hate this
+                    ".....header.animation_header_offset",
+                    "....anim_header.blocks_pointer",
+                    ".data_offset", 
+                    ], **kw
+                ),
+            ),
+        POINTER=".seq_info_pointer"
         )
     )
 
 world_anims = Container("world_anims",
-    Struct("header",
-        INCLUDE=anim_header_with_data,
-        POINTER="..header.animation_header_offset"
-        ),
     Array("animations",
         SUB_STRUCT=world_animation,
         SIZE="..header.animations_count",
         POINTER="..header.animations_pointer",
         DYN_NAME_PATH='.world_object_index', WIDGET=DynamicArrayFrame
+        ),
+    Struct("anim_header",
+        INCLUDE=anim_header,
+        POINTER="..header.animation_header_offset"
         ),
     )
 
