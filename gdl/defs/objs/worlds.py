@@ -111,6 +111,7 @@ class WorldsTag(GdlTag):
                 len(frame_data.frame_header_flags) + len(frame_data.comp_frame_data) +
                 4 * (len(frame_data.initial_frame_data) + len(frame_data.uncomp_frame_data))
                 )
+            frame_data_size += calculate_padding(frame_data_size, 4) # 4byte align
 
         anim_header.blocks_pointer = anim_header_size
 

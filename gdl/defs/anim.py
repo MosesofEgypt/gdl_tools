@@ -47,8 +47,11 @@ def get_frame_header_flags_size(*args, parent=None, new_value=None, **kwargs):
     if new_value is not None or parent is None:
         return 0
 
+    # NOTE: why tf does this have to be so complicated....
     seq_info = parent.parent
-    if seq_info.type.initial_frame_only:
+    if seq_info.type.initial_frame_only or not(
+            seq_info.size or seq_info.type.compressed_data
+            ):
         return 0
 
     frame_count = getattr(seq_info.parent, "frame_count", None)
@@ -61,7 +64,7 @@ def get_frame_header_flags_size(*args, parent=None, new_value=None, **kwargs):
         frame_count = atree_seq_array[seq_index].frame_count
 
     # round to single byte. subtract initial frame if in compressed
-    required_bytes = (frame_count + (7 - has_initial_frame)) // 8
+    required_bytes = max(1, (frame_count + (7 - has_initial_frame)) // 8)
     return required_bytes + ((4 - required_bytes%4) % 4) # round to multiple of 4
 
 
@@ -75,15 +78,20 @@ def get_initial_frame_size(*args, node=None, parent=None, new_value=None, **kwar
 
 def _get_frame_data_size(*args, node=None, parent=None, new_value=None,
                          want_compressed=False, **kwargs):
-    if parent is None or new_value is not None:
-        return 0
-    elif bool(parent.parent.type.compressed_data) == want_compressed:
-        frame_size = parent.parent.size
-        return sum(
-            frame_size * FRAME_FLAGS_TO_FRAME_SIZE[flags]
+    frame_data_size = 0
+    if ((parent is not None and new_value is None) and
+        bool(parent.parent.type.compressed_data) == want_compressed
+        ):
+        frame_data_size = sum(
+            FRAME_FLAGS_TO_FRAME_SIZE[flags]
             for flags in parent.frame_header_flags
             )
-    return 0
+        if want_compressed:
+            frame_data_size = max(0, frame_data_size - 1)
+
+        frame_data_size *= parent.parent.size
+
+    return frame_data_size
 
 
 def get_comp_frame_data_size(*args, **kwargs):
@@ -304,20 +312,6 @@ atree_data = Container("atree_data",
             *a, pointer_field_names=["...offset", "..anim_header_pointer"], **kw
             ),
         ),
-    Array("atree_sequences",
-        SUB_STRUCT=atree_seq, SIZE="..atree_seq_count",
-        POINTER=lambda *a, **kw: get_atree_data_array_pointer(
-            *a, pointer_field_names=["...offset", "..atree_seq_pointer"], **kw
-            ),
-        DYN_NAME_PATH='.name', WIDGET=DynamicArrayFrame
-        ),
-    Array("anode_infos",
-        SUB_STRUCT=anode_info, SIZE="..anode_count",
-        POINTER=lambda *a, **kw: get_atree_data_array_pointer(
-            *a, pointer_field_names=["...offset", "..anode_info_pointer"], **kw
-            ),
-        DYN_NAME_PATH='.mb_desc', WIDGET=DynamicArrayFrame
-        ),
     Container("compressed_data",
         FloatArray("comp_angles",
             SIZE=get_comp_angles_size,
@@ -347,6 +341,20 @@ atree_data = Container("atree_data",
                 )
             )
         ),
+    Array("atree_sequences",
+        SUB_STRUCT=atree_seq, SIZE="..atree_seq_count",
+        POINTER=lambda *a, **kw: get_atree_data_array_pointer(
+            *a, pointer_field_names=["...offset", "..atree_seq_pointer"], **kw
+            ),
+        DYN_NAME_PATH='.name', WIDGET=DynamicArrayFrame
+        ),
+    Array("anode_infos",
+        SUB_STRUCT=anode_info, SIZE="..anode_count",
+        POINTER=lambda *a, **kw: get_atree_data_array_pointer(
+            *a, pointer_field_names=["...offset", "..anode_info_pointer"], **kw
+            ),
+        DYN_NAME_PATH='.mb_desc', WIDGET=DynamicArrayFrame
+        ),
     Struct("obj_anim_header",
         INCLUDE=obj_anim_header,
         POINTER=lambda *a, **kw: get_atree_data_array_pointer(
@@ -364,7 +372,8 @@ atree_header = Struct("atree_header",
     SInt32("atree_seq_count", VISIBLE=False),
     StrNntLatin1("prefix", SIZE=30),
     SInt16("model", VISIBLE=False), # always 0
-    SIZE=56, POINTER=".offset", STEPTREE=atree_data
+    SIZE=56, POINTER=".offset",
+    STEPTREE=atree_data
     )
 
 atree_info = Struct("atree_info",
