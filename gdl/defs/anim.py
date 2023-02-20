@@ -68,9 +68,9 @@ def get_frame_header_flags_size(*args, parent=None, new_value=None, **kwargs):
 def get_initial_frame_size(*args, node=None, parent=None, new_value=None, **kwargs):
     if parent is None or new_value is not None:
         return
-    elif not parent.parent.type.compressed_data:
-        return 0
-    return parent.parent.size * 4
+    elif parent.parent.type.compressed_data or parent.parent.type.initial_frame_only:
+        return parent.parent.size * 4
+    return 0
 
 
 def _get_frame_data_size(*args, node=None, parent=None, new_value=None,
@@ -78,8 +78,9 @@ def _get_frame_data_size(*args, node=None, parent=None, new_value=None,
     if parent is None or new_value is not None:
         return 0
     elif bool(parent.parent.type.compressed_data) == want_compressed:
+        frame_size = parent.parent.size
         return sum(
-            FRAME_FLAGS_TO_FRAME_SIZE[flags]
+            frame_size * FRAME_FLAGS_TO_FRAME_SIZE[flags]
             for flags in parent.frame_header_flags
             )
     return 0
@@ -94,15 +95,15 @@ def get_uncomp_frame_data_size(*args, **kwargs):
 
 
 def get_comp_angles_size(*args, parent=None, new_value=None, **kwargs):
-    return 0 if (new_value or not parent) or parent.parent.comp_ang_pointer == 0 else 256 * 4
+    return 0 if (new_value or not parent) or parent.parent.anim_header.comp_ang_pointer == 0 else 256 * 4
 
 
 def get_comp_positions_size(*args, parent=None, new_value=None, **kwargs):
-    return 0 if (new_value or not parent) or parent.parent.comp_pos_pointer == 0 else 256 * 4
+    return 0 if (new_value or not parent) or parent.parent.anim_header.comp_pos_pointer == 0 else 256 * 4
 
 
 def get_comp_scales_size(*args, parent=None, new_value=None, **kwargs):
-    return 0 if (new_value or not parent) or parent.parent.comp_scale_pointer == 0 else 256 * 4
+    return 0 if (new_value or not parent) or parent.parent.anim_header.comp_scale_pointer == 0 else 256 * 4
 
 
 def texmod_case(parent=None, **kwargs):
@@ -158,7 +159,7 @@ frame_data = Container("frame_data",
     FloatArray("uncomp_frame_data",  SIZE=get_uncomp_frame_data_size),
     )
 
-anim_header = Struct("anim_header",
+anim_header = QStruct("anim_header",
     Pointer32("comp_ang_pointer", VISIBLE=False),
     Pointer32("comp_pos_pointer", VISIBLE=False),
     Pointer32("comp_scale_pointer", VISIBLE=False),
@@ -167,17 +168,6 @@ anim_header = Struct("anim_header",
     SInt32("sequence_count", EDITABLE=False, VISIBLE=False),
     SInt32("object_count", EDITABLE=False, VISIBLE=False),
     SIZE=28,
-    STEPTREE=Container("compressed_data",
-        FloatArray("comp_angles",
-            POINTER="..comp_ang_pointer", SIZE=get_comp_angles_size
-            ),
-        FloatArray("comp_positions",
-            POINTER="..comp_pos_pointer", SIZE=get_comp_positions_size
-            ),
-        FloatArray("comp_scales",
-            POINTER="..comp_scale_pointer", SIZE=get_comp_scales_size
-            )
-        )
     )
 
 obj_anim_header = Struct("obj_anim_header",
@@ -308,6 +298,12 @@ anode_info = Struct("anode_info",
 
 
 atree_data = Container("atree_data",
+    Struct("anim_header",
+        INCLUDE=anim_header,
+        POINTER=lambda *a, **kw: get_atree_data_array_pointer(
+            *a, pointer_field_names=["...offset", "..anim_header_pointer"], **kw
+            ),
+        ),
     Array("atree_sequences",
         SUB_STRUCT=atree_seq, SIZE="..atree_seq_count",
         POINTER=lambda *a, **kw: get_atree_data_array_pointer(
@@ -322,17 +318,40 @@ atree_data = Container("atree_data",
             ),
         DYN_NAME_PATH='.mb_desc', WIDGET=DynamicArrayFrame
         ),
+    Container("compressed_data",
+        FloatArray("comp_angles",
+            SIZE=get_comp_angles_size,
+            POINTER=lambda *a, **kw: get_atree_data_array_pointer(
+                *a, pointer_field_names=[
+                    "....offset", "...anim_header_pointer",
+                    "..anim_header.comp_ang_pointer",
+                    ], **kw
+                )
+            ),
+        FloatArray("comp_positions",
+            SIZE=get_comp_positions_size,
+            POINTER=lambda *a, **kw: get_atree_data_array_pointer(
+                *a, pointer_field_names=[
+                    "....offset", "...anim_header_pointer",
+                    "..anim_header.comp_pos_pointer",
+                    ], **kw
+                )
+            ),
+        FloatArray("comp_scales",
+            SIZE=get_comp_scales_size,
+            POINTER=lambda *a, **kw: get_atree_data_array_pointer(
+                *a, pointer_field_names=[
+                    "....offset", "...anim_header_pointer",
+                    "..anim_header.comp_scale_pointer",
+                    ], **kw
+                )
+            )
+        ),
     Struct("obj_anim_header",
         INCLUDE=obj_anim_header,
         POINTER=lambda *a, **kw: get_atree_data_array_pointer(
             *a, pointer_field_names=["...offset", "..obj_anim_header_pointer"], **kw
             )
-        ),
-    Struct("anim_header",
-        INCLUDE=anim_header,
-        POINTER=lambda *a, **kw: get_atree_data_array_pointer(
-            *a, pointer_field_names=["...offset", "..anim_header_pointer"], **kw
-            ),
         ),
     )
 

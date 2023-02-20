@@ -8,14 +8,6 @@ class AnimTag(GdlTag):
             atree.name.upper().strip() for atree in self.data.atrees
             ))
 
-    def parse(self, **kwargs):
-        super().parse(**kwargs)
-        self._calculate_sequence_info_data(calc_indices=True)
-
-    def set_pointers(self, offset):
-        # TODO: write pointer calculation code
-        self._calculate_sequence_info_data(calc_indices=False)
-
     def _calculate_sequence_info_data(self, calc_indices=True):
         '''
         This method serves to calculate the offsets that are serialized to
@@ -59,3 +51,11 @@ class AnimTag(GdlTag):
                     anode.anim_seq_info_offset = (
                         anode.anim_seq_info_index*blocksize + array_offset
                         )
+
+    def parse(self, **kwargs):
+        super().parse(**kwargs)
+        self._calculate_sequence_info_data(calc_indices=True)
+
+    def set_pointers(self, offset):
+        # TODO: write pointer calculation code
+        self._calculate_sequence_info_data(calc_indices=False)

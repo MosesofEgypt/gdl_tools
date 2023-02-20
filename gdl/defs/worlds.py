@@ -3,6 +3,7 @@ from .objs.worlds import WorldsTag
 from ..common_descs import *
 from ..field_types import *
 from .anim import anim_seq_info, frame_data, anim_header,\
+     get_comp_angles_size, get_comp_positions_size, get_comp_scales_size,\
      get_atree_data_array_pointer
 
 def get(): return worlds_ps2_def
@@ -431,7 +432,7 @@ world_animation = Struct("world_animation",
             POINTER=lambda *a, **kw: get_atree_data_array_pointer(
                 *a, pointer_field_names=[
                     # i fucking hate this
-                    ".....header.animation_header_offset",
+                    ".....header.animation_header_pointer",
                     "....anim_header.blocks_pointer",
                     ".data_offset", 
                     ], **kw
@@ -442,15 +443,44 @@ world_animation = Struct("world_animation",
     )
 
 world_anims = Container("world_anims",
+    Struct("anim_header",
+        INCLUDE=anim_header,
+        POINTER="..header.animation_header_pointer"
+        ),
+    Container("compressed_data",
+        FloatArray("comp_angles",
+            SIZE=get_comp_angles_size,
+            POINTER=lambda *a, **kw: get_atree_data_array_pointer(
+                *a, pointer_field_names=[
+                    "...header.animation_header_pointer",
+                    "..anim_header.comp_ang_pointer",
+                    ], **kw
+                )
+            ),
+        FloatArray("comp_positions",
+            SIZE=get_comp_positions_size,
+            POINTER=lambda *a, **kw: get_atree_data_array_pointer(
+                *a, pointer_field_names=[
+                    "...header.animation_header_pointer",
+                    "..anim_header.comp_pos_pointer",
+                    ], **kw
+                )
+            ),
+        FloatArray("comp_scales",
+            SIZE=get_comp_scales_size,
+            POINTER=lambda *a, **kw: get_atree_data_array_pointer(
+                *a, pointer_field_names=[
+                    "...header.animation_header_pointer",
+                    "..anim_header.comp_scale_pointer",
+                    ], **kw
+                )
+            )
+        ),
     Array("animations",
         SUB_STRUCT=world_animation,
         SIZE="..header.animations_count",
         POINTER="..header.animations_pointer",
         DYN_NAME_PATH='.world_object_index', WIDGET=DynamicArrayFrame
-        ),
-    Struct("anim_header",
-        INCLUDE=anim_header,
-        POINTER="..header.animation_header_offset"
         ),
     )
 
@@ -489,7 +519,7 @@ worlds_header = Struct('header',
         DEFAULT=0xF00BAB02, EDITABLE=False
         ),
 
-    UInt32("animation_header_offset", EDITABLE=False, VISIBLE=False),
+    UInt32("animation_header_pointer", EDITABLE=False, VISIBLE=False),
     UInt32("animations_count", EDITABLE=False, VISIBLE=False),
     Pointer32("animations_pointer", EDITABLE=False, VISIBLE=False),
 
@@ -554,5 +584,5 @@ worlds_ps2_def = TagDef("worlds",
         CASES={ 0: Void("world_anims") },
         DEFAULT=world_anims
         ),
-    ext=".ps2", endian="<", tag_cls=WorldsTag, incomplete=True
+    ext=".ps2", endian="<", tag_cls=WorldsTag
     )
