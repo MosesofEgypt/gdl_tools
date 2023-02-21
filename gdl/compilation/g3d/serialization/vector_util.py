@@ -14,15 +14,6 @@ def cross_product(ray_a, ray_b):
 cos_angle_between_vectors = dot_product
 
 
-def euler_to_quaternion(y, p, r):
-    c0, c1, c2 = cos(y / 2), cos(p / 2), cos(r / 2)
-    s0, s1, s2 = sin(y / 2), sin(p / 2), sin(r / 2)
-    return (s0*s1*c2 + c0*c1*s2,
-            s0*c1*c2 + c0*s1*s2,
-            c0*s1*c2 - s0*c1*s2,
-            c0*c1*c2 - s0*s1*s2)
-
-
 def rotate_vector_by_quaternion(v, q):
     vm_sq = v[0]**2 + v[1]**2 + v[2]**2
     if not vm_sq:

@@ -35,8 +35,8 @@ class CrucibleApp(Tk):
     def __init__(self, **options):
         Tk.__init__(self, **options)
         
-        self.title("Crucible V1.1.3")
-        self.minsize(500, 500)
+        self.title("Crucible V1.1.4")
+        self.minsize(500, 0)
         self.resizable(1, 0)
 
         self.target_objects_dir  = StringVar(self)
@@ -171,7 +171,7 @@ class CrucibleApp(Tk):
 
         # pack the outer frames
         self.objects_frame.pack(padx=(10,10), pady=(5,0), side='top', fill='both')
-        self.worlds_frame.pack(padx=(10,10), pady=(5,0), side='top', fill='both')
+        #self.worlds_frame.pack(padx=(10,10), pady=(5,0), side='top', fill='both')
         self.messages_frame.pack(padx=(10,10), pady=(5,0), side='top', fill='both')
         self.settings_frame.pack(padx=(10,10), pady=(5,0), side='top', fill='both')
 

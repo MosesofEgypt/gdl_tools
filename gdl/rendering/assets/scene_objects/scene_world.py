@@ -89,8 +89,8 @@ class SceneWorld(SceneObject):
     def player_count(self): return self._player_count
     @player_count.setter
     def player_count(self, count):
-        if not(isinstance(count, int) and count in range(5)):
-            raise ValueError("Player count must be either 0, 1, 2, 3, or 4, not '%s'" % count)
+        if not(isinstance(count, int) and count in range(6)):
+            raise ValueError("Player count must be either 0, 1, 2, 3, 4, or 5 not '%s'" % count)
 
         self._player_count = count
         for scene_items in self._node_scene_items.values():

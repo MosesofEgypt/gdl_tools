@@ -79,47 +79,48 @@ class WorldsTag(GdlTag):
         offset += 28 * header.locator_count
 
         # now comes the animations....
-        anim_header = self.data.world_anims.anim_header
-        comp_data   = self.data.world_anims.compressed_data
+        if self.data.header.animations_count:
+            anim_header = self.data.world_anims.anim_header
+            comp_data   = self.data.world_anims.compressed_data
 
-        anim_header_size = 28 # size of anim_header
-        anim_header.comp_ang_pointer = anim_header_size if comp_data.comp_angles else 0
-        if anim_header.comp_ang_pointer:
-            anim_header_size += 4 * len(comp_data.comp_angles)
+            anim_header_size = 28 # size of anim_header
+            anim_header.comp_ang_pointer = anim_header_size if comp_data.comp_angles else 0
+            if anim_header.comp_ang_pointer:
+                anim_header_size += 4 * len(comp_data.comp_angles)
 
-        anim_header.comp_pos_pointer = anim_header_size if comp_data.comp_positions else 0
-        if anim_header.comp_pos_pointer:
-            anim_header_size += 4 * len(comp_data.comp_positions)
+            anim_header.comp_pos_pointer = anim_header_size if comp_data.comp_positions else 0
+            if anim_header.comp_pos_pointer:
+                anim_header_size += 4 * len(comp_data.comp_positions)
 
-        anim_header.comp_scale_pointer = anim_header_size if comp_data.comp_scales else 0
-        if anim_header.comp_scale_pointer:
-            anim_header_size += 4 * len(comp_data.comp_scales)
+            anim_header.comp_scale_pointer = anim_header_size if comp_data.comp_scales else 0
+            if anim_header.comp_scale_pointer:
+                anim_header_size += 4 * len(comp_data.comp_scales)
 
-        # calculate pointers for all sequence infos and data
-        anim_header.sequence_info_pointer = anim_header_size
-        frame_data_size = 0
-        for world_anim in self.data.world_anims.animations:
-            world_anim.seq_info_pointer = offset + anim_header_size
-            anim_header_size += 8 # add size of seq_info struct
+            # calculate pointers for all sequence infos and data
+            anim_header.sequence_info_pointer = anim_header_size
+            frame_data_size = 0
+            for world_anim in self.data.world_anims.animations:
+                world_anim.seq_info_pointer = offset + anim_header_size
+                anim_header_size += 8 # add size of seq_info struct
 
-            frame_data = world_anim.anim_seq_info.frame_data
-            world_anim.anim_seq_info.data_offset = frame_data_size
+                frame_data = world_anim.anim_seq_info.frame_data
+                world_anim.anim_seq_info.data_offset = frame_data_size
 
-            assert len(frame_data.frame_header_flags) % 4 == 0, "Header flags not padded to multiple of 4"
+                assert len(frame_data.frame_header_flags) % 4 == 0, "Header flags not padded to multiple of 4"
 
-            frame_data_size += (
-                len(frame_data.frame_header_flags) + len(frame_data.comp_frame_data) +
-                4 * (len(frame_data.initial_frame_data) + len(frame_data.uncomp_frame_data))
-                )
-            frame_data_size += calculate_padding(frame_data_size, 4) # 4byte align
+                frame_data_size += (
+                    len(frame_data.frame_header_flags) + len(frame_data.comp_frame_data) +
+                    4 * (len(frame_data.initial_frame_data) + len(frame_data.uncomp_frame_data))
+                    )
+                frame_data_size += calculate_padding(frame_data_size, 4) # 4byte align
 
-        anim_header.blocks_pointer = anim_header_size
+            anim_header.blocks_pointer = anim_header_size
 
-        header.animation_header_pointer = offset
-        offset += anim_header_size + frame_data_size
+            header.animation_header_pointer = offset
+            offset += anim_header_size + frame_data_size
 
-        header.animations_pointer = offset
-        offset += 16 * header.animations_count
+            header.animations_pointer = offset
+            offset += 16 * header.animations_count
 
         header.particle_systems_pointer = offset
         # aaaaand we're done

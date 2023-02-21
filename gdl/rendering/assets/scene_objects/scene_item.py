@@ -144,12 +144,16 @@ class SceneItem(SceneObject):
         self._min_players = kwargs.pop("min_players", self._min_players)
         self._scene_objects = dict(kwargs.pop("scene_objects", {}))
 
+        item_name = getattr(self._item_info, "actor_name", None)
+
+        if self.min_players not in range(0, 5):
+            print("Warning: Item '%s' will only spawn with player count %d" %
+                  (item_name, self.min_players))
+
         super().__init__(**kwargs)
         # TODO: initialize self using item_info and params
 
-        self.scene_object = self._scene_objects.get(
-            getattr(self._item_info, "actor_name", None)
-            )
+        self.scene_object = self._scene_objects.get(item_name)
         coll_shape = None
         # TODO: copy self.scene_object if self._copy_object is True
 
