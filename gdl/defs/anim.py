@@ -205,6 +205,7 @@ atree_seq = Struct("atree_seq",
     SInt16("texmod_count"), # number of texmods starting at texmod_index to play together
     Bool16("flags",
         "play_reversed"  # applies to object and texmod animations
+        # NOTE: might also reverse y and z rotation according to godot viewer
         ),
     SInt32("texmod_index", DEFAULT=-1),
     SIZE=48,

@@ -667,7 +667,14 @@ particle_system = Struct("particle_system",
         "spray_g",
         "smoke_g",
         ),
-    SInt8("id"),  # always in range [65, 85] ??
+    StrAsciiEnum("id",
+        # NOTE: insert this id into the following template:
+        #   "%sPSYS%c" % (level_id, psys_id)
+        # this serves as a prefix matcher to determin if this particle system
+        # should be attached to a given world object. if it matches, attach.
+        *((c, c) for c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"),
+        SIZE=1
+        ),
     SInt8("dummy", VISIBLE=False), # always 0
     particle_system_flags,
     particle_system_flag_enables,

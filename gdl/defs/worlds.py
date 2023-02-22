@@ -335,6 +335,14 @@ world_object = Struct("world_object",
     SInt8("trigger_state"),
     SInt8("p_trigger_state"),
 
+    # NOTE: parent_object_pointer seems to point to SOMETHING important,
+    #       because it's the missing link needed to add the missing
+    #       transparency and chrome effects on world objects. Setting it
+    #       to 0 for all objects breaks them and makes the preview closer
+    #       to what LegendViewer displays things as. See the following:
+    #   https://cdn.discordapp.com/attachments/1040820763617415239/1077784132874162187/IMG_20230221_2145384.jpg
+    #   https://cdn.discordapp.com/attachments/1040820763617415239/1077784072518123550/IMG_20230221_2145015.jpg
+    #   https://cdn.discordapp.com/attachments/1040820763617415239/1077783975956844704/IMG_20230221_2144418.jpg
     Pointer32("parent_object_pointer"),
     QStruct("pos", INCLUDE=xyz_float),
 
