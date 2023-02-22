@@ -23,18 +23,20 @@ def load_scene_world_object_from_tags(
     if model:
         scene_world_object.add_model(model)
 
-        fb_add = False #world_object.flags.unknown
-        chrome = False
-        for geom in model.geometries:
-            shader_updated = False
-            # TODO: fix this to be more accurate. This is only correct
-            #       in some circumstances, but is wrong in others.
-            #fb_add = not geom.shader.lm_texture
+        flag_names = (
+            'no_z_test', 'no_z_write', 'add_first', 'dist_alpha',
+            'sort_alpha', 'alpha_last', 'alpha_last_2', 'no_shading',
+            'chrome', 'fb_add', 'fb_mul', 'front_face', 'camera_dir'
+            )
+        set_flags = set(
+            flag for flag in flag_names if world_object.mb_flags[flag]
+            )
 
-            if chrome: geom.shader.chrome = shader_updated = True
-            if fb_add: geom.shader.fb_add = shader_updated = True
+        if set_flags:
+            for geom in model.geometries:
+                for flag in set_flags:
+                    setattr(geom.shader, flag, True)
 
-            if shader_updated:
                 geom.apply_shader()
 
     return scene_world_object

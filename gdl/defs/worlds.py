@@ -336,14 +336,45 @@ world_object = Struct("world_object",
     SInt8("p_trigger_state"),
 
     # NOTE: parent_object_pointer seems to point to SOMETHING important,
-    #       because it's the missing link needed to add the missing
-    #       transparency and chrome effects on world objects. Setting it
-    #       to 0 for all objects breaks them and makes the preview closer
-    #       to what LegendViewer displays things as. See the following:
-    #   https://cdn.discordapp.com/attachments/1040820763617415239/1077784132874162187/IMG_20230221_2145384.jpg
-    #   https://cdn.discordapp.com/attachments/1040820763617415239/1077784072518123550/IMG_20230221_2145015.jpg
-    #   https://cdn.discordapp.com/attachments/1040820763617415239/1077783975956844704/IMG_20230221_2144418.jpg
-    Pointer32("parent_object_pointer"),
+    Bool32("mb_flags",
+        # these are the flags that are set across all animation files
+        # its possible for no flags to be set on all node types
+        ("no_z_test",       1<<6),
+        ("no_z_write",      1<<7),
+        ("color_obj",       1<<8),  # IS NEVER SET
+        ("alpha_obj",       1<<9),  # IS NEVER SET
+        ("dist_alpha",      1<<10), 
+        ("sort_alpha",      1<<11),
+        ("no_shading",      1<<12),
+        ("add_first",       1<<13),
+        #("object_lmap",     1<<13),
+        ("temp_no_shade",   1<<14),  # IS NEVER SET
+
+        ("chrome",          1<<15),
+        ("no_alpha_z_write",1<<16),  # IS NEVER SET
+        ("car_body",        1<<17),  # IS NEVER SET
+        #("object_o_chrome", 1<<17),
+        ("local_light",     1<<18),  # IS NEVER SET
+        ("alpha_last",      1<<19),
+        #("object_t_chrome", 1<<19),
+        ("dist_alpha_2",    1<<20),
+
+        ("no_filter",       1<<21),  # IS NEVER SET
+
+        ("alpha_last_2",    1<<22),
+        ("fb_add",          1<<23),
+
+        ("front_face",      1<<24),
+        ("front_dir",       1<<25),  # IS NEVER SET
+        ("camera_dir",      1<<26),
+        ("top_face",        1<<27),  # IS NEVER SET
+        #("object_keep_a",   1<<27),
+
+        ("tex_shift",       1<<28),  # IS NEVER SET
+        ("harden_a",        1<<29),  # IS NEVER SET
+        ("fb_mul",          1<<30),  # IS NEVER SET
+        ("scrn_clip",       1<<31),  # IS NEVER SET
+        ),
     QStruct("pos", INCLUDE=xyz_float),
 
     Pointer32("mbnode_pointer"),

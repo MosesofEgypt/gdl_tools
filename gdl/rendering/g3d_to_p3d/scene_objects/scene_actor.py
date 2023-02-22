@@ -70,20 +70,21 @@ def load_nodes_from_anim_tag(actor_name, anim_tag):
             name=node_name,
             model_name=model_name,
             flags=dict(
-                no_z_test   = bool(flags.no_z_test),
-                no_z_write  = bool(flags.no_z_write),
+                no_z_test    = bool(flags.no_z_test),
+                no_z_write   = bool(flags.no_z_write),
 
-                add_first   = bool(flags.add_first),
-                sort_alpha  = bool(flags.sort_alpha),
-                alpha_last  = bool(flags.alpha_last or flags.alpha_last_2), # ???
-                no_shading  = bool(flags.no_shading),
+                add_first    = bool(flags.add_first),
+                sort_alpha   = bool(flags.sort_alpha),
+                alpha_last   = bool(flags.alpha_last),
+                alpha_last_2 = bool(flags.alpha_last_2),
+                no_shading   = bool(flags.no_shading),
 
-                chrome      = bool(flags.chrome),
-                fb_add      = bool(flags.fb_add),
-                fb_mul      = bool(flags.fb_mul),
+                chrome       = bool(flags.chrome),
+                fb_add       = bool(flags.fb_add),
+                fb_mul       = bool(flags.fb_mul),
 
-                front_face  = bool(flags.front_face), 
-                camera_dir  = bool(flags.camera_dir), 
+                front_face   = bool(flags.front_face), 
+                camera_dir   = bool(flags.camera_dir), 
                 )
             ))
 
@@ -138,7 +139,7 @@ def load_scene_actor_from_tags(
             shader_updated = False
             for flag_name in (
                     "no_z_test", "no_z_write", "chrome", "fb_add", "fb_mul",
-                    "add_first", "sort_alpha", "alpha_last", "no_shading",
+                    "add_first", "sort_alpha", "alpha_last", "alpha_last2", "no_shading",
                     ):
                 if flags.get(flag_name):
                     setattr(geometry.shader, flag_name, True)

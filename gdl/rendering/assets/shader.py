@@ -3,26 +3,27 @@ import panda3d
 from . import texture
 
 class GeometryShader:
-    alpha       = False
-    sort        = False
-    sort_alpha  = False
+    dist_alpha   = False
+    alpha        = False
+    sort         = False
 
-    no_z_test   = False
-    no_z_write  = False
+    no_z_test    = False
+    no_z_write   = False
 
-    add_first   = False
-    sort_alpha  = False
-    alpha_last  = False
-    no_shading  = False
+    add_first    = False
+    sort_alpha   = False
+    alpha_last   = False
+    alpha_last_2 = False
+    no_shading   = False
 
-    fb_add      = False
-    fb_mul      = False
+    fb_add       = False
+    fb_mul       = False
 
-    chrome      = False
-    sharp       = False
-    blur        = False
+    chrome       = False
+    sharp        = False
+    blur         = False
 
-    signed_alpha    = True
+    signed_alpha = True
 
     _diff_texture   = None
     _lm_texture     = None
@@ -37,10 +38,12 @@ class GeometryShader:
     _u_offset    = 0.0
     _v_offset    = 0.0
 
-    DRAW_SORT_LMAP   = 0
-    DRAW_SORT_OPAQUE = 10
-    DRAW_SORT_ALPHA  = 20
-    DRAW_SORT_SFX    = 1000
+    DRAW_SORT_LMAP          = 0
+    DRAW_SORT_OPAQUE        = 10
+    DRAW_SORT_ALPHA         = 20
+    DRAW_SORT_ALPHA_LAST    = 30
+    DRAW_SORT_ALPHA_LAST2   = 40
+    DRAW_SORT_SFX           = 1000
 
     ALPHA_SCALE_PRIORITY = 10000
 
@@ -92,7 +95,7 @@ class GeometryShader:
         # ps2 textures use signed alpha channels, so double
         # the value to achieve the transparency level we want
         self._diff_texture_stage.setAlphaScale(
-            2 if self.signed_alpha else 1
+            1 if (self.dist_alpha or not self.signed_alpha) else 2
             )
 
     def apply_diffuse(self, nodepath):
@@ -153,18 +156,26 @@ class GeometryShader:
                 )
             nodepath.setAttrib(self._shade_model_attrib)
 
-        if self.alpha:
-            nodepath.setTransparency(panda3d.core.TransparencyAttrib.MAlpha)
+        if self.fb_add or self.fb_mul or self.add_first:
+            self._diff_texture_stage.setSort(GeometryShader.DRAW_SORT_SFX)
+        elif self.alpha_last_2:
+            self._diff_texture_stage.setSort(GeometryShader.DRAW_SORT_ALPHA_LAST2)
+        elif self.alpha_last:
+            self._diff_texture_stage.setSort(GeometryShader.DRAW_SORT_ALPHA_LAST)
+        elif self.alpha or self.sort:
+            self._diff_texture_stage.setSort(GeometryShader.DRAW_SORT_ALPHA)
+        else:
             self._diff_texture_stage.setSort(GeometryShader.DRAW_SORT_OPAQUE)
+
+        if self.alpha or self.dist_alpha:
+            nodepath.setTransparency(panda3d.core.TransparencyAttrib.MAlpha)
         elif self.fb_add:
             self._color_blend_attrib = panda3d.core.ColorBlendAttrib.make(
                 panda3d.core.ColorBlendAttrib.MAdd
                 )
             nodepath.setAttrib(self._color_blend_attrib)
-            self._diff_texture_stage.setSort(GeometryShader.DRAW_SORT_SFX)
         else:
             nodepath.setTransparency(panda3d.core.TransparencyAttrib.MNone)
-            self._diff_texture_stage.setSort(GeometryShader.DRAW_SORT_OPAQUE)
 
         self.set_diffuse_offset(nodepath)
         self.set_diffuse_alpha_level(nodepath)
