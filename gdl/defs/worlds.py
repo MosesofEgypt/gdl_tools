@@ -297,9 +297,6 @@ item_info = Struct("item_info",
     SIZE=80,
     )
 
-# NOTE: it appears that non-lightmapped objects should be rendered
-# in additive mode. objects without lightmaps in E1 are the ones that
-# normally appear transparent(columns, light rays, door frame, etc)
 world_object = Struct("world_object",
     StrNntLatin1("name", SIZE=16),
     # NOTE: seems there's such a thing as "dynamic parent" world objects
@@ -456,11 +453,9 @@ locator = Struct("locator",
 world_animation = Struct("world_animation",
     SInt16("world_object_index"),
     SInt16("frame_count"),
-    Bool16("flags",
-        *((f"unknown{i}", 1<<i) for i in range(16))
-        ),
-    SInt16("state"),
-    Float("frame"),
+    Bool16("flags"),  # but no flags are ever set, so can't determine purpose
+    SInt16("state"),  # always 0
+    Float("frame"),   # always 0.0
     Pointer32("seq_info_pointer"),
 
     SIZE=16,

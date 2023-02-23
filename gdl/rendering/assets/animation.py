@@ -144,11 +144,8 @@ class ShapeMorphAnimation(Animation):
             parent_model = model_ref()
             if parent_model is None:
                 self.unbind(ref_id)
-                continue
-            elif parent_model.obj_anim_model is frame_model:
-                continue
-
-            parent_model.obj_anim_model = frame_model
+            elif parent_model.obj_anim_model is not frame_model:
+                parent_model.obj_anim_model = frame_model
 
 
 class TextureAnimation(Animation):

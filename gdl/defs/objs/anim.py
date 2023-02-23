@@ -48,7 +48,7 @@ class AnimTag(GdlTag):
 
                 if calc_indices:
                     item_offset = anode.anim_seq_info_offset - array_offset
-                    #assert item_offset % blocksize == 0
+                    assert item_offset % blocksize == 0
                     anode.anim_seq_info_index = item_offset // blocksize
                 else:
                     anode.anim_seq_info_offset = (

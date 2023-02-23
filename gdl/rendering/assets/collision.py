@@ -132,6 +132,10 @@ class CollisionObjectGrid:
 
         # test against dynamic collision
         for obj_name, coll_obj in self._dyn_collision_objects.items():
+            if coll_obj.scene_object is None:
+                # scene object never got attached
+                continue
+
             # NOTE: x, y, z are world-relative coordinates. for dynamic objects,
             #       they need to be converted to be relative to the collision objects
             #       position, and then converted back to world when returned

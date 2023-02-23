@@ -149,12 +149,15 @@ def load_scene_world_from_tags(
             allow_model_flatten=flatten_static,
             p3d_model=world_nodes[i]
             )
-        collision = load_collision_from_worlds_tag(
-            worlds_tag, object_name,
-            world_object.coll_tri_index,
-            world_object.coll_tri_count,
-            )
         p3d_nodepath = scene_world_object.p3d_nodepath
+
+        collision = None
+        if not world_object.flags.particle_system:
+            collision = load_collision_from_worlds_tag(
+                worlds_tag, object_name,
+                world_object.coll_tri_index,
+                world_object.coll_tri_count,
+                )
 
         if collision:
             parent_node = (p3d_nodepath.node() if world_object.flags.animated

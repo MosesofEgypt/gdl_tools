@@ -131,7 +131,6 @@ obj_anim = Struct("obj_anim",
 
 anim_seq_info = Struct("anim_seq_info",
     Bool16("type",
-        # these are the flags that are set across all animation files
         ("rot_x_data", 1<<0),
         ("rot_y_data", 1<<1),
         ("rot_z_data", 1<<2),
@@ -223,30 +222,42 @@ anode_info = Struct("anode_info",
         ),
     Bool16("flags",
         "no_object_def" # seems to indicate that there is no object def to locate for this node
-        #           always set for object, particle_system, and texture
+        #                 always set for object, particle_system, and texture
         ),
     Bool32("mb_flags",
         # these are the flags that are set across all animation files
         # its possible for no flags to be set on all node types
-        ("no_z_test",       1<<6),  # 0.79% of object, skeletal, and texture
-        ("no_z_write",      1<<7),  # 9.19% of all anim types
-        ("sort_alpha",      1<<11), # 13.20% of all anim types(set alone in null, object, skeletal, and texture)
-        ("no_shading",      1<<12), # 15.32% of all anim types
-        ("add_first",       1<<13), # 0.13% of object, skeletal, and texture
+        ("no_z_test",       1<<6),
+        ("no_z_write",      1<<7),
+        ("color_obj",       1<<8),  # IS NEVER SET
+        ("alpha_obj",       1<<9),  # IS NEVER SET
+        ("dist_alpha",      1<<10), # IS NEVER SET
+        ("sort_alpha",      1<<11),
+        ("no_shading",      1<<12),
+        ("add_first",       1<<13),
+        ("temp_no_shade",   1<<14), # IS NEVER SET
 
-        ("chrome",          1<<15), # 1.62% of null and skeletal
-        ("alpha_last",      1<<19), # 8.25% of all anim types
+        ("chrome",          1<<15),
+        ("no_alpha_z_write",1<<16), # IS NEVER SET
+        ("car_body",        1<<17), # IS NEVER SET
+        ("local_light",     1<<18), # IS NEVER SET
+        ("alpha_last",      1<<19),
+        ("dist_alpha_2",    1<<20), # IS NEVER SET
+        ("no_filter",       1<<21), # IS NEVER SET
 
         # all flags below not set in particle system
-        ("alpha_last_2",    1<<22), # 2.32% of all anim types
-        ("fb_add",          1<<23), # 2.31% of all anim types
+        ("alpha_last_2",    1<<22),
+        ("fb_add",          1<<23),
 
-        ("front_face",      1<<24), # 1.02% of null, skeletal, and texture
-        ("camera_dir",      1<<26), # 7.41% of all anim types
-        ("top_face",        1<<27), # 0.17% of skeletal, and texture
+        ("front_face",      1<<24),
+        ("front_dir",       1<<25), # IS NEVER SET
+        ("camera_dir",      1<<26),
+        ("top_face",        1<<27),
+        ("tex_shift",       1<<28), # IS NEVER SET
 
-        ("harden_a",        1<<29), # 0.01% of object
-        ("fb_mul",          1<<30), # 0.007% of skeletal
+        ("harden_a",        1<<29),
+        ("fb_mul",          1<<30),
+        ("scrn_clip",       1<<31), # IS NEVER SET
 
         # some additional flags that overlap previous flags.
         # leaving them here commented out since they don't seem
@@ -256,18 +267,6 @@ anode_info = Struct("anode_info",
         #("object_t_chrome", 1<<19),
         #("object_keep_a",   1<<27),
 
-        dict(NAME="color_obj",          VALUE=1<<8,  VISIBLE=False),  # IS NEVER SET
-        dict(NAME="alpha_obj",          VALUE=1<<9,  VISIBLE=False),  # IS NEVER SET
-        dict(NAME="dist_alpha",         VALUE=1<<10, VISIBLE=False),  # IS NEVER SET
-        dict(NAME="temp_no_shade",      VALUE=1<<14, VISIBLE=False),  # IS NEVER SET
-        dict(NAME="no_alpha_z_write",   VALUE=1<<16, VISIBLE=False),  # IS NEVER SET
-        dict(NAME="car_body",           VALUE=1<<17, VISIBLE=False),  # IS NEVER SET
-        dict(NAME="local_light",        VALUE=1<<18, VISIBLE=False),  # IS NEVER SET
-        dict(NAME="dist_alpha_2",       VALUE=1<<20, VISIBLE=False),  # IS NEVER SET
-        dict(NAME="no_filter",          VALUE=1<<21, VISIBLE=False),  # IS NEVER SET
-        dict(NAME="front_dir",          VALUE=1<<25, VISIBLE=False),  # IS NEVER SET
-        dict(NAME="tex_shift",          VALUE=1<<28, VISIBLE=False),  # IS NEVER SET
-        dict(NAME="scrn_clip",          VALUE=1<<31, VISIBLE=False),  # IS NEVER SET
         ),
     # anim_seq_info_offset is a relative pointer into one of four different
     # arrays depending on the node type(skeletal, object, texture, particle_system)
@@ -275,7 +274,6 @@ anode_info = Struct("anode_info",
     #   object:         relative to atree_data.obj_anim_header (points to an obj_anim struct)
     #   texture:        relative to atree_data.atree_sequences (points to a texmod struct)
     #   particle_sys:   relative to atree_data.atree_sequences (points to a particle_system struct)
-    #   NOTE: still not sure how particle systems are specified for worlds
     SInt32("anim_seq_info_offset"),
     Computed("anim_seq_info_index", SIZE=0),
     SInt32("parent_index", DEFAULT=-1),

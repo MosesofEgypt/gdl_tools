@@ -43,34 +43,4 @@ def decompile_collision(
     cache_dir  = os.path.join(data_dir, c.IMPORT_FOLDERNAME, c.COLL_FOLDERNAME)
 
     coll_tris = worlds_tag.get_collision_tris()
-
-    object_mesh_indices = {
-        w_obj.name.upper().strip(): dict(index=w_obj.coll_tri_index, count=w_obj.coll_tri_count)
-        for w_obj in worlds_tag.data.world_objects
-        if w_obj.coll_tri_index >= 0 and w_obj.coll_tri_count > 0
-        }
-    item_mesh_indices = {
-        item.name.upper().strip(): dict(index=item.coll_tri_index, count=item.coll_tri_count)
-        for item in worlds_tag.data.item_instances
-        if item.coll_tri_index >= 0 and item.coll_tri_count > 0
-        }
-
-    for asset_type in asset_types:
-        base_dir = cache_dir if asset_type == c.COLLISION_CACHE_EXTENSION else assets_dir
-        objects_filename = "world_collision.%s" % asset_type
-        items_filename   = "items_collision.%s" % asset_type
-
-        objects_filepath = os.path.join(base_dir, objects_filename)
-        items_filepath   = os.path.join(base_dir, items_filename)
-
-        if not os.path.isfile(objects_filepath) or overwrite:
-            _decompile_collision(
-                coll_tris = coll_tris, mesh_indices = object_mesh_indices,
-                filepath = objects_filepath, asset_type = asset_type,
-                )
-
-        if not os.path.isfile(items_filename) or overwrite:
-            _decompile_collision(
-                coll_tris = coll_tris, mesh_indices = item_mesh_indices,
-                filepath = items_filepath, asset_type = asset_type,
-                )
+    raise NotImplementedError("Not implemented")

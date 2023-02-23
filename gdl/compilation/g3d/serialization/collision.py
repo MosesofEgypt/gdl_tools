@@ -77,9 +77,9 @@ class CollisionTriangle:
         # and the point is inside the triangle(viewed from the x/z plane)
         is_inside_coll_tri = vector_util.point_inside_2d_triangle(
             (x, z),
-            (self.v0_x,   self.v0_z),
-            (self._v1[0], self._v1[2]),
-            (self._v2[0], self._v2[2])
+            (self.v0_x,  self.v0_z),
+            (self.v1[0], self.v1[2]),
+            (self.v2[0], self.v2[2])
             )
         if not is_inside_coll_tri:
             return None
@@ -105,7 +105,6 @@ class G3DCollision:
         self.clear()
 
     def clear(self):
-        # Stores the unorganized verts, norms, and uvs
         self.verts  = []
         self.meshes = {}
 

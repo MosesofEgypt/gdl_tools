@@ -28,22 +28,20 @@ def load_texmods_from_anim_tag(anim_tag, textures):
     for i, texmod in enumerate(anim_tag.data.texmods):
         reverse = False
         loop    = True
+        anim_name = ""
+        tex_anims = global_tex_anims
         if texmod.atree in range(len(atrees)):
             atree      = atrees[texmod.atree]
             sequences  = atree.atree_header.atree_data.atree_sequences
             actor_name = atree.name.upper().strip()
-            anim_name  = ""
+
+            tex_anims = actor_tex_anims.setdefault(actor_name, {})
             if texmod.seq_index in range(len(sequences)):
                 sequence  = sequences[texmod.seq_index]
                 anim_name = sequence.name.upper().strip()
                 reverse   = bool(sequence.flags.play_reversed)
                 loop      = bool(sequence.repeat.data)
                 tex_anims = seq_tex_anims.setdefault(actor_name, {}).setdefault(anim_name, {})
-            else:
-                tex_anims = actor_tex_anims.setdefault(actor_name, {})
-        else:
-            tex_anims = global_tex_anims
-            anim_name = ""
 
         tex_anim = tex_anims.setdefault(texmod.name, TextureAnimation(
             name=anim_name, tex_name=texmod.name, loop=loop, reverse=reverse

@@ -7,7 +7,6 @@ def load_scene_world_object_from_tags(
         global_tex_anims=(), allow_model_flatten=True, p3d_model=None
         ):
     model = None
-    # TODO: move the psys check into g3d_to_p3d
     if not world_object.flags.particle_system:
         model = load_model_from_objects_tag(
             objects_tag, world_object.name, textures,
