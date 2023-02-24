@@ -167,15 +167,30 @@ class GeometryShader:
         else:
             self._diff_texture_stage.setSort(GeometryShader.DRAW_SORT_OPAQUE)
 
-        if self.alpha or self.dist_alpha:
-            nodepath.setTransparency(panda3d.core.TransparencyAttrib.MAlpha)
-        elif self.fb_add:
-            self._color_blend_attrib = panda3d.core.ColorBlendAttrib.make(
-                panda3d.core.ColorBlendAttrib.MAdd
-                )
-            nodepath.setAttrib(self._color_blend_attrib)
+        if (self.fb_mul or self.fb_add or self.alpha or self.sort_alpha or
+            self.alpha_last or self.alpha_last_2 or self.dist_alpha):
+            if self.fb_mul:
+                self._color_blend_attrib = panda3d.core.ColorBlendAttrib.make(
+                    panda3d.core.ColorBlendAttrib.MAdd,
+                    panda3d.core.ColorBlendAttrib.OFbufferColor,
+                    panda3d.core.ColorBlendAttrib.OZero,
+                    )
+            elif self.fb_add:
+                self._color_blend_attrib = panda3d.core.ColorBlendAttrib.make(
+                    panda3d.core.ColorBlendAttrib.MAdd,
+                    panda3d.core.ColorBlendAttrib.OIncomingAlpha,
+                    panda3d.core.ColorBlendAttrib.OOne,
+                    )
+                
+            if self.sort_alpha and not (self.fb_mul or self.fb_add):
+                nodepath.setTransparency(panda3d.core.TransparencyAttrib.MDual)
+            else:
+                nodepath.setTransparency(panda3d.core.TransparencyAttrib.MAlpha)
         else:
             nodepath.setTransparency(panda3d.core.TransparencyAttrib.MNone)
+
+        if self._color_blend_attrib:
+            nodepath.setAttrib(self._color_blend_attrib)
 
         self.set_diffuse_offset(nodepath)
         self.set_diffuse_alpha_level(nodepath)

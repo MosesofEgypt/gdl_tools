@@ -15,6 +15,7 @@ class SceneActor(SceneObject):
         self._texture_animations = {}
         self._shape_morph_animations = {}
 
+        # TODO: put a check to ensure p3d_actor is an ActorNode
         p3d_actor = kwargs.pop("p3d_actor", panda3d.physics.ActorNode(self.name))
         self._p3d_nodepath = panda3d.core.NodePath(p3d_actor)
         super().__init__(**kwargs)
@@ -30,7 +31,7 @@ class SceneActor(SceneObject):
     @property
     def shape_morph_animations(self): return dict(self._shape_morph_animations)
 
-    def add_actor_animation(self, animation):
+    def add_actor_animation(self, anim):
         pass
 
     def add_texture_animation(self, anim):

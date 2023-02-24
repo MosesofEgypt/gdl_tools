@@ -20,8 +20,8 @@ class RealmLevel:
         self._enemy_type_general   = kwargs.pop("enemy_type_general",   self._enemy_type_general).upper().strip()
         self._enemy_type_gargoyle  = kwargs.pop("enemy_type_gargoyle",  self._enemy_type_gargoyle).upper().strip()
         self._enemy_type_aux       = kwargs.pop("enemy_type_aux",       self._enemy_type_aux).upper().strip()
-        self._enemy_type_gen_small = kwargs.pop("enemy_type_gen_small", self._enemy_type_gen_small)
-        self._enemy_type_gen_large = kwargs.pop("enemy_type_gen_large", self._enemy_type_gen_large)
+        self._enemy_type_gen_small = kwargs.pop("enemy_type_gen_small", self._enemy_type_gen_small).upper().strip()
+        self._enemy_type_gen_large = kwargs.pop("enemy_type_gen_large", self._enemy_type_gen_large).upper().strip()
         self._enemy_types_special  = tuple(kwargs.pop("enemy_types_special",  self._enemy_types_special))
 
     @property
