@@ -282,20 +282,12 @@ class SceneWorld(SceneObject):
 
     def snap_to_grid(self, nodepath, max_dist=float("inf"), debug=True):
         x, z, y = nodepath.getPos(self.p3d_nodepath)
-        # HACK: this is a bit hacky, but until the collision grid is understood
-        #       better, we'll have to check the surrounding 8 cells as well
-        for i in (0, -1, 1):
-            for j in (0, -1, 1):
-                xi, zj = self._coll_grid.world_pos_to_grid_pos(x, z)
-                xi, zj = self._coll_grid.grid_pos_to_world_pos(xi + i, zj + j)
-                new_pos = self._coll_grid.snap_pos_to_grid(
-                    xi, y, zj, self.p3d_nodepath, max_dist
-                    )
-                if new_pos:
-                    break
+        new_pos = self._coll_grid.snap_pos_to_grid(
+            x, y, z, self.p3d_nodepath, max_dist
+            )
 
         if new_pos:
-            y = new_pos[1] + constants.Z_FIGHT_OFFSET
+            x, y, z = new_pos[0], new_pos[1] + constants.Z_FIGHT_OFFSET, new_pos[2]
             nodepath.setPos(self.p3d_nodepath, x, z, y)
         elif debug:
             print(f"Failed to snap object {nodepath} to collision grid at {(x, z, y)}")
