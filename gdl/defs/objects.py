@@ -1,6 +1,5 @@
 from supyr_struct.defs.tag_def import TagDef
-from supyr_struct.defs.common_descs import *
-from ..field_types import *
+from ..common_descs import *
 from .objs.objects import ObjectsPs2Tag
 from .texdef import bitmap_format as bitmap_format_v12
 
@@ -434,12 +433,14 @@ objects_ps2_def = TagDef("objects",
     Array("object_defs",
         SIZE='.header.object_defs_count',
         POINTER='.header.object_defs_pointer',
-        SUB_STRUCT=object_def
+        SUB_STRUCT=object_def,
+        DYN_NAME_PATH='.name', WIDGET=DynamicArrayFrame
         ),
     Array("bitmap_defs",
         SIZE='.header.bitmap_defs_count',
         POINTER='.header.bitmap_defs_pointer',
-        SUB_STRUCT=bitmap_def
+        SUB_STRUCT=bitmap_def,
+        DYN_NAME_PATH='.name', WIDGET=DynamicArrayFrame
         ),
 
     endian="<", ext=".ps2", tag_cls=ObjectsPs2Tag

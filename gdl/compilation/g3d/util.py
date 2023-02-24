@@ -27,3 +27,9 @@ def locate_animations(data_dir, cache_files=False):
         c.ANIMATION_CACHE_EXTENSION if cache_files else
         c.ANIMATION_ASSET_EXTENSIONS
         )
+
+def locate_collision(data_dir, cache_files=False):
+    return locate_assets(data_dir,
+        c.COLLISION_CACHE_EXTENSION if cache_files else
+        c.COLLISION_ASSET_EXTENSIONS
+        )

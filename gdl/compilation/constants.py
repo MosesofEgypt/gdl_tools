@@ -23,6 +23,10 @@ MODEL_ASSET_EXTENSIONS = (
     "obj",
     #"dae",
     )
+COLLISION_ASSET_EXTENSIONS = (
+    "obj",
+    #"dae",
+    )
 TEXTURE_ASSET_EXTENSIONS = (
     "tga",
     "dds",

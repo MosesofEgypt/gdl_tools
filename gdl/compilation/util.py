@@ -1,19 +1,9 @@
-import multiprocessing
 import os
-import traceback
 
-from supyr_struct.buffer import BytearrayBuffer
+from ..util import *
 
 def calculate_padding(buffer_len, stride):
     return (stride-(buffer_len%stride)) % stride
-
-
-class FixedBytearrayBuffer(BytearrayBuffer):
-    __slots__ = ('_pos',)
-    def __init__(self, *args):
-        self._pos = 0
-        bytearray.__init__(self, *args)
-
 
 def locate_assets(data_dir, extensions):
     assets = {}
@@ -30,22 +20,3 @@ def locate_assets(data_dir, extensions):
             assets[asset_name] = os.path.join(root, filename)
 
     return assets
-
-
-def process_jobs(job_function, all_job_args=(), process_count=None):
-    if not process_count:
-        process_count = os.cpu_count()
-
-    if process_count > 1:
-        with multiprocessing.Pool() as pool:
-            pool.map(job_function, all_job_args)
-
-        # TODO: capture stdout/stderr from jobs and redirect it to the primary process
-        return
-
-    for job_args in all_job_args:
-        try:
-            job_function(job_args)
-        except Exception:
-            print(traceback.format_exc())
-
