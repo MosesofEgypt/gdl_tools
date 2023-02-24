@@ -1,7 +1,5 @@
 import panda3d
 
-from . import shader
-
 
 class Collision:
     _name = ""
