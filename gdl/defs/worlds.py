@@ -328,6 +328,7 @@ world_object = Struct("world_object",
         ("animated", 1<<12),
         *((f"unknown{i}", 1<<i) for i in range(13,32))
         ),
+    # these trigger types and states are always 0 in serialzied form
     SInt16("trigger_type"),
     SInt8("trigger_state"),
     SInt8("p_trigger_state"),
@@ -374,7 +375,7 @@ world_object = Struct("world_object",
         ),
     QStruct("pos", INCLUDE=xyz_float),
 
-    Pointer32("mbnode_pointer"),
+    Pointer32("mbnode_pointer"),  # always either 1 or 0
     SInt16("next_index"),
     SInt16("child_index"),
 
