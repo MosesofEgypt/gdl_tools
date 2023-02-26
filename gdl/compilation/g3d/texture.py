@@ -343,7 +343,7 @@ def import_textures(
 
 
 def decompile_textures(
-        objects_tag, data_dir,
+        data_dir, objects_tag=None, texdef_tag=None,
         asset_types=c.TEXTURE_CACHE_EXTENSIONS,
         parallel_processing=False, overwrite=False, mipmaps=False
         ):
@@ -356,11 +356,16 @@ def decompile_textures(
 
     assets_dir = os.path.join(data_dir, c.EXPORT_FOLDERNAME, c.TEX_FOLDERNAME)
     cache_dir  = os.path.join(data_dir, c.IMPORT_FOLDERNAME, c.TEX_FOLDERNAME)
-    tag_dir = os.path.dirname(objects_tag.filepath)
-    textures_ext = os.path.splitext(objects_tag.filepath)[-1].strip(".")
-
-    bitmaps = objects_tag.data.bitmaps
-    _, bitmap_assets = objects_tag.get_cache_names()
+    if objects_tag:
+        tag_dir = os.path.dirname(objects_tag.filepath)
+        textures_ext = os.path.splitext(objects_tag.filepath)[-1].strip(".")
+        bitmaps = objects_tag.data.bitmaps
+        _, bitmap_assets = objects_tag.get_cache_names()
+    else:
+        tag_dir = os.path.dirname(texdef_tag.filepath)
+        textures_ext = os.path.splitext(texdef_tag.filepath)[-1].strip(".")
+        bitmaps = texdef_tag.data.bitmaps
+        bitmap_assets = texdef_tag.get_bitmap_names()
 
     is_ngc = (textures_ext.lower() == c.NGC_EXTENSION.lower())
     textures_filepath = os.path.join(
@@ -378,14 +383,15 @@ def decompile_textures(
         asset = bitmap_assets.get(i)
 
         try:
-            if asset is None or bitm.frame_count or getattr(bitm.flags, "external", False):
+            if asset is None or getattr(bitm, "frame_count", 0) or getattr(bitm.flags, "external", False):
                 continue
             elif bitm.format.enum_name == "<INVALID>":
                 print("Invalid bitmap format detected in bitmap %s at index %s" % (asset, i))
                 continue
 
             bitm_data = dict(
-                flags = bitm.flags.data, width = bitm.width, height = bitm.height,
+                # NOTE: using flags.data won't work for texdef bitmaps, as different bits are set
+                flags=bitm.flags.data, width=bitm.width, height=bitm.height,
                 lod_k=bitm.lod_k, is_ngc=is_ngc, format_name=bitm.format.enum_name,
                 # regardless of what the objects says, gamecube doesnt contain mipmaps
                 mipmaps=(0 if is_ngc else bitm.mipmap_count)

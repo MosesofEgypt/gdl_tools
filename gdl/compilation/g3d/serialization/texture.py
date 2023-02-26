@@ -268,7 +268,7 @@ class G3DTexture:
         return arby_format
 
     def export_asset(self, output_filepath, include_mipmaps=False, **kwargs):
-        arbytmap_instance = self._load_into_arbytmap(
+        arbytmap_instance = self.to_arbytmap_instance(
             include_mipmaps=include_mipmaps
             )
         # depalettize to allow images to be loaded in most programs
@@ -361,7 +361,7 @@ class G3DTexture:
                 output_buffer.tell(), c.PS2_TEXTURE_BUFFER_CHUNK_SIZE
                 ))
 
-    def _load_into_arbytmap(self, include_mipmaps=False):
+    def to_arbytmap_instance(self, include_mipmaps=False):
         if not self.textures:
             return arbytmap.Arbytmap()
         if self.format_name not in c.PIXEL_SIZES:

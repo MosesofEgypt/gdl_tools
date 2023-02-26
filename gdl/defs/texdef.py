@@ -1,6 +1,6 @@
 from supyr_struct.defs.tag_def import TagDef
-from supyr_struct.defs.common_descs import *
-from ..field_types import *
+from .objs.texdef import TexdefPs2Tag
+from ..common_descs import *
 
 def get(): return texdef_ps2_def
 
@@ -87,7 +87,8 @@ texdef_ps2_def = TagDef("texdef",
     Array("bitmap_defs",
         SIZE='.header.bitmaps_count',
         POINTER='.header.bitmap_defs_pointer',
-        SUB_STRUCT=bitmap_def
+        SUB_STRUCT=bitmap_def,
+        DYN_NAME_PATH='.name', WIDGET=DynamicArrayFrame
         ),
     Array("bitmaps",
         SIZE='.header.bitmaps_count',
@@ -95,5 +96,5 @@ texdef_ps2_def = TagDef("texdef",
         SUB_STRUCT=bitmap_block
         ),
 
-    endian="<", ext=".ps2"
+    endian="<", ext=".ps2", tag_cls=TexdefPs2Tag
     )

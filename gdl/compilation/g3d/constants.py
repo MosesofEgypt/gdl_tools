@@ -2,6 +2,7 @@ from ..constants import *
 
 
 ANIMATION_CACHE_EXTENSION    = "g4d"
+COLLISION_CACHE_EXTENSION    = "g3c"
 MODEL_CACHE_EXTENSION_NGC    = "g3n"
 MODEL_CACHE_EXTENSION_PS2    = "g3p"
 MODEL_CACHE_EXTENSION_XBOX   = "g3x"
@@ -21,11 +22,13 @@ TEXTURE_CACHE_EXTENSIONS = (
 
 ANIM_FOLDERNAME   = 'animations'
 MOD_FOLDERNAME    = 'models'
+COLL_FOLDERNAME   = 'collision'
 TEX_FOLDERNAME    = 'bitmaps'
 
 ANIMATIONS_FILENAME = 'anim'
 OBJECTS_FILENAME    = 'objects'
 TEXTURES_FILENAME   = 'textures'
+WORLDS_FILENAME     = 'worlds'
 TEXDEF_FILENAME     = 'texdef'
 
 MISSING_ASSET_NAME = "__MISSING"

@@ -111,21 +111,4 @@ class ObjectsCompiler:
         kwargs.setdefault("parallel_processing", self.parallel_processing)
         kwargs.setdefault("swap_lightmap_and_diffuse", self.swap_lightmap_and_diffuse)
 
-        ps2_filepath = os.path.join(self.target_dir,  "objects.ps2")
-        ngc_filepath = os.path.join(self.target_dir,  "objects.ngc")
-
-        if os.path.isfile(ps2_filepath):
-            filepath = ps2_filepath
-        elif os.path.isfile(ngc_filepath):
-            filepath = ngc_filepath
-        else:
-            return
-
-        objects_tag = objects_ps2_def.build(filepath=filepath)
-
-        try:
-            objects_tag.load_texdef_names()
-        except Exception:
-            print('Could not load texdefs. Names generated will be best guesses.')
-
-        cache_comp.decompile_cache_files(objects_tag, **kwargs)
+        cache_comp.decompile_cache_files(self.target_dir, **kwargs)

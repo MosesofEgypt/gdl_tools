@@ -62,7 +62,7 @@ class G3DModel():
 
     source_file_hash = b'\x00'*16
 
-    def __init__(self, target_ps2=False, target_ngc=False, target_xbox=False):        
+    def __init__(self, target_ps2=False, target_ngc=False, target_xbox=False):
         self.stripifier = Stripifier()
         self.stripifier.degen_link = False
         self.stripifier.max_strip_len = (
@@ -84,7 +84,7 @@ class G3DModel():
         self.colors = []
 
         self.lod_ks   = {c.DEFAULT_INDEX_KEY: c.DEFAULT_MOD_LOD_K}
-        self.all_tris = {c.DEFAULT_INDEX_KEY: []}
+        self.tri_lists = {c.DEFAULT_INDEX_KEY: []}
         
         self.all_dont_draws   = {}
         self.all_vert_maxs    = {}
@@ -97,7 +97,7 @@ class G3DModel():
     def make_strips(self):
         '''load the triangles into the stripifier, calculate
         strips, and link them together as best as possible'''
-        self.stripifier.load_mesh(self.all_tris)
+        self.stripifier.load_mesh(self.tri_lists)
         self.stripifier.make_strips()
         self.stripifier.link_strips()
 
@@ -177,6 +177,14 @@ class G3DModel():
         if stream_len < 0:
             stream_len = len(input_buffer) - input_buffer.tell()
 
+        # slight speedup to cache these
+        uint8_scale = 1/255
+        norm_scale  = 1/15
+        color_scale = 1/31
+        pos_scale   = 1/c.POS_SCALE
+        uv_scale    = 1/c.UV_SCALE
+        lm_uv_scale = 1/c.LM_UV_SCALE
+
         for i in range(subobj_count):
             buffer_start = input_buffer.tell()
             buffer_end   = len(input_buffer)
@@ -204,11 +212,6 @@ class G3DModel():
             lm_uvs      = []
             faces_drawn = []
             face_dirs   = []
-        
-            if c.DEBUG:
-                print('pos:%s,\ttex_name:"%s",\tlm_name:"%s",\tlod_k:%s' %
-                      (buffer_start, tex_name, lm_name, lod_k - 4)
-                      )
 
             #scan over all the data in the stream
             while input_buffer.tell() + STREAM_HEADER_STRUCT.size < g3d_end:
@@ -224,19 +227,6 @@ class G3DModel():
 
                 data_type, flags, count, storage_type = STREAM_HEADER_STRUCT.unpack(rawdata)
                 stream_struct = STREAM_DATA_STRUCTS.get((data_type, storage_type))
-
-                investigate = False
-                if (data_type != c.DATA_TYPE_GEOM and
-                    ((data_type != c.DATA_TYPE_UV and flags != c.STREAM_FLAGS_DEFAULT) or
-                     (data_type == c.DATA_TYPE_UV and flags != c.STREAM_FLAGS_UV_DEFAULT and flags != 4))
-                    ):
-                    investigate = True
-
-                if investigate or c.DEBUG or stream_struct is None:
-                    print('pos:%s,\tdata_type:%s,\tflags:%s,\tcount:%s,\tstorage_type:%s' %
-                          (input_buffer.tell() - STREAM_HEADER_STRUCT.size,
-                           data_type, flags, count, storage_type)
-                          )
 
                 if stream_struct is None:
                     raise ValueError('Unknown data stream')
@@ -267,20 +257,21 @@ class G3DModel():
                 elif storage_type == c.STORAGE_TYPE_FLOAT32:
                     if data_type == c.DATA_TYPE_GEOM:
                         # triangle strip. only need the face direction from it
+                        strip_count += 1
+                        faces_drawn.append([])
                         face_dirs.append(data[2])
                     elif data_type == c.DATA_TYPE_POS:
                         # append a single triangle
-                        strip_count += 1
-                        faces_drawn.append([0])
-                        face_dirs.append(1.0)
+                        faces_drawn[-1].append(0)
+                        face_dirs[-1] = -1.0
 
                         # NOTE: we're ignoring the count here because it's not possible to
                         #       store more than a single triangle here. the count MUST be 12
 
                         # positions
                         for j in range(0, 12, 4):
-                            scale = data[j+3]
-                            x, y, z = data[j]/scale, data[j+1]/scale, data[j+2]/scale
+                            scale = 1/data[j+3]
+                            x, y, z = data[j]*scale, data[j+1]*scale, data[j+2]*scale
                             verts.append([x, y, z])
                             bnd_rad_square = max(x**2 + y**2 + z**2, bnd_rad_square)
 
@@ -291,8 +282,12 @@ class G3DModel():
 
                         # colors
                         for j in range(24, 36, 4):
-                            r, g, b, a = data[j]/255, data[j+1]/255, data[j+2]/255, data[j+3]/255
-                            colors.append([r, g, b, a])
+                            colors.append([
+                                data[j]*uint8_scale,    # r
+                                data[j+1]*uint8_scale,  # g
+                                data[j+2]*uint8_scale,  # b
+                                data[j+3]*uint8_scale   # a
+                                ])
 
                         # uv coords
                         for j in range(36, 48, 4):
@@ -302,40 +297,39 @@ class G3DModel():
                 elif data_type == c.DATA_TYPE_POS:
                     # make sure to ignore the last vertex
                     for j in range(0, len(data)-3, 3):
-                        x, y, z = data[j]/c.POS_SCALE, data[j+1]/c.POS_SCALE, data[j+2]/c.POS_SCALE
+                        x, y, z = data[j]*pos_scale, data[j+1]*pos_scale, data[j+2]*pos_scale
                         verts.append([x, y, z])
                         bnd_rad_square = max(x**2 + y**2 + z**2, bnd_rad_square)
-
-                    strip_count += 1
 
                 elif data_type == c.DATA_TYPE_NORM:
                     dont_draw = []
 
                     for j in range(len(data)):
-                        norm = data[j]
-                        xn  = (norm&31)/15 - 1
-                        yn  = ((norm>>5)&31)/15 - 1
-                        zn  = ((norm>>10)&31)/15 - 1
-                        mag = sqrt(xn*xn + yn*yn + zn*zn) + 0.0000001
+                        packed_norm = data[j]
+                        xn  = (packed_norm&31)*norm_scale - 1
+                        yn  = ((packed_norm>>5)&31)*norm_scale - 1
+                        zn  = ((packed_norm>>10)&31)*norm_scale - 1
+                        inv_mag = 1/(sqrt(xn*xn + yn*yn + zn*zn) + 0.0000001)
 
-                        norms.append([xn/mag, yn/mag, zn/mag])  # x-axis is reversed
+                        norms.append([xn*inv_mag, yn*inv_mag, zn*inv_mag])  # x-axis is reversed
                         # the last bit determines if a face is to be
                         # drawn or not. 0 means draw, 1 means dont draw
-                        dont_draw.append(bool(norm&0x8000))
+                        dont_draw.append(bool(packed_norm&0x8000))
 
                     # make sure the first 2 are removed since they
                     # are always 1 and triangle strips are always
                     # made of 2 more verts than there are triangles
-                    faces_drawn.append(dont_draw[2:])
+                    faces_drawn[-1].extend(dont_draw[2:])
 
                 elif data_type == c.DATA_TYPE_COLOR:
                     for j in range(len(data)):
                         # colors are in RGBA order
+                        packed_color = data[j]
                         colors.append([
-                            (data[j]&31)/31,        # red
-                            ((data[j]>>5)&31)/31,   # green
-                            ((data[j]>>10)&31)/31,  # blue
-                            ((data[j]>>15)&1),      # alpha(always set?)
+                            (packed_color&31)*color_scale,        # red
+                            ((packed_color>>5)&31)*color_scale,   # green
+                            ((packed_color>>10)&31)*color_scale,  # blue
+                            ((packed_color>>15)&1),               # alpha(always set?)
                             ])
 
                 elif data_type == c.DATA_TYPE_UV:
@@ -344,19 +338,19 @@ class G3DModel():
                     if storage_type == c.STORAGE_TYPE_UINT16_LMUV:
                         for j in range(0, len(data), 4):
                             uvs.append([
-                                data[j]/c.UV_SCALE,
-                                data[j+1]/c.UV_SCALE
+                                data[j]*uv_scale,
+                                data[j+1]*uv_scale
                                 ])
                             lm_uvs.append([
-                                data[j+2]/c.LM_UV_SCALE,
-                                data[j+3]/c.LM_UV_SCALE
+                                data[j+2]*lm_uv_scale,
+                                data[j+3]*lm_uv_scale
                                 ])
 
                     else:
                         for j in range(0, len(data), 2):
                             uvs.append([
-                                data[j]/c.UV_SCALE,
-                                data[j+1]/c.UV_SCALE
+                                data[j]*uv_scale,
+                                data[j+1]*uv_scale
                                 ])
 
             #generate the triangles
@@ -365,6 +359,10 @@ class G3DModel():
             for j in range(strip_count):
                 dont_draw = faces_drawn[j]
                 face_dir = int(bool(face_dirs[j] == -1.0))
+                if not dont_draw:
+                    # empty strip. skip
+                    continue
+
                 for f in range(len(dont_draw)):
                     # determine if the face is not supposed to be drawn
                     if not dont_draw[f]:
@@ -379,19 +377,19 @@ class G3DModel():
                 start_v += len(dont_draw) + 2
 
             # add the imported data to the class
-            self.all_tris.setdefault(idx_key, [])
+            self.tri_lists.setdefault(idx_key, [])
             self.verts.extend(verts)
             self.norms.extend(norms)
             self.colors.extend(colors)
             self.uvs.extend(uvs)
             self.lm_uvs.extend(lm_uvs)
-            self.all_tris[idx_key].extend(tris)
+            self.tri_lists[idx_key].extend(tris)
 
             self.bnd_rad = max(sqrt(bnd_rad_square), self.bnd_rad)
 
             # if nothing was imported, remove the triangles
-            if len(self.all_tris.get(idx_key, [None])) == 0:
-                del self.all_tris[idx_key]
+            if len(self.tri_lists.get(idx_key, [None])) == 0:
+                del self.tri_lists[idx_key]
 
     def import_obj(self, input_lines, source_file_hash=b'\x00'*16):
         # when importing an obj, we have to clear the existing data 
@@ -403,7 +401,7 @@ class G3DModel():
         idx_key  = c.DEFAULT_INDEX_KEY
 
         bnd_rad_square = 0.0
-        tris = self.all_tris[idx_key]
+        tris = self.tri_lists[idx_key]
 
         # collect all all tris, verts, uvw, normals, and texture indexes
         for line in input_lines:
@@ -441,10 +439,10 @@ class G3DModel():
                 idx_key = (tex_name, lm_name)
                 # make a new triangle block if one for
                 # this material doesnt already exist
-                if idx_key not in self.all_tris:
-                    self.all_tris[idx_key] = []
+                if idx_key not in self.tri_lists:
+                    self.tri_lists[idx_key] = []
                     self.lod_ks.setdefault(idx_key, c.DEFAULT_MOD_LOD_K)
-                tris = self.all_tris[idx_key]
+                tris = self.tri_lists[idx_key]
             elif line[0:2] == 'vt':
                 line = [v.strip() for v in line[2:].split(' ') if v]
                 u, v = float(line[0]), 1 - float(line[1])
@@ -478,8 +476,8 @@ class G3DModel():
         self.source_file_hash = source_file_hash
 
         # if no untextured triangles exist, remove the entries
-        if len(self.all_tris.get(c.DEFAULT_INDEX_KEY, [None])) == 0:
-            del self.all_tris[c.DEFAULT_INDEX_KEY]
+        if len(self.tri_lists.get(c.DEFAULT_INDEX_KEY, [None])) == 0:
+            del self.tri_lists[c.DEFAULT_INDEX_KEY]
 
     def export_g3d(self, output_buffer, headerless=False):
         vert_data = self.stripifier.vert_data
@@ -738,8 +736,8 @@ class G3DModel():
         obj_str += '\n'
 
         seen_bitmaps = set()
-        for idx_key in sorted(self.all_tris):
-            if not self.all_tris[idx_key]:
+        for idx_key in sorted(self.tri_lists):
+            if not self.tri_lists[idx_key]:
                 continue
 
             for bitmap_name in idx_key:
@@ -767,8 +765,8 @@ class G3DModel():
 
         # collect all all tris, verts, uvw, normals, and texture indexes
         i = 0
-        for idx_key in sorted(self.all_tris):
-            tris = self.all_tris[idx_key]
+        for idx_key in sorted(self.tri_lists):
+            tris = self.tri_lists[idx_key]
             if not tris:
                 continue
 

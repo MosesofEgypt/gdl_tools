@@ -1,10 +1,7 @@
 from array import array
 
 from supyr_struct.defs.tag_def import TagDef
-from supyr_struct.defs.common_descs import *
-from ..field_types import *
-from ..common_descs import cheat_weapon_types,\
-     cheat_armor_types, cheat_special_types
+from ..common_descs import *
 from .objs.save import GdlSaveTag
 
 def get(): return gdl_savemeta_def
@@ -13,7 +10,7 @@ def levels_bool(name, count):
     bools = []
     for i in range(count-1):
         bools.append('level_%s_beaten'%(i+1))
-    bools.append('bos_beaten')
+    bools.append('boss_beaten')
     return Bool8(name, *bools)
 
 help_disp_default = array('B', [0]*256)
@@ -22,50 +19,15 @@ for i in (0,1,2,6,7,8,11,15,16,17,20,21,22,27,28,32,35,37,
           102,110,111,113,125,126,130,132,134,135,137):
     help_disp_default[i] = 0x11
 
-char_names = (
-    "warrior",  "valkyrie",  "wizard",    "archer",
-    "dwarf",    "knight",    "sorceress", "jester",
-    "minotaur", "falconess", "jackal",    "tigress",
-    "ogre",     "unicorn",   "medusa",    "hyena")
-
 def make_name_map(suffix=''):
     name_map = {}
-    for i in range(len(char_names)):
-        name_map[char_names[i]+suffix] = i
+    for i in range(len(PLAYER_TYPES)):
+        name_map[PLAYER_TYPES[i]+suffix] = i
     return name_map
 
-runes = (
-    'blue_1',
-    'blue_2',
-    'blue_3',
-    'red_1',
-    'red_2',
-    'red_3',
-    'yellow_1',
-    'yellow_2',
-    'yellow_3',
-    'green_1',
-    'green_2',
-    'green_3',
-    'final',
-    )
-
-legend_items = (
-    Pad(1),
-    'scimitar',
-    'ice_axe',
-    'lamp',
-    'bellows',
-    'savior',
-    Pad(1),
-    'book',
-    Pad(1),
-    'parchment',
-    'lantern',
-    'javelin',
-    )
 
 p_attrs = QStruct('character_attrs',
+    # exp-to-level formula seems to fit to:  f(exp)=170*(exp^1.66)
     SInt32('exp', GUI_NAME='experience'),
     Float('health'),
     Float('strength_added'),
@@ -88,6 +50,8 @@ p_stats = QStruct('character_stats',
 
 p_powerup = Struct('character_powerup',
     Float('time_left'),
+    # NOTE: the type is a subset of the item_subtype enum
+    #       with the invalid/unusable values removed
     SEnum32('type',
         "none",
         Pad(4),
@@ -104,9 +68,9 @@ p_powerup = Struct('character_powerup',
             none=Bool32("flags"),
             speed=Bool32("flags"),
             magic=Bool32("flags"),
-            weapon=cheat_weapon_types,
-            armor=cheat_armor_types,
-            special=cheat_special_types,
+            weapon=weapon_types,
+            armor=armor_types,
+            special=special_types,
             )
         ),
     SIZE=16,
@@ -115,27 +79,15 @@ p_powerup = Struct('character_powerup',
 p_stuff = Container('character_stuff',
     SInt16('potions', MIN=0, MAX=9),
     SInt16('keys', MIN=0, MAX=9),
-    Bool16('shards',
-        Pad(1),
-        'lich_shard',
-        'dragon_shard',
-        'chimera_shard',
-        'plague_shard',
-        'drider_shard',
-        'djinn_shard',
-        'yeti_shard',
-        'wraith_shard',
-        #'unknown1',
-        #'unknown2',
-        ),
-    Bool16('runes', *runes),
-    Bool16('legend_items', *legend_items),
+    Bool16('shards', *BOSS_KEYS),
+    Bool16('runes', *RUNESTONES),
+    Bool16('legend_items', *LEGEND_ITEMS),
     SInt16('powerup_count'),
 
-    Bool16('rune_attempts_sp', *runes),
-    Bool16('rune_attempts_mp', *runes),
-    Bool16('legend_attempts_sp', *legend_items),
-    Bool16('legend_attempts_mp', *legend_items),
+    Bool16('rune_attempts_sp', *RUNESTONES),
+    Bool16('rune_attempts_mp', *RUNESTONES),
+    Bool16('legend_attempts_sp', *LEGEND_ITEMS),
+    Bool16('legend_attempts_mp', *LEGEND_ITEMS),
     #boss_attempts 1 and 2 are always 0 it seems, so rather
     #than have them editable, lets just treat them as padding
     #UInt16('boss_attempts_1'),
@@ -200,19 +152,10 @@ gdl_savemeta_def = TagDef("save",
         StrLatin1('name', SIZE=7, DEFAULT='PLAYER'),
         Pad(1),
         SEnum16('last_alt_type',
-            "warrior", "valkyrie", "wizard",    "archer",
-            "dwarf",   "knight",   "sorceress", "jester",
-
-            "minotaur", "falconess", "jackal", "tigress",
-            "ogre",     "unicorn",   "medusa", "hyena",
+            *PLAYER_TYPES,
             "sumner",
             ),
-        SEnum8('last_color',
-            "yellow",
-            "blue",
-            "red",
-            "green",
-            ),
+        SEnum8('last_color', *PLAYER_COLORS),
         SInt8('char_saved'),
 
         Bool16('class_unlocks',
@@ -228,14 +171,26 @@ gdl_savemeta_def = TagDef("save",
             ),
         UInt16('level_total'),
         
-        Array('character_attrs',  SUB_STRUCT=p_attrs,
-            SIZE=16, NAME_MAP=make_name_map('_attrs')),
-        Array('character_stats',  SUB_STRUCT=p_stats,
-            SIZE=16, NAME_MAP=make_name_map('_stats')),
-        Array('character_stuff',  SUB_STRUCT=p_stuff,
-            SIZE=16, NAME_MAP=make_name_map('_stuff')),
-        Array('character_levels', SUB_STRUCT=p_waves,
-            SIZE=16, NAME_MAP=make_name_map('_levels')),
+        Array('character_attrs',
+            SUB_STRUCT=p_attrs,
+            SIZE=16,
+            NAME_MAP=make_name_map('_attrs')
+            ),
+        Array('character_stats',
+            SUB_STRUCT=p_stats,
+            SIZE=16,
+            NAME_MAP=make_name_map('_stats')
+            ),
+        Array('character_stuff',
+            SUB_STRUCT=p_stuff,
+            SIZE=16,
+            NAME_MAP=make_name_map('_stuff')
+            ),
+        Array('character_levels',
+            SUB_STRUCT=p_waves,
+            SIZE=16,
+            NAME_MAP=make_name_map('_levels')
+            ),
         
         UEnum8('control_scheme',
             "ps2",

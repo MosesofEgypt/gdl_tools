@@ -11,8 +11,7 @@ from traceback import format_exc
 from arbytmap import bitmap_io, constants, format_defs
 from arbytmap.arby import *
 
-
-FORMAT_X1R5G5B5 = "X1R5G5B5"
+format_defs.FORMAT_X1R5G5B5 = FORMAT_X1R5G5B5 = "X1R5G5B5"
 
 
 def channel_swap_bgra_rgba_array(all_pixels, pixel_stride):

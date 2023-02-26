@@ -5,8 +5,9 @@ from supyr_struct.util import backup_and_rename_temp
 from traceback import format_exc
 from ...defs.objects import objects_ps2_def
 from ...defs.texdef import texdef_ps2_def
+from ...defs.worlds import worlds_ps2_def
 from ..metadata import objects as objects_metadata
-from . import animation, model, texture
+from . import animation, collision, model, texture
 from . import constants as c
 
 
@@ -15,6 +16,7 @@ def compile_cache_files(
         serialize_cache_files=False, use_force_index_hack=False,
         build_anim_cache=True, build_texdef_cache=False,
         ):
+    # TODO: add support for compiling worlds
     data_dir    = os.path.join(objects_dir, c.DATA_FOLDERNAME)
     objects_tag = objects_ps2_def.build()
     anim_tag    = None
@@ -44,7 +46,7 @@ def compile_cache_files(
         anim_tag = animation.import_animations(objects_tag, data_dir)
 
     if build_texdef_cache:
-        texdef_tag = compile_texdef_cache(objects_tag)
+        texdef_tag = compile_texdef_cache_from_objects(objects_tag)
 
     if serialize_cache_files:
         objects_tag.serialize(temp=False)
@@ -70,37 +72,70 @@ def compile_cache_files(
 
 
 def decompile_cache_files(
-        objects_tag, data_dir=None, overwrite=False, individual_meta=True,
+        target_dir, data_dir=None, overwrite=False, individual_meta=True,
         meta_asset_types=c.METADATA_ASSET_EXTENSIONS[0],
         tex_asset_types=c.TEXTURE_CACHE_EXTENSIONS,
         mod_asset_types=c.MODEL_CACHE_EXTENSIONS,
+        coll_asset_types=c.COLLISION_CACHE_EXTENSION,
         parallel_processing=False, swap_lightmap_and_diffuse=False, **kwargs
         ):
 
-    if data_dir is None:
-        data_dir = os.path.join(
-            os.path.dirname(objects_tag.filepath), c.DATA_FOLDERNAME
-            )
+    ps2_objects_filepath = os.path.join(target_dir,  "objects.ps2")
+    ngc_objects_filepath = os.path.join(target_dir,  "objects.ngc")
+    texdef_filepath      = os.path.join(target_dir,  "texdef.ps2")
+    ps2_worlds_filepath  = os.path.join(target_dir,  "worlds.ps2")
+    ngc_worlds_filepath  = os.path.join(target_dir,  "worlds.ngc")
 
-    if meta_asset_types:
+    objects_tag = None
+    texdef_tag  = None
+    worlds_tag  = None
+
+    if os.path.isfile(ps2_objects_filepath):
+        objects_tag = objects_ps2_def.build(filepath=ps2_objects_filepath)
+        try:
+            objects_tag.load_texdef_names()
+        except Exception:
+            print('Could not load texdefs. Names generated will be best guesses.')
+
+    elif os.path.isfile(ngc_objects_filepath):
+        objects_tag = objects_ps2_def.build(filepath=ngc_objects_filepath)
+    elif os.path.isfile(texdef_filepath):
+        # no objects. default to texdef for trying to get texture headers
+        texdef_tag = texdef_ps2_def.build(filepath=texdef_filepath)
+
+    if os.path.isfile(ps2_worlds_filepath):
+        worlds_tag = worlds_ps2_def.build(filepath=ps2_worlds_filepath)
+    elif os.path.isfile(ngc_worlds_filepath):
+        worlds_tag = worlds_ps2_def.build(filepath=ngc_worlds_filepath)
+
+    if data_dir is None:
+        data_dir = os.path.join(target_dir, c.DATA_FOLDERNAME)
+
+    if meta_asset_types and objects_tag:
         objects_metadata.decompile_objects_metadata(
             objects_tag, data_dir, overwrite=overwrite,
             asset_types=meta_asset_types, individual_meta=individual_meta,
             )
 
-    if tex_asset_types:
+    if tex_asset_types and (objects_tag or texdef_tag):
         texture.decompile_textures(
-            objects_tag, data_dir,
+            data_dir, objects_tag=objects_tag, texdef_tag=texdef_tag,
             overwrite=overwrite, parallel_processing=parallel_processing,
             asset_types=tex_asset_types, mipmaps=kwargs.get("mipmaps", False)
             )
 
-    if mod_asset_types:
+    if mod_asset_types and objects_tag:
         model.decompile_models(
             objects_tag, data_dir,
             overwrite=overwrite, parallel_processing=parallel_processing,
             asset_types=mod_asset_types,
             swap_lightmap_and_diffuse=swap_lightmap_and_diffuse
+            )
+
+    if coll_asset_types and worlds_tag:
+        collision.decompile_collision(
+            worlds_tag, data_dir,
+            overwrite=overwrite, asset_types=coll_asset_types,
             )
 
 
@@ -134,7 +169,7 @@ def serialize_textures_cache(
     backup_and_rename_temp(output_filepath, temppath)
 
 
-def compile_texdef_cache(objects_tag):
+def compile_texdef_cache_from_objects(objects_tag):
     if objects_tag.texdef_names is None:
         try:
             objects_tag.load_texdef_names()
