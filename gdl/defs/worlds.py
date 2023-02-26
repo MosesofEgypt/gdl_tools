@@ -243,7 +243,7 @@ item_info_data = Struct("item_info_data",
     Bool32("mb_flags",
         # only a single flag, and only set on damage tiles
         # (specifically only FLAMEV, FLAMEH, FORCEF, and FORCEF_S)
-        ("unknown", 0x8000),
+        ("unknown", 0x10000),
         ),
     Union("properties",
         # NOTE: only used for powerups and damage tiles

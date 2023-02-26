@@ -106,6 +106,8 @@ def load_model_from_objects_tag(objects_tag, model_name, textures=(),
         name=model_name, p3d_model=p3d_model, bounding_radius=bnd_rad
         )
     for data, tex_name, lm_name in zip(datas, tex_names, lm_names):
+        data.seek(0)  # reset in case data was read previously
+
         g3d_model = G3DModel()
         g3d_model.import_g3d(
             data, tex_name=tex_name, lm_name=lm_name, headerless=True,
