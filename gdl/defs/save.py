@@ -26,9 +26,10 @@ def make_name_map(suffix=''):
     return name_map
 
 
-p_attrs = QStruct('character_attrs',
-    # exp-to-level formula seems to fit to:  f(exp)=170*(exp^1.66)
+p_attrs = Struct('character_attrs',
     SInt32('exp', GUI_NAME='experience'),
+    # NOTE: not editable through binilla due to how Computed field type works
+    Computed('level', SIZE=0, WIDGET_WIDTH=10, EDITABLE=False),
     Float('health'),
     Float('strength_added'),
     Float('armor_added'),
@@ -44,7 +45,7 @@ p_stats = QStruct('character_stats',
     SInt32('bosses_killed'),
     SInt32('generators_destroyed'),
     SInt32('gold_found'),
-    Float('total_playtime'),  # counted in frames?
+    Float('total_playtime', UNIT_SCALE=1/(30*60), SIDETIP="minutes"),
     SIZE=28,
     )
 
