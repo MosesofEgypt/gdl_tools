@@ -18,25 +18,23 @@ def level_to_exp(level):
 def exp_to_level(exp):
     exp = max(0, exp)
     if exp > EXP_CUTOFF:
-        return (exp - EXP_CUTOFF) / 4600 + LEVEL_CUTOFF
+        return round((exp - EXP_CUTOFF) / 4600 + LEVEL_CUTOFF, 10)
     # solve quadratic equation to get this
-    return sqrt(exp/30 + 100/3 + 9409/36) - 97/6
+    return round(sqrt(exp/30 + 100/3 + 9409/36) - 97/6, 10)
 
 
-class GdlSaveTag(XboxSaveTag):
-    sigkey  = GDL_SIGKEY
-
-    def _calculate_internal_values(self, to_internal=False):
+class GdlSaveTag(Tag):
+    def calculate_internal_values(self, to_internal=False):
         for char_attr in self.data.save_data.character_attrs:
-            if to_internal:
+            if to_internal and char_attr.level is not None:
                 char_attr.exp = level_to_exp(char_attr.level)
-            else:
+            elif char_attr.exp is not None:
                 char_attr.level = exp_to_level(char_attr.exp)
 
-    def parse(self, **kwargs):
-        super().parse(**kwargs)
-        self._calculate_internal_values(to_internal=False)
 
-    def serialize(self, **kwargs):
-        self._calculate_internal_values(to_internal=True)
-        super().serialize(**kwargs)
+class GdlXboxSaveTag(GdlSaveTag, XboxSaveTag):
+    sigkey  = GDL_SIGKEY
+
+
+class GdlPs2SaveTag(GdlSaveTag):
+    pass

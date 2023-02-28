@@ -2,15 +2,15 @@ from array import array
 
 from supyr_struct.defs.tag_def import TagDef
 from ..common_descs import *
-from .objs.save import GdlSaveTag
+from .objs.save import GdlXboxSaveTag, GdlPs2SaveTag
 
-def get(): return gdl_savemeta_def
+def get():
+    return gdl_xbox_save_def, gdl_ps2_save_def
 
 def levels_bool(name, count):
     bools = []
-    for i in range(count-1):
-        bools.append('level_%s_beaten'%(i+1))
-    bools.append('boss_beaten')
+    for i in range(count):
+        bools.append('wave_%s_beaten'%(i+1))
     return Bool8(name, *bools)
 
 help_disp_default = array('B', [0]*256)
@@ -28,8 +28,6 @@ def make_name_map(suffix=''):
 
 p_attrs = Struct('character_attrs',
     SInt32('exp', GUI_NAME='experience'),
-    # NOTE: not editable through binilla due to how Computed field type works
-    Computed('level', SIZE=0, WIDGET_WIDTH=10, EDITABLE=False),
     Float('health'),
     Float('strength_added'),
     Float('armor_added'),
@@ -62,7 +60,7 @@ p_powerup = Struct('character_powerup',
         "magic",
         "special",
         ),
-    Float('attribute_add'),
+    Float('add'),
     Union("flags",
         CASE='.type.enum_name',
         CASES=dict(
@@ -77,7 +75,7 @@ p_powerup = Struct('character_powerup',
     SIZE=16,
     )
 
-p_stuff = Container('character_stuff',
+p_stuff = (
     SInt16('potions', MIN=0, MAX=9),
     SInt16('keys', MIN=0, MAX=9),
     Bool16('shards', *BOSS_KEYS),
@@ -89,11 +87,9 @@ p_stuff = Container('character_stuff',
     Bool16('rune_attempts_mp', *RUNESTONES),
     Bool16('legend_attempts_sp', *LEGEND_ITEMS),
     Bool16('legend_attempts_mp', *LEGEND_ITEMS),
-    #boss_attempts 1 and 2 are always 0 it seems, so rather
-    #than have them editable, lets just treat them as padding
-    #UInt16('boss_attempts_1'),
-    #UInt16('boss_attempts_2'),
-    Pad(4),
+    # boss_attempts 1 and 2 are always 0 it seems
+    UInt16('boss_attempts_1'),
+    UInt16('boss_attempts_2'),
 
     QStruct('gargoyle_items',
         # a value of -1 means all that the max amount have been collected
@@ -115,6 +111,16 @@ p_stuff = Container('character_stuff',
         SInt16('dream'),
         ),
     UInt32('gold'),
+    )
+
+p_stuff_ps2 = Container('character_stuff',
+    *p_stuff,
+    Array('powerups', SUB_STRUCT=p_powerup, SIZE=8),
+    SIZE=180,
+    )
+
+p_stuff_xbox = Container('character_stuff',
+    *p_stuff,
     Array('powerups', SUB_STRUCT=p_powerup, SIZE=32),
     UInt8Array('powerup_states', SIZE=32),
     SIZE=596,
@@ -122,7 +128,7 @@ p_stuff = Container('character_stuff',
 
 
 p_waves = Struct('levels',
-    Pad(1),
+    levels_bool('test_realm',3),
     levels_bool('castle_realm',6),
     levels_bool('mountain_realm',6),
     levels_bool('desert_realm',5),
@@ -134,95 +140,133 @@ p_waves = Struct('levels',
     levels_bool('ice_realm',5),
     levels_bool('dream_realm',6),
     levels_bool('sky_realm',5),
-    Bool8('unknown',
-        'unknown0',
-        'unknown1',
-        'unknown2',
-        'unknown3',
-        'unknown4',
-        'unknown5',
-        'unknown6',
-        'unknown7',
-        ),
-    Pad(1),
+    levels_bool('secret_realm', 8),
+    levels_bool('tower_realm', 3),
     )
 
-gdl_savemeta_def = TagDef("save",
+last_alt_type = SEnum16('last_alt_type',
+    *PLAYER_TYPES,
+    "sumner",
+    )
+class_unlocks = Bool16('class_unlocks',
+    "minotaur",
+    "falconess",
+    "jackal",
+    "tigress",
+    "ogre",
+    "unicorn",
+    "medusa",
+    "hyena",
+    "sumner",
+    )
+control_scheme = UEnum8('control_scheme',
+    "ps2",
+    "arcade",
+    "robotron",
+    "one_handed",
+    )
+rumble = UEnum8('rumble',
+    "none",
+    "light",
+    "medium",
+    "maximum",
+    DEFAULT=2,
+    )
+auto_attack = UEnum8('auto_attack',
+    "off",
+    "on",
+    DEFAULT=1,
+    )
+auto_aim = UEnum8('auto_aim',
+    "off",
+    "on",
+    DEFAULT=1,
+    )
+#The only values that seem to be in the help_disp
+#array are either 0x00, 0x10, or 0x11.
+#
+#These might be enumerators designating the display
+#status of each help hint text(invisible, visible, seen)
+help_disp = UInt8Array('help_disp', SIZE=256, DEFAULT=help_disp_default)
+
+gdl_xbox_save_def = TagDef("xbox_save",
     BytesRaw('hmac_sig', SIZE=20, VISIBLE=False),
     Struct('save_data',
         StrLatin1('name', SIZE=7, DEFAULT='PLAYER'),
         Pad(1),
-        SEnum16('last_alt_type',
-            *PLAYER_TYPES,
-            "sumner",
-            ),
+        last_alt_type,
         SEnum8('last_color', *PLAYER_COLORS),
         SInt8('char_saved'),
 
-        Bool16('class_unlocks',
-            "minotaur",
-            "falconess",
-            "jackal",
-            "tigress",
-            "ogre",
-            "unicorn",
-            "medusa",
-            "hyena",
-            "sumner",
-            ),
+        class_unlocks,
         UInt16('level_total'),
         
-        Array('character_attrs',
+        Array('attributes',
             SUB_STRUCT=p_attrs,
             SIZE=16,
             NAME_MAP=make_name_map('_attrs')
             ),
-        Array('character_stats',
+        Array('statistics',
             SUB_STRUCT=p_stats,
             SIZE=16,
             NAME_MAP=make_name_map('_stats')
             ),
-        Array('character_stuff',
-            SUB_STRUCT=p_stuff,
+        Array('inventory',
+            SUB_STRUCT=p_stuff_xbox,
             SIZE=16,
             NAME_MAP=make_name_map('_stuff')
             ),
-        Array('character_levels',
+        Array('waves',
             SUB_STRUCT=p_waves,
             SIZE=16,
-            NAME_MAP=make_name_map('_levels')
+            NAME_MAP=make_name_map('_waves')
             ),
-        
-        UEnum8('control_scheme',
-            "ps2",
-            "arcade",
-            "robotron",
-            "one_handed",
-            ),
-        UEnum8('rumble',
-            "none",
-            "light",
-            "medium",
-            "maximum",
-            DEFAULT=2,
-            ),
-        UEnum8('auto_attack',
-            "off",
-            "on",
-            DEFAULT=1,
-            ),
-        UEnum8('auto_aim',
-            "off",
-            "on",
-            DEFAULT=1,
-            ),
-        #The only values that seem to be in the help_disp
-        #array are either 0x00, 0x10, or 0x11.
-        #
-        #These might be enumerators designating the display
-        #status of each help hint text(invisible, visible, seen)
-        UInt8Array('help_disp', SIZE=256, DEFAULT=help_disp_default),
+        control_scheme,
+        rumble,
+        auto_attack,
+        auto_aim,
+        help_disp,
         ),
 
-    ext=".xsv", endian='<', tag_cls=GdlSaveTag,
+    ext=".xsv", endian='<', tag_cls=GdlXboxSaveTag,
+    )
+
+gdl_ps2_save_def = TagDef("ps2_save",
+    Struct('save_data',
+        StrLatin1('name', SIZE=7, DEFAULT='PLAYER'),
+        Pad(1),
+        last_alt_type,
+        SEnum8('last_color', *PLAYER_COLORS),
+        SInt8('char_saved'),
+
+        class_unlocks,
+        UInt16('level_total'),
+
+        Array('attributes',
+            SUB_STRUCT=p_attrs,
+            SIZE=16,
+            NAME_MAP=make_name_map('_attrs')
+            ),
+        Array('statistics',
+            SUB_STRUCT=p_stats,
+            SIZE=16,
+            NAME_MAP=make_name_map('_stats')
+            ),
+        Array('inventory',
+            SUB_STRUCT=p_stuff_ps2,
+            SIZE=16,
+            NAME_MAP=make_name_map('_stuff')
+            ),
+        Array('waves',
+            SUB_STRUCT=p_waves,
+            SIZE=16,
+            NAME_MAP=make_name_map('_waves')
+            ),
+        control_scheme,
+        rumble,
+        auto_attack,
+        auto_aim,
+        help_disp,
+        ),
+    ext="", endian='<', tag_cls=GdlPs2SaveTag,
     )
