@@ -70,7 +70,8 @@ p_powerup = Struct('character_powerup',
             weapon=weapon_types,
             armor=armor_types,
             special=special_types,
-            )
+            ),
+        SIZE=4
         ),
     SIZE=16,
     )
@@ -449,6 +450,7 @@ gdl_ngc_save_def = TagDef("ngc_save",
             SUB_STRUCT=ngc_save_header,
             SIZE=8
             ),
+        Pad(1400),
         ),
     ext=".gci", endian='>', tag_cls=GdlPs2SaveTag,
     )

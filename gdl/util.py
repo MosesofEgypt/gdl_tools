@@ -2,19 +2,10 @@ import concurrent.futures
 import os
 import traceback
 
-from supyr_struct.buffer import BytearrayBuffer, BytesBuffer
+from .supyr_struct_ext import FixedBytearrayBuffer,\
+     BytearrayBuffer, BytesBuffer
 
 _processing_pool = None
-
-# seeking is broken in supyr(can't seek to start)
-BytesBuffer.seek = BytearrayBuffer.seek
-
-class FixedBytearrayBuffer(BytearrayBuffer):
-    __slots__ = ('_pos',)
-    def __init__(self, *args):
-        self._pos = 0
-        bytearray.__init__(self, *args)
-
 
 def process_jobs(job_function, all_job_args=(), process_count=None):
     results = []
