@@ -5,7 +5,7 @@ from ..common_descs import *
 from .objs.save import GdlXboxSaveTag, GdlPs2SaveTag
 
 def get():
-    return gdl_xbox_save_def, gdl_ps2_save_def
+    return gdl_xbox_save_def, gdl_ps2_save_def, gdl_ngc_save_def
 
 def levels_bool(name, count):
     bools = []
@@ -119,6 +119,14 @@ p_stuff_ps2 = Container('character_stuff',
     SIZE=180,
     )
 
+p_stuff_ngc = Container('character_stuff',
+    *p_stuff,
+    Array('powerups', SUB_STRUCT=p_powerup, SIZE=11),
+    UInt8Array('powerup_states', SIZE=11),
+    Pad(1),
+    SIZE=240,
+    )
+
 p_stuff_xbox = Container('character_stuff',
     *p_stuff,
     Array('powerups', SUB_STRUCT=p_powerup, SIZE=32),
@@ -142,9 +150,10 @@ p_waves = Struct('levels',
     levels_bool('sky_realm',5),
     levels_bool('secret_realm', 8),
     levels_bool('tower_realm', 3),
+    SIZE=14
     )
 
-last_alt_type = SEnum16('last_alt_type',
+last_character_type = SEnum16('last_character_type',
     *PLAYER_TYPES,
     "sumner",
     )
@@ -189,84 +198,257 @@ auto_aim = UEnum8('auto_aim',
 #status of each help hint text(invisible, visible, seen)
 help_disp = UInt8Array('help_disp', SIZE=256, DEFAULT=help_disp_default)
 
+xbox_save_data = Struct('save_data',
+    StrLatin1('name', SIZE=7, DEFAULT='PLAYER'),
+    Pad(1),
+    last_character_type,
+    SEnum8('last_color', *PLAYER_COLORS),
+    SInt8('char_saved'),
+
+    class_unlocks,
+    UInt16('level_total'),
+    
+    Array('attributes',
+        SUB_STRUCT=p_attrs,
+        SIZE=16,
+        NAME_MAP=make_name_map('_attrs')
+        ),
+    Array('statistics',
+        SUB_STRUCT=p_stats,
+        SIZE=16,
+        NAME_MAP=make_name_map('_stats')
+        ),
+    Array('inventory',
+        SUB_STRUCT=p_stuff_xbox,
+        SIZE=16,
+        NAME_MAP=make_name_map('_stuff')
+        ),
+    Array('waves',
+        SUB_STRUCT=p_waves,
+        SIZE=16,
+        NAME_MAP=make_name_map('_waves')
+        ),
+    control_scheme,
+    rumble,
+    auto_attack,
+    auto_aim,
+    help_disp,
+    )
+
+ps2_save_data = Struct('save_data',
+    StrLatin1('name', SIZE=7, DEFAULT='PLAYER'),
+    Pad(1),
+    last_character_type,
+    SEnum8('last_color', *PLAYER_COLORS),
+    SInt8('char_saved'),
+
+    class_unlocks,
+    UInt16('level_total'),
+
+    Array('attributes',
+        SUB_STRUCT=p_attrs,
+        SIZE=16,
+        NAME_MAP=make_name_map('_attrs')
+        ),
+    Array('statistics',
+        SUB_STRUCT=p_stats,
+        SIZE=16,
+        NAME_MAP=make_name_map('_stats')
+        ),
+    Array('inventory',
+        SUB_STRUCT=p_stuff_ps2,
+        SIZE=16,
+        NAME_MAP=make_name_map('_stuff')
+        ),
+    Array('waves',
+        SUB_STRUCT=p_waves,
+        SIZE=16,
+        NAME_MAP=make_name_map('_waves')
+        ),
+    control_scheme,
+    rumble,
+    auto_attack,
+    auto_aim,
+    help_disp,
+    )
+
+ngc_save_data = Struct('save_data',
+    StrLatin1('name', SIZE=7, DEFAULT='PLAYER'),
+    Pad(1),
+    last_character_type,
+    SEnum8('last_color', *PLAYER_COLORS),
+    SInt8('char_saved'),
+
+    class_unlocks,
+    UInt16('level_total'),
+
+    Array('attributes',
+        SUB_STRUCT=p_attrs,
+        SIZE=16,
+        NAME_MAP=make_name_map('_attrs')
+        ),
+    Array('statistics',
+        SUB_STRUCT=p_stats,
+        SIZE=16,
+        NAME_MAP=make_name_map('_stats')
+        ),
+    Array('inventory',
+        SUB_STRUCT=p_stuff_ngc,
+        SIZE=16,
+        NAME_MAP=make_name_map('_stuff')
+        ),
+    Array('waves',
+        SUB_STRUCT=p_waves,
+        SIZE=16,
+        NAME_MAP=make_name_map('_waves')
+        ),
+    control_scheme,
+    rumble,
+    auto_attack,
+    auto_aim,
+    help_disp,
+    )
+
+ngc_icon_format = UBitEnum("icon_format",
+    "none",
+    "ci8_shared",
+    "rgb5a3",
+    "ci8_unique",
+    SIZE=2
+    )
+
+ngc_icon_speed = UBitEnum("icon_speed",
+    "none",
+    "four_frames",
+    "eight_frames",
+    "twelve_frames",
+    SIZE=2
+    )
+
+ngc_gci_header = Struct("gci_header",
+    StrNntLatin1("game_code", SIZE=4),
+    StrNntLatin1("maker_code", SIZE=2),
+    SInt8("unused0", DEFAULT=-1, VISIBLE=False),
+    BitStruct("banner_format",
+        ngc_icon_format,
+        SIZE=1
+        ),
+    StrNntLatin1("filename", SIZE=32),
+    UInt32("mod_time"),
+    Pointer32("image_offset"),
+    BitStruct("icon_formats",
+        UBitEnum("icon_0_format", INCLUDE=ngc_icon_format),
+        UBitEnum("icon_1_format", INCLUDE=ngc_icon_format),
+        UBitEnum("icon_2_format", INCLUDE=ngc_icon_format),
+        UBitEnum("icon_3_format", INCLUDE=ngc_icon_format),
+        UBitEnum("icon_4_format", INCLUDE=ngc_icon_format),
+        UBitEnum("icon_5_format", INCLUDE=ngc_icon_format),
+        UBitEnum("icon_6_format", INCLUDE=ngc_icon_format),
+        UBitEnum("icon_7_format", INCLUDE=ngc_icon_format),
+        SIZE=2
+        ),
+    BitStruct("icon_speeds",
+        UBitEnum("icon_0_speed", INCLUDE=ngc_icon_speed),
+        UBitEnum("icon_1_speed", INCLUDE=ngc_icon_speed),
+        UBitEnum("icon_2_speed", INCLUDE=ngc_icon_speed),
+        UBitEnum("icon_3_speed", INCLUDE=ngc_icon_speed),
+        UBitEnum("icon_4_speed", INCLUDE=ngc_icon_speed),
+        UBitEnum("icon_5_speed", INCLUDE=ngc_icon_speed),
+        UBitEnum("icon_6_speed", INCLUDE=ngc_icon_speed),
+        UBitEnum("icon_7_speed", INCLUDE=ngc_icon_speed),
+        SIZE=2
+        ),
+    Bool8("permissions",
+        ("public", 0x04),
+        ("no_copy", 0x08),
+        ("no_move", 0x10),
+        ),
+    UInt8("copy_counter"),
+    UInt16("first_block"),
+    UInt16("block_count"),
+    SInt16("unused1", DEFAULT=-1, VISIBLE=False),
+    Pointer32("comments_offset"),
+    SIZE=64, VISIBLE=False
+    )
+
+# used in gamecube and ps2(is separate file for PS2)
+game_options = Struct("game_options",
+    # WHAT ARE THOSE?!?!?!?!
+    UInt32("unknown0", DEFAULT=128),
+    UInt32("unknown1", DEFAULT=128),
+    UInt32("unknown2", DEFAULT=1),
+    UInt32("unknown3", DEFAULT=0),
+    UInt32("unknown4", DEFAULT=0),
+    UInt32("unknown5", DEFAULT=1),
+    UInt32("unknown6", DEFAULT=0),
+    UInt32("unknown7", DEFAULT=0),
+    SIZE=32
+    )
+
+ngc_comments = Container("comments",
+    StrNntLatin1("comment_1", SIZE=32),
+    StrNntLatin1("comment_2", SIZE=32),
+    )
+
+ngc_banner_data = BytesRaw("banner_data",
+    SIZE=96*32*2, # TEMPORARY SIZE HACK
+    )
+
+ngc_icon_data = Container("icon_data",
+    # TEMPORARY SIZE HACKS
+    BytesRaw("icon_0_data", SIZE=32*32*2),
+    BytesRaw("icon_1_data", SIZE=32*32*2),
+    BytesRaw("icon_2_data", SIZE=32*32*2),
+    BytesRaw("icon_3_data", SIZE=32*32*2),
+    BytesRaw("icon_4_data", SIZE=32*32*2),
+    BytesRaw("icon_5_data", SIZE=32*32*2),
+    BytesRaw("icon_6_data", SIZE=32*32*2),
+    BytesRaw("icon_7_data", SIZE=32*32*2),
+    )
+
+ngc_save_index_header = Container("save_index_header",
+    UInt32("unknown"),  # what is this????
+    StrNntLatin1("integrity", SIZE=4, DEFAULT="OKAY"),
+    SIZE=8
+    )
+
+ngc_save_header = Struct("save_header",
+    SInt32("level_total"),
+    SEnum32('last_character_type',
+        *PLAYER_TYPES,
+        "sumner",
+        ),
+    StrNntLatin1("name", SIZE=8),
+    SIZE=16
+    )
+
 gdl_xbox_save_def = TagDef("xbox_save",
     BytesRaw('hmac_sig', SIZE=20, VISIBLE=False),
-    Struct('save_data',
-        StrLatin1('name', SIZE=7, DEFAULT='PLAYER'),
-        Pad(1),
-        last_alt_type,
-        SEnum8('last_color', *PLAYER_COLORS),
-        SInt8('char_saved'),
-
-        class_unlocks,
-        UInt16('level_total'),
-        
-        Array('attributes',
-            SUB_STRUCT=p_attrs,
-            SIZE=16,
-            NAME_MAP=make_name_map('_attrs')
-            ),
-        Array('statistics',
-            SUB_STRUCT=p_stats,
-            SIZE=16,
-            NAME_MAP=make_name_map('_stats')
-            ),
-        Array('inventory',
-            SUB_STRUCT=p_stuff_xbox,
-            SIZE=16,
-            NAME_MAP=make_name_map('_stuff')
-            ),
-        Array('waves',
-            SUB_STRUCT=p_waves,
-            SIZE=16,
-            NAME_MAP=make_name_map('_waves')
-            ),
-        control_scheme,
-        rumble,
-        auto_attack,
-        auto_aim,
-        help_disp,
-        ),
-
+    xbox_save_data,
     ext=".xsv", endian='<', tag_cls=GdlXboxSaveTag,
     )
 
 gdl_ps2_save_def = TagDef("ps2_save",
-    Struct('save_data',
-        StrLatin1('name', SIZE=7, DEFAULT='PLAYER'),
-        Pad(1),
-        last_alt_type,
-        SEnum8('last_color', *PLAYER_COLORS),
-        SInt8('char_saved'),
-
-        class_unlocks,
-        UInt16('level_total'),
-
-        Array('attributes',
-            SUB_STRUCT=p_attrs,
-            SIZE=16,
-            NAME_MAP=make_name_map('_attrs')
-            ),
-        Array('statistics',
-            SUB_STRUCT=p_stats,
-            SIZE=16,
-            NAME_MAP=make_name_map('_stats')
-            ),
-        Array('inventory',
-            SUB_STRUCT=p_stuff_ps2,
-            SIZE=16,
-            NAME_MAP=make_name_map('_stuff')
-            ),
-        Array('waves',
-            SUB_STRUCT=p_waves,
-            SIZE=16,
-            NAME_MAP=make_name_map('_waves')
-            ),
-        control_scheme,
-        rumble,
-        auto_attack,
-        auto_aim,
-        help_disp,
-        ),
+    ps2_save_data,
     ext="", endian='<', tag_cls=GdlPs2SaveTag,
+    )
+
+gdl_ngc_save_def = TagDef("ngc_save",
+    ngc_gci_header,
+    Container("gci_block_data",
+        ngc_comments,
+        ngc_banner_data,
+        ngc_icon_data,
+        ngc_save_index_header,
+        game_options,
+        Array("saves",
+            SUB_STRUCT=ngc_save_data,
+            SIZE=8,
+            ),
+        Array("save_headers",
+            SUB_STRUCT=ngc_save_header,
+            SIZE=8
+            ),
+        ),
+    ext=".gci", endian='>', tag_cls=GdlPs2SaveTag,
     )
