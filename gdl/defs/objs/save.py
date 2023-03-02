@@ -1,4 +1,5 @@
 from math import sqrt
+from supyr_struct.buffer import BytearrayBuffer
 from .xboxsave import *
 
 GDL_SIGKEY =  (b'\x04\x60\x07\x75\xB9\x14\xBF\xE3\x09\xAE'+
@@ -33,8 +34,37 @@ class GdlSaveTag(Tag):
 
 
 class GdlXboxSaveTag(GdlSaveTag, XboxSaveTag):
-    sigkey  = GDL_SIGKEY
+    sigkey = GDL_SIGKEY
 
 
 class GdlPs2SaveTag(GdlSaveTag):
     pass
+
+
+class GdlNgcSaveTag(GdlSaveTag):
+
+    def calc_internal_data(self):
+        save_data = self.data.gci_block_data.save_data
+        # copy data from saves into dir infos
+        for i, save in enumerate(save_data.saves):
+            if len(save_data.dir_infos) <= i:
+                save_data.dir_infos.append()
+
+            dir_info = save_data.dir_infos[i]
+            if save.level_total:
+                dir_info.level_total = save.level_total
+                dir_info.last_character_type.data = save.last_character_type.data
+                dir_info.name = save.name
+            else:
+                dir_info.level_total = -1
+                dir_info.last_character_type.data = -1
+                dir_info.name = "Empty"
+
+        # calculate checksums
+        save_data.integrity_header.checksum = 0
+        rawdata = save_data.serialize(buffer=BytearrayBuffer())
+        save_data.integrity_header.checksum = sum(rawdata) & 0xFFFF 
+
+    def serialize(self, **kwargs):
+        self.calc_internal_data()
+        return super().serialize(**kwargs)

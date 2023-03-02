@@ -2,7 +2,7 @@ from array import array
 
 from supyr_struct.defs.tag_def import TagDef
 from ..common_descs import *
-from .objs.save import GdlXboxSaveTag, GdlPs2SaveTag
+from .objs.save import GdlXboxSaveTag, GdlPs2SaveTag, GdlNgcSaveTag
 
 def get():
     return gdl_xbox_save_def, gdl_ps2_save_def, gdl_ngc_save_def
@@ -197,7 +197,9 @@ auto_aim = UEnum8('auto_aim',
 #
 #These might be enumerators designating the display
 #status of each help hint text(invisible, visible, seen)
-help_disp = UInt8Array('help_disp', SIZE=256, DEFAULT=help_disp_default)
+help_disp = UInt8Array('help_disp',
+    SIZE=256, DEFAULT=help_disp_default, VISIBLE=False
+    )
 
 xbox_save_data = Struct('save_data',
     StrLatin1('name', SIZE=7, DEFAULT='PLAYER'),
@@ -383,16 +385,34 @@ game_options = Struct("game_options",
     UInt32("unknown5", DEFAULT=1),
     UInt32("unknown6", DEFAULT=0),
     UInt32("unknown7", DEFAULT=0),
-    SIZE=32
+    SIZE=32, VISIBLE=False
+    )
+
+integrity_header = Container("integrity_header",
+    UInt16("zero", SIZE=2, DEFAULT=0),
+    UInt16("checksum", SIZE=2),
+    StrNntLatin1("integrity", SIZE=4, DEFAULT="OKAY"),
+    SIZE=8, VISIBLE=False
+    )
+
+dir_info = Struct("dir_info",
+    SInt32("level_total"),
+    SEnum32('last_character_type',
+        *PLAYER_TYPES,
+        "sumner",
+        ),
+    StrNntLatin1("name", SIZE=8),
+    SIZE=16
     )
 
 ngc_comments = Container("comments",
     StrNntLatin1("comment_1", SIZE=32),
     StrNntLatin1("comment_2", SIZE=32),
+    VISIBLE=False,
     )
 
 ngc_banner_data = BytesRaw("banner_data",
-    SIZE=96*32*2, # TEMPORARY SIZE HACK
+    SIZE=96*32*2, VISIBLE=False, # TEMPORARY SIZE HACK
     )
 
 ngc_icon_data = Container("icon_data",
@@ -405,22 +425,7 @@ ngc_icon_data = Container("icon_data",
     BytesRaw("icon_5_data", SIZE=32*32*2),
     BytesRaw("icon_6_data", SIZE=32*32*2),
     BytesRaw("icon_7_data", SIZE=32*32*2),
-    )
-
-ngc_save_index_header = Container("save_index_header",
-    UInt32("unknown"),  # what is this????
-    StrNntLatin1("integrity", SIZE=4, DEFAULT="OKAY"),
-    SIZE=8
-    )
-
-ngc_save_header = Struct("save_header",
-    SInt32("level_total"),
-    SEnum32('last_character_type',
-        *PLAYER_TYPES,
-        "sumner",
-        ),
-    StrNntLatin1("name", SIZE=8),
-    SIZE=16
+    VISIBLE=False,
     )
 
 gdl_xbox_save_def = TagDef("xbox_save",
@@ -440,17 +445,19 @@ gdl_ngc_save_def = TagDef("ngc_save",
         ngc_comments,
         ngc_banner_data,
         ngc_icon_data,
-        ngc_save_index_header,
-        game_options,
-        Array("saves",
-            SUB_STRUCT=ngc_save_data,
-            SIZE=8,
-            ),
-        Array("save_headers",
-            SUB_STRUCT=ngc_save_header,
-            SIZE=8
+        Container("save_data",
+            integrity_header,
+            game_options,
+            Array("saves",
+                SUB_STRUCT=ngc_save_data,
+                SIZE=8, DYN_NAME_PATH='.name', WIDGET=DynamicArrayFrame
+                ),
+            Array("dir_infos",
+                SUB_STRUCT=dir_info, VISIBLE=False,
+                SIZE=8, DYN_NAME_PATH='.name', WIDGET=DynamicArrayFrame
+                ),
             ),
         Pad(1400),
         ),
-    ext=".gci", endian='>', tag_cls=GdlPs2SaveTag,
+    ext=".gci", endian='>', tag_cls=GdlNgcSaveTag,
     )
