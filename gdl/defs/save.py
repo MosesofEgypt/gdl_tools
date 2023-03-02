@@ -13,11 +13,16 @@ def levels_bool(name, count):
         bools.append('wave_%s_beaten'%(i+1))
     return Bool8(name, *bools)
 
-help_disp_default = array('B', [0]*256)
+#The only values that seem to be in the help_disp
+#array are either 0x00, 0x10, or 0x11.
+#
+#These might be enumerators designating the display
+#status of each help hint text(invisible, visible, seen)
+xbox_help_disp_default = array('B', [0]*256)
 for i in (0,1,2,6,7,8,11,15,16,17,20,21,22,27,28,32,35,37,
           41,42,44,45,48,51,53,58,60,61,67,82,83,87,88,92,
           102,110,111,113,125,126,130,132,134,135,137):
-    help_disp_default[i] = 0x11
+    xbox_help_disp_default[i] = 0x11
 
 def make_name_map(suffix=''):
     name_map = {}
@@ -192,17 +197,9 @@ auto_aim = UEnum8('auto_aim',
     "on",
     DEFAULT=1,
     )
-#The only values that seem to be in the help_disp
-#array are either 0x00, 0x10, or 0x11.
-#
-#These might be enumerators designating the display
-#status of each help hint text(invisible, visible, seen)
-help_disp = UInt8Array('help_disp',
-    SIZE=256, DEFAULT=help_disp_default, VISIBLE=False
-    )
 
 xbox_save_data = Struct('save_data',
-    StrLatin1('name', SIZE=7, DEFAULT='PLAYER'),
+    StrLatin1('name', SIZE=7, DEFAULT='Empty'),
     Pad(1),
     last_character_type,
     SEnum8('last_color', *PLAYER_COLORS),
@@ -235,11 +232,13 @@ xbox_save_data = Struct('save_data',
     rumble,
     auto_attack,
     auto_aim,
-    help_disp,
+    UInt8Array('help_disp',
+        SIZE=256, DEFAULT=xbox_help_disp_default, VISIBLE=False
+        ),
     )
 
 ps2_save_data = Struct('save_data',
-    StrLatin1('name', SIZE=7, DEFAULT='PLAYER'),
+    StrLatin1('name', SIZE=7, DEFAULT='Empty'),
     Pad(1),
     last_character_type,
     SEnum8('last_color', *PLAYER_COLORS),
@@ -272,11 +271,11 @@ ps2_save_data = Struct('save_data',
     rumble,
     auto_attack,
     auto_aim,
-    help_disp,
+    UInt8Array('help_disp', SIZE=256, VISIBLE=False),
     )
 
 ngc_save_data = Struct('save_data',
-    StrLatin1('name', SIZE=7, DEFAULT='PLAYER'),
+    StrLatin1('name', SIZE=7, DEFAULT='Empty'),
     Pad(1),
     last_character_type,
     SEnum8('last_color', *PLAYER_COLORS),
@@ -309,7 +308,7 @@ ngc_save_data = Struct('save_data',
     rumble,
     auto_attack,
     auto_aim,
-    help_disp,
+    UInt8Array('help_disp', SIZE=256, VISIBLE=False),
     )
 
 ngc_icon_format = UBitEnum("icon_format",
@@ -317,7 +316,7 @@ ngc_icon_format = UBitEnum("icon_format",
     "ci8_shared",
     "rgb5a3",
     "ci8_unique",
-    SIZE=2
+    SIZE=2, DEFAULT=2
     )
 
 ngc_icon_speed = UBitEnum("icon_speed",
@@ -325,20 +324,22 @@ ngc_icon_speed = UBitEnum("icon_speed",
     "four_frames",
     "eight_frames",
     "twelve_frames",
-    SIZE=2
+    SIZE=2, DEFAULT=2
     )
 
 ngc_gci_header = Struct("gci_header",
-    StrNntLatin1("game_code", SIZE=4),
-    StrNntLatin1("maker_code", SIZE=2),
+    StrNntLatin1("game_code", SIZE=4, DEFAULT="GUNE"),
+    StrNntLatin1("maker_code", SIZE=2, DEFAULT="5D"),
     SInt8("unused0", DEFAULT=-1, VISIBLE=False),
     BitStruct("banner_format",
         ngc_icon_format,
         SIZE=1
         ),
-    StrNntLatin1("filename", SIZE=32),
+    StrNntLatin1("filename",
+        DEFAULT="Gauntlet - Dark Legacy", SIZE=32
+        ),
     UInt32("mod_time"),
-    Pointer32("image_offset"),
+    Pointer32("image_offset", DEFAULT=64),
     BitStruct("icon_formats",
         UBitEnum("icon_0_format", INCLUDE=ngc_icon_format),
         UBitEnum("icon_1_format", INCLUDE=ngc_icon_format),
@@ -365,10 +366,11 @@ ngc_gci_header = Struct("gci_header",
         ("public", 0x04),
         ("no_copy", 0x08),
         ("no_move", 0x10),
+        DEFAULT=0x04
         ),
     UInt8("copy_counter"),
     UInt16("first_block"),
-    UInt16("block_count"),
+    UInt16("block_count", DEFAULT=8),
     SInt16("unused1", DEFAULT=-1, VISIBLE=False),
     Pointer32("comments_offset"),
     SIZE=64, VISIBLE=False
@@ -406,8 +408,12 @@ dir_info = Struct("dir_info",
     )
 
 ngc_comments = Container("comments",
-    StrNntLatin1("comment_1", SIZE=32),
-    StrNntLatin1("comment_2", SIZE=32),
+    StrNntLatin1("comment_1",
+        DEFAULT="Gauntlet Dark Legacy", SIZE=32
+        ),
+    StrNntLatin1("comment_2",
+        DEFAULT="Gauntlet Save Data", SIZE=32
+        ),
     VISIBLE=False,
     )
 
