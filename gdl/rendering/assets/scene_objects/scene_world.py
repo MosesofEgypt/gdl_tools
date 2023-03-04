@@ -32,13 +32,15 @@ class SceneWorld(SceneObject):
         self._flattened_texmod_models = {}
 
         self._visible_states = dict(
-            container_items     = True,
-            item_geometry       = True,
-            flattened_geometry  = True,
-            world_geometry      = True,
-            item_collision      = False,
-            world_collision     = False,
-            collision_grid      = False,
+            container_items       = True,
+            item_geometry         = True,
+            flattened_geometry    = True,
+            world_geometry        = True,
+            visible_items         = True,
+            hidden_items          = False,
+            item_collision        = False,
+            world_collision       = False,
+            collision_grid        = False,
             )
 
         self._coll_grid = kwargs.pop("collision_grid")
@@ -101,16 +103,13 @@ class SceneWorld(SceneObject):
     def player_count(self): return self._player_count
     @player_count.setter
     def player_count(self, count):
-        if not(isinstance(count, int) and count in range(6)):
-            raise ValueError("Player count must be either 0, 1, 2, 3, 4, or 5 not '%s'" % count)
+        if not(isinstance(count, int) and count in range(5)):
+            raise ValueError("Player count must be either 0, 1, 2, 3, or 4, not '%s'" % count)
 
         self._player_count = count
         for scene_items in self._node_scene_items.values():
             for scene_item in scene_items:
-                if scene_item.min_players > self.player_count:
-                    scene_item.p3d_nodepath.hide()
-                else:
-                    scene_item.p3d_nodepath.show()
+                self.set_item_visible(scene_item)
 
     def clean_orphaned_world_objects(self):
         for node_name, scene_object in self.node_world_objects.items():
@@ -216,11 +215,7 @@ class SceneWorld(SceneObject):
 
         self._items_root_nodes[item_type].add_child(scene_item.p3d_node)
         self._node_scene_items[item_type].append(scene_item)
-
-        if self.player_count < scene_item.min_players:
-            scene_item.p3d_nodepath.hide()
-        else:
-            scene_item.p3d_nodepath.show()
+        self.set_item_visible(scene_item)
 
     def remove_world_object(self, object_name):
         object_name = object_name.upper().strip()
@@ -232,9 +227,16 @@ class SceneWorld(SceneObject):
 
         self._node_world_objects[world_object.name] = world_object
 
+    def set_item_visible(self, scene_item):
+        state_type = "hidden_items" if scene_item.hidden else "visible_items"
+        visible = (self._visible_states[state_type] and
+                   self.player_count >= scene_item.min_players)
+
+        scene_item.set_visible(visible)
+
     def set_world_collision_visible(self, visible=None):
         if visible is None:
-            visible = not self._visible_states.get("world_collision")
+            visible = not self._visible_states["world_collision"]
 
         for scene_object in self.node_world_objects.values():
             scene_object.set_collision_visible(visible)
@@ -244,7 +246,9 @@ class SceneWorld(SceneObject):
 
     def set_world_geometry_visible(self, visible=None, include_flattened=True):
         if visible is None:
-            visible = not self._visible_states.get("world_geometry")
+            visible = not self._visible_states["world_geometry"]
+
+        self._visible_states["world_geometry"] = visible
 
         self.set_geometry_visible(visible)
         for scene_object in self.node_world_objects.values():
@@ -253,11 +257,11 @@ class SceneWorld(SceneObject):
         if include_flattened:
             self.set_flattened_geometry_visible(visible)
 
-        self._visible_states["world_geometry"] = visible
-
     def set_flattened_geometry_visible(self, visible=None):
         if visible is None:
-            visible = not self._visible_states.get("flattened_geometry")
+            visible = not self._visible_states["flattened_geometry"]
+
+        self._visible_states["flattened_geometry"] = visible
 
         for geometries in self._flattened_static_geometries.values():
             for p3d_geometry in geometries:
@@ -267,53 +271,60 @@ class SceneWorld(SceneObject):
                     node_path.show()
                 else:
                     node_path.hide()
-
-        self._visible_states["flattened_geometry"] = visible
         return visible
 
     def set_item_collision_visible(self, visible=None):
         if visible is None:
-            visible = not self._visible_states.get("item_collision")
-
-        for scene_items in self.node_scene_items.values():
-            for scene_item in scene_items:
-                if self.player_count >= scene_item.min_players:
-                    scene_item.set_collision_visible(visible)
+            visible = not self._visible_states["item_collision"]
 
         self._visible_states["item_collision"] = visible
 
-    def set_item_geometry_visible(self, visible=None):
-        if visible is None:
-            visible = not self._visible_states.get("item_geometry")
-
         for scene_items in self.node_scene_items.values():
             for scene_item in scene_items:
-                if self.player_count >= scene_item.min_players:
-                    scene_item.set_geometry_visible(visible)
+                scene_item.set_collision_visible(visible)
+
+    def set_item_geometry_visible(self, visible=None):
+        if visible is None:
+            visible = not self._visible_states["item_geometry"]
 
         self._visible_states["item_geometry"] = visible
 
+        for scene_items in self.node_scene_items.values():
+            for scene_item in scene_items:
+                scene_item.set_geometry_visible(visible)
+
+    def set_items_visible(self, visible=None, target_hidden=False):
+        state_type = "hidden_items" if target_hidden else "visible_items"
+        if visible is None:
+            visible = not self._visible_states[state_type]
+
+        self._visible_states[state_type] = visible
+
+        for scene_items in self.node_scene_items.values():
+            for scene_item in scene_items:
+                self.set_item_visible(scene_item)
+
     def set_container_items_visible(self, visible=None):
         if visible is None:
-            visible = not self._visible_states.get("container_items")
+            visible = not self._visible_states["container_items"]
+
+        self._visible_states["container_items"] = visible
 
         for scene_items in self.node_scene_items.values():
             for scene_item in scene_items:
                 if hasattr(scene_item, "set_conatiner_item_visible"):
                     scene_item.set_conatiner_item_visible(visible)
 
-        self._visible_states["container_items"] = visible
-
     def set_collision_grid_visible(self, visible=None):
         if visible is None:
-            visible = not self._visible_states.get("collision_grid")
+            visible = not self._visible_states["collision_grid"]
+
+        self._visible_states["collision_grid"] = visible
 
         if visible:
             panda3d.core.NodePath(self._coll_grid_model_node).show()
         else:
             panda3d.core.NodePath(self._coll_grid_model_node).hide()
-
-        self._visible_states["collision_grid"] = visible
 
     def snap_to_grid(self, nodepath, max_dist=float("inf"), debug=True):
         x, z, y = nodepath.getPos(self.p3d_nodepath)

@@ -128,6 +128,7 @@ class SceneItemInfo:
 
 
 class SceneItem(SceneObject):
+    _flags = ()
     _item_info = None
     _copy_object  = True
     _scene_object = None
@@ -137,8 +138,8 @@ class SceneItem(SceneObject):
 
     def __init__(self, **kwargs):
         params  = kwargs.pop("params", {})
-        flags   = dict(kwargs.pop("flags", {}))
 
+        self._flags    = dict(kwargs.pop("flags", {}))
         self._item_info = kwargs.pop("item_info", None)
         self._item_infos = tuple(kwargs.pop("item_infos",   ()))
         self._min_players = kwargs.pop("min_players", self._min_players)
@@ -201,6 +202,9 @@ class SceneItem(SceneObject):
     @property
     def copy_object(self):
         return self._copy_object
+    @property
+    def hidden(self):
+        return self._flags.get("hidden", False)
 
     @property
     def scene_object(self):

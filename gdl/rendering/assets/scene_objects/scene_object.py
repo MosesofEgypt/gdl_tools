@@ -56,6 +56,14 @@ class SceneObject:
 
         self._node_particle_systems[particle_system.name] = particle_system
 
+    def set_visible(self, visible=None):
+        visible = self.p3d_nodepath.isHidden() if visible is None else visible
+        if visible:
+            self.p3d_nodepath.show()
+        else:
+            self.p3d_nodepath.hide()
+        return visible
+
     def set_collision_visible(self, visible=None):
         for coll in self.node_collision.values():
             visible = coll.p3d_nodepath.isHidden() if visible is None else visible

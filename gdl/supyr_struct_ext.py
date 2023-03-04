@@ -28,7 +28,7 @@ def fixed_union_block_flush(self):
     object.__setattr__(self, 'u_index', None)
     if u_type.endian == '>' and u_type.f_endian in '=>':
         u_type.serializer(u_node, self, None, self, 0,
-                          desc.get('SIZE', 0) - u_desc.get('SIZE', 0))
+                          desc.get('SIZE', 0) - u_desc.get('SIZE', u_type.size))
     else:
         u_type.serializer(u_node, self, None, self)
 

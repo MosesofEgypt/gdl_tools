@@ -182,6 +182,11 @@ class Scene(ShowBase):
         if scene_world:
             scene_world.set_item_collision_visible(visible)
 
+    def set_items_visible(self, visible=None, target_hidden=False):
+        scene_world = self.active_world
+        if scene_world:
+            scene_world.set_items_visible(visible, target_hidden)
+
     def switch_world(self, world_name):
         if not self._scene_worlds:
             return

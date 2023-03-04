@@ -189,7 +189,7 @@ item_instance = Struct("item_instance",
         # see this video and watch for the destroyed generator that appears:
         #   https://youtu.be/NFHoL4RCm60?t=83
         #   this is item instance 123 in LEVELG2
-        "unknown1", # settable on generator, powerup, rotator, and trigger
+        "hidden", # settable on generator, powerup, rotator, and trigger
         "unknown2", # settable on obstacle
         ),
     SInt16("coll_tri_index"),
