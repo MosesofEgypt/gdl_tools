@@ -23,7 +23,7 @@ def _register_g3d_vertex_format():
     return GeomVertexFormat.registerFormat(vformat)
 
 
-def load_geom_from_g3d_model(g3d_model, geom_shader):
+def load_geom_from_g3d_model(g3d_model, geom_shader, billboard_fixup=False):
     vdata = GeomVertexData('', G3DVertexFormat, Geom.UHDynamic)
     vdata.setNumRows(len(g3d_model.verts))
 
@@ -36,12 +36,22 @@ def load_geom_from_g3d_model(g3d_model, geom_shader):
     tris = GeomTriangles(Geom.UHDynamic)
     addVertices   = tris.addVertices
 
-    for x, y, z in g3d_model.verts:
-        # rotate coordinates
-        vertsAddData(x, z, y)
+    # rotate y and z coordinates. for the billboard fixup, we're
+    # doing a bit of a hack. panda3d's billboard effect wants to
+    # face the object away from the camera, so to rotate it 180
+    # degrees we'll simply reverse the x and y axis.
+    if billboard_fixup:
+        for x, y, z in g3d_model.verts:
+            vertsAddData(-x, -z, y)
 
-    for i, j, k in g3d_model.norms:
-        normsAddData(i, k, j)
+        for i, j, k in g3d_model.norms:
+            normsAddData(-i, -k, j)
+    else:
+        for x, y, z in g3d_model.verts:
+            vertsAddData(x, z, y)
+
+        for i, j, k in g3d_model.norms:
+            normsAddData(i, k, j)
 
     for r, g, b, a in g3d_model.colors:
         colorsAddData(r, g, b, a)
@@ -67,10 +77,12 @@ def load_geom_from_g3d_model(g3d_model, geom_shader):
         )
 
 
-def load_model_from_objects_tag(objects_tag, model_name, textures=(),
-                                global_tex_anims=(), seq_tex_anims=(),
-                                shape_morph_anims=(), p3d_model=None,
-                                is_static=False, is_obj_anim=False):
+def load_model_from_objects_tag(
+        objects_tag, model_name, textures=(),
+        global_tex_anims=(), seq_tex_anims=(), shape_morph_anims=(),
+        p3d_model=None, is_static=False, is_obj_anim=False,
+        billboard_fixup=False
+        ):
     if not textures:
         textures = {}
 
@@ -123,7 +135,9 @@ def load_model_from_objects_tag(objects_tag, model_name, textures=(),
         geom_shader.sort       = getattr(flags, "sort", False)
         geom_shader.sort_alpha = getattr(flags, "sort_a", False)
 
-        geometry = load_geom_from_g3d_model(g3d_model, geom_shader)
+        geometry = load_geom_from_g3d_model(
+            g3d_model, geom_shader, billboard_fixup
+            )
         model.add_geometry(geometry)
         if tex_name in global_tex_anims:
             global_tex_anims[tex_name].bind(geometry)

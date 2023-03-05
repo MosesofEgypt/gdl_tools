@@ -1,6 +1,6 @@
 import traceback
 
-from panda3d.core import NodePath, ModelNode, LVecBase3f, GeomNode, Geom,\
+from panda3d.core import NodePath, ModelNode, GeomNode, Geom,\
      GeomTriangles, GeomVertexFormat, GeomVertexData, GeomVertexWriter
 
 from ...assets.scene_objects.scene_world import SceneWorld
@@ -19,15 +19,22 @@ def _load_nodes_from_worlds_tag(
 
     while child_index >= 0:
         child_obj = world_objects[child_index]
-        child_p3d_node = ModelNode(child_obj.name.upper().strip())
-        nodes[child_index] = child_p3d_node
 
+        mb_flags = child_obj.mb_flags
         x, y, z = child_obj.pos
-        node_trans = child_p3d_node.get_transform().set_pos(
-            LVecBase3f(x, z, y)
-            )
-        child_p3d_node.set_transform(node_trans)
+
+        child_p3d_node = ModelNode(child_obj.name.upper().strip())
+        child_p3d_nodepath = NodePath(child_p3d_node)
+
+        child_p3d_nodepath.set_pos(x, z, y)
         parent_p3d_node.addChild(child_p3d_node)
+
+        if mb_flags.front_face:
+            child_p3d_nodepath.setBillboardAxis()
+        elif mb_flags.camera_dir:
+            child_p3d_nodepath.setBillboardPointWorld()
+
+        nodes[child_index] = child_p3d_node
 
         if child_obj.child_index >= 0:
             _load_nodes_from_worlds_tag(

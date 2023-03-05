@@ -80,12 +80,14 @@ def load_scene_item_from_item_instance(
     flags = item_instance.flags
     scene_item_info = scene_item_infos[item_instance.item_index]
 
+    x, z, y = item_instance.pos
+    p, h, r = item_instance.rot
     scene_item = scene_item_info.create_instance(
         name = instance_name,
         min_players = item_instance.min_players,
         params = item_instance.params,
-        pos = item_instance.pos,
-        rot = item_instance.rot,
+        pos = (x, y, z),
+        rot = (h, p, r),
         scene_objects = world_item_actors,
         flags = { n: bool(flags[n]) for n in flags.NAME_MAP },
         item_infos = scene_item_infos,

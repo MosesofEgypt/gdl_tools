@@ -116,8 +116,8 @@ class SceneItemInfo:
             value_override=value_override
             )
 
-        x, z, y = kwargs.pop("pos", (0, 0, 0))
-        p, h, r = kwargs.pop("rot", (0, 0, 0))
+        x, y, z = kwargs.pop("pos", (0, 0, 0))
+        h, p, r = kwargs.pop("rot", (0, 0, 0))
 
         scene_item.p3d_nodepath.setPos(x, y, z)
         scene_item.p3d_nodepath.setQuat(panda3d.core.LQuaternionf(

@@ -333,7 +333,6 @@ world_object = Struct("world_object",
     SInt8("trigger_state"),
     SInt8("p_trigger_state"),
 
-    # NOTE: parent_object_pointer seems to point to SOMETHING important,
     Bool32("mb_flags",
         # these are the flags that are set across all animation files
         # its possible for no flags to be set on all node types

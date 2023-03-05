@@ -1,4 +1,4 @@
-from panda3d.core import ModelNode, LVecBase3f
+from panda3d.core import ModelNode, NodePath
 from panda3d.physics import ActorNode
 
 from ...assets.scene_objects.scene_actor import SceneActor
@@ -31,10 +31,13 @@ def load_nodes_from_anim_tag(actor_name, anim_tag):
         p3d_node  = ModelNode(node_name)
         x, y, z   = anode_info.init_pos
 
-        node_trans = p3d_node.get_transform().set_pos(
-            LVecBase3f(x, z, y)
-            )
-        p3d_node.set_transform(node_trans)
+        p3d_nodepath = NodePath(p3d_node)
+        p3d_nodepath.set_pos(x, z, y)
+
+        if flags.front_face:
+            p3d_nodepath.setBillboardAxis()
+        elif flags.camera_dir:
+            p3d_nodepath.setBillboardPointWorld()
 
         # either find the root node, or setup info to link this node to its parent
         if parent in range(len(anodes)):
@@ -82,9 +85,7 @@ def load_nodes_from_anim_tag(actor_name, anim_tag):
                 chrome       = bool(flags.chrome),
                 fb_add       = bool(flags.fb_add),
                 fb_mul       = bool(flags.fb_mul),
-
-                front_face   = bool(flags.front_face), 
-                camera_dir   = bool(flags.camera_dir), 
+                billboard_fixup = (flags.front_face or flags.camera_dir),
                 )
             ))
 
@@ -131,7 +132,8 @@ def load_scene_actor_from_tags(
             objects_tag, model_name, textures,
             global_tex_anims, tex_anims_by_tex_name,
             shape_morph_anims=shape_morph_anims, p3d_model=p3d_node,
-            is_static=False, is_obj_anim=(node_type == "object")
+            is_static=False, is_obj_anim=(node_type == "object"),
+            billboard_fixup=flags["billboard_fixup"]
             )
         scene_actor.add_model(model)
 
