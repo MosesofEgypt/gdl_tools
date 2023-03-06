@@ -7,6 +7,7 @@ from ...assets.scene_objects.scene_world import SceneWorld
 from .scene_world_object import load_scene_world_object_from_tags
 from ..collision import load_collision_from_worlds_tag,\
      load_collision_grid_from_worlds_tag
+from ..particle_system import load_particle_systems_from_worlds_tag
 from .scene_item import load_scene_item_infos_from_worlds_tag,\
      load_scene_item_from_item_instance
 
@@ -116,14 +117,26 @@ def load_scene_world_from_tags(
     if world_item_actors is None:
         world_item_actors = {}
 
-    world_name = str(worlds_tag.filepath).upper().replace("\\", "/").\
-                 split("LEVELS/")[-1].split("/")[0]
+    world_name = level_data.name
+
+    # get the world name from the prefix of the first world
+    # object if it's blank for some reason in the level_data
+    for world_obj in worlds_tag.data.world_objects:
+        if world_name: break
+        world_name = world_obj.name[:2]
+
     collision_grid   = load_collision_grid_from_worlds_tag(worlds_tag)
     scene_world = SceneWorld(
         name=world_name, collision_grid=collision_grid,
         )
     world_nodes = load_nodes_from_worlds_tag(
         worlds_tag, scene_world.static_objects_node
+        )
+    particle_systems = load_particle_systems_from_worlds_tag(
+        worlds_tag, world_name
+        )
+    scene_item_infos = load_scene_item_infos_from_worlds_tag(
+        worlds_tag, level_data
         )
 
     dyn_p3d_nodepath = NodePath(scene_world.dynamic_objects_node)
@@ -132,15 +145,17 @@ def load_scene_world_from_tags(
         worlds_tag.data.dynamic_grid_objects.world_object_indices
         )
 
-    scene_item_infos = load_scene_item_infos_from_worlds_tag(
-        worlds_tag, level_data
-        )
-
     # load the grid for use in debugging
     scene_world.coll_grid_model_node.addChild(
         generate_collision_grid_model(collision_grid)
         )
     scene_world.set_collision_grid_visible(False)
+
+    psys_prefix_len = 0
+    for psys_name, psys in particle_systems.items():
+        scene_world.add_particle_system(psys)
+        psys_prefix_len = max(psys_prefix_len, len(psys_name))
+        psys.set_enabled(True)
 
     # load and attach models and collision
     for i, world_object in enumerate(worlds_tag.data.world_objects):
@@ -158,13 +173,22 @@ def load_scene_world_from_tags(
             )
         p3d_nodepath = scene_world_object.p3d_nodepath
 
-        collision = None
-        if not world_object.flags.particle_system:
+        collision = psys = None
+        if world_object.flags.particle_system:
+            psys_name = world_object.name[:psys_prefix_len].upper()
+            psys = particle_systems.get(psys_name)
+            p3d_nodepath.node().set_preserve_transform(
+                ModelNode.PT_no_touch
+                )
+        else:
             collision = load_collision_from_worlds_tag(
                 worlds_tag, object_name,
                 world_object.coll_tri_index,
                 world_object.coll_tri_count,
                 )
+
+        if psys:
+            psys.create_instance(scene_world_object.p3d_nodepath)
 
         if collision:
             parent_node = (p3d_nodepath.node() if world_object.flags.animated

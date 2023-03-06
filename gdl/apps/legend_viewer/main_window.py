@@ -8,7 +8,7 @@ from .scene_controls import SceneControlsWindow
 from .animation_controls import AnimationControlsWindow
 from .hotkey_menu_binder import HotkeyMenuBinder
 
-__version__ = (0, 2, 2)
+__version__ = (0, 2, 3)
 
 class MainWindow(tk.Tk, HotkeyMenuBinder):
     scene = None
@@ -41,11 +41,11 @@ class MainWindow(tk.Tk, HotkeyMenuBinder):
         dict(key="f7",  name="Debug|Toggle container items", func="self.scene.set_container_items_visible"),
         dict(key="f8",  name="Debug|Toggle collision grid", func="self.scene.set_collision_grid_visible"),
         dict(name="Debug|"),
-        dict(key="f9",  name="Debug|Toggle framerate",      func="self.scene.toggle_fps_counter"),
-        dict(key="f10", name="Debug|Toggle wireframe",      func="self.scene.toggleWireframe"),
-        dict(key="f11", name="Debug|Toggle textures",       func="self.scene.toggleTexture"),
-        #dict(key="f12", name="Debug|Toggle particles",      func="self.scene.toggle_particles"),
-        dict(           name="Debug|Toggle vertices",       func="self.scene.toggleShowVertices"),
+        dict(key="f9",  name="Debug|Toggle framerate",  func="self.scene.toggle_fps_counter"),
+        dict(key="f10", name="Debug|Toggle particles",  func="self.scene.set_particles_visible"),
+        dict(key="f11", name="Debug|Toggle textures",   func="self.scene.toggleTexture"),
+        dict(key="f12", name="Debug|Toggle wireframe",  func="self.scene.toggleWireframe"),
+        dict(           name="Debug|Toggle vertices",   func="self.scene.toggleShowVertices"),
         )
 
     def __init__(self, *args, **kwargs):

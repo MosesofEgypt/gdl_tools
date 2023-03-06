@@ -5,7 +5,6 @@ from ..animation import TextureAnimation, ShapeMorphAnimation, SkeletalAnimation
 
 
 class SceneActor(SceneObject):
-    _p3d_nodepath = None
     _actor_animations = ()
     _texture_animations = ()
     _shape_morph_animations = ()
@@ -15,15 +14,18 @@ class SceneActor(SceneObject):
         self._texture_animations = {}
         self._shape_morph_animations = {}
 
-        # TODO: put a check to ensure p3d_actor is an ActorNode
-        p3d_actor = kwargs.pop("p3d_actor", panda3d.physics.ActorNode(self.name))
-        self._p3d_nodepath = panda3d.core.NodePath(p3d_actor)
+        self._name = kwargs.pop("name", self._name)
+        p3d_node   = kwargs.pop("p3d_node")
+        if p3d_node is None:
+            p3d_node = panda3d.physics.ActorNode(self.name)
+
+        if not isinstance(p3d_node, panda3d.physics.ActorNode):
+            raise TypeError(f"p3d_node must be of type panda3d.physics.ActorNode, {type(p3d_node)}")
+
+        kwargs["p3d_node"] = p3d_node
+
         super().__init__(**kwargs)
 
-    @property
-    def p3d_actor(self): return self._p3d_nodepath.node()
-    @property
-    def p3d_nodepath(self): return self._p3d_nodepath
     @property
     def actor_animations(self): return dict(self._actor_animations)
     @property

@@ -3,6 +3,7 @@ from panda3d.physics import ActorNode
 
 from ...assets.scene_objects.scene_actor import SceneActor
 from ..model import load_model_from_objects_tag
+from ..particle_system import load_particle_systems_from_animations_tag
 from .. import util
 
 
@@ -28,8 +29,13 @@ def load_nodes_from_anim_tag(actor_name, anim_tag):
         node_name = anode_info.mb_desc.upper().strip()
         parent    = anode_info.parent_index
         flags     = anode_info.mb_flags
-        p3d_node  = ModelNode(node_name)
         x, y, z   = anode_info.init_pos
+
+        p3d_node = ModelNode(
+            f"{actor_name}PSYS{i}"
+            if node_type == "particle_system" else
+            node_name
+            )
 
         p3d_nodepath = NodePath(p3d_node)
         p3d_nodepath.set_pos(x, z, y)
@@ -85,8 +91,9 @@ def load_nodes_from_anim_tag(actor_name, anim_tag):
                 chrome       = bool(flags.chrome),
                 fb_add       = bool(flags.fb_add),
                 fb_mul       = bool(flags.fb_mul),
-                billboard_fixup = (flags.front_face or flags.camera_dir),
-                )
+                ),
+            billboard_fixup = (flags.front_face or flags.camera_dir),
+            effect_index    = anode_info.parent_index,
             ))
 
     # link the nodes together
@@ -108,10 +115,19 @@ def load_scene_actor_from_tags(
     actor_name = actor_name.upper().strip()
     actor_node = ActorNode(actor_name)
 
-    root_node, nodes_infos = load_nodes_from_anim_tag(actor_name, anim_tag)
+    root_node, nodes_infos = load_nodes_from_anim_tag(
+        actor_name, anim_tag
+        )
+    psys_by_index = load_particle_systems_from_animations_tag(
+        anim_tag, actor_name
+        )
     actor_node.add_child(root_node)
 
     scene_actor = SceneActor(name=actor_name, p3d_node=actor_node)
+
+    for psys in psys_by_index:
+        scene_actor.add_particle_system(psys)
+        psys.set_enabled(True)
 
     tex_anims_by_tex_name = {}
     # reorganize the texture animations
@@ -125,6 +141,10 @@ def load_scene_actor_from_tags(
         node_type  = node_info["node_type"]
         p3d_node   = node_info["p3d_node"]
         flags      = node_info["flags"]
+        eff_index  = node_info["effect_index"]
+        if node_type == "particle_system" and eff_index in range(len(psys_by_index)):
+            psys_by_index[eff_index].create_instance(NodePath(p3d_node))
+
         if not model_name:
             continue
 
@@ -133,7 +153,7 @@ def load_scene_actor_from_tags(
             global_tex_anims, tex_anims_by_tex_name,
             shape_morph_anims=shape_morph_anims, p3d_model=p3d_node,
             is_static=False, is_obj_anim=(node_type == "object"),
-            billboard_fixup=flags["billboard_fixup"]
+            billboard_fixup=node_info["billboard_fixup"]
             )
         scene_actor.add_model(model)
 

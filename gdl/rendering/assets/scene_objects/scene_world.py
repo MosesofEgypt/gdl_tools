@@ -32,15 +32,16 @@ class SceneWorld(SceneObject):
         self._flattened_texmod_models = {}
 
         self._visible_states = dict(
-            container_items       = True,
-            item_geometry         = True,
-            flattened_geometry    = True,
-            world_geometry        = True,
-            visible_items         = True,
-            hidden_items          = False,
-            item_collision        = False,
-            world_collision       = False,
-            collision_grid        = False,
+            container_items     = True,
+            item_geometry       = True,
+            flattened_geometry  = True,
+            world_geometry      = True,
+            visible_items       = True,
+            particle_systems    = True,
+            hidden_items        = False,
+            item_collision      = False,
+            world_collision     = False,
+            collision_grid      = False,
             )
 
         self._coll_grid = kwargs.pop("collision_grid")
@@ -314,6 +315,15 @@ class SceneWorld(SceneObject):
             for scene_item in scene_items:
                 if hasattr(scene_item, "set_conatiner_item_visible"):
                     scene_item.set_conatiner_item_visible(visible)
+
+    def set_particles_visible(self, visible=None):
+        if visible is None:
+            visible = not self._visible_states["particle_systems"]
+
+        self._visible_states["particle_systems"] = visible
+
+        for psys in self.node_particle_systems.values():
+            psys.set_enabled(visible)
 
     def set_collision_grid_visible(self, visible=None):
         if visible is None:

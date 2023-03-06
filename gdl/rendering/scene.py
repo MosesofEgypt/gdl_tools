@@ -70,6 +70,9 @@ class Scene(ShowBase):
 
         super().__init__()
 
+        # turn em on
+        self.enableParticles()
+
         # put lighting on the main scene
         self._ambient_light = AmbientLight('alight')
         self._ambient_light.setColor((1, 1, 1, 1))
@@ -181,6 +184,11 @@ class Scene(ShowBase):
         scene_world = self.active_world
         if scene_world:
             scene_world.set_item_collision_visible(visible)
+
+    def set_particles_visible(self, visible=None):
+        scene_world = self.active_world
+        if scene_world:
+            scene_world.set_particles_visible(visible)
 
     def set_items_visible(self, visible=None, target_hidden=False):
         scene_world = self.active_world
