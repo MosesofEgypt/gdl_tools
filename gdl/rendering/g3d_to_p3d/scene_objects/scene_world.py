@@ -151,11 +151,7 @@ def load_scene_world_from_tags(
         )
     scene_world.set_collision_grid_visible(False)
 
-    psys_prefix_len = 0
-    for psys_name, psys in particle_systems.items():
-        scene_world.add_particle_system(psys)
-        psys_prefix_len = max(psys_prefix_len, len(psys_name))
-        psys.set_enabled(True)
+    psys_prefix_len = max(0, *(len(n) for n in particle_systems))
 
     # load and attach models and collision
     for i, world_object in enumerate(worlds_tag.data.world_objects):
@@ -188,7 +184,7 @@ def load_scene_world_from_tags(
                 )
 
         if psys:
-            psys.create_instance(scene_world_object.p3d_nodepath)
+            psys.create_instance(p3d_nodepath)
 
         if collision:
             parent_node = (p3d_nodepath.node() if world_object.flags.animated
@@ -212,6 +208,10 @@ def load_scene_world_from_tags(
         scene_world.flatten_static_geometries(
             global_tex_anims, flatten_static_tex_anims
             )
+
+    for psys in particle_systems.values():
+        scene_world.add_particle_system(psys)
+        psys.set_enabled(True)
 
     for item_instance in worlds_tag.data.item_instances:
         try:

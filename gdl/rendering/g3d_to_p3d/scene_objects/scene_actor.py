@@ -125,10 +125,6 @@ def load_scene_actor_from_tags(
 
     scene_actor = SceneActor(name=actor_name, p3d_node=actor_node)
 
-    for psys in psys_by_index:
-        scene_actor.add_particle_system(psys)
-        psys.set_enabled(True)
-
     tex_anims_by_tex_name = {}
     # reorganize the texture animations
     for anims_by_tex_name in seq_tex_anims.values():
@@ -169,6 +165,10 @@ def load_scene_actor_from_tags(
 
             if shader_updated:
                 geometry.apply_shader()
+
+    for psys in psys_by_index:
+        scene_actor.add_particle_system(psys)
+        psys.set_enabled(True)
 
     for anims in tex_anims_by_tex_name.values():
         for anim in anims:

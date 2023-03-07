@@ -5,10 +5,11 @@ def load_particle_system_from_block(name_prefix, psys_block):
     def config_loader(peffect):
         # TODO: configure peffect with psys_block settings
         pass
+        #peffect.loadConfig("test.ptf")
 
     return ParticleSystem(
         name=name_prefix + psys_block.id.enum_name,
-        config_loader=config_loader
+        config_loader=config_loader, unique_instances=False
         )
 
 
