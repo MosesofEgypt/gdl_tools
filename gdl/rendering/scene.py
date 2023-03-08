@@ -12,7 +12,8 @@ from panda3d.core import AmbientLight, DirectionalLight, PointLight,\
 
 from . import free_camera
 from .assets.scene_objects import scene_actor, scene_object, scene_world
-from .g3d_to_p3d.util import load_objects_dir_files, load_realm_data, locate_dir
+from .g3d_to_p3d.util import load_objects_dir_files, locate_objects_dir_files,\
+     load_realm_data, locate_dir
 from .g3d_to_p3d.scene_objects.scene_actor import load_scene_actor_from_tags
 from .g3d_to_p3d.scene_objects.scene_object import load_scene_object_from_tags
 from .g3d_to_p3d.scene_objects.scene_world import load_scene_world_from_tags
@@ -456,6 +457,7 @@ class Scene(ShowBase):
         if not objects_tag:
             return {}, {}
 
+        # TODO: load more textures since some particle effect textures rely on outside sources
         textures = self.get_resource_set_textures(textures_filepath, is_ngc)
 
         actor_names  = anim_tag.actor_names if anim_tag else ()
@@ -518,7 +520,6 @@ class Scene(ShowBase):
         anim_tag          = objects_data.get("anim_tag")
         objects_tag       = objects_data.get("objects_tag")
         worlds_tag        = objects_data.get("worlds_tag")
-        textures_filepath = objects_data.get("textures_filepath")
         global_tex_anims  = texture_anims.get("global_anims", {})
         if not worlds_tag:
             return None
@@ -532,9 +533,11 @@ class Scene(ShowBase):
             )
 
         # locate the folder all the level and shared item dirs are in
+        level_items_dir = locate_dir(game_root_dir, "ITEMS", level_name)
+        realm_items_dir = locate_dir(game_root_dir, "ITEMS", realm_name)
         items_dirs = set([
-            locate_dir(game_root_dir, "ITEMS", level_name),
-            locate_dir(game_root_dir, "ITEMS", realm_name),
+            level_items_dir,
+            realm_items_dir,
             locate_dir(game_root_dir, "POWERUPS"),
             locate_dir(game_root_dir, "WEAPONS"),
             ])
@@ -571,10 +574,21 @@ class Scene(ShowBase):
                 world_item_actors.update(scene_actors)
                 world_item_objects.update(scene_objects)
 
+        # NOTE: particle effects can use textures from the items resources, so
+        #       we need to make sure to include those in the textures we pass.
+        #       we load the level's textures last to ensure it is high priority.
+        textures = {}
+        for resource_info in (
+                locate_objects_dir_files(realm_items_dir),
+                locate_objects_dir_files(level_items_dir),
+                objects_data
+                ):
+            fp, is_ngc = resource_info["textures_filepath"], resource_info["is_ngc"]
+            if fp:
+                textures.update(self.get_resource_set_textures(fp, is_ngc))
+
         # TODO: clean this up to treat different item classes differently
         #       instead of lumping all scene objects and actors into one dict
-
-        textures = self.get_resource_set_textures(textures_filepath, is_ngc)
         scene_world = load_scene_world_from_tags(
             level_data=level_data, worlds_tag=worlds_tag,
             objects_tag=objects_tag, textures=textures, anim_tag=anim_tag,

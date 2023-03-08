@@ -119,7 +119,7 @@ def load_scene_actor_from_tags(
         actor_name, anim_tag
         )
     psys_by_index = load_particle_systems_from_animations_tag(
-        anim_tag, actor_name
+        anim_tag, actor_name, textures
         )
     actor_node.add_child(root_node)
 

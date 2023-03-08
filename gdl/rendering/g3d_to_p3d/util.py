@@ -63,14 +63,9 @@ def load_realm_data(wdata_dir, realm_name=""):
     return realms
 
 
-def load_objects_dir_files(objects_dir):
-    anim_tag    = None
-    worlds_tag  = None
-    objects_tag = None
-    textures_filepath = ""
-
-    anim_filename     = ""
-    worlds_filename   = ""
+def locate_objects_dir_files(objects_dir):
+    anim_filename         = ""
+    worlds_filename       = ""
     objects_filename_ps2  = ""
     textures_filename_ps2 = ""
     objects_filename_ngc  = ""
@@ -100,37 +95,49 @@ def load_objects_dir_files(objects_dir):
         break
 
     is_ngc = textures_filename_ngc and objects_filename_ngc
-
     objects_filename  = objects_filename_ngc  if is_ngc else objects_filename_ps2
     textures_filename = textures_filename_ngc if is_ngc else textures_filename_ps2
 
-    if anim_filename:
+    return dict(
+        anim_filepath     = os.path.join(objects_dir, anim_filename)     if anim_filename     else None,
+        objects_filepath  = os.path.join(objects_dir, objects_filename)  if objects_filename  else None,
+        textures_filepath = os.path.join(objects_dir, textures_filename) if textures_filename else None,
+        worlds_filepath   = os.path.join(objects_dir, worlds_filename)   if worlds_filename   else None,
+        is_ngc            = is_ngc
+        )
+
+
+def load_objects_dir_files(objects_dir):
+    anim_tag    = None
+    worlds_tag  = None
+    objects_tag = None
+
+    dir_info = locate_objects_dir_files(objects_dir)
+
+    if dir_info["anim_filepath"]:
         try:
-            anim_tag = anim_ps2_def.build(filepath=os.path.join(objects_dir, anim_filename))
+            anim_tag = anim_ps2_def.build(filepath=dir_info["anim_filepath"])
         except Exception:
             print(format_exc())
 
-    if worlds_filename:
+    if dir_info["worlds_filepath"]:
         try:
-            worlds_tag = worlds_ps2_def.build(filepath=os.path.join(objects_dir, worlds_filename))
+            worlds_tag = worlds_ps2_def.build(filepath=dir_info["worlds_filepath"])
         except Exception:
             print(format_exc())
 
-    if objects_filename:
+    if dir_info["objects_filepath"]:
         try:
-            objects_tag = objects_ps2_def.build(filepath=os.path.join(objects_dir, objects_filename))
+            objects_tag = objects_ps2_def.build(filepath=dir_info["objects_filepath"])
         except Exception:
             print(format_exc())
-
-    if textures_filename:
-        textures_filepath = os.path.join(objects_dir, textures_filename)
 
     return dict(
         objects_tag = objects_tag,
         anim_tag    = anim_tag,
         worlds_tag  = worlds_tag,
-        textures_filepath = textures_filepath,
-        is_ngc = is_ngc
+        textures_filepath = dir_info["textures_filepath"],
+        is_ngc = dir_info["is_ngc"]
         )
 
 
