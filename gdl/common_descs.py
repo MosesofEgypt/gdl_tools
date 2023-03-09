@@ -729,7 +729,7 @@ secret_character_struct = Struct("secret_character",
     Bool32("flags",
         "disable",
         ),
-    SIZE=36, ENDIAN='<',
+    SIZE=36
     )
 
 cheat_struct = Struct("cheat",
@@ -761,5 +761,5 @@ cheat_struct = Struct("cheat",
             special=special_types,
             )
         ),
-    SIZE=20, ENDIAN='<',
+    SIZE=20
     )

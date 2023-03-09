@@ -66,14 +66,14 @@ class ParticleSystem:
                 peffect = peffect,
                 parent  = parent_nodepath,
                 )
+
+            peffect.reparentTo(parent_nodepath)
+            peffect.renderParent = parent_nodepath
             try:
                 self.config_loader(peffect)
             except Exception:
                 print(traceback.format_exc())
                 return
-
-            peffect.reparentTo(parent_nodepath)
-            peffect.renderParent = parent_nodepath
 
             if self.enabled:
                 peffect.enable()

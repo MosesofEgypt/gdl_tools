@@ -181,7 +181,7 @@ class GeometryShader:
                     panda3d.core.ColorBlendAttrib.OIncomingAlpha,
                     panda3d.core.ColorBlendAttrib.OOne,
                     )
-                
+
             if self.sort_alpha and not (self.fb_mul or self.fb_add):
                 nodepath.setTransparency(panda3d.core.TransparencyAttrib.MDual)
             else:

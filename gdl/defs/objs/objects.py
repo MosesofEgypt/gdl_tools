@@ -188,15 +188,6 @@ class ObjectsPs2Tag(GdlTag):
         header.bitmaps_pointer = offset
         offset += tex_count*64
 
-        #set the object_def and bitmap_def arrays pointers
-        header.object_defs_pointer = offset
-        offset += obj_def_count*24
-        offset += calculate_padding(offset, 16) # 16byte align
-
-        header.bitmap_defs_pointer = offset
-        offset += tex_def_count*36
-        offset += calculate_padding(offset, 16) # 16byte align 
-
         #loop over all objects and set the pointers of their subobjects
         header.sub_objects_pointer = offset
         for obj in self.data.objects:
@@ -218,6 +209,15 @@ class ObjectsPs2Tag(GdlTag):
             for model in obj.data.sub_object_models:
                 offset += 16*(model.qword_count + 1)
 
+        offset += calculate_padding(offset, 16) # 16byte align 
+
+        #set the object_def and bitmap_def arrays pointers
+        header.object_defs_pointer = offset
+        offset += obj_def_count*24
+        offset += calculate_padding(offset, 16) # 16byte align
+
+        header.bitmap_defs_pointer = offset
+        offset += tex_def_count*36
         offset += calculate_padding(offset, 16) # 16byte align 
 
         #set the file length

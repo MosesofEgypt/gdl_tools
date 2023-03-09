@@ -69,6 +69,14 @@ def load_particle_system_from_block(name_prefix, psys_block, textures):
         peffect.setHpr(0.000, 0.000, 0.000)
         peffect.setScale(1.000, 1.000, 1.000)
 
+        peffect.renderParent.setTransparency(
+            panda3d.core.TransparencyAttrib.MDual if flags.get("fb_add") else
+            panda3d.core.TransparencyAttrib.MDual if flags.get("fb_mul") else
+            panda3d.core.TransparencyAttrib.MAlpha
+            )
+        peffect.renderParent.setDepthTest(not flags.get("no_z_test"))
+        peffect.renderParent.setDepthWrite(False)
+
         for i in range(4 if "e_rate" in data else 1):
             part = Particles.Particles(f'p{i}')
 
@@ -121,7 +129,7 @@ def load_particle_system_from_block(name_prefix, psys_block, textures):
             fact.setTerminalVelocitySpread(0)
 
             # Renderer parameters
-            rend.setAlphaMode(BaseParticleRenderer.PRALPHAOUT)  # ????
+            rend.setAlphaMode(BaseParticleRenderer.PR_ALPHA_USER)  # ????
             rend.setUserAlpha(2.0)  # account for signed alpha
             if texture:
                 rend.setTexture(texture.p3d_texture)
@@ -153,10 +161,6 @@ def load_particle_system_from_block(name_prefix, psys_block, textures):
                     panda3d.core.ColorBlendAttrib.OIncomingAlpha,
                     panda3d.core.ColorBlendAttrib.OOne,
                     )
-            elif flags.get("sort"):
-                pass # TODO
-            else:
-                pass # TODO
 
             # Emitter parameters
             emit.setEmissionType(BaseParticleEmitter.ETEXPLICIT)
