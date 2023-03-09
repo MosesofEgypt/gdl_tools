@@ -162,7 +162,7 @@ def import_textures(
     # we'll be saving all filenames to the texdef_names in the objects_tag.
     # this is so the model compilation can find the textures referenced, even
     # if the names aren't saved to the tag itself.
-    objects_tag.texdef_names = []
+    objects_tag.texdef_names = {}
 
     if use_force_index_hack and all_metadata:  # hack
         max_forced_bitmap_index = max(
@@ -215,6 +215,10 @@ def import_textures(
 
         bitm.frame_count = meta.get("frame_count", 0)
         bitm.tex_pointer = tex_pointer
+
+        if not bitm.frame_count:
+            # the only names stored to the texdef names are the non-sequence bitmaps
+            objects_tag.texdef_names[tex_pointer] = meta["name"]
 
         if bitm.frame_count or bitm.flags.external:
             # no bitmap to import; only import metadata
@@ -284,10 +288,6 @@ def import_textures(
             bitmap_defs[-1].width = bitm.width
             bitmap_defs[-1].height = bitm.height
             bitmap_defs[-1].tex_index = i
-
-        if not bitm.frame_count:
-            # the only names stored to the texdef names are the non-sequence bitmaps
-            objects_tag.texdef_names.append(meta["name"])
 
         if bitm.flags.external:
             continue

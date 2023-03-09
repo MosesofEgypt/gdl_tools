@@ -1,3 +1,4 @@
+import math
 import panda3d
 
 from direct.particles import Particles
@@ -97,9 +98,12 @@ def load_particle_system_from_block(name_prefix, psys_block, textures):
             if not e_rate:
                 continue
 
+            litter_size = int(math.ceil(e_rate / 30))
+            birth_rate  = litter_size / e_rate
+
             part.setPoolSize(psys_data.get("max_p", 1000))
-            part.setBirthRate(1/e_rate)
-            part.setLitterSize(1)
+            part.setBirthRate(birth_rate)
+            part.setLitterSize(litter_size)
             part.setLitterSpread(0)
             # TODO: figure out what to do with these 3
             part.setLocalVelocityFlag(1)

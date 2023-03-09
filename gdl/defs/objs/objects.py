@@ -39,6 +39,7 @@ class ObjectsPs2Tag(GdlTag):
         object_defs = self.data.object_defs
         bitmap_defs = self.data.bitmap_defs
         texdef_names = self.texdef_names
+
         object_names = {
             b.obj_index: dict(name=b.name, asset_name=b.name, index=b.obj_index)
             for b in object_defs if b.name
@@ -50,7 +51,7 @@ class ObjectsPs2Tag(GdlTag):
         if texdef_names:
             # grab additional names from texdefs
             bitm_i = 0
-            texdef_names = dict(self.texdef_names)
+            texdef_names = dict(texdef_names)
             while bitm_i < len(bitmaps):
                 bitm = bitmaps[bitm_i]
                 if bitm.tex_pointer in texdef_names and not bitmap_names.get(bitm_i):
