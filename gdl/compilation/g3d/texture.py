@@ -106,11 +106,13 @@ def compile_textures(
                 # original asset file; don't recompile
                 continue
 
+            target_format = meta.get("format", c.DEFAULT_FORMAT_NAME)
+            flags = meta.get("flags", {})
             all_job_args.append(dict(
                 asset_filepath=asset_filepath, optimize_format=optimize_format,
-                target_format_name=meta.get("format", c.DEFAULT_FORMAT_NAME),
                 mipmap_count=max(0, 0 if target_ngc else meta.get("mipmap_count", 0)),
-                name=name, cache_filepath=cache_filepath,
+                name=name, cache_filepath=cache_filepath, target_format_name=target_format,
+                keep_alpha=(flags.get("has_alpha") or "A" in target_format_name),
                 target_ngc=target_ngc, target_ps2=target_ps2
                 ))
         except Exception:
