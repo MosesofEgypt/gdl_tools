@@ -61,7 +61,7 @@ FORMAT_ID_TO_NAME = {
     35: "XBGR_8888_IDX_4",
     48: "ABGR_1555_IDX_8",
     49: "XBGR_1555_IDX_8",
-    50: "XBGR_1555_IDX_8_NGC",
+    50: "ABGR_1555_IDX_8_NGC",
     66: "ABGR_8888_IDX_8",
     67: "XBGR_8888_IDX_8",
     130: "A_8_IDX_8",  # not really palettized

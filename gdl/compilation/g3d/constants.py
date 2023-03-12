@@ -64,7 +64,7 @@ PALETTE_SIZES = {
     "ABGR_8888_IDX_8":4,
     "XBGR_8888_IDX_8":4,
     "ABGR_1555_IDX_4_NGC":2,
-    "XBGR_1555_IDX_8_NGC":2,
+    "ABGR_1555_IDX_8_NGC":2,
     }
 
 PIXEL_SIZES = {
@@ -86,7 +86,7 @@ PIXEL_SIZES = {
     "ABGR_8888":32,
     "XBGR_8888":32,
     "ABGR_1555_IDX_4_NGC":4,
-    "XBGR_1555_IDX_8_NGC":8,
+    "ABGR_1555_IDX_8_NGC":8,
     }
 
 MONOCHROME_FORMATS = set(

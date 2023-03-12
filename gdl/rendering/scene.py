@@ -371,6 +371,9 @@ class Scene(ShowBase):
         level_name = level_name.upper().strip()
         realm_name = level_name.rstrip("0123456789") # HAAAAAACK
         realm = self.get_realm(dirpath, realm_name, recache=recache)
+        if not realm:
+            return None
+
         for level in realm.levels:
             if "LEVEL" + level.name == level_name:
                 return level

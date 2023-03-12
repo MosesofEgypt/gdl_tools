@@ -110,14 +110,17 @@ def generate_collision_grid_model(coll_grid):
 
 
 def load_scene_world_from_tags(
-        *, level_data, worlds_tag, objects_tag, textures, anim_tag=None,
+        *, worlds_tag, objects_tag, textures, anim_tag=None, level_data=None, 
         world_item_actors=(), world_item_objects=(), global_tex_anims=(),
         flatten_static=True, flatten_static_tex_anims=True
         ):
     if world_item_actors is None:
         world_item_actors = {}
 
-    world_name = level_data.name
+    world_name = getattr(level_data, "name",
+                         str(worlds_tag.filepath).replace("\\", "/").
+                         split('/')[-2]
+                         )
 
     # get the world name from the prefix of the first world
     # object if it's blank for some reason in the level_data
@@ -151,7 +154,7 @@ def load_scene_world_from_tags(
         )
     scene_world.set_collision_grid_visible(False)
 
-    psys_prefix_len = max(0, *(len(n) for n in particle_systems))
+    psys_prefix_len = max((0,) + tuple(len(n) for n in particle_systems))
 
     # load and attach models and collision
     for i, world_object in enumerate(worlds_tag.data.world_objects):

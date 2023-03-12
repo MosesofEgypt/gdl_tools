@@ -4,11 +4,10 @@ from ..common_descs import *
 
 def get(): return texdef_ps2_def
 
-#########################################################
-'''FOR TEXTURES.PS2, RED AND BLUE CHANNELS ARE SWAPPED'''
-#########################################################
-
 bitmap_format = UEnum8("format",
+    # NOTE: the NGC formats are some custom format that swaps
+    #       between A1R5G5B5 and A4R4G4B4, depending on if the
+    #       high bit is set. If set, it's A1; otherwise its A4
     ("ABGR_1555", 0),
     ("XBGR_1555", 1),
     ("ABGR_8888", 2),
@@ -21,7 +20,7 @@ bitmap_format = UEnum8("format",
     ("XBGR_8888_IDX_4", 35),
     ("ABGR_1555_IDX_8", 48),
     ("XBGR_1555_IDX_8", 49),
-    ("XBGR_1555_IDX_8_NGC", 50),
+    ("ABGR_1555_IDX_8_NGC", 50),
     #("IDXA_88",         56), #i have no idea how this format works
     ("ABGR_8888_IDX_8", 66),
     ("XBGR_8888_IDX_8", 67),
