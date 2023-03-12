@@ -236,7 +236,7 @@ class G3DTexture:
                     arbytmap.bitmap_io.swap_array_items(pixels, swap_map)
 
         elif not is_monochrome and itemsize > 1:
-            # swap from BGRA to RGBA for ps2
+            # swap from BGRA to RGBA for ps2/xbox
             if palette:
                 arbytmap.channel_swap_bgra_rgba_array([palette], itemsize)
             else:

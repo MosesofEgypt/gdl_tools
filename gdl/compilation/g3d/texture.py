@@ -112,7 +112,7 @@ def compile_textures(
                 asset_filepath=asset_filepath, optimize_format=optimize_format,
                 mipmap_count=max(0, 0 if target_ngc else meta.get("mipmap_count", 0)),
                 name=name, cache_filepath=cache_filepath, target_format_name=target_format,
-                keep_alpha=(flags.get("has_alpha") or "A" in target_format_name),
+                keep_alpha=(flags.get("has_alpha") or "A" in target_format),
                 target_ngc=target_ngc, target_ps2=target_ps2
                 ))
         except Exception:
