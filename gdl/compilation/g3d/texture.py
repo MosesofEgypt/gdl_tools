@@ -222,7 +222,7 @@ def import_textures(
             # the only names stored to the texdef names are the non-sequence bitmaps
             objects_tag.texdef_names[tex_pointer] = meta["name"]
 
-        if bitm.frame_count or bitm.flags.external:
+        if bitm.frame_count or bitm.flags.external or bitm.flags.invalid:
             # no bitmap to import; only import metadata
             try:
                 bitm.format.set_to(meta["format"])
@@ -291,7 +291,7 @@ def import_textures(
             bitmap_defs[-1].height = bitm.height
             bitmap_defs[-1].tex_index = i
 
-        if bitm.flags.external:
+        if bitm.flags.external or bitm.flags.invalid:
             continue
 
         # populate tex0 and miptbp
@@ -385,7 +385,10 @@ def decompile_textures(
         asset = bitmap_assets.get(i)
 
         try:
-            if asset is None or getattr(bitm, "frame_count", 0) or getattr(bitm.flags, "external", False):
+            if (asset is None or getattr(bitm, "frame_count", 0) or
+                getattr(bitm.flags, "external", False) or
+                getattr(bitm.flags, "invalid", False)
+                ):
                 continue
             elif bitm.format.enum_name == "<INVALID>":
                 print("Invalid bitmap format detected in bitmap %s at index %s" % (asset, i))
