@@ -24,6 +24,14 @@ ROMTEX_HEADER_STRUCT = struct.Struct('<HH 4x bBbB 4x 16s')
 #   md5_of_source_asset
 
 
+def is_gamecube_format(format_name):
+    return "NGC" in format_name
+
+
+def is_alpha_signed(format_name):
+    return "8888" in format_name and not is_gamecube_format(format_name)
+
+
 class G3DTexture:
     palette  = None
     textures = ()
@@ -46,7 +54,6 @@ class G3DTexture:
             raise ValueError("Invalid dimensions: %sx%s" % (arby.width, arby.height))
 
         target_format_name = kwargs.pop("target_format_name", self.format_name)
-        target_format_name = target_format_name.split("_NGC")[0]
         keep_alpha         = kwargs.pop("keep_alpha", "A" in target_format_name)
         max_mip_count      = max(0, min(
             c.MAX_MIP_COUNT,
@@ -61,23 +68,16 @@ class G3DTexture:
             palettize=False,
             repack=False,
             )
-        target_channel_count = 1
-        arby_channel_count = arbytmap.format_defs.CHANNEL_COUNTS[arby.format]
-        if "8888" in target_format_name:
-            conv_settings["target_format"] = (
-                arbytmap.FORMAT_A8R8G8B8 if keep_alpha else
-                arbytmap.FORMAT_X8R8G8B8
-                )
-            target_channel_count = 4
-        elif "1555" in target_format_name:
-            conv_settings["target_format"] = (
-                arbytmap.FORMAT_A1R5G5B5 if keep_alpha else
-                arbytmap.FORMAT_X1R5G5B5
-                )
-            target_channel_count = 4
+
+        source_channels = arbytmap.format_defs.CHANNEL_COUNTS[arby.format]
+        target_arby_format, target_channels = self.get_arby_format_and_channel_count(
+            target_format_name
+            )
+
+        conv_settings.update(target_format=target_arby_format)
 
         # handle converting full color source bitmaps to monochrome
-        if arby_channel_count == 4 and target_channel_count == 1:
+        if source_channels == 4 and target_channels == 1:
             conv_settings["channel_merge_mapping"] = arbytmap.constants.M_ARGB_TO_L
 
         indexing_size = (
@@ -92,8 +92,12 @@ class G3DTexture:
         arby.unpack_all()  # unpack to depalettize
         arby.generate_mipmaps()
 
-        if optimize_format and indexing_size and arby.width * arby.height <= (1 << indexing_size):
-            # texture is small enough to not benefit from palettization
+        if (not is_gamecube_format(target_format_name) and optimize_format and
+            indexing_size and arby.width * arby.height <= (1 << indexing_size)
+            ):
+            # texture is small enough to not benefit from palettization.
+            # NOTE: there doesn't seem to be non-palettized versions of the
+            #       gamecube formats, so we have to skip optimizing them.
             indexing_size = None
             target_format_name = target_format_name.split("_IDX")[0]
 
@@ -110,12 +114,19 @@ class G3DTexture:
             palette, textures, palette_size = self._palettize_textures(
                 textures, 1 << indexing_size, 16 if optimize_format else None
                 )
-            if palette_size == 16:
-                target_format_name = target_format_name.split("_IDX")[0] + "_IDX_4"
-            else:
-                target_format_name = target_format_name.split("_IDX")[0] + "_IDX_8"
+            # replace the indexing size in the format name with the recalculated
+            # size determined from how many colors are in the palette. Do this
+            # by cutting the name in half at the indexing size and replacing it
+            size_str = "IDX_4" if palette_size == 16 else "IDX_8"
+            name_pieces = list(target_format_name.split("IDX_"))
+            name_pieces[-1] = size_str + name_pieces[-1][1:]
+            target_format_name = "".join(name_pieces)
 
             # pack the palette
+            if target_format_name in (c.PIX_FMT_ABGR_3555_IDX_4_NGC,
+                                      c.PIX_FMT_ABGR_3555_IDX_8_NGC):
+                palette = arbytmap.argb_8888_to_3555(palette)
+
             palette = bytearray(arby.pack_raw(palette))
         else:
             # pack the textures
@@ -139,7 +150,6 @@ class G3DTexture:
                    width=0, height=0, mipmaps=0, format_name="ABGR_8888", lod_k=0,
                    is_ngc=False, buffer_end=-1
                    ):
-        format_name = format_name.split("_NGC")[0]
         if not headerless:
             header = ROMTEX_HEADER_STRUCT.unpack(
                 input_buffer.read(ROMTEX_HEADER_STRUCT.size)
@@ -253,19 +263,30 @@ class G3DTexture:
 
     @property
     def arbytmap_format(self):
-        arby_format = arbytmap.FORMAT_L8
-        if "8888" in self.format_name:
+        arby_format, _ = self.get_arby_format_and_channel_count(self.format_name)
+        return arby_format
+
+    @property
+    def is_gamecube_format(self):
+        return is_gamecube_format(self.format_name)
+
+    def get_arby_format_and_channel_count(self, format_name):
+        channel_count = 4
+        if "8888" in format_name or "3555" in format_name:
             arby_format = (
                 arbytmap.FORMAT_A8R8G8B8 if self.has_alpha else
                 arbytmap.FORMAT_X8R8G8B8
                 )
-        elif "1555" in self.format_name:
+        elif "1555" in format_name:
             arby_format = (
                 arbytmap.FORMAT_A1R5G5B5 if self.has_alpha else
                 arbytmap.FORMAT_X1R5G5B5
                 )
+        else:
+            arby_format = arbytmap.FORMAT_L8
+            channel_count = 1
 
-        return arby_format
+        return arby_format, channel_count
 
     def export_asset(self, output_filepath, include_mipmaps=False, **kwargs):
         arbytmap_instance = self.to_arbytmap_instance(
@@ -284,37 +305,31 @@ class G3DTexture:
             )
 
     def export_gtx(self, output_buffer, headerless=False, target_ngc=False, target_ps2=False):
-        ps2_format_name = self.format_name.split("_NGC")[0]
-        ngc_format_name = ps2_format_name + "_NGC"
-        if ngc_format_name not in c.FORMAT_NAME_TO_ID:
-            ngc_format_name = ps2_format_name
-
-        format_name = (ngc_format_name if target_ngc else ps2_format_name)
-        is_monochrome = format_name in c.MONOCHROME_FORMATS
+        is_monochrome = self.format_name in c.MONOCHROME_FORMATS
 
         if not self.textures:
             return
-        elif format_name not in c.FORMAT_NAME_TO_ID:
-            raise TypeError("INVALID FORMAT: '%s'" % format_name)
+        elif self.format_name not in c.FORMAT_NAME_TO_ID:
+            raise TypeError("INVALID FORMAT: '%s'" % self.format_name)
 
         if not headerless:
             output_buffer.write(ROMTEX_HEADER_STRUCT.pack(
                 self.width, self.height, len(self.textures) - 1,
                 self.flags & c.GTX_FLAG_ALL, self.lod_k,
-                c.FORMAT_NAME_TO_ID[format_name],
+                c.FORMAT_NAME_TO_ID[self.format_name],
                 self.source_file_hash
                 ))
 
         palette  = deepcopy(self.palette)
         textures = deepcopy(self.textures)
 
-        palette_stride = c.PALETTE_SIZES.get(format_name, 0)
-        pixel_stride   = c.PIXEL_SIZES.get(format_name, 0)
+        palette_stride = c.PALETTE_SIZES.get(self.format_name, 0)
+        pixel_stride   = c.PIXEL_SIZES.get(self.format_name, 0)
 
         if palette:
             palette = deepcopy(self.palette)
             # if necessary, unshuffle the palette
-            if not target_ngc and format_name not in c.MONOCHROME_FORMATS:
+            if not target_ngc and self.format_name not in c.MONOCHROME_FORMATS:
                 arbytmap.gauntlet_ps2_palette_shuffle(palette, palette_stride)
 
         itemsize = palette_stride if palette else (pixel_stride//8)
@@ -379,10 +394,16 @@ class G3DTexture:
         #       is also incapable of handling any format with less than
         #       8 bits per pixel, so for now, we pad everything up to 8bit
         if palette:
-            arbytmap.bitmap_io.bitmap_bytes_to_array(
-                palette, 0, palette_block, self.arbytmap_format,
-                1, 1, 1, bitmap_size=len(palette)
-                )
+            # convert the palette to an array of the correct typecode for processing
+            if self.format_name in (c.PIX_FMT_ABGR_3555_IDX_4_NGC,
+                                    c.PIX_FMT_ABGR_3555_IDX_8_NGC):
+                # convert gamecube-exclusive format to standard A8R8G8B8
+                palette_block.append(arbytmap.argb_3555_to_8888(palette))
+            else:
+                arbytmap.bitmap_io.bitmap_bytes_to_array(
+                    palette, 0, palette_block, self.arbytmap_format,
+                    1, 1, 1, bitmap_size=len(palette)
+                    )
 
             palette_block *= mipmap_count + 1
             texture_block[:] = textures[: mipmap_count + 1]
@@ -403,6 +424,7 @@ class G3DTexture:
             palette=palette_block, indexing_size=indexing_size,
             target_indexing_size=8, mipmap_count=len(texture_block) - 1,
             )
+
         arbytmap_instance = arbytmap.Arbytmap(
             texture_info=texture_info,
             texture_block=texture_block

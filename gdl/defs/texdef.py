@@ -1,6 +1,7 @@
 from supyr_struct.defs.tag_def import TagDef
 from .objs.texdef import TexdefPs2Tag
 from ..common_descs import *
+from ..compilation.g3d.constants import *
 
 def get(): return texdef_ps2_def
 
@@ -8,26 +9,26 @@ bitmap_format = UEnum8("format",
     # NOTE: the NGC formats are some custom format that swaps
     #       between A1R5G5B5 and A4R4G4B4, depending on if the
     #       high bit is set. If set, it's A1; otherwise its A4
-    ("ABGR_1555", 0),
-    ("XBGR_1555", 1),
-    ("ABGR_8888", 2),
-    ("XBGR_8888", 3),
+    (PIX_FMT_ABGR_1555, 0),
+    (PIX_FMT_XBGR_1555, 1),
+    (PIX_FMT_ABGR_8888, 2),
+    (PIX_FMT_XBGR_8888, 3),
     #all these below formats are palettized
-    ("ABGR_1555_IDX_4", 16),
-    ("XBGR_1555_IDX_4", 17),
-    ("ABGR_1555_IDX_4_NGC", 18),
-    ("ABGR_8888_IDX_4", 34),
-    ("XBGR_8888_IDX_4", 35),
-    ("ABGR_1555_IDX_8", 48),
-    ("XBGR_1555_IDX_8", 49),
-    ("ABGR_1555_IDX_8_NGC", 50),
-    #("IDXA_88",         56), #i have no idea how this format works
-    ("ABGR_8888_IDX_8", 66),
-    ("XBGR_8888_IDX_8", 67),
-    ("A_8_IDX_8", 130),
-    ("I_8_IDX_8", 131),
-    ("A_4_IDX_4", 146),
-    ("I_4_IDX_4", 147)
+    (PIX_FMT_ABGR_1555_IDX_4, 16),
+    (PIX_FMT_XBGR_1555_IDX_4, 17),
+    (PIX_FMT_ABGR_3555_IDX_4_NGC, 18),
+    (PIX_FMT_ABGR_8888_IDX_4, 34),
+    (PIX_FMT_XBGR_8888_IDX_4, 35),
+    (PIX_FMT_ABGR_1555_IDX_8, 48),
+    (PIX_FMT_XBGR_1555_IDX_8, 49),
+    (PIX_FMT_ABGR_3555_IDX_8_NGC, 50),
+    #(PIX_FMT_IDXA_88,         56), #i have no idea how this format works
+    (PIX_FMT_ABGR_8888_IDX_8, 66),
+    (PIX_FMT_XBGR_8888_IDX_8, 67),
+    (PIX_FMT_A_8_IDX_8, 130),
+    (PIX_FMT_I_8_IDX_8, 131),
+    (PIX_FMT_A_4_IDX_4, 146),
+    (PIX_FMT_I_4_IDX_4, 147)
     )
 
 bitmap_block = Struct("bitmap",

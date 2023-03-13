@@ -107,6 +107,23 @@ def compile_textures(
                 continue
 
             target_format = meta.get("format", c.DEFAULT_FORMAT_NAME)
+            new_format = target_format
+            # do some format swapping depending on the target platform
+            if target_ngc:
+                if target_format in (c.PIX_FMT_ABGR_8888_IDX_4, c.PIX_FMT_XBGR_8888_IDX_4):
+                    new_format = c.PIX_FMT_ABGR_3555_IDX_4_NGC
+                elif target_format == (c.PIX_FMT_ABGR_8888_IDX_8, c.PIX_FMT_XBGR_8888_IDX_8):
+                    new_format = c.PIX_FMT_ABGR_3555_IDX_8_NGC
+
+            elif target_format == c.PIX_FMT_ABGR_3555_IDX_4_NGC:
+                new_format = c.PIX_FMT_ABGR_8888_IDX_4
+            elif target_format == c.PIX_FMT_ABGR_3555_IDX_8_NGC:
+                new_format = c.PIX_FMT_ABGR_8888_IDX_8
+
+            if new_format != target_format:
+                print(f"Retargeting texture format from '{target_format}' to '{new_format}' to match platform.")
+                target_format = new_format
+
             flags = meta.get("flags", {})
             all_job_args.append(dict(
                 asset_filepath=asset_filepath, optimize_format=optimize_format,

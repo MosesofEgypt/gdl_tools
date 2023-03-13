@@ -23,7 +23,6 @@ INDEXING_8BPP_TO_4BPP = tuple(
     ((i & 0xF00) >> 4) # isolate bits 9-12 and shift to 5-8
     for i in range(0x10000)
     )
-
 MONOCHROME_4BPP_TO_8BPP = tuple(
      ((i & 0xF) * 17) |
     (((i >> 4)  * 17) << 8)
@@ -38,6 +37,26 @@ BYTESWAP_5551_ARGB_AND_ABGR = tuple(
     (i & 0x83E0)         | # alpha and green
     ((i & 0x7C00) >> 10) | # isolate bits 10-15 and shift to 1-5
     ((i & 0x1F)   << 10)   # isolate bits 1-5 and shift to 10-15
+    for i in range(0x10000)
+    )
+
+def _upscale(src_depth, dst_depth, val):
+    scale_ct = 2**src_depth
+    max_val  = 2**dst_depth - 1
+    scale = max_val / (scale_ct - 1)
+    return int(val * scale + 0.5)
+
+def _3to8(val): return _upscale(3, 8, val)
+def _4to8(val): return _upscale(4, 8, val)
+def _5to8(val): return _upscale(5, 8, val)
+
+# used to quickly convert from gamecube format to A8R8G8B8
+UPSCALE_3555_TO_8888 = tuple(
+    (
+        _5to8(i&0x1F) | (_5to8((i>>5)&0x1F)<<8) | (_5to8((i>>10)&0x1F)<<16) | (0xFF<<24)
+        if i & 0x8000 else
+        _4to8(i&0xF)  | (_4to8((i>>4)&0xF)<<8)  | (_4to8((i>>8)&0xF)<<16)  | (_3to8(i>>12)<<24)
+     )
     for i in range(0x10000)
     )
 
@@ -95,6 +114,18 @@ def load_from_png_file(arby, input_path, ext, **kwargs):
         texture_block=[array("I", pixels)],
         texture_info=tex_info
         )
+
+
+def argb_8888_to_3555(source_pixels):
+    # TODO: fix retargeted ps2 sometimes blanking alpha
+    raise NotImplementedError("TODO")
+
+
+def argb_3555_to_8888(source_pixels):
+    if not isinstance(source_pixels, array):
+        source_pixels = array("H", source_pixels)
+
+    return array("I", (UPSCALE_3555_TO_8888[p] for p in source_pixels))
 
 
 def _fixed_unpack_palettized(self, packed_pal, packed_idx):
@@ -228,8 +259,9 @@ swizzler.SwizzlerMask.add_mask("NGC_GAUNTLET_32BPP", _ngc_gauntlet_swizzle_32bpp
 swizzler.SwizzlerMask.add_mask("NGC_GAUNTLET_16BPP", _ngc_gauntlet_swizzle_16bpp_mask_set)
 swizzler.SwizzlerMask.add_mask("NGC_GAUNTLET_8BPP",  _ngc_gauntlet_swizzle_8bpp_mask_set)
 swizzler.SwizzlerMask.add_mask("NGC_GAUNTLET_4BPP",  _ngc_gauntlet_swizzle_4bpp_mask_set)
-Arbytmap._unpack_indexing = _fixed_unpack_indexing
+Arbytmap._unpack_indexing   = _fixed_unpack_indexing
 Arbytmap._unpack_palettized = _fixed_unpack_palettized
+
 format_defs.register_format(FORMAT_X1R5G5B5, 1, depths=(5,5,5), bpp=16)
 
 if png is not None:

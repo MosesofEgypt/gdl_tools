@@ -10,7 +10,8 @@ from ..assets.particle_system import ParticleSystem
 DEFAULT_TEXTURE_NAME = "AAAWHITE"
 
 
-def load_particle_system_from_block(name_prefix, psys_block, textures):
+def load_particle_system_from_block(name_prefix, psys_block, textures,
+                                    unique_instances=False):
     enables = psys_block.enables
     
     texname = psys_block.p_texname if enables.p_texname else None
@@ -173,22 +174,27 @@ def load_particle_system_from_block(name_prefix, psys_block, textures):
             # TODO: account for e_delay, p_drag, p_gravity, e_angle
 
             peffect.addParticles(part)
+            break # only one particle for now
 
     psys = ParticleSystem(
         name=name_prefix + psys_block.id.enum_name,
-        config_loader=config_loader, unique_instances=False
+        config_loader=config_loader, unique_instances=unique_instances
         )
     return psys
 
 
-def load_particle_systems_from_worlds_tag(worlds_tag, world_name="", textures=()):
+def load_particle_systems_from_worlds_tag(
+        worlds_tag, world_name="", textures=(), unique_instances=False
+        ):
     if not textures:
         textures = {}
 
     psys_by_name = {}
     name_prefix = world_name.upper() + "PSYS"
     for psys_block in worlds_tag.data.particle_systems:
-        psys = load_particle_system_from_block(name_prefix, psys_block, textures)
+        psys = load_particle_system_from_block(
+            name_prefix, psys_block, textures, unique_instances
+            )
         if psys.name in psys_by_name:
             print(f"Warning: Duplicate particle system '{psys.name}' detected. Skipping.")
         else:
@@ -197,7 +203,9 @@ def load_particle_systems_from_worlds_tag(worlds_tag, world_name="", textures=()
     return psys_by_name
 
 
-def load_particle_systems_from_animations_tag(anim_tag, resource_name="", textures=()):
+def load_particle_systems_from_animations_tag(
+        anim_tag, resource_name="", textures=(), unique_instances=False
+        ):
     if not textures:
         textures = {}
 
@@ -209,7 +217,9 @@ def load_particle_systems_from_animations_tag(anim_tag, resource_name="", textur
         psys_array = []
 
     for psys_block in psys_array:
-        psys = load_particle_system_from_block(name_prefix, psys_block, textures)
+        psys = load_particle_system_from_block(
+            name_prefix, psys_block, textures, unique_instances
+            )
         psys_by_index.append(psys)
 
     return psys_by_index
