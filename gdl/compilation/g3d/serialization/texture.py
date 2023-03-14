@@ -126,8 +126,10 @@ class G3DTexture:
             if target_format_name in (c.PIX_FMT_ABGR_3555_IDX_4_NGC,
                                       c.PIX_FMT_ABGR_3555_IDX_8_NGC):
                 palette = arbytmap.argb_8888_to_3555(palette)
+            else:
+                palette = arby.pack_raw(palette)
 
-            palette = bytearray(arby.pack_raw(palette))
+            palette = bytearray(palette)
         else:
             # pack the textures
             textures = [bytearray(arby.pack_raw(tex)) for tex in textures]

@@ -34,7 +34,7 @@ MONOCHROME_8BPP_TO_4BPP = tuple(
     for i in range(0x10000)
     )
 BYTESWAP_5551_ARGB_AND_ABGR = tuple(
-    (i & 0x83E0)         | # alpha and green
+    (i & 0x83E0)         | # isolate alpha and green
     ((i & 0x7C00) >> 10) | # isolate bits 10-15 and shift to 1-5
     ((i & 0x1F)   << 10)   # isolate bits 1-5 and shift to 10-15
     for i in range(0x10000)
@@ -55,10 +55,20 @@ UPSCALE_3555_TO_8888 = tuple(
     (
         _5to8(i&0x1F) | (_5to8((i>>5)&0x1F)<<8) | (_5to8((i>>10)&0x1F)<<16) | (0xFF<<24)
         if i & 0x8000 else
-        _4to8(i&0xF)  | (_4to8((i>>4)&0xF)<<8)  | (_4to8((i>>8)&0xF)<<16)  | (_3to8(i>>12)<<24)
+        _4to8(i&0xF)  | (_4to8((i>>4)&0xF)<<8)  | (_4to8((i>>8)&0xF)<<16)   | (_3to8(i>>12)<<24)
      )
     for i in range(0x10000)
     )
+# used to quickly convert to gamecube format from A8R8G8B8
+DOWNSCALE_8_TO_3 = tuple(int((i / 255)*7  + 0.5) for i in range(256))
+DOWNSCALE_8_TO_4 = tuple(int((i / 255)*15 + 0.5) for i in range(256))
+DOWNSCALE_8_TO_5 = tuple(int((i / 255)*31 + 0.5) for i in range(256))
+
+# these are just for the above calculation
+del _upscale
+del _3to8
+del _4to8
+del _5to8
 
 
 def channel_swap_bgra_rgba_array(all_pixels, pixel_stride):
@@ -117,11 +127,37 @@ def load_from_png_file(arby, input_path, ext, **kwargs):
 
 
 def argb_8888_to_3555(source_pixels):
-    # TODO: fix retargeted ps2 sometimes blanking alpha
-    raise NotImplementedError("TODO")
+    # converts packed/unpacked pixels to packed pixels
+    if isinstance(source_pixels, array):
+        source_pixels = source_pixels.tobytes()
+
+    packed_pixels = array("H", b'\x00\x00'*(len(source_pixels) // 4))
+    alpha_cutoff = DOWNSCALE_8_TO_3[255]
+    for i in range(len(source_pixels)//4):
+        a, r, g, b = source_pixels[i*4: i*4+4]
+
+        if DOWNSCALE_8_TO_3[a] == alpha_cutoff:
+            # full opaque alpha
+            packed_pixels[i] = (
+                DOWNSCALE_8_TO_5[b] |
+                (DOWNSCALE_8_TO_5[g] << 5) |
+                (DOWNSCALE_8_TO_5[r] << 10) |
+                0x8000
+                )
+        else:
+            # transparent alpha
+            packed_pixels[i] = (
+                DOWNSCALE_8_TO_4[b] |
+                (DOWNSCALE_8_TO_4[g] << 4) |
+                (DOWNSCALE_8_TO_4[r] << 8) |
+                (DOWNSCALE_8_TO_3[a] << 12)
+                )
+
+    return array("H", packed_pixels)
 
 
 def argb_3555_to_8888(source_pixels):
+    # converts packed pixels to packed pixels
     if not isinstance(source_pixels, array):
         source_pixels = array("H", source_pixels)
 
