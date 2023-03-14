@@ -95,7 +95,7 @@ def locate_objects_dir_files(objects_dir):
 
         break
 
-    is_ngc = textures_filename_ngc and objects_filename_ngc
+    is_ngc = bool(textures_filename_ngc and objects_filename_ngc)
     objects_filename  = objects_filename_ngc  if is_ngc else objects_filename_ps2
     textures_filename = textures_filename_ngc if is_ngc else textures_filename_ps2
 
@@ -169,13 +169,21 @@ def g3d_texture_to_dds(g3d_texture):
         pfmt_head.flags.has_alpha = False
     elif g3d_texture.format_name not in g3d_const.PALETTE_SIZES:
         # non-palettized texture
-        pfmt_head.rgb_bitcount = g3d_const.PIXEL_SIZES[g3d_texture.format_name]
+
+        format_name = g3d_texture.format_name
+        if format_name == g3d_const.PIX_FMT_ABGR_3555_NGC:
+            # gamecube exclusive format. convert to something we can work with
+            format_name = g3d_const.PIX_FMT_ABGR_8888
+            texture = arbytmap_ext.argb_3555_to_8888(texture)
+
+        pfmt_head.rgb_bitcount = g3d_const.PIXEL_SIZES[format_name]
     else:
         # palettized texture. need to depalettize
         format_name = g3d_texture.format_name
+
+        # gamecube exclusive format. convert to something we can work with
         if format_name in (g3d_const.PIX_FMT_ABGR_3555_IDX_4_NGC,
                            g3d_const.PIX_FMT_ABGR_3555_IDX_8_NGC):
-            # gamecube exclusive format. convert to something we can work with
             format_name = g3d_const.PIX_FMT_ABGR_8888_IDX_8
             palette = arbytmap_ext.argb_3555_to_8888(palette)
 

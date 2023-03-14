@@ -58,6 +58,9 @@ GTX_FLAG_ALL       = GTX_FLAG_HAS_ALPHA
 #       "NGC", and/or different combinations of the above to
 #       exist in the format name to indicate format properties.
 #       this should probably be changed, but for now it works well.
+# NOTE: MIDWAY, which one of y'all decided it'd be a good idea to
+#       repurpose the ABGR_1555 format to be non-palettized
+#       versions of the gamecube-exclusive ARGB_3555?
 PIX_FMT_ABGR_1555 = "ABGR_1555"
 PIX_FMT_XBGR_1555 = "XBGR_1555"
 PIX_FMT_ABGR_8888 = "ABGR_8888"
@@ -75,6 +78,7 @@ PIX_FMT_XBGR_1555_IDX_8 = "XBGR_1555_IDX_8"
 PIX_FMT_ABGR_8888_IDX_8 = "ABGR_8888_IDX_8"
 PIX_FMT_XBGR_8888_IDX_8 = "XBGR_8888_IDX_8"
 # NOTE: gamecube exclusive formats.
+PIX_FMT_ABGR_3555_NGC = "ABGR_3555_NGC"  # NOTE: not a format enum name used in tags
 PIX_FMT_ABGR_3555_IDX_4_NGC = "ABGR_3555_IDX_4_NGC"
 PIX_FMT_ABGR_3555_IDX_8_NGC = "ABGR_3555_IDX_8_NGC"
 
@@ -111,6 +115,7 @@ PIXEL_SIZES = {
     PIX_FMT_XBGR_1555:16,
     PIX_FMT_ABGR_8888:32,
     PIX_FMT_XBGR_8888:32,
+    PIX_FMT_ABGR_3555_NGC:16,
     PIX_FMT_ABGR_3555_IDX_4_NGC:4,
     PIX_FMT_ABGR_3555_IDX_8_NGC:8,
     }

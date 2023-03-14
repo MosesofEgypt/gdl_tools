@@ -17,6 +17,10 @@ def _compile_texture(kwargs):
     cache_filepath = kwargs.pop("cache_filepath")
     asset_filepath = kwargs.pop("asset_filepath")
 
+    if target_ngc and kwargs.get("target_format_name") == c.PIX_FMT_ABGR_1555:
+        # MIDWAY HACK
+        kwargs["target_format_name"] = c.PIX_FMT_ABGR_3555_NGC
+
     print("Compiling texture: %s" % name)
     g3d_texture = G3DTexture()
     g3d_texture.import_asset(asset_filepath, **kwargs)
@@ -112,7 +116,7 @@ def compile_textures(
             if target_ngc:
                 if target_format in (c.PIX_FMT_ABGR_8888_IDX_4, c.PIX_FMT_XBGR_8888_IDX_4):
                     new_format = c.PIX_FMT_ABGR_3555_IDX_4_NGC
-                elif target_format == (c.PIX_FMT_ABGR_8888_IDX_8, c.PIX_FMT_XBGR_8888_IDX_8):
+                elif target_format in (c.PIX_FMT_ABGR_8888_IDX_8, c.PIX_FMT_XBGR_8888_IDX_8):
                     new_format = c.PIX_FMT_ABGR_3555_IDX_8_NGC
 
             elif target_format == c.PIX_FMT_ABGR_3555_IDX_4_NGC:
@@ -272,8 +276,13 @@ def import_textures(
                     )
 
             tex_pointer += bitmap_size
-
-            bitm.format.set_to(g3d_texture.format_name)
+                
+            bitm.format.set_to(
+                # MIDWAY HACK
+                c.PIX_FMT_ABGR_1555
+                if g3d_texture.format_name == c.PIX_FMT_ABGR_3555_NGC
+                else g3d_texture.format_name
+                )
             bitm.lod_k      = meta.get("lod_k", g3d_texture.lod_k)
             bitm.flags.data = g3d_texture.flags
             bitm.width      = g3d_texture.width

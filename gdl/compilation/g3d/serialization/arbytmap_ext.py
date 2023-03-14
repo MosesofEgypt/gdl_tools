@@ -161,7 +161,7 @@ def argb_3555_to_8888(source_pixels):
     if not isinstance(source_pixels, array):
         source_pixels = array("H", source_pixels)
 
-    return array("I", (UPSCALE_3555_TO_8888[p] for p in source_pixels))
+    return array("I", map(UPSCALE_3555_TO_8888.__getitem__, source_pixels))
 
 
 def _fixed_unpack_palettized(self, packed_pal, packed_idx):

@@ -70,3 +70,5 @@ FORMAT_ID_TO_NAME = {
     147: PIX_FMT_I_4_IDX_4,  # not really palettized
     }
 FORMAT_NAME_TO_ID = {v: k for k, v in FORMAT_ID_TO_NAME.items()}
+# gamecube exclusive fuckery
+FORMAT_NAME_TO_ID[PIX_FMT_ABGR_3555_NGC] = FORMAT_NAME_TO_ID[PIX_FMT_ABGR_1555]
