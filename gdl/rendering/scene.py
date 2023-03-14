@@ -348,14 +348,15 @@ class Scene(ShowBase):
                 objects_tag, filepath, is_ngc
                 ) if objects_tag else {}
 
-        return dict(self._cached_resource_textures[set_name])
+        return dict(self._cached_resource_textures.get(set_name, {}))
 
     def get_resource_set_texture_anims(self, dirpath, recache=False):
         set_name = self.get_resource_set_name(dirpath)
         objects_data = self.get_resource_set_tags(dirpath)
         anim_tag = objects_data.get("anim_tag")
 
-        if set_name not in self._cached_resource_texture_anims or recache:
+        if ((set_name not in self._cached_resource_texture_anims or recache) and
+            objects_data["textures_filepath"] is not None):
             textures = self.get_resource_set_textures(
                 objects_data["textures_filepath"],
                 objects_data["is_ngc"],
@@ -365,7 +366,7 @@ class Scene(ShowBase):
                 anim_tag, textures
                 ) if anim_tag else {}
 
-        return dict(self._cached_resource_texture_anims[set_name])
+        return dict(self._cached_resource_texture_anims.get(set_name, {}))
 
     def get_realm_level(self, dirpath, level_name, recache=False):
         level_name = level_name.upper().strip()

@@ -51,26 +51,28 @@ def load_nodes_from_anim_tag(actor_name, anim_tag):
         elif parent < 0:
             root_node = p3d_node
 
-        if node_type != "object" and anode_info.flags.no_object_def:
+        # TODO: consider changing this to not load models if node_type != "skeletal"
+        if anode_info.flags.no_object_def:
             model_name = ""
+
+            if node_type == "object":
+                # TEMPORARY HACK
+                # find a suitable "idle" frame to attach
+                for obj_anim in atree.atree_header.atree_data.obj_anim_header.obj_anims:
+                    if node_type != "object":
+                        break
+
+                    model_prefix = obj_anim.mb_desc[:-4]
+                    if not anim_model_prefix:
+                        anim_model_prefix = model_prefix
+
+                    if model_prefix == anim_model_prefix and obj_anim.mb_desc not in seen_anim_models:
+                        model_name = obj_anim.mb_desc
+                        seen_anim_models.add(model_name)
+                        node_type = "skeletal"
+                        break
         else:
             model_name = actor_prefix + node_name
-
-            # TEMPORARY HACK
-            # find a suitable "idle" frame to attach
-            for obj_anim in atree.atree_header.atree_data.obj_anim_header.obj_anims:
-                if node_type != "object":
-                    break
-
-                model_prefix = obj_anim.mb_desc[:-4]
-                if not anim_model_prefix:
-                    anim_model_prefix = model_prefix
-
-                if model_prefix == anim_model_prefix and obj_anim.mb_desc not in seen_anim_models:
-                    model_name = obj_anim.mb_desc
-                    seen_anim_models.add(model_name)
-                    node_type = "skeletal"
-                    break
 
         p3d_nodes.append(p3d_node)
         nodes_infos.append(dict(
