@@ -29,7 +29,7 @@ def is_gamecube_format(format_name):
 
 
 def is_alpha_signed(format_name):
-    return "8888" in format_name and not is_gamecube_format(format_name)
+    return "BGR" in format_name
 
 
 class G3DTexture:
@@ -71,7 +71,7 @@ class G3DTexture:
 
         source_channels = arbytmap.format_defs.CHANNEL_COUNTS[arby.format]
         target_arby_format, target_channels = self.get_arby_format_and_channel_count(
-            target_format_name
+            target_format_name, keep_alpha
             )
 
         conv_settings.update(target_format=target_arby_format)
@@ -272,23 +272,23 @@ class G3DTexture:
 
     @property
     def arbytmap_format(self):
-        arby_format, _ = self.get_arby_format_and_channel_count(self.format_name)
+        arby_format, _ = self.get_arby_format_and_channel_count(self.format_name, self.has_alpha)
         return arby_format
 
     @property
     def is_gamecube_format(self):
         return is_gamecube_format(self.format_name)
 
-    def get_arby_format_and_channel_count(self, format_name):
+    def get_arby_format_and_channel_count(self, format_name, has_alpha):
         channel_count = 4
         if "8888" in format_name or "3555" in format_name:
             arby_format = (
-                arbytmap.FORMAT_A8R8G8B8 if self.has_alpha else
+                arbytmap.FORMAT_A8R8G8B8 if has_alpha else
                 arbytmap.FORMAT_X8R8G8B8
                 )
         elif "1555" in format_name:
             arby_format = (
-                arbytmap.FORMAT_A1R5G5B5 if self.has_alpha else
+                arbytmap.FORMAT_A1R5G5B5 if has_alpha else
                 arbytmap.FORMAT_X1R5G5B5
                 )
         else:

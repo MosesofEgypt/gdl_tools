@@ -61,7 +61,7 @@ def _decompile_texture(kwargs):
 def compile_textures(
         data_dir,
         force_recompile=False, optimize_format=False, parallel_processing=False,
-        target_ps2=False, target_ngc=False, target_xbox=False,
+        target_ps2=False, target_ngc=False, target_xbox=False, retarget_textures_for_ngc=True
         ):
     asset_folder    = os.path.join(data_dir, c.EXPORT_FOLDERNAME, c.TEX_FOLDERNAME)
     cache_path_base = os.path.join(data_dir, c.IMPORT_FOLDERNAME, c.TEX_FOLDERNAME)
@@ -112,20 +112,28 @@ def compile_textures(
 
             target_format = meta.get("format", c.DEFAULT_FORMAT_NAME)
             new_format = target_format
+
             # do some format swapping depending on the target platform
-            if target_ngc:
-                if target_format in (c.PIX_FMT_ABGR_8888_IDX_4, c.PIX_FMT_XBGR_8888_IDX_4):
+            if not target_ngc:
+                # target away from gamecube-exclusive formats
+                if target_format == c.PIX_FMT_ABGR_3555_NGC:
+                    new_format = c.PIX_FMT_ABGR_8888 if flags.get("has_alpha") else c.PIX_FMT_XBGR_8888
+                elif target_format == c.PIX_FMT_ABGR_3555_IDX_4_NGC:
+                    new_format = c.PIX_FMT_ABGR_8888_IDX_4
+                elif target_format == c.PIX_FMT_ABGR_3555_IDX_8_NGC:
+                    new_format = c.PIX_FMT_ABGR_8888_IDX_8
+
+            elif retarget_textures_for_ngc:
+                # retarget to the format replacements gamecube uses
+                if target_format in (c.PIX_FMT_ABGR_8888, c.PIX_FMT_XBGR_8888):
+                    new_format = c.PIX_FMT_ABGR_3555_NGC
+                elif target_format in (c.PIX_FMT_ABGR_8888_IDX_4, c.PIX_FMT_XBGR_8888_IDX_4):
                     new_format = c.PIX_FMT_ABGR_3555_IDX_4_NGC
                 elif target_format in (c.PIX_FMT_ABGR_8888_IDX_8, c.PIX_FMT_XBGR_8888_IDX_8):
                     new_format = c.PIX_FMT_ABGR_3555_IDX_8_NGC
 
-            elif target_format == c.PIX_FMT_ABGR_3555_IDX_4_NGC:
-                new_format = c.PIX_FMT_ABGR_8888_IDX_4
-            elif target_format == c.PIX_FMT_ABGR_3555_IDX_8_NGC:
-                new_format = c.PIX_FMT_ABGR_8888_IDX_8
-
             if new_format != target_format:
-                print(f"Retargeting texture format from '{target_format}' to '{new_format}' to match platform.")
+                print(f"Retargeting {filename} from '{target_format}' to '{new_format}' to match platform.")
                 target_format = new_format
 
             flags = meta.get("flags", {})
