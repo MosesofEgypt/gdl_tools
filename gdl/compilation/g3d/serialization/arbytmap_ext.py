@@ -133,7 +133,7 @@ def load_from_png_file(arby, input_path, ext, **kwargs):
         )
 
 
-def argb_8888_to_3555(source_pixels):
+def argb_8888_to_3555(source_pixels, no_alpha=False):
     # converts packed/unpacked pixels to packed pixels
     if isinstance(source_pixels, array):
         source_pixels = source_pixels.tobytes()
@@ -143,7 +143,7 @@ def argb_8888_to_3555(source_pixels):
     for i in range(len(source_pixels)//4):
         a, r, g, b = source_pixels[i*4: i*4+4]
 
-        if DOWNSCALE_8_TO_3A[a] == alpha_cutoff:
+        if no_alpha or DOWNSCALE_8_TO_3A[a] == alpha_cutoff:
             # full opaque alpha
             packed_pixels[i] = (
                 DOWNSCALE_8_TO_5[b] |

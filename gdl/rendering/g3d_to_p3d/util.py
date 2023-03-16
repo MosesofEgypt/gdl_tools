@@ -171,7 +171,8 @@ def g3d_texture_to_dds(g3d_texture):
         # non-palettized texture
 
         format_name = g3d_texture.format_name
-        if format_name == g3d_const.PIX_FMT_ABGR_3555_NGC:
+        if format_name in (g3d_const.PIX_FMT_ABGR_3555_NGC,
+                           g3d_const.PIX_FMT_XBGR_3555_NGC):
             # gamecube exclusive format. convert to something we can work with
             format_name = g3d_const.PIX_FMT_ABGR_8888
             texture = arbytmap_ext.argb_3555_to_8888(texture)

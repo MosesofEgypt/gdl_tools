@@ -17,9 +17,13 @@ def _compile_texture(kwargs):
     cache_filepath = kwargs.pop("cache_filepath")
     asset_filepath = kwargs.pop("asset_filepath")
 
-    if target_ngc and kwargs.get("target_format_name") == c.PIX_FMT_ABGR_1555:
+    if target_ngc and kwargs.get("target_format_name") in (c.PIX_FMT_ABGR_1555, c.PIX_FMT_XBGR_1555):
         # MIDWAY HACK
-        kwargs["target_format_name"] = c.PIX_FMT_ABGR_3555_NGC
+        kwargs["target_format_name"] = (
+            c.PIX_FMT_ABGR_3555_NGC
+            if kwargs.get("keep_alpha") else
+            c.PIX_FMT_XBGR_3555_NGC
+            )
 
     print("Compiling texture: %s" % name)
     g3d_texture = G3DTexture()
@@ -116,7 +120,9 @@ def compile_textures(
             # do some format swapping depending on the target platform
             if not target_ngc:
                 # target away from gamecube-exclusive formats
-                if target_format == c.PIX_FMT_ABGR_3555_NGC:
+                if target_format == c.PIX_FMT_XBGR_3555_NGC:
+                    new_format = c.PIX_FMT_ABGR_1555
+                elif target_format == c.PIX_FMT_ABGR_3555_NGC:
                     new_format = c.PIX_FMT_ABGR_8888 if flags.get("has_alpha") else c.PIX_FMT_XBGR_8888
                 elif target_format == c.PIX_FMT_ABGR_3555_IDX_4_NGC:
                     new_format = c.PIX_FMT_ABGR_8888_IDX_4
@@ -126,7 +132,7 @@ def compile_textures(
             elif retarget_textures_for_ngc:
                 # retarget to the format replacements gamecube uses
                 if target_format in (c.PIX_FMT_ABGR_8888, c.PIX_FMT_XBGR_8888):
-                    new_format = c.PIX_FMT_ABGR_3555_NGC
+                    new_format = c.PIX_FMT_ABGR_3555_NGC if flags.get("has_alpha") else c.PIX_FMT_XBGR_3555_NGC
                 elif target_format in (c.PIX_FMT_ABGR_8888_IDX_4, c.PIX_FMT_XBGR_8888_IDX_4):
                     new_format = c.PIX_FMT_ABGR_3555_IDX_4_NGC
                 elif target_format in (c.PIX_FMT_ABGR_8888_IDX_8, c.PIX_FMT_XBGR_8888_IDX_8):
@@ -288,7 +294,7 @@ def import_textures(
             bitm.format.set_to(
                 # MIDWAY HACK
                 c.PIX_FMT_ABGR_1555
-                if g3d_texture.format_name == c.PIX_FMT_ABGR_3555_NGC
+                if g3d_texture.format_name in (c.PIX_FMT_ABGR_3555_NGC, c.PIX_FMT_XBGR_3555_NGC)
                 else g3d_texture.format_name
                 )
             bitm.lod_k      = meta.get("lod_k", g3d_texture.lod_k)

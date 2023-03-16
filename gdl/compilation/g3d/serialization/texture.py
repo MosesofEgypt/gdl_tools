@@ -133,7 +133,9 @@ class G3DTexture:
         else:
             # pack the textures
             if target_format_name == c.PIX_FMT_ABGR_3555_NGC:
-                textures = [bytearray(arbytmap.argb_8888_to_3555(tex)) for tex in textures]
+                textures = [bytearray(arbytmap.argb_8888_to_3555(tex, False)) for tex in textures]
+            elif target_format_name == c.PIX_FMT_XBGR_3555_NGC:
+                textures = [bytearray(arbytmap.argb_8888_to_3555(tex,  True)) for tex in textures]
             else:
                 textures = [bytearray(arby.pack_raw(tex)) for tex in textures]
 
@@ -165,9 +167,12 @@ class G3DTexture:
             if not format_name:
                 raise TypeError("Invalid format id: '%s'" % format_id)
 
-        if is_ngc and format_name in (c.PIX_FMT_ABGR_1555, c.PIX_FMT_XBGR_1555):
+        if is_ngc:
             # MIDWAY HACK
-            format_name = c.PIX_FMT_ABGR_3555_NGC
+            if format_name == c.PIX_FMT_ABGR_1555:
+                format_name = c.PIX_FMT_ABGR_3555_NGC
+            elif format_name == c.PIX_FMT_XBGR_1555:
+                format_name = c.PIX_FMT_XBGR_3555_NGC
 
         if format_name not in c.PIXEL_SIZES:
             raise TypeError("Invalid format name: '%s'" % format_name)
@@ -424,7 +429,8 @@ class G3DTexture:
             palette_block = None
             # convert gamecube-exclusive format to standard A8R8G8B8
             for i in range(mipmap_count + 1):
-                if self.format_name == c.PIX_FMT_ABGR_3555_NGC:
+                if self.format_name in (c.PIX_FMT_ABGR_3555_NGC,
+                                        c.PIX_FMT_XBGR_3555_NGC):
                     texture_block.append(arbytmap.argb_3555_to_8888(textures[i]))
                 else:
                     arbytmap.bitmap_io.bitmap_bytes_to_array(

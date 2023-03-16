@@ -12,7 +12,7 @@ LEVEL_CUTOFF = 60
 def level_to_exp(level):
     level = max(0, level)
     if level > LEVEL_CUTOFF:
-        return int(round((level - LEVEL_CUTOFF) * 4600 + EXP_CUTOFF))
+        return int(round((level - LEVEL_CUTOFF) * EXP_LIN_RATE + EXP_CUTOFF))
     return int(round((level * 30 + 1000) * (level - 1)))
 
 
