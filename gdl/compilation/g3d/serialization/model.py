@@ -53,6 +53,25 @@ STREAM_DATA_STRUCTS = {
     (c.DATA_TYPE_UV,    c.STORAGE_TYPE_UNKNOWN)          : struct.Struct('<'),
     }
 
+def unpack_norm_1555(norm_1555):
+    xn  = (norm_1555&31)/15 - 1
+    yn  = ((norm_1555>>5)&31)/15 - 1
+    zn  = ((norm_1555>>10)&31)/15 - 1
+    inv_mag = 1/(sqrt(xn*xn + yn*yn + zn*zn) + 0.0000001)
+    return (xn*inv_mag, yn*inv_mag, zn*inv_mag)
+
+def unpack_color_1555(color_1555):
+    return (
+        (color_1555&31)/31,        # red
+        ((color_1555>>5)&31)/31,   # green
+        ((color_1555>>10)&31)/31,  # blue
+        ((color_1555>>15)&1)*1.0,  # alpha(always set?)
+        )
+
+NORM_1555_UNPACK_TABLE = tuple(map(unpack_norm_1555, range(0x8000)))
+NORM_1555_UNPACK_TABLE += NORM_1555_UNPACK_TABLE  # double length for full 16bit range
+COLOR_1555_UNPACK_TABLE = tuple(map(unpack_color_1555, range(0x10000)))
+
 
 def pack_g3d_stream_header(buffer, d_type, s_type, flags=0, count=0):
     buffer.write(STREAM_HEADER_STRUCT.pack(d_type, flags, count, s_type))
@@ -179,8 +198,6 @@ class G3DModel():
 
         # slight speedup to cache these
         uint8_scale = 1/255
-        norm_scale  = 1/15
-        color_scale = 1/31
         pos_scale   = 1/c.POS_SCALE
         uv_scale    = 1/c.UV_SCALE
         lm_uv_scale = 1/c.LM_UV_SCALE
@@ -246,9 +263,8 @@ class G3DModel():
                         data.byteswap()
                 elif stream_stride:
                     # non-uniform data, so must unpack in chunks
-                    unpacker = stream_struct.unpack
                     for j in range(0, len(rawdata), stream_stride):
-                        data.extend(unpacker(rawdata[j: j + stream_stride]))
+                        data.extend(stream_struct.unpack(rawdata[j: j + stream_stride]))
 
 
                 if storage_type in (c.STORAGE_TYPE_NULL, c.STORAGE_TYPE_STRIP_N_END, c.STORAGE_TYPE_STRIP_0_END):
@@ -302,19 +318,8 @@ class G3DModel():
                         bnd_rad_square = max(x**2 + y**2 + z**2, bnd_rad_square)
 
                 elif data_type == c.DATA_TYPE_NORM:
-                    dont_draw = []
-
-                    for j in range(len(data)):
-                        packed_norm = data[j]
-                        xn  = (packed_norm&31)*norm_scale - 1
-                        yn  = ((packed_norm>>5)&31)*norm_scale - 1
-                        zn  = ((packed_norm>>10)&31)*norm_scale - 1
-                        inv_mag = 1/(sqrt(xn*xn + yn*yn + zn*zn) + 0.0000001)
-
-                        norms.append([xn*inv_mag, yn*inv_mag, zn*inv_mag])  # x-axis is reversed
-                        # the last bit determines if a face is to be
-                        # drawn or not. 0 means draw, 1 means dont draw
-                        dont_draw.append(bool(packed_norm&0x8000))
+                    dont_draw = [n >= 0x8000 for n in data]
+                    norms.extend(map(NORM_1555_UNPACK_TABLE.__getitem__, data))
 
                     # make sure the first 2 are removed since they
                     # are always 1 and triangle strips are always
@@ -322,36 +327,26 @@ class G3DModel():
                     faces_drawn[-1].extend(dont_draw[2:])
 
                 elif data_type == c.DATA_TYPE_COLOR:
-                    for j in range(len(data)):
-                        # colors are in RGBA order
-                        packed_color = data[j]
-                        colors.append([
-                            (packed_color&31)*color_scale,        # red
-                            ((packed_color>>5)&31)*color_scale,   # green
-                            ((packed_color>>10)&31)*color_scale,  # blue
-                            ((packed_color>>15)&1),               # alpha(always set?)
-                            ])
+                    colors.extend(map(COLOR_1555_UNPACK_TABLE.__getitem__, data))
 
                 elif data_type == c.DATA_TYPE_UV:
                     # 8/16/32 bit uv coordinates, or
                     # 16 bit diffuse and lightmap coordinates
                     if storage_type == c.STORAGE_TYPE_UINT16_LMUV:
-                        for j in range(0, len(data), 4):
-                            uvs.append([
-                                data[j]*uv_scale,
-                                data[j+1]*uv_scale
-                                ])
-                            lm_uvs.append([
-                                data[j+2]*lm_uv_scale,
-                                data[j+3]*lm_uv_scale
-                                ])
+                        uvs.extend(
+                            [data[j]*uv_scale, data[j+1]*uv_scale]
+                            for j in range(0, len(data), 4)
+                            )
+                        lm_uvs.extend(
+                            [data[j]*lm_uv_scale, data[j+1]*lm_uv_scale]
+                            for j in range(2, len(data)+2, 4)
+                            )
 
                     else:
-                        for j in range(0, len(data), 2):
-                            uvs.append([
-                                data[j]*uv_scale,
-                                data[j+1]*uv_scale
-                                ])
+                        uvs.extend(
+                            [data[j]*uv_scale, data[j+1]*uv_scale]
+                            for j in range(0, len(data), 2)
+                            )
 
             #generate the triangles
             tris = []
