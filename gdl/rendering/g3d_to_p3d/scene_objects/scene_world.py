@@ -220,8 +220,10 @@ def load_scene_world_from_tags(
         try:
             scene_item = load_scene_item_from_item_instance(
                 worlds_tag = worlds_tag,
+                level_data = level_data,
                 objects_tag = objects_tag,
                 textures = textures,
+                global_tex_anims = global_tex_anims,
                 item_instance = item_instance,
                 scene_item_infos = scene_item_infos,
                 world_item_actors = world_item_actors,

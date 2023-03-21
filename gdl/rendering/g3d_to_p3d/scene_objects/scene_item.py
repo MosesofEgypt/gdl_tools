@@ -71,9 +71,9 @@ def load_scene_item_infos_from_worlds_tag(worlds_tag, level_data=None):
 
 
 def load_scene_item_from_item_instance(
-        *, worlds_tag, objects_tag, textures,
+        *, worlds_tag, objects_tag, textures, level_data,
         item_instance, scene_item_infos,
-        world_item_actors, world_item_objects
+        world_item_actors, world_item_objects, global_tex_anims
         ):
     instance_name = item_instance.name.upper().strip()
 
@@ -107,9 +107,16 @@ def load_scene_item_from_item_instance(
                     generator_objects.append(object_set[name + "L1"])
 
         scene_item.generator_objects = generator_objects
+        if scene_item_info.item_subtype == c.ITEM_SUBTYPE_SPECIAL:
+            # MIDWAY HACK
+            #   the strength of special generators is set to max on init
+            scene_item.strength = getattr(
+                level_data, "special_max_level", scene_item.strength
+                )
     elif instance_name:
         model = load_model_from_objects_tag(
-            objects_tag, instance_name, textures, is_static=False
+            objects_tag, instance_name, textures, is_static=False,
+            global_tex_anims=global_tex_anims
             )
         if model:
             scene_item.add_model(model)

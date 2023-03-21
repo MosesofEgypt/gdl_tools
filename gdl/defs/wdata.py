@@ -16,8 +16,11 @@ enemy_data_lump = Lump('enemy_datas',
             ("aux",           0x4), # uses "aux" folder(doesn't seem to determine ranged/not)
             ("mini_boss",     0x5), # uses different dir depending on level/name
             ("main_boss",     0x9),
-            ("special_l2",    0xC), # uses strength suffixed dirname(used in TEMPLE.WAD)
-            ("special_l3",    0xD), # uses strength suffixed dirname(used in HELL.WAD)
+            # each of these use strength suffixed dirname
+            #("special_l0",    0xA), # just a guess
+            ("special_l1",    0xB), # just a guess
+            ("special_l2",    0xC), # used in TEMPLE.WAD
+            ("special_l3",    0xD), # used in HELL.WAD
             ),
         StrNntLatin1("audname", SIZE=8),
         StrNntLatin1("name", SIZE=8),

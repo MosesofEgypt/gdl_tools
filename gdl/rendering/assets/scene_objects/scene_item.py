@@ -223,17 +223,22 @@ class SceneItem(SceneObject):
 
     def set_collision_visible(self, visible=None):
         visible = super().set_collision_visible(visible)
-        scene_object = self.scene_object
-        if scene_object:
-            visible = scene_object.set_collision_visible(visible)
+        if self.scene_object:
+            visible = self.scene_object.set_collision_visible(visible)
 
         return visible
 
     def set_geometry_visible(self, visible=None):
         visible = super().set_geometry_visible(visible)
-        scene_object = self.scene_object
-        if scene_object:
-            visible = scene_object.set_geometry_visible(visible)
+        if self.scene_object:
+            visible = self.scene_object.set_geometry_visible(visible)
+
+        return visible
+
+    def set_particles_visible(self, visible=None):
+        visible = super().set_particles_visible(visible)
+        if self.scene_object:
+            visible = self.scene_object.set_particles_visible(visible)
 
         return visible
 

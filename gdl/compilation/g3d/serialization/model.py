@@ -211,7 +211,6 @@ class G3DModel():
                     return
 
                 qword_count, lod_k, tex_name, lm_name = SUBOBJ_HEADER_STRUCT.unpack(rawdata)
-                # NOTE: qword count doesn't include the header, so add 1
                 stream_len = qword_count * 16
 
             g3d_end = min(buffer_end, stream_len + buffer_start)
@@ -230,7 +229,7 @@ class G3DModel():
             faces_drawn = []
             face_dirs   = []
 
-            #scan over all the data in the stream
+            # scan over all the data in the stream
             while input_buffer.tell() + STREAM_HEADER_STRUCT.size < g3d_end:
                 # ensure we're always 4-byte aligned
                 input_buffer.read(util.calculate_padding(

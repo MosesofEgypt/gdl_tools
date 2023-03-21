@@ -84,3 +84,9 @@ class SceneObject:
                 else:
                     geometry.p3d_nodepath.hide()
         return visible
+
+    def set_particles_visible(self, visible=None):
+        for psys in self.node_particle_systems.values():
+            visible = psys.enabled() if visible is None else visible
+            psys.set_enabled(visible)
+        return visible

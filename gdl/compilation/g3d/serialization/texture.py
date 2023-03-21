@@ -109,6 +109,9 @@ class G3DTexture:
             i = m*arby.sub_bitmap_count
             textures.append(arby.texture_block[i])
 
+        # NOTE: need to determine if gamecube can handle 32bit color,
+        #       and if so, does the alpha need to be halved or not.
+
         if indexing_size:
             # palettize
             palette, textures, palette_size = self._palettize_textures(
@@ -403,10 +406,6 @@ class G3DTexture:
 
         texture_block = []
         palette_block = []
-        # NOTE: there's a bug in arbytmap that prevents it from properly
-        #       handling indexing with less than 8 bits per pixel. Arbytmap
-        #       is also incapable of handling any format with less than
-        #       8 bits per pixel, so for now, we pad everything up to 8bit
         if palette:
             # convert the palette to an array of the correct typecode for processing
             if self.format_name in (c.PIX_FMT_ABGR_3555_IDX_4_NGC,
@@ -414,6 +413,10 @@ class G3DTexture:
                 # convert gamecube-exclusive format to standard A8R8G8B8
                 palette_block.append(arbytmap.argb_3555_to_8888(palette))
             else:
+                # NOTE: there's a bug in arbytmap that prevents it from properly
+                #       handling indexing with less than 8 bits per pixel. Arbytmap
+                #       is also incapable of handling any format with less than
+                #       8 bits per pixel, so for now, we pad everything up to 8bit
                 arbytmap.bitmap_io.bitmap_bytes_to_array(
                     palette, 0, palette_block, self.arbytmap_format,
                     1, 1, 1, bitmap_size=len(palette)

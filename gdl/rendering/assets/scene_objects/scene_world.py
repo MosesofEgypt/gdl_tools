@@ -322,8 +322,11 @@ class SceneWorld(SceneObject):
 
         self._visible_states["particle_systems"] = visible
 
-        for psys in self.node_particle_systems.values():
-            psys.set_enabled(visible)
+        super().set_particles_visible(visible)
+
+        for scene_items in self.node_scene_items.values():
+            for scene_item in scene_items:
+                scene_item.set_particles_visible(visible)
 
     def set_collision_grid_visible(self, visible=None):
         if visible is None:
