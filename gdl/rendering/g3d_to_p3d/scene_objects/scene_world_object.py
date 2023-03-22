@@ -8,12 +8,13 @@ def load_scene_world_object_from_tags(
         ):
     model = None
     flags = world_object.mb_flags
+    billboard = (flags.front_face or flags.camera_dir)
     if not world_object.flags.particle_system:
         model = load_model_from_objects_tag(
             objects_tag, world_object.name, textures,
-            global_tex_anims, is_static=allow_model_flatten,
-            p3d_model=p3d_model,
-            billboard_fixup=(flags.front_face or flags.camera_dir)
+            global_tex_anims, p3d_model=p3d_model,
+            is_static=allow_model_flatten and not billboard,
+            billboard=billboard
             )
         p3d_model = model.p3d_model
         

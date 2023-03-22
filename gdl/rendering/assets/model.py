@@ -7,9 +7,11 @@ class Geometry:
     _shader = None
     _p3d_nodepath = None
     _actor_tex_anim = None
+    billboard = False
 
     def __init__(self, **kwargs):
         self._shader  = kwargs.pop("shader", self._shader)
+        self.billboard = bool(kwargs.pop("billboard", self.billboard))
         if self._shader is None:
             self._shader = shader.GeometryShader()
 

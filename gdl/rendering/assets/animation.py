@@ -111,6 +111,9 @@ class Animation:
     def get_frame_data(self, frame_time):
         return self.frame_data[self.get_anim_frame(frame_time)]
 
+    def update(self, frame_time):
+        raise NotImplementedError("Subclasses must override this method.")
+
 
 class SkeletalAnimation(Animation):
     pass

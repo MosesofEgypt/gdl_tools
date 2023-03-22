@@ -121,6 +121,8 @@ def load_particle_system_from_block(name_prefix, psys_block, textures,
 
             fact, rend, emit = part.factory, part.renderer, part.emitter
 
+            # TODO: implement properly using e_life and p_life
+
             # Factory parameters
             fact.setLifespanBase(max(0, min(p_life)))
             fact.setLifespanSpread(max(0, max(p_life) - min(p_life)))
@@ -174,7 +176,7 @@ def load_particle_system_from_block(name_prefix, psys_block, textures,
             # TODO: account for e_delay, p_drag, p_gravity, e_angle
 
             peffect.addParticles(part)
-            #break # only one particle for now
+            break # only one particle for now
 
     psys = ParticleSystem(
         name=name_prefix + psys_block.id.enum_name,
@@ -190,8 +192,6 @@ def load_particle_systems_from_worlds_tag(
         textures = {}
 
     psys_by_name = {}
-    return psys_by_name
-
     name_prefix = world_name.upper() + "PSYS"
     for psys_block in worlds_tag.data.particle_systems:
         psys = load_particle_system_from_block(
@@ -212,8 +212,6 @@ def load_particle_systems_from_animations_tag(
         textures = {}
 
     psys_by_index = []
-    return psys_by_index
-
     name_prefix = resource_name.upper() + "PSYS"
     try:
         psys_array = list(anim_tag.data.particle_systems)

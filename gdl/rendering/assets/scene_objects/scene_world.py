@@ -128,15 +128,21 @@ class SceneWorld(SceneObject):
             # one, reparent them to a new node under a new node, and then
             # do a strong flatten on everything
             for tex_name, tex_anim in global_tex_anims.items():
-                geometries = tex_anim.binds
+                # TODO: update this to exclude geometries under the dynamic root
+                billboard_geometries = [g for g in tex_anim.binds if g.billboard]
+                static_geometries    = [g for g in tex_anim.binds if not g.billboard]
                 tex_anim.clear_binds()
 
-                if not geometries:
+                # billboarded geometries can't be combined
+                for geometry in billboard_geometries:
+                    tex_anim.bind(geometry)
+
+                if not static_geometries:
                     continue
 
                 lm_textures = {
                     id(g.shader.lm_texture): g.shader.lm_texture
-                    for g in geometries
+                    for g in static_geometries
                     }
 
                 for lm_texture in lm_textures.values():
@@ -146,7 +152,7 @@ class SceneWorld(SceneObject):
 
                     self.static_objects_node.add_child(combined_model.p3d_model)
                     geometry_shader = None
-                    for geometry in geometries:
+                    for geometry in static_geometries:
                         if geometry.shader.lm_texture is not lm_texture:
                             continue
 

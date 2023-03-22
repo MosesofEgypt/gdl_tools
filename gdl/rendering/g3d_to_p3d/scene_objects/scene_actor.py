@@ -94,8 +94,8 @@ def load_nodes_from_anim_tag(actor_name, anim_tag):
                 fb_add       = bool(flags.fb_add),
                 fb_mul       = bool(flags.fb_mul),
                 ),
-            billboard_fixup = (flags.front_face or flags.camera_dir),
-            effect_index    = anode_info.parent_index,
+            billboard    = (flags.front_face or flags.camera_dir),
+            effect_index = anode_info.parent_index,
             ))
 
     # link the nodes together
@@ -121,7 +121,7 @@ def load_scene_actor_from_tags(
         actor_name, anim_tag
         )
     psys_by_index = load_particle_systems_from_animations_tag(
-        anim_tag, actor_name, textures, #unique_instances=True
+        anim_tag, actor_name, textures, unique_instances=True
         )
     actor_node.add_child(root_node)
 
@@ -151,7 +151,7 @@ def load_scene_actor_from_tags(
             global_tex_anims, tex_anims_by_tex_name,
             shape_morph_anims=shape_morph_anims, p3d_model=p3d_node,
             is_static=False, is_obj_anim=(node_type == "object"),
-            billboard_fixup=node_info["billboard_fixup"]
+            billboard=node_info["billboard"]
             )
         scene_actor.add_model(model)
 
