@@ -47,6 +47,94 @@ class G3DTexture:
     mono_channel_map = (-1, 0, 0, 0)
     argb_channel_map = (0, 1, 2, 3)
 
+    @property
+    def has_alpha(self):
+        return self.flags & c.GTX_FLAG_HAS_ALPHA
+
+    @property
+    def arbytmap_format(self):
+        arby_format, _ = self.get_arby_format_and_channel_count(self.format_name, self.has_alpha)
+        return arby_format
+
+    @property
+    def is_gamecube_format(self):
+        return is_gamecube_format(self.format_name)
+
+    @staticmethod
+    def get_arby_format_and_channel_count(format_name, has_alpha):
+        channel_count = 4
+        if "8888" in format_name or "3555" in format_name:
+            arby_format = (
+                arbytmap.FORMAT_A8R8G8B8 if has_alpha else
+                arbytmap.FORMAT_X8R8G8B8
+                )
+        elif "1555" in format_name:
+            arby_format = (
+                arbytmap.FORMAT_A1R5G5B5 if has_alpha else
+                arbytmap.FORMAT_X1R5G5B5
+                )
+        else:
+            arby_format = arbytmap.FORMAT_L8
+            channel_count = 1
+
+        return arby_format, channel_count
+
+    @staticmethod
+    def palettize_textures(textures, max_palette_size=256, min_palette_size=None):
+        if min_palette_size is None:
+            min_palette_size = max_palette_size
+
+        np_palette = None
+        indexings = []
+
+        for texture in textures:
+            stride = texture.itemsize if isinstance(texture, array) else 1
+
+            # reshaping the pixels matrix
+            np_texture = numpy.reshape(
+                numpy.frombuffer(texture, dtype="B"),
+                ((len(texture) * stride) // 4, 4)
+                ).astype(float)
+
+            # palette calculation
+            if np_palette is None:
+                # calculate palette
+                if len(np_texture) <= max_palette_size:
+                    # entire texture will fit in palette
+                    np_palette = np_texture
+                else:
+                    # convert to a UInt32 array to group for set comparison.
+                    unique_pixels = set(array("I", np_texture.astype("B").tobytes()))
+                    if len(unique_pixels) <= max_palette_size:
+                        np_palette = numpy.reshape(
+                            # convert back to byte buffer for reshaping
+                            numpy.frombuffer(array("I", unique_pixels).tobytes(), dtype="B"),
+                            (len(unique_pixels), 4)
+                            ).astype(float)
+                    else:
+                        # NOTE: it appears that kmeans doesn't work too well if
+                        #       the original image was already palettized and/or
+                        #       contains exactly as many colors as is necessary.
+                        #       It appears to reduce the color count a bit too
+                        #       far, so we'll ONLY use it if the image contains
+                        #       more unique colors than fit inside the max size.
+                        np_palette, _ = scipy.cluster.vq.kmeans(
+                            np_texture, max_palette_size
+                            )
+
+            # indexing calculation
+            np_indexing, _ = scipy.cluster.vq.vq(
+                np_texture, np_palette
+                )
+            indexing = np_indexing.astype("B").tobytes()
+            indexings.append(bytearray(indexing))
+
+        palette_count = max_palette_size if len(np_palette) > min_palette_size else min_palette_size
+        palette = bytearray(np_palette.astype("B").tobytes())
+        palette.extend(b"\x00" * (palette_count * 4 - len(palette)))
+
+        return palette, indexings, palette_count
+
     def import_asset(self, input_filepath, optimize_format=False, **kwargs):
         arby = arbytmap.Arbytmap()
         arby.load_from_file(input_path=input_filepath)
@@ -92,14 +180,11 @@ class G3DTexture:
         arby.unpack_all()  # unpack to depalettize
         arby.generate_mipmaps()
 
-        if (not is_gamecube_format(target_format_name) and optimize_format and
-            indexing_size and arby.width * arby.height <= (1 << indexing_size)
-            ):
+        if (optimize_format and target_format_name in c.DEPAL_FMT_MAP and
+            arby.width * arby.height <= (1 << indexing_size)):
             # texture is small enough to not benefit from palettization.
-            # NOTE: there doesn't seem to be non-palettized versions of the
-            #       gamecube formats, so we have to skip optimizing them.
             indexing_size = None
-            target_format_name = target_format_name.split("_IDX")[0]
+            target_format_name = c.DEPAL_FMT_MAP[target_format_name]
 
         palette = None
         textures = []
@@ -114,7 +199,7 @@ class G3DTexture:
 
         if indexing_size:
             # palettize
-            palette, textures, palette_size = self._palettize_textures(
+            palette, textures, palette_size = self.palettize_textures(
                 textures, 1 << indexing_size, 16 if optimize_format else None
                 )
             # replace the indexing size in the format name with the recalculated
@@ -170,12 +255,11 @@ class G3DTexture:
             if not format_name:
                 raise TypeError("Invalid format id: '%s'" % format_id)
 
-        if is_ngc:
-            # MIDWAY HACK
-            if format_name == c.PIX_FMT_ABGR_1555:
-                format_name = c.PIX_FMT_ABGR_3555_NGC
-            elif format_name == c.PIX_FMT_XBGR_1555:
-                format_name = c.PIX_FMT_XBGR_3555_NGC
+        # MIDWAY HACK
+        if   is_ngc and format_name == c.PIX_FMT_ABGR_1555:
+            format_name = c.PIX_FMT_ABGR_3555_NGC
+        elif is_ngc and format_name == c.PIX_FMT_XBGR_1555:
+            format_name = c.PIX_FMT_XBGR_3555_NGC
 
         if format_name not in c.PIXEL_SIZES:
             raise TypeError("Invalid format name: '%s'" % format_name)
@@ -273,37 +357,6 @@ class G3DTexture:
 
         self.palette = palette
         self.textures = textures
-
-    @property
-    def has_alpha(self):
-        return self.flags & c.GTX_FLAG_HAS_ALPHA
-
-    @property
-    def arbytmap_format(self):
-        arby_format, _ = self.get_arby_format_and_channel_count(self.format_name, self.has_alpha)
-        return arby_format
-
-    @property
-    def is_gamecube_format(self):
-        return is_gamecube_format(self.format_name)
-
-    def get_arby_format_and_channel_count(self, format_name, has_alpha):
-        channel_count = 4
-        if "8888" in format_name or "3555" in format_name:
-            arby_format = (
-                arbytmap.FORMAT_A8R8G8B8 if has_alpha else
-                arbytmap.FORMAT_X8R8G8B8
-                )
-        elif "1555" in format_name:
-            arby_format = (
-                arbytmap.FORMAT_A1R5G5B5 if has_alpha else
-                arbytmap.FORMAT_X1R5G5B5
-                )
-        else:
-            arby_format = arbytmap.FORMAT_L8
-            channel_count = 1
-
-        return arby_format, channel_count
 
     def export_asset(self, output_filepath, include_mipmaps=False, **kwargs):
         arbytmap_instance = self.to_arbytmap_instance(
@@ -453,58 +506,3 @@ class G3DTexture:
             )
 
         return arbytmap_instance
-
-    def _palettize_textures(self, textures, max_palette_size=256, min_palette_size=None):
-        if min_palette_size is None:
-            min_palette_size = max_palette_size
-
-        np_palette = None
-        indexings = []
-
-        for texture in textures:
-            stride = texture.itemsize if isinstance(texture, array) else 1
-
-            # reshaping the pixels matrix
-            np_texture = numpy.reshape(
-                numpy.frombuffer(texture, dtype="B"),
-                ((len(texture) * stride) // 4, 4)
-                ).astype(float)
-
-            # palette calculation
-            if np_palette is None:
-                # calculate palette
-                if len(np_texture) <= max_palette_size:
-                    # entire texture will fit in palette
-                    np_palette = np_texture
-                else:
-                    # convert to a UInt32 array to group for set comparison.
-                    unique_pixels = set(array("I", np_texture.astype("B").tobytes()))
-                    if len(unique_pixels) <= max_palette_size:
-                        np_palette = numpy.reshape(
-                            # convert back to byte buffer for reshaping
-                            numpy.frombuffer(array("I", unique_pixels).tobytes(), dtype="B"),
-                            (len(unique_pixels), 4)
-                            ).astype(float)
-                    else:
-                        # NOTE: it appears that kmeans doesn't work too well if
-                        #       the original image was already palettized and/or
-                        #       contains exactly as many colors as is necessary.
-                        #       It appears to reduce the color count a bit too
-                        #       far, so we'll ONLY use it if the image contains
-                        #       more unique colors than fit inside the max size.
-                        np_palette, _ = scipy.cluster.vq.kmeans(
-                            np_texture, max_palette_size
-                            )
-
-            # indexing calculation
-            np_indexing, _ = scipy.cluster.vq.vq(
-                np_texture, np_palette
-                )
-            indexing = np_indexing.astype("B").tobytes()
-            indexings.append(bytearray(indexing))
-
-        palette_count = max_palette_size if len(np_palette) > min_palette_size else min_palette_size
-        palette = bytearray(np_palette.astype("B").tobytes())
-        palette.extend(b"\x00" * (palette_count * 4 - len(palette)))
-
-        return palette, indexings, palette_count

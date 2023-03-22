@@ -19,7 +19,7 @@ def level_to_exp(level):
 def exp_to_level(exp):
     exp = max(0, exp)
     if exp > EXP_CUTOFF:
-        return round((exp - EXP_CUTOFF) / 4600 + LEVEL_CUTOFF, 10)
+        return round((exp - EXP_CUTOFF) / EXP_LIN_RATE + LEVEL_CUTOFF, 10)
     # solve quadratic equation to get this
     return round(sqrt(exp/30 + 100/3 + 9409/36) - 97/6, 10)
 
