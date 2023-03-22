@@ -189,7 +189,7 @@ item_instance = Struct("item_instance",
         # see this video and watch for the destroyed generator that appears:
         #   https://youtu.be/NFHoL4RCm60?t=83
         #   this is item instance 123 in LEVELG2
-        "unknown1", # settable on generator, powerup, rotator, and trigger
+        "hidden", # settable on generator, powerup, rotator, and trigger
         "unknown2", # settable on obstacle
         ),
     SInt16("coll_tri_index"),
@@ -243,7 +243,7 @@ item_info_data = Struct("item_info_data",
     Bool32("mb_flags",
         # only a single flag, and only set on damage tiles
         # (specifically only FLAMEV, FLAMEH, FORCEF, and FORCEF_S)
-        ("unknown", 0x8000),
+        ("unknown", 0x10000),
         ),
     Union("properties",
         # NOTE: only used for powerups and damage tiles
@@ -328,11 +328,11 @@ world_object = Struct("world_object",
         ("animated", 1<<12),
         *((f"unknown{i}", 1<<i) for i in range(13,32))
         ),
+    # these trigger types and states are always 0 in serialzied form
     SInt16("trigger_type"),
     SInt8("trigger_state"),
     SInt8("p_trigger_state"),
 
-    # NOTE: parent_object_pointer seems to point to SOMETHING important,
     Bool32("mb_flags",
         # these are the flags that are set across all animation files
         # its possible for no flags to be set on all node types
@@ -374,7 +374,7 @@ world_object = Struct("world_object",
         ),
     QStruct("pos", INCLUDE=xyz_float),
 
-    Pointer32("mbnode_pointer"),
+    Pointer32("mbnode_pointer"),  # always either 1 or 0
     SInt16("next_index"),
     SInt16("child_index"),
 

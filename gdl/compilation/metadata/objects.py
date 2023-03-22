@@ -87,7 +87,17 @@ def decompile_objects_metadata(
             asset_name=bitmap_assets[i]["asset_name"],
             cache_name=exported_bitmaps.get(i, False),
             )
-        if not(bitm.frame_count or getattr(bitm.flags, "external") or not hasattr(bitm, "tex0")):
+        if getattr(bitm.flags, "invalid", False):
+            # set to arbitrary valid value(often time set to random garbage)
+            metadata_bitm["format"] = "ABGR_1555"
+
+        no_bitm_data = (
+            getattr(bitm.flags, "invalid", False) or
+            getattr(bitm.flags, "external", False) or
+            bitm.frame_count > 0
+            )
+
+        if not(no_bitm_data or not hasattr(bitm, "tex0")):
             for name, default in (
                     ("tex_cc", "rgba"),
                     ("tex_function", "decal"),
@@ -103,7 +113,7 @@ def decompile_objects_metadata(
         bitmaps_metadata.append(metadata_bitm)
 
         attrs_to_write = ()
-        if getattr(bitm.flags, "external", False) or bitm.frame_count > 0:
+        if no_bitm_data:
             attrs_to_write += (
                 "width", "height",
                 "frame_count", "tex_palette_count",

@@ -50,7 +50,7 @@ class AnimTag(GdlTag):
                     item_offset = anode.anim_seq_info_offset - array_offset
                     assert item_offset % blocksize == 0
                     anode.anim_seq_info_index = item_offset // blocksize
-                else:
+                elif anode.anim_seq_info_index is not None:
                     anode.anim_seq_info_offset = (
                         anode.anim_seq_info_index*blocksize + array_offset
                         )

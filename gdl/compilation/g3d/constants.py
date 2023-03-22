@@ -53,44 +53,92 @@ DEF_TEXTURE_BUFFER_CHUNK_SIZE = 16
 GTX_FLAG_HAS_ALPHA = 0x0080
 GTX_FLAG_ALL       = GTX_FLAG_HAS_ALPHA
 
+
+# NOTE: code looks for "IDX_8", "IDX_4", "1555", "8888", "ABGR",
+#       "NGC", and/or different combinations of the above to
+#       exist in the format name to indicate format properties.
+#       this should probably be changed, but for now it works well.
+# NOTE: MIDWAY, which one of y'all decided it'd be a good idea to
+#       repurpose the ABGR_1555 format to be non-palettized
+#       versions of the gamecube-exclusive ARGB_3555?
+PIX_FMT_ABGR_1555 = "ABGR_1555"
+PIX_FMT_XBGR_1555 = "XBGR_1555"
+PIX_FMT_ABGR_8888 = "ABGR_8888"
+PIX_FMT_XBGR_8888 = "XBGR_8888"
+PIX_FMT_A_4_IDX_4 = "A_4_IDX_4"
+PIX_FMT_I_4_IDX_4 = "I_4_IDX_4"
+PIX_FMT_A_8_IDX_8 = "A_8_IDX_8"
+PIX_FMT_I_8_IDX_8 = "I_8_IDX_8"
+PIX_FMT_ABGR_1555_IDX_4 = "ABGR_1555_IDX_4"
+PIX_FMT_XBGR_1555_IDX_4 = "XBGR_1555_IDX_4"
+PIX_FMT_ABGR_8888_IDX_4 = "ABGR_8888_IDX_4"
+PIX_FMT_XBGR_8888_IDX_4 = "XBGR_8888_IDX_4"
+PIX_FMT_ABGR_1555_IDX_8 = "ABGR_1555_IDX_8"
+PIX_FMT_XBGR_1555_IDX_8 = "XBGR_1555_IDX_8"
+PIX_FMT_ABGR_8888_IDX_8 = "ABGR_8888_IDX_8"
+PIX_FMT_XBGR_8888_IDX_8 = "XBGR_8888_IDX_8"
+# NOTE: gamecube exclusive formats.
+# NOTE: the non-indexed ones are not a format enum name used in tags
+PIX_FMT_ABGR_3555_NGC = "ABGR_3555_NGC"
+PIX_FMT_XBGR_3555_NGC = "XBGR_3555_NGC"
+PIX_FMT_ABGR_3555_IDX_4_NGC = "ABGR_3555_IDX_4_NGC"
+PIX_FMT_ABGR_3555_IDX_8_NGC = "ABGR_3555_IDX_8_NGC"
+
+# maps palettized formats to the format they depalttize to
+DEPAL_FMT_MAP = {
+    PIX_FMT_ABGR_3555_IDX_4_NGC: PIX_FMT_ABGR_3555_NGC,
+    PIX_FMT_ABGR_3555_IDX_8_NGC: PIX_FMT_ABGR_3555_NGC,
+    PIX_FMT_ABGR_1555_IDX_4: PIX_FMT_ABGR_1555,
+    PIX_FMT_XBGR_1555_IDX_4: PIX_FMT_XBGR_1555,
+    PIX_FMT_ABGR_8888_IDX_4: PIX_FMT_ABGR_8888,
+    PIX_FMT_XBGR_8888_IDX_4: PIX_FMT_XBGR_8888,
+    PIX_FMT_ABGR_1555_IDX_8: PIX_FMT_ABGR_1555,
+    PIX_FMT_XBGR_1555_IDX_8: PIX_FMT_XBGR_1555,
+    PIX_FMT_ABGR_8888_IDX_8: PIX_FMT_ABGR_8888,
+    PIX_FMT_XBGR_8888_IDX_8: PIX_FMT_XBGR_8888,
+    }
+
 PALETTE_SIZES = {
     #measured in bytes
-    "ABGR_1555_IDX_4":2,
-    "XBGR_1555_IDX_4":2,
-    "ABGR_1555_IDX_8":2,
-    "XBGR_1555_IDX_8":2,
-    "ABGR_8888_IDX_4":4,
-    "XBGR_8888_IDX_4":4,
-    "ABGR_8888_IDX_8":4,
-    "XBGR_8888_IDX_8":4,
-    "ABGR_1555_IDX_4_NGC":2,
-    "XBGR_1555_IDX_8_NGC":2,
+    PIX_FMT_ABGR_1555_IDX_4:2,
+    PIX_FMT_XBGR_1555_IDX_4:2,
+    PIX_FMT_ABGR_1555_IDX_8:2,
+    PIX_FMT_XBGR_1555_IDX_8:2,
+    PIX_FMT_ABGR_8888_IDX_4:4,
+    PIX_FMT_XBGR_8888_IDX_4:4,
+    PIX_FMT_ABGR_8888_IDX_8:4,
+    PIX_FMT_XBGR_8888_IDX_8:4,
+    PIX_FMT_ABGR_3555_IDX_4_NGC:2,
+    PIX_FMT_ABGR_3555_IDX_8_NGC:2,
     }
 
 PIXEL_SIZES = {
     #measured in bits
-    "ABGR_1555_IDX_4":4,
-    "XBGR_1555_IDX_4":4,
-    "ABGR_8888_IDX_4":4,
-    "XBGR_8888_IDX_4":4,
-    "A_4_IDX_4":4,
-    "I_4_IDX_4":4,
-    "ABGR_1555_IDX_8":8,
-    "XBGR_1555_IDX_8":8,
-    "ABGR_8888_IDX_8":8,
-    "XBGR_8888_IDX_8":8,
-    "A_8_IDX_8":8,
-    "I_8_IDX_8":8,
-    "ABGR_1555":16,
-    "XBGR_1555":16,
-    "ABGR_8888":32,
-    "XBGR_8888":32,
-    "ABGR_1555_IDX_4_NGC":4,
-    "XBGR_1555_IDX_8_NGC":8,
+    PIX_FMT_ABGR_1555_IDX_4:4,
+    PIX_FMT_XBGR_1555_IDX_4:4,
+    PIX_FMT_ABGR_8888_IDX_4:4,
+    PIX_FMT_XBGR_8888_IDX_4:4,
+    PIX_FMT_A_4_IDX_4:4,
+    PIX_FMT_I_4_IDX_4:4,
+    PIX_FMT_ABGR_1555_IDX_8:8,
+    PIX_FMT_XBGR_1555_IDX_8:8,
+    PIX_FMT_ABGR_8888_IDX_8:8,
+    PIX_FMT_XBGR_8888_IDX_8:8,
+    PIX_FMT_A_8_IDX_8:8,
+    PIX_FMT_I_8_IDX_8:8,
+    PIX_FMT_ABGR_1555:16,
+    PIX_FMT_XBGR_1555:16,
+    PIX_FMT_ABGR_8888:32,
+    PIX_FMT_XBGR_8888:32,
+    PIX_FMT_ABGR_3555_NGC:16,
+    PIX_FMT_XBGR_3555_NGC:16,
+    PIX_FMT_ABGR_3555_IDX_4_NGC:4,
+    PIX_FMT_ABGR_3555_IDX_8_NGC:8,
     }
 
 MONOCHROME_FORMATS = set(
-    ("A_4_IDX_4", "I_4_IDX_4", "A_8_IDX_8", "I_8_IDX_8")
+    (PIX_FMT_A_4_IDX_4, PIX_FMT_I_4_IDX_4,
+     PIX_FMT_A_8_IDX_8, PIX_FMT_I_8_IDX_8)
     )
 
 # these limits are based on limitations of the miptbp structure

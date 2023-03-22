@@ -11,6 +11,7 @@ class RealmLevel:
     _enemy_type_gen_small = ""
     _enemy_type_gen_large = ""
     _enemy_types_special  = ()
+    _special_max_level    = 1
 
     def __init__(self, **kwargs):
         self._name  = kwargs.pop("name",  self._name).upper().strip()
@@ -23,6 +24,7 @@ class RealmLevel:
         self._enemy_type_gen_small = kwargs.pop("enemy_type_gen_small", self._enemy_type_gen_small).upper().strip()
         self._enemy_type_gen_large = kwargs.pop("enemy_type_gen_large", self._enemy_type_gen_large).upper().strip()
         self._enemy_types_special  = tuple(kwargs.pop("enemy_types_special",  self._enemy_types_special))
+        self._special_max_level    = int(kwargs.pop("special_max_level", self._special_max_level))
 
     @property
     def name(self): return self._name
@@ -46,6 +48,8 @@ class RealmLevel:
     def enemy_type_gen_large(self): return self._enemy_type_gen_large
     @property
     def enemy_types_special(self): return self._enemy_types_special
+    @property
+    def special_max_level(self): return self._special_max_level
 
 
 class Realm:

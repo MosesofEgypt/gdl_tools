@@ -116,8 +116,8 @@ class SceneItemInfo:
             value_override=value_override
             )
 
-        x, z, y = kwargs.pop("pos", (0, 0, 0))
-        p, h, r = kwargs.pop("rot", (0, 0, 0))
+        x, y, z = kwargs.pop("pos", (0, 0, 0))
+        h, p, r = kwargs.pop("rot", (0, 0, 0))
 
         scene_item.p3d_nodepath.setPos(x, y, z)
         scene_item.p3d_nodepath.setQuat(panda3d.core.LQuaternionf(
@@ -128,6 +128,7 @@ class SceneItemInfo:
 
 
 class SceneItem(SceneObject):
+    _flags = ()
     _item_info = None
     _copy_object  = True
     _scene_object = None
@@ -137,8 +138,8 @@ class SceneItem(SceneObject):
 
     def __init__(self, **kwargs):
         params  = kwargs.pop("params", {})
-        flags   = dict(kwargs.pop("flags", {}))
 
+        self._flags    = dict(kwargs.pop("flags", {}))
         self._item_info = kwargs.pop("item_info", None)
         self._item_infos = tuple(kwargs.pop("item_infos",   ()))
         self._min_players = kwargs.pop("min_players", self._min_players)
@@ -201,6 +202,9 @@ class SceneItem(SceneObject):
     @property
     def copy_object(self):
         return self._copy_object
+    @property
+    def hidden(self):
+        return self._flags.get("hidden", False)
 
     @property
     def scene_object(self):
@@ -219,17 +223,22 @@ class SceneItem(SceneObject):
 
     def set_collision_visible(self, visible=None):
         visible = super().set_collision_visible(visible)
-        scene_object = self.scene_object
-        if scene_object:
-            visible = scene_object.set_collision_visible(visible)
+        if self.scene_object:
+            visible = self.scene_object.set_collision_visible(visible)
 
         return visible
 
     def set_geometry_visible(self, visible=None):
         visible = super().set_geometry_visible(visible)
-        scene_object = self.scene_object
-        if scene_object:
-            visible = scene_object.set_geometry_visible(visible)
+        if self.scene_object:
+            visible = self.scene_object.set_geometry_visible(visible)
+
+        return visible
+
+    def set_particles_visible(self, visible=None):
+        visible = super().set_particles_visible(visible)
+        if self.scene_object:
+            visible = self.scene_object.set_particles_visible(visible)
 
         return visible
 

@@ -35,7 +35,7 @@ class CrucibleApp(Tk):
     def __init__(self, **options):
         Tk.__init__(self, **options)
         
-        self.title("Crucible V1.1.4")
+        self.title("Crucible V1.1.5")
         self.minsize(500, 0)
         self.resizable(1, 0)
 
@@ -50,6 +50,7 @@ class CrucibleApp(Tk):
         self.meta_extract_format = StringVar(self, "YAML")
         self.use_parallel_processing = BooleanVar(self, True)
         self.optimize                = BooleanVar(self, True)
+        self.retarget_for_ngc        = BooleanVar(self, True)
         self.force_recompile_cache   = BooleanVar(self, False)
         self.overwrite               = BooleanVar(self, False)
 
@@ -160,6 +161,10 @@ class CrucibleApp(Tk):
             self.settings_frame, text='Optimize models and textures',
             variable=self.optimize, onvalue=1, offvalue=0
             )
+        self.retarget_for_ngc_button = Checkbutton(
+            self.settings_frame, text='Retarget texture formats for NGC',
+            variable=self.retarget_for_ngc, onvalue=1, offvalue=0
+            )
         self.force_recompile_button = Checkbutton(
             self.settings_frame, text='Force full recompile',
             variable=self.force_recompile_cache, onvalue=1, offvalue=0
@@ -212,9 +217,9 @@ class CrucibleApp(Tk):
         for lbl, menu, radio in (
                 (self.build_target_label, self.build_target_menu, self.parallel_processing_button),
                 (self.coll_format_label, self.coll_format_menu, self.optimize_button),
-                (self.mod_format_label, self.mod_format_menu, self.force_recompile_button),
-                (self.tex_format_label, self.tex_format_menu, self.overwrite_button),
-                (self.meta_format_label, self.meta_format_menu, None),
+                (self.mod_format_label, self.mod_format_menu, self.retarget_for_ngc_button),
+                (self.tex_format_label, self.tex_format_menu, self.force_recompile_button),
+                (self.meta_format_label, self.meta_format_menu, self.overwrite_button),
             ):
             lbl.grid(row=y, column=0, sticky="we", padx=2)
             menu.grid(row=y, column=1, sticky="we", padx=2)
@@ -229,14 +234,15 @@ class CrucibleApp(Tk):
     def get_objects_compiler(self, **kwargs):
         build_target = BUILD_TARGETS.get(self.build_target.get(), "ps2")
         kwargs.update(
-            build_ngc_files     = (build_target == "ngc"),
-            build_xbox_files    = (build_target == "xbox"),
-            build_ps2_files     = (build_target == "ps2"),
-            build_texdef_cache  = (build_target == "ps2"),
-            optimize_models     = self.optimize.get(),
-            optimize_textures   = self.optimize.get(),
-            force_recompile     = self.force_recompile_cache.get(),
-            overwrite           = self.overwrite.get(),
+            build_ngc_files             = (build_target == "ngc"),
+            build_xbox_files            = (build_target == "xbox"),
+            build_ps2_files             = (build_target == "ps2"),
+            build_texdef_cache          = (build_target == "ps2"),
+            optimize_models             = self.optimize.get(),
+            optimize_textures           = self.optimize.get(),
+            force_recompile             = self.force_recompile_cache.get(),
+            overwrite                   = self.overwrite.get(),
+            retarget_textures_for_ngc   = self.retarget_for_ngc.get(),
             )
         if kwargs.pop("want_world_compiler", False):
             return worlds_compiler.WorldsCompiler(**kwargs)

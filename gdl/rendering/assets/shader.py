@@ -23,8 +23,6 @@ class GeometryShader:
     sharp        = False
     blur         = False
 
-    signed_alpha = True
-
     _diff_texture   = None
     _lm_texture     = None
 
@@ -92,11 +90,11 @@ class GeometryShader:
             self._alpha_level if alpha_level is None else alpha_level
             )))
         nodepath.setAlphaScale(self._alpha_level, self.ALPHA_SCALE_PRIORITY)
-        # ps2 textures use signed alpha channels, so double
+
+        # some textures use signed alpha channels(ps2/xbox), so double
         # the value to achieve the transparency level we want
-        self._diff_texture_stage.setAlphaScale(
-            1 if (self.dist_alpha or not self.signed_alpha) else 2
-            )
+        signed = not self.dist_alpha and getattr(self.diff_texture, "signed_alpha", True)
+        self._diff_texture_stage.setAlphaScale(2 if signed else 1)
 
     def apply_diffuse(self, nodepath):
         if self.diff_texture:
@@ -181,7 +179,7 @@ class GeometryShader:
                     panda3d.core.ColorBlendAttrib.OIncomingAlpha,
                     panda3d.core.ColorBlendAttrib.OOne,
                     )
-                
+
             if self.sort_alpha and not (self.fb_mul or self.fb_add):
                 nodepath.setTransparency(panda3d.core.TransparencyAttrib.MDual)
             else:

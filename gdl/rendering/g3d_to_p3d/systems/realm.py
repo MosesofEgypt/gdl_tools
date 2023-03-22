@@ -33,6 +33,7 @@ def load_realm_from_wdata_tag(wdata_tag):
         enemy_type_gen_small = ""
         enemy_type_gen_large = ""
         enemy_types_special  = []
+        special_max_level    = 0
         for i in level.enemy_types:
             enemy = enemies.get(i)
             if enemy is None:
@@ -45,10 +46,11 @@ def load_realm_from_wdata_tag(wdata_tag):
                 folder_name = world_data.wave_name
             elif enemy["subtype"] == "aux":
                 folder_name = c.MONSTER_NAME_AUX % folder_name
-            elif enemy["subtype"] == "special_l2":
-                folder_name = c.MONSTER_NAME_NUM % (folder_name, 2)
-            elif enemy["subtype"] == "special_l3":
-                folder_name = c.MONSTER_NAME_NUM % (folder_name, 3)
+            elif enemy["subtype"].startswith("special_l"):
+                special_max_level = int(enemy["subtype"][-1])
+                folder_name = c.MONSTER_NAME_NUM % (
+                    folder_name, special_max_level
+                    )
 
             if enemy["type"] == "general":
                 enemy_type_general = folder_name
@@ -76,6 +78,7 @@ def load_realm_from_wdata_tag(wdata_tag):
             enemy_type_gen_small = enemy_type_gen_small,
             enemy_type_gen_large = enemy_type_gen_large,
             enemy_types_special  = enemy_types_special,
+            special_max_level    = special_max_level,
             ))
 
     return Realm(

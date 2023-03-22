@@ -49,24 +49,27 @@ STORAGE_TYPE_UINT16_BITPACKED = 0x6F
 
 # TEXTURE CONSTANTS
 FORMAT_ID_TO_NAME = {
-    0: "ABGR_1555",
-    1: "XBGR_1555",
-    2: "ABGR_8888",
-    3: "XBGR_8888",
+    0: PIX_FMT_ABGR_1555,
+    1: PIX_FMT_XBGR_1555,
+    2: PIX_FMT_ABGR_8888,
+    3: PIX_FMT_XBGR_8888,
     #all these below formats are palettized
-    16: "ABGR_1555_IDX_4",
-    17: "XBGR_1555_IDX_4",
-    18: "ABGR_1555_IDX_4_NGC",
-    34: "ABGR_8888_IDX_4",
-    35: "XBGR_8888_IDX_4",
-    48: "ABGR_1555_IDX_8",
-    49: "XBGR_1555_IDX_8",
-    50: "XBGR_1555_IDX_8_NGC",
-    66: "ABGR_8888_IDX_8",
-    67: "XBGR_8888_IDX_8",
-    130: "A_8_IDX_8",  # not really palettized
-    131: "I_8_IDX_8",  # not really palettized
-    146: "A_4_IDX_4",  # not really palettized
-    147: "I_4_IDX_4",  # not really palettized
+    16: PIX_FMT_ABGR_1555_IDX_4,
+    17: PIX_FMT_XBGR_1555_IDX_4,
+    18: PIX_FMT_ABGR_3555_IDX_4_NGC,
+    34: PIX_FMT_ABGR_8888_IDX_4,
+    35: PIX_FMT_XBGR_8888_IDX_4,
+    48: PIX_FMT_ABGR_1555_IDX_8,
+    49: PIX_FMT_XBGR_1555_IDX_8,
+    50: PIX_FMT_ABGR_3555_IDX_8_NGC,
+    66: PIX_FMT_ABGR_8888_IDX_8,
+    67: PIX_FMT_XBGR_8888_IDX_8,
+    130: PIX_FMT_A_8_IDX_8,  # not really palettized
+    131: PIX_FMT_I_8_IDX_8,  # not really palettized
+    146: PIX_FMT_A_4_IDX_4,  # not really palettized
+    147: PIX_FMT_I_4_IDX_4,  # not really palettized
     }
 FORMAT_NAME_TO_ID = {v: k for k, v in FORMAT_ID_TO_NAME.items()}
+# gamecube exclusive fuckery
+FORMAT_NAME_TO_ID[PIX_FMT_ABGR_3555_NGC] = FORMAT_NAME_TO_ID[PIX_FMT_ABGR_1555]
+FORMAT_NAME_TO_ID[PIX_FMT_XBGR_3555_NGC] = FORMAT_NAME_TO_ID[PIX_FMT_ABGR_1555]

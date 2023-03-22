@@ -3,7 +3,7 @@ import panda3d
 from . import util
 from ..assets.texture import Texture
 from ...compilation.g3d import constants as g3d_const
-from ...compilation.g3d.serialization.texture import G3DTexture
+from ...compilation.g3d.serialization.texture import G3DTexture, is_alpha_signed
 
 
 def load_textures_from_objects_tag(
@@ -24,6 +24,7 @@ def load_textures_from_objects_tag(
     with open(textures_filepath, "rb") as f:
         for index, name in texture_names.items():
             bitm = objects_tag.data.bitmaps[index]
+            format_name = bitm.format.enum_name
             if getattr(bitm.flags, "external", False) or bitm.frame_count > 0:
                 # empty placeholder texture
                 p3d_texture = panda3d.core.Texture()
@@ -49,7 +50,10 @@ def load_textures_from_objects_tag(
                 panda3d.core.SamplerState.WM_clamp if getattr(bitm.flags, "clamp_v", False) else
                 panda3d.core.SamplerState.WM_repeat)
 
-            texture = Texture(name=name, p3d_texture=p3d_texture)
+            texture = Texture(
+                name=name, signed_alpha=is_alpha_signed(format_name),
+                p3d_texture=p3d_texture
+                )
 
             # in some instances we need to reference textures by
             # index, while in others we need to reference by name
