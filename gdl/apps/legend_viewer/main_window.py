@@ -42,7 +42,7 @@ class MainWindow(tk.Tk, HotkeyMenuBinder):
         dict(key="f8",  name="Debug|Toggle collision grid", func="self.scene.set_collision_grid_visible"),
         dict(name="Debug|"),
         dict(key="f9",  name="Debug|Toggle framerate",  func="self.scene.toggle_fps_counter"),
-        dict(key="f10", name="Debug|Toggle particles",  func="self.scene.set_particles_visible"),
+        #dict(key="f10", name="Debug|Toggle particles",  func="self.scene.set_particles_visible"),
         dict(key="f11", name="Debug|Toggle textures",   func="self.scene.toggleTexture"),
         dict(key="f12", name="Debug|Toggle wireframe",  func="self.scene.toggleWireframe"),
         dict(           name="Debug|Toggle vertices",   func="self.scene.toggleShowVertices"),
