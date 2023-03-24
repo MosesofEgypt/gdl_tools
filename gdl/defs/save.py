@@ -379,6 +379,18 @@ ngc_gci_header = Struct("gci_header",
 # used in gamecube and ps2(is separate file for PS2)
 game_options = Struct("game_options",
     # WHAT ARE THOSE?!?!?!?!
+    # NOTE: these must contain the following:
+    #   music volume
+    #   sfx volume
+    #   difficulty mode:
+    #       easy
+    #       normal
+    #       hard
+    #   multiplayer mode:
+    #       normal
+    #       shots stun players
+    #       shots hurt players
+    #   compass hide/show
     UInt32("unknown0", DEFAULT=128),
     UInt32("unknown1", DEFAULT=128),
     UInt32("unknown2", DEFAULT=1),

@@ -39,6 +39,9 @@ class ParticleSystem:
     @property
     def config_loader(self): return self._config_loader
 
+    def update(self, frame_time):
+        pass
+
     def set_enabled(self, enabled=None):
         if enabled is None:
             self._enabled = not self.enabled
