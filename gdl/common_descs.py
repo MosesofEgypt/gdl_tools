@@ -606,18 +606,18 @@ damages_lump = Lump('damages',
     )
 
 particle_system_flags = Bool32("flags",
-    ("dynamic",    0x1),
-    ("oneshot",    0x2),
-    ("forever",    0x4),
+    {NAME: "dynamic",  VALUE: 0x1, VISIBLE: False},  # unused
+    {NAME: "oneshot",  VALUE: 0x2, VISIBLE: False},  # unused
+    {NAME: "forever",  VALUE: 0x4, VISIBLE: False},  # unused
     ("gravity",    0x8),
-    ("drag",       0x10),
-    ("no_tex_rgb", 0x20),
-    ("no_tex_a",   0x40),
+    {NAME: "drag",       VALUE: 0x10, VISIBLE: False},  # unused
+    {NAME: "no_tex_rgb", VALUE: 0x20, VISIBLE: False},  # unused
+    {NAME: "no_tex_a",   VALUE: 0x40, VISIBLE: False},  # unused
     ("fb_add",     0x80),
     ("fb_mul",     0x100),
     ("sort",       0x200),
-    ("no_z_test",  0x400),
-    ("no_z_write", 0x800),
+    {NAME: "no_z_test",  VALUE: 0x400, VISIBLE: False},
+    {NAME: "no_z_write", VALUE: 0x800, VISIBLE: False},
     )
 
 particle_system_flag_enables = Bool32("flag_enables",
@@ -627,20 +627,20 @@ particle_system_flag_enables = Bool32("flag_enables",
 particle_system_enables = Bool32("enables",
     ("preset",  0x1),
     ("max_particles", 0x2),
-    ("max_dir",  0x4),
-    ("max_pos",  0x8),
+    {NAME: "max_dir", VALUE: 0x4, VISIBLE: False},  # unused
+    {NAME: "max_pos", VALUE: 0x8, VISIBLE: False},  # unused
     ("emit_life",  0x10),
     ("part_life",  0x20),
     ("emit_angle", 0x40),
     ("emit_dir",   0x80),
     ("emit_vol",   0x100),
     ("emit_rate",  0x200),
-    ("emit_rate_rand", 0x400),
+    {NAME: "emit_rate_rand", VALUE: 0x400, VISIBLE: False},  # unused
     ("part_gravity", 0x800),
-    ("part_drag",    0x1000),
+    {NAME: "part_drag",    VALUE: 0x1000, VISIBLE: False},  # unused
     ("part_speed",   0x2000),
     ("part_texname", 0x4000),
-    ("part_tex_cnt", 0x8000),
+    {NAME: "part_tex_cnt", VALUE: 0x8000, VISIBLE: False},  # unused
     ("part_rgb",   0x10000),
     ("part_alpha", 0x20000),
     ("part_width", 0x40000),
@@ -648,7 +648,6 @@ particle_system_enables = Bool32("enables",
     )
 
 particle_system = Struct("particle_system",
-    # NOTE: "e" means emitter? "p" means phase?
     UEnum32("version",
         ("v257", 257),
         DEFAULT=257
@@ -676,43 +675,55 @@ particle_system = Struct("particle_system",
     particle_system_flag_enables,
     particle_system_enables,
     SInt32("max_particles"),
-    UInt32("max_dir"),
-    UInt32("max_pos"),
+    UInt32("max_dir", VISIBLE=False),  # unused
+    UInt32("max_pos", VISIBLE=False),  # unused
     QStruct("emit_life",
-        Float("phase_a"),
-        Float("phase_b"),
+        Float("a"),
+        Float("b"),
+        ORIENT="H"
         ),
     QStruct("part_life",
-        Float("phase_a"),
-        Float("phase_b"),
+        Float("a"),
+        Float("b"),
+        ORIENT="H"
         ),
     Pad(4*2),
     Float("emit_angle"),
-    SInt32("part_tex_cnt"),  # purpose unknown
+    SInt32("part_tex_cnt", VISIBLE=False),  # unused
     StrNntLatin1("part_texname", SIZE=32), # NOTE: can be animated
     QStruct("emit_dir", INCLUDE=ijk_float),
     QStruct("emit_vol", INCLUDE=xyz_float),
-    QStruct("emit_rate",
-        Float("phase_a_in"),
-        Float("phase_a_out"),
-        Float("phase_b_in"),
-        Float("phase_b_out"),
+    QStruct("emit_rate_a",
+        Float("in"),
+        Float("out"),
+        ORIENT="H"
         ),
-    Float("emit_rate_rand"),
+    QStruct("emit_rate_b",
+        Float("in"),
+        Float("out"),
+        ORIENT="H"
+        ),
+    Float("emit_rate_rand", VISIBLE=False),  # unused
     Float("part_gravity"),
-    Float("part_drag"),
+    Float("part_drag", VISIBLE=False),  # unused
     Float("part_speed"),
-    Struct("part_color",
-        QStruct("phase_a_in",  INCLUDE=bgra_uint8),
-        QStruct("phase_a_out", INCLUDE=bgra_uint8),
-        QStruct("phase_b_in",  INCLUDE=bgra_uint8),
-        QStruct("phase_b_out", INCLUDE=bgra_uint8),
+    Struct("part_color_a",
+        QStruct("in",  INCLUDE=bgra_uint8),
+        QStruct("out", INCLUDE=bgra_uint8),
         ),
-    QStruct("part_width",
-        Float("phase_a_in"),
-        Float("phase_a_out"),
-        Float("phase_b_in"),
-        Float("phase_b_out"),
+    Struct("part_color_b",
+        QStruct("in",  INCLUDE=bgra_uint8),
+        QStruct("out", INCLUDE=bgra_uint8),
+        ),
+    QStruct("part_width_a",
+        Float("in"),
+        Float("out"),
+        ORIENT="H"
+        ),
+    QStruct("part_width_b",
+        Float("in"),
+        Float("out"),
+        ORIENT="H"
         ),
     Float("emit_delay"),
     Pad(4*3 + 4*4*6 + 4*3),

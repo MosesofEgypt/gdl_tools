@@ -1,7 +1,7 @@
 import panda3d
 from ..model import Model
 from ..collision import Collision
-from ..particle_system import ParticleSystem
+from ..particle_system import ParticleSystemFactory
 
 
 class SceneObject:
@@ -51,8 +51,8 @@ class SceneObject:
         self._node_collision[collision.name] = collision
 
     def add_particle_system(self, particle_system):
-        if not isinstance(particle_system, ParticleSystem):
-            raise TypeError(f"particle_system must be of type ParticleSystem, not {type(particle_system)}")
+        if not isinstance(particle_system, ParticleSystemFactory):
+            raise TypeError(f"particle_system must be of type ParticleSystemFactory, not {type(particle_system)}")
 
         self._node_particle_systems[particle_system.name] = particle_system
 

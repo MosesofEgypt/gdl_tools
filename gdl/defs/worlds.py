@@ -611,7 +611,7 @@ worlds_ps2_def = TagDef("worlds",
         SUB_STRUCT=particle_system,
         SIZE=".header.particle_systems_count",
         POINTER=".header.particle_systems_pointer",
-        DYN_NAME_PATH='.p_texname', WIDGET=DynamicArrayFrame
+        DYN_NAME_PATH='.part_texname', WIDGET=DynamicArrayFrame
         ),
     Switch("world_anims",
         CASE=".header.animations_count",

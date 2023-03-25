@@ -76,6 +76,24 @@ def get_initial_frame_size(*args, node=None, parent=None, new_value=None, **kwar
     return 0
 
 
+def get_set_psys_count(*args, node=None, parent=None, new_value=None, **kwargs):
+    if parent is None or parent.version.data != 8:
+        return 0
+    elif new_value is not None:
+        parent.atree_list_header.particle_system_count = new_value
+    else:
+        return parent.atree_list_header.particle_system_count
+
+
+def get_set_psys_pointer(*args, node=None, parent=None, new_value=None, **kwargs):
+    if parent is None or parent.version.data != 8:
+        return 0
+    elif new_value is not None:
+        parent.atree_list_header.particle_system_pointer = new_value
+    else:
+        return parent.atree_list_header.particle_system_pointer
+
+
 def _get_frame_data_size(*args, node=None, parent=None, new_value=None,
                          want_compressed=False, **kwargs):
     frame_data_size = 0
@@ -455,16 +473,11 @@ anim_ps2_def = TagDef("anim",
         POINTER=".atree_list_header.texmod_pointer",
         DYN_NAME_PATH='.name', WIDGET=DynamicArrayFrame
         ),
-    Switch("particle_systems",
-        CASE=".version.enum_name",
-        CASES=dict(
-            v8=Array("particle_systems",
-                SUB_STRUCT=particle_system,
-                SIZE=".atree_list_header.particle_system_count",
-                POINTER=".atree_list_header.particle_system_pointer",
-                DYN_NAME_PATH='.p_texname', WIDGET=DynamicArrayFrame
-                ),
-            )
+    Array("particle_systems",
+        SUB_STRUCT=particle_system,
+        SIZE=get_set_psys_count,
+        POINTER=get_set_psys_pointer,
+        DYN_NAME_PATH='.part_texname', WIDGET=DynamicArrayFrame
         ),
     ext=".ps2", endian="<", tag_cls=AnimTag
     )
