@@ -3,7 +3,6 @@ from panda3d.physics import ActorNode
 
 from ...assets.scene_objects.scene_actor import SceneActor
 from ..model import load_model_from_objects_tag
-from ..particle_system import load_particle_systems_from_animations_tag
 from .. import util
 
 
@@ -112,16 +111,13 @@ def load_nodes_from_anim_tag(actor_name, anim_tag):
 
 def load_scene_actor_from_tags(
         actor_name, *, anim_tag, textures, objects_tag=None,
-        global_tex_anims=(), seq_tex_anims=(), shape_morph_anims=(),
+        global_tex_anims=(), seq_tex_anims=(), shape_morph_anims=(), psys_by_index=()
         ):
     actor_name = actor_name.upper().strip()
     actor_node = ActorNode(actor_name)
 
     root_node, nodes_infos = load_nodes_from_anim_tag(
         actor_name, anim_tag
-        )
-    psys_by_index = load_particle_systems_from_animations_tag(
-        anim_tag, actor_name, textures, unique_instances=True
         )
     actor_node.add_child(root_node)
 

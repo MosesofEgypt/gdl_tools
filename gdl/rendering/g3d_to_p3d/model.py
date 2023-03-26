@@ -141,12 +141,12 @@ def load_model_from_objects_tag(
             )
         model.add_geometry(geometry)
         if tex_name in global_tex_anims:
-            global_tex_anims[tex_name].bind(geometry)
+            global_tex_anims[tex_name].geometry_bind(geometry)
             is_static = False
 
         if tex_name in seq_tex_anims:
             for tex_anim in seq_tex_anims[tex_name]:
-                tex_anim.bind(geometry)
+                tex_anim.geometry_bind(geometry)
                 is_static = False
 
     if is_obj_anim and model_name in shape_morph_anims:

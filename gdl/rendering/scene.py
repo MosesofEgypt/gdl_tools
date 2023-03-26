@@ -19,6 +19,7 @@ from .g3d_to_p3d.scene_objects.scene_object import load_scene_object_from_tags
 from .g3d_to_p3d.scene_objects.scene_world import load_scene_world_from_tags
 from .g3d_to_p3d.animation import load_texmods_from_anim_tag
 from .g3d_to_p3d.texture import load_textures_from_objects_tag
+from .g3d_to_p3d.particle_system import load_particle_systems_from_animations_tag
 
 
 # not letting tkinter be in charge of the main loop gives a serious
@@ -471,6 +472,9 @@ class Scene(ShowBase):
 
         scene_actors  = []
         scene_objects = []
+        psys_by_index = load_particle_systems_from_animations_tag(
+            anim_tag, set_name, textures, global_tex_anims
+            )
         for actor_name in sorted(actor_names):
             scene_actor = self.get_scene_actor(set_name, actor_name)
             if not scene_actor:
@@ -482,6 +486,7 @@ class Scene(ShowBase):
                         **actor_tex_anims.get(actor_name, {})
                         },
                     seq_tex_anims=seq_tex_anims.get(actor_name, {}),
+                    psys_by_index=psys_by_index
                     )
                 self.add_scene_actor(set_name, scene_actor)
 

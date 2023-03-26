@@ -122,19 +122,20 @@ class SkeletalAnimation(Animation):
 class ShapeMorphAnimation(Animation):
     _frame_data_cls = model.Model
 
+    def __init__(self, **kwargs):
+        self.clear_binds()
+        super().__init__(**kwargs)
+
     @property
     def binds(self):
         return tuple(ref() for ref in self._binds.values() if ref())
     def bind(self, model):
         self._binds[id(model)] = weakref.ref(model)
-    def unbind(self, model):
-        try:
-            del self._binds[id(model)]
-        except KeyError:
-            try:
-                del self._binds[model]
-            except TypeError:
-                pass
+    def unbind(self, model_or_id):
+        if isinstance(model_or_id, int):
+            del self._binds[model_or_id]
+        else:
+            del self._binds[id(model_or_id)]
 
     def clear_binds(self):
         self._binds = {}
@@ -157,7 +158,8 @@ class TextureAnimation(Animation):
     _scroll_rate_v = 0
     _fade_rate  = 0
     _fade_start = 0
-    _binds = ()
+    _geometry_binds = ()
+    _psys_binds = ()
     _external_anim = None
     _tex_name = ""
     external = False
@@ -216,21 +218,36 @@ class TextureAnimation(Animation):
         self._set_frame_data(frame_data)
 
     @property
-    def binds(self):
-        return tuple(ref() for ref in self._binds.values() if ref())
-    def bind(self, geometry):
-        self._binds[id(geometry)] = weakref.ref(geometry)
-    def unbind(self, geometry):
-        try:
-            del self._binds[id(geometry)]
-        except KeyError:
-            try:
-                del self._binds[geometry]
-            except TypeError:
-                pass
+    def geometry_binds(self):
+        return tuple(ref() for ref in self._geometry_binds.values() if ref())
+    def geometry_bind(self, geometry):
+        self._geometry_binds[id(geometry)] = weakref.ref(geometry)
+    def geometry_unbind(self, geometry_or_id):
+        if isinstance(geometry_or_id, int):
+            del self._geometry_binds[geometry_or_id]
+        else:
+            del self._geometry_binds[id(geometry_or_id)]
+
+    @property
+    def psys_binds(self):
+        return tuple(ref() for ref in self._psys_binds.values() if ref())
+    def psys_bind(self, psys):
+        self._psys_binds[id(psys)] = weakref.ref(psys)
+    def psys_unbind(self, psys_or_id):
+        if isinstance(psys_or_id, int):
+            del self._psys_binds[psys_or_id]
+        else:
+            del self._psys_binds[id(psys_or_id)]
+
+    def clear_geometry_binds(self):
+        self._geometry_binds = {}
+
+    def clear_psys_binds(self):
+        self._psys_binds = {}
 
     def clear_binds(self):
-        self._binds = {}
+        self.clear_geometry_binds()
+        self.clear_psys_binds()
 
     def __eq__(self, other):
         if self is other:
@@ -254,10 +271,10 @@ class TextureAnimation(Animation):
         texture = self.get_frame_data(frame_time) if self.has_swap_animation else None
 
         # iterate as tuple in case we unbind it in the loop
-        for ref_id, geometry_ref in tuple(self._binds.items()):
+        for ref_id, geometry_ref in tuple(self._geometry_binds.items()):
             geometry = geometry_ref()
             if geometry is None:
-                self.unbind(ref_id)
+                self.geometry_unbind(ref_id)
                 continue
             elif geometry.actor_tex_anim not in (self, None):
                 continue
@@ -273,6 +290,15 @@ class TextureAnimation(Animation):
             if shader.diff_texture is not texture and texture:
                 shader.diff_texture = texture
                 shader.apply_diffuse(nodepath)
+
+        for ref_id, psys_ref in tuple(self._psys_binds.items()):
+            psys = psys_ref()
+            if psys is None:
+                self.psys_unbind(ref_id)
+                continue
+
+            if psys.texture is not texture and texture:
+                psys.texture = texture
 
     def get_uv(self, frame_time):
         rate_u = self.scroll_rate_u

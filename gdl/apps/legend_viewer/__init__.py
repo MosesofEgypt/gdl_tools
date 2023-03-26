@@ -56,7 +56,9 @@ class LegendViewer(Scene, HotkeyMenuBinder):
     def shader_main_loop(self, task):
         # TODO: replace this with a proper animation handler
         if not self._animation_timer_paused:
-            self._animation_timer += task.time - self._prev_animation_timer
+            delta = task.time - self._prev_animation_timer
+
+            self._animation_timer += delta
             for set_name, resource_set in self._cached_resource_texture_anims.items():
                 for anim_name, global_anim in resource_set.get("global_anims", {}).items():
                     global_anim.update(self._animation_timer)
@@ -69,7 +71,20 @@ class LegendViewer(Scene, HotkeyMenuBinder):
                 contained_item = scene_item.contained_item
                 if isinstance(contained_item, SceneItemRandom):
                     contained_item.update(self._animation_timer)
-                
+
+            psys_by_name = {}
+            if self.active_world:
+                psys_by_name.update(self.active_world.node_particle_systems)
+                for scene_items in self.active_world.node_scene_items.values():
+                    for scene_item in scene_items:
+                        psys_by_name.update(scene_item.node_particle_systems)
+
+            elif self.active_actor:
+                psys_by_name.update(self.active_actor.node_particle_systems)
+
+            for psys in psys_by_name.values():
+                psys.update(delta, self.cam)
+                psys.render(render, self.cam)
 
         self._prev_animation_timer = task.time
         return direct.task.Task.cont

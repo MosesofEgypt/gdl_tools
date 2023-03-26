@@ -129,13 +129,13 @@ class SceneWorld(SceneObject):
             # do a strong flatten on everything
             for tex_name, tex_anim in global_tex_anims.items():
                 # TODO: update this to exclude geometries under the dynamic root
-                billboard_geometries = [g for g in tex_anim.binds if g.billboard]
-                static_geometries    = [g for g in tex_anim.binds if not g.billboard]
-                tex_anim.clear_binds()
+                billboard_geometries = [g for g in tex_anim.geometry_binds if g.billboard]
+                static_geometries    = [g for g in tex_anim.geometry_binds if not g.billboard]
+                tex_anim.clear_geometry_binds()
 
                 # billboarded geometries can't be combined
                 for geometry in billboard_geometries:
-                    tex_anim.bind(geometry)
+                    tex_anim.geometry_bind(geometry)
 
                 if not static_geometries:
                     continue
@@ -182,7 +182,7 @@ class SceneWorld(SceneObject):
 
                     # bind the texanim to the new model and add the model to the tracking dict
                     #combined_geometry.apply_shader()
-                    tex_anim.bind(combined_geometry)
+                    tex_anim.geometry_bind(combined_geometry)
 
                     self._flattened_texmod_models[combined_model.name] = combined_model
                     self._flattened_static_geometries.setdefault(combined_model.name, []).append(
@@ -323,6 +323,8 @@ class SceneWorld(SceneObject):
                     scene_item.set_conatiner_item_visible(visible)
 
     def set_particles_visible(self, visible=None):
+        return
+        # TODO: retool this
         if visible is None:
             visible = not self._visible_states["particle_systems"]
 

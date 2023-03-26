@@ -3,12 +3,21 @@ import panda3d
 
 from ..assets import particle_system
 
+DEFAULT_TEX_NAME = "000GRID"
 
-def load_particle_system_from_block(name_prefix, psys_block, textures):
-    default_texture = textures.get(particle_system.DEFAULT_TEXTURE_NAME)
 
+def load_particle_system_from_block(name_prefix, psys_block, textures, tex_anims):
     texname = psys_block.part_texname if psys_block.enables.part_texname else None
-    texture = default_texture if texname is None else textures.get(texname, default_texture)
+
+    if texname in tex_anims:
+        texture = None
+    else:
+        default_texture = textures.get(DEFAULT_TEX_NAME)
+        texture = (
+            default_texture if texname is None else
+            textures.get(texname, default_texture)
+            )
+
     emit_lives = (
         tuple(max(0, v) for v in psys_block.emit_life)
         if psys_block.enables.emit_life else
@@ -67,20 +76,23 @@ def load_particle_system_from_block(name_prefix, psys_block, textures):
     psys = particle_system.ParticleSystemFactory(
         name=name_prefix + psys_block.id.enum_name, **psys_data
         )
+    if texname in tex_anims:
+        tex_anims[texname].psys_bind(psys)
+
     return psys
 
 
 def load_particle_systems_from_worlds_tag(
-        worlds_tag, world_name="", textures=(), unique_instances=False
+        worlds_tag, world_name="", textures=(), tex_anims=(),
         ):
-    if not textures:
-        textures = {}
+    if not textures:  textures  = {}
+    if not tex_anims: tex_anims = {}
 
     psys_by_name = {}
     name_prefix = world_name.upper() + "PSYS"
     for psys_block in worlds_tag.data.particle_systems:
         psys = load_particle_system_from_block(
-            name_prefix, psys_block, textures
+            name_prefix, psys_block, textures, tex_anims
             )
         if psys.name in psys_by_name:
             print(f"Warning: Duplicate particle system '{psys.name}' detected. Skipping.")
@@ -91,10 +103,10 @@ def load_particle_systems_from_worlds_tag(
 
 
 def load_particle_systems_from_animations_tag(
-        anim_tag, resource_name="", textures=(), unique_instances=False
+        anim_tag, resource_name="", textures=(), tex_anims=(),
         ):
-    if not textures:
-        textures = {}
+    if not textures:  textures  = {}
+    if not tex_anims: tex_anims = {}
 
     psys_by_index = []
     name_prefix = resource_name.upper() + "PSYS"
@@ -105,7 +117,7 @@ def load_particle_systems_from_animations_tag(
 
     for psys_block in psys_array:
         psys = load_particle_system_from_block(
-            name_prefix, psys_block, textures
+            name_prefix, psys_block, textures, tex_anims
             )
         psys_by_index.append(psys)
 
