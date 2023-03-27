@@ -13,16 +13,19 @@ from panda3d.core import WindowProperties
 
 class LegendViewer(Scene, HotkeyMenuBinder):
     # cycle at the rate the game is hardcoded to animate at
-    CYCLE_SUBVIEW_RATE     = 1/30
+    FRAME_RATE             = 1/30
+    CYCLE_SUBVIEW_RATE     = FRAME_RATE
     CYCLE_SUBVIEW_MIN_TIME = 0.75
 
     _animation_timer_paused = False
     _animation_timer = 0
+    _animation_step  = 1.0
     _prev_animation_timer = 0
     _update_task_timer = 0
     _cycle_subview_timer = 0
     _cycle_subview_left  = 0
     _cycle_subview_right = 0
+    _frame_step_amount   = 0
 
     main_window = None
 
@@ -55,9 +58,14 @@ class LegendViewer(Scene, HotkeyMenuBinder):
 
     def shader_main_loop(self, task):
         # TODO: replace this with a proper animation handler
+        delta = 0
         if not self._animation_timer_paused:
-            delta = task.time - self._prev_animation_timer
+            delta = self._animation_step * (task.time - self._prev_animation_timer)
+        elif self._frame_step_amount:
+            delta = self._frame_step_amount
+            self._frame_step_amount = 0
 
+        if delta:
             self._animation_timer += delta
             for set_name, resource_set in self._cached_resource_texture_anims.items():
                 for anim_name, global_anim in resource_set.get("global_anims", {}).items():
@@ -97,6 +105,15 @@ class LegendViewer(Scene, HotkeyMenuBinder):
 
     def reset_animation_timer(self):
         self._animation_timer = 0.0
+
+    def reverse_animation_timer(self):
+        self._animation_step *= -1
+
+    def decrement_animation_frame(self):
+        self._frame_step_amount = -self.FRAME_RATE
+
+    def increment_animation_frame(self):
+        self._frame_step_amount = self.FRAME_RATE
 
     def update_task(self, task):
         delta_t = task.time - self._update_task_timer

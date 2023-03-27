@@ -636,7 +636,7 @@ particle_system_enables = Bool32("enables",
     ("emit_vol",   0x100),
     ("emit_rate",  0x200),
     {NAME: "emit_rate_rand", VALUE: 0x400, VISIBLE: False},  # unused
-    ("part_gravity", 0x800),
+    ("part_gravity_mod", 0x800),
     {NAME: "part_drag",    VALUE: 0x1000, VISIBLE: False},  # unused
     ("part_speed",   0x2000),
     ("part_texname", 0x4000),
@@ -704,7 +704,7 @@ particle_system = Struct("particle_system",
         ORIENT="H"
         ),
     Float("emit_rate_rand", VISIBLE=False),  # unused
-    Float("part_gravity"),
+    Float("part_gravity_mod"),
     Float("part_drag", VISIBLE=False),  # unused
     Float("part_speed"),
     Struct("part_color_a",

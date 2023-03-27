@@ -8,6 +8,11 @@ DRAW_SORT_PARTICLES     = 2000
 
 Z_FIGHT_OFFSET = 0.05
 
+# TODO: figure out what their gravity value really is.
+#       this value is pretty close, but it was derived
+#       through emperical study and is a guess
+PARTICLE_GRAVITY = 23
+
 MONSTER_NAME_GAR = "GAR_%s"
 MONSTER_NAME_AUX = "%sAUX"
 MONSTER_NAME_NUM = "%s%d"

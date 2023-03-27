@@ -20,26 +20,31 @@ def load_particle_system_from_block(
             textures.get(texname, default_texture)
             )
 
-    emit_lives = (
-        tuple(max(0, v) for v in psys_block.emit_life)
-        if psys_block.enables.emit_life else
-        (particle_system.DEFAULT_EMITTER_LIFE, particle_system.DEFAULT_EMITTER_LIFE)
-        )
-    particle_lives = (
-        tuple(max(0, v/3) for v in psys_block.part_life)
-        if psys_block.enables.part_life else
-        (particle_system.DEFAULT_PARTICLE_LIFE, particle_system.DEFAULT_PARTICLE_LIFE)
-        )
+    if psys_block.enables.emit_life:
+        emit_life_a, emit_life_b = psys_block.emit_life
+    else:
+        emit_life_a, emit_life_b = (particle_system.DEFAULT_EMITTER_LIFE,)*2
+
+    if psys_block.enables.part_life:
+        particle_life_a, particle_life_b = psys_block.part_life
+    else:
+        particle_life_a, particle_life_b = (particle_system.DEFAULT_PARTICLE_LIFE,)*2
 
     psys_data = dict(
-        texture        = texture,
-        max_particles  = psys_block.max_particles   if psys_block.enables.max_particles else 10000,
-        emit_range     = psys_block.emit_angle      if psys_block.enables.emit_angle    else 0,
-        emit_delay     = psys_block.emit_delay      if psys_block.enables.emit_delay    else 0, # TODO: determine purpose
-        gravity        = psys_block.part_gravity*30 if psys_block.enables.part_gravity  else 0,
-        speed          = psys_block.part_speed      if psys_block.enables.part_speed    else 0,
-        emit_lives     = emit_lives,
-        particle_lives = particle_lives,
+        texture         = texture,
+        max_particles   = psys_block.max_particles       if psys_block.enables.max_particles     else 10000,
+        emit_range      = psys_block.emit_angle          if psys_block.enables.emit_angle        else 0,
+        emit_delay      = psys_block.emit_delay          if psys_block.enables.emit_delay        else 0, # TODO: determine purpose
+        gravity_mod     = psys_block.part_gravity_mod    if psys_block.enables.part_gravity_mod  else 0,
+        speed           = psys_block.part_speed          if psys_block.enables.part_speed        else 0,
+        emit_life_a     = emit_life_a,
+        emit_life_b     = emit_life_b,
+        particle_life_a = particle_life_a,
+        particle_life_b = particle_life_b,
+        gravity         = bool(psys_block.flags.gravity and psys_block.flag_enables.gravity),
+        sort            = bool(psys_block.flags.sort    and psys_block.flag_enables.sort),
+        fb_add          = bool(psys_block.flags.fb_add  and psys_block.flag_enables.fb_add),
+        fb_mul          = bool(psys_block.flags.fb_mul  and psys_block.flag_enables.fb_mul),
         emit_dir = (
             psys_block.emit_dir[0],
             psys_block.emit_dir[2],
@@ -50,12 +55,6 @@ def load_particle_system_from_block(
             abs(psys_block.emit_vol[2]),
             abs(psys_block.emit_vol[1])
             ) if psys_block.enables.emit_vol else (0.0, 0.0, 0.0),
-        flags = {
-            n: bool(psys_block.flags[n] and psys_block.flag_enables[n])
-            for n in (
-                "gravity", "sort", "no_z_test", "fb_add", "fb_mul"
-                )
-            }
         )
 
     if render_nodepath:

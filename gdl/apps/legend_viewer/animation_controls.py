@@ -8,7 +8,10 @@ class AnimationControlsWindow(tk.Toplevel, HotkeyMenuBinder):
     scene = None
     _hotkey_menu_binds = (
         dict(key="space",     name="Play/pause animations", func="self.scene.toggle_animations"),
-        dict(key="backspace", name="Reset animations",      func="self.scene.reset_animation_timer"),
+        dict(key="0",         name="Reset animations",      func="self.scene.reset_animation_timer"),
+        dict(key="backspace", name="Reverse animations",    func="self.scene.reverse_animation_timer"),
+        dict(key="-",         name="Previous frame",        func="self.scene.decrement_animation_frame"),
+        dict(key="=",         name="Next frame",            func="self.scene.increment_animation_frame"),
         )
 
     def __init__(self, parent, *args, **kwargs):

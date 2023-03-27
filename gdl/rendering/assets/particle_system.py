@@ -8,6 +8,7 @@ from panda3d.core import NodePath, PandaNode, LVector3, LVector4, Point2,\
      ColorBlendAttrib, TransparencyAttrib, ShadeModelAttrib
 from direct.particles.ParticleEffect import ParticleEffect
 from .texture import Texture
+from . import shader
 from . import constants as c
 
 MIN_PHASE_PERIOD    = 0.00001
@@ -50,7 +51,7 @@ class Particle:
             raise TypeError(
                 f"system must be of type ParticleSystem, not {type(self._system)}"
                 )
-        self.reset()
+        self.reset(invert_age=kwargs.get("invert_age"))
 
     @property
     def age(self): return self._age
@@ -64,10 +65,13 @@ class Particle:
         x, y, z = self.init_pos
         i, j, k = self.init_vel
         t = self.age
+        if self.factory.gravity:
+            k -= t*(c.PARTICLE_GRAVITY * self.factory.gravity_mod)
+
         return (
             x + t*i,
             y + t*j,
-            z + t*(k - t*self.factory.gravity)
+            z + t*k
             )
 
     @property
@@ -118,19 +122,19 @@ class Particle:
         p1 = cam.getRelativePoint(render, self.pos)
         return cam.node().getLens().project(p1, Point2())
 
-    def reset(self):
-        self._age = 0.0
+    def reset(self, invert_age=False):
+        self._age = self.factory.max_particle_age if invert_age else 0.0
 
     def update(self, age_delta):
         self._age += age_delta
 
 
 class ParticleSystem:
-    _age        = 0
-    _emit_timer = 0
-    _paused     = False
-    _factory    = None
-    _particles  = ()
+    _age            = 0.0
+    _emit_counter   = 0.0
+    _paused         = False
+    _factory        = None
+    _particles      = ()
 
     _p3d_nodepath       = None
     _root_p3d_nodepath  = None
@@ -163,7 +167,7 @@ class ParticleSystem:
     @property
     def age(self): return self._age
     @property
-    def emit_timer(self): return self._emit_timer
+    def emit_counter(self): return self._emit_counter
     @property
     def paused(self): return self._paused
     @property
@@ -175,7 +179,7 @@ class ParticleSystem:
     @property
     def root_p3d_nodepath(self): return self._root_p3d_nodepath
     @property
-    def particles(self): return tuple(self._particles.values())
+    def particles(self): return self._particles
 
     @property
     def emit_velocity(self):
@@ -183,7 +187,7 @@ class ParticleSystem:
         speed   = self.factory.speed
         angle   = self.factory.emit_range
 
-        i, j, k = 0.0, 0.0, 1.0
+        i, j, k = self.factory.emit_dir
         if angle:
             # TODO: correct this to make it uniform and constrain to max angle
             dy = random.random() * angle*2 - angle
@@ -208,12 +212,17 @@ class ParticleSystem:
 
     @property
     def emit_rate(self):
+        age = self.age
+        if age < 0:
+            # invert for negative age
+            age = 1 - age
+
         phase, point = get_phase_and_point_from_age(
-            self.age, self.factory.emit_life_a, self.factory.emit_life_b
+            age, self.factory.emit_life_a, self.factory.emit_life_b
             )
         r0, r1 = self.factory.emit_rates_b if phase == 1 else self.factory.emit_rates_a
         particles_per_sec = r0 + (r1 - r0)*point
-        return 1/particles_per_sec if particles_per_sec else FLOAT_INFINITY
+        return particles_per_sec
 
     def is_visible(self, cam, lens_bounds):
         if self.p3d_nodepath.isHidden():
@@ -222,60 +231,70 @@ class ParticleSystem:
         p1 = cam.getRelativePoint(render, self.p3d_nodepath.getPos())
         return cam.node().getLens().project(p1, Point2())
 
-    def emit(self):
+    def emit(self, invert_age=False):
         particle = Particle(
             system=self,
             init_pos=self.emit_position,
             init_vel=self.emit_velocity,
+            invert_age=invert_age
             )
-        self._particles[id(particle)] = particle
+        self._particles += (particle, )
 
     def reset(self):
-        self._age       = 0.0
-        self._particles = {}
+        self._age           = 0.0
+        self._emit_counter  = 0.0
+        self._particles     = ()
 
     def update(self, age_delta):
         if self.paused:
             return
 
-        # NOTE: only update system if it's visible(not sure how this is determined exactly)
+        self._age           += age_delta
+        self._emit_counter  += abs(age_delta * self.emit_rate)
 
         # update age of particles(clean up any that are too old)
-        for pid in tuple(self._particles):
-            particle = self._particles[pid]
-            if particle.age >= self.factory.max_particle_age:
-                del self._particles[pid]
+        particles_to_delete = set()
+        particles = self._particles
+        for i, particle in enumerate(particles):
+            # NOTE: checking for age < 0 to allow rewinding
+            #       system to previous times(i.e. play in reverse)
+            if (particle.age < 0 or
+                particle.age > self.factory.max_particle_age):
+                particles_to_delete.add(i)
             else:
                 particle.update(age_delta)
 
-        # emit new particles if it's time to
-        emit_rate = self.emit_rate
-        for i in range(int(self.emit_timer / emit_rate)):
-            self._emit_timer -= emit_rate
-            self.emit()
+        if particles_to_delete:
+            self._particles = tuple(
+                particle for i, particle in enumerate(particles)
+                if i not in particles_to_delete
+                )
 
-        self._age        += age_delta
-        self._emit_timer += age_delta
+        # emit new particles if it's time to
+        for i in range(int(math.ceil(self.emit_counter))):
+            self._emit_counter -= 1
+            self.emit(age_delta < 0)
 
 
 class ParticleSystemFactory:
     _name       = ""
     _instances  = ()
     _enabled    = False
+    gravity     = False
 
     _mesh_drawer = None
     
     _max_particles  = MAX_PARTICLES
     _texture        = None
-    _gravity        = 0
-    speed           = 0
-    emit_range      = 0
-    emit_delay      = 0
+    gravity_mod     = 0.0
+    speed           = 0.0
+    emit_range      = 0.0
+    emit_delay      = 0.0
 
     emit_life_a     = 1.0
     emit_life_b     = 1.0
-    _particle_life_a = 1.0
-    _particle_life_b = 1.0
+    particle_life_a = 1.0
+    particle_life_b = 1.0
 
     emit_dir           = (0.0, 0.0, 1.0)
     emit_dir_yp        = (0.0, 0.0)
@@ -293,7 +312,6 @@ class ParticleSystemFactory:
 
     def __init__(self, **kwargs):
         render_nodepath  = kwargs.pop("render_nodepath", render)
-        flags = kwargs.get("flags", {})
         
         self._texture_stage = TextureStage('diffuse')
         self._mesh_drawer = MeshDrawer()
@@ -303,7 +321,8 @@ class ParticleSystemFactory:
         self._instances = []
 
         self._name         = kwargs.pop("name", self._name).upper().strip()
-        self.gravity       = kwargs.get("gravity", self.gravity)
+        self.gravity       = bool(kwargs.get("gravity", self.gravity))
+        self.gravity_mod   = kwargs.get("gravity_mod", self.gravity_mod)
         self.speed         = kwargs.get("speed", self.speed)
         self.texture       = kwargs.get("texture", self.texture)
         self.max_particles = kwargs.get("max_particles", self.max_particles)
@@ -312,9 +331,9 @@ class ParticleSystemFactory:
         self.emit_vol      = kwargs.get("emit_vol", self.emit_vol)
 
         self.emit_life_a        = kwargs.get("emit_life_a", self.emit_life_a)
-        self.emit_life_b        = kwargs.get("emit_life_a", self.emit_life_b)
+        self.emit_life_b        = kwargs.get("emit_life_b", self.emit_life_b)
         self.particle_life_a    = kwargs.get("particle_life_a", self.particle_life_a)
-        self.particle_life_b    = kwargs.get("particle_life_a", self.particle_life_b)
+        self.particle_life_b    = kwargs.get("particle_life_b", self.particle_life_b)
         self.emit_rates_a = (
             kwargs.get("a_in_rate",  DEFAULT_EMIT_RATE),
             kwargs.get("a_out_rate", DEFAULT_EMIT_RATE),
@@ -346,7 +365,7 @@ class ParticleSystemFactory:
 
         mesh_nodepath.setTwoSided(False)
 
-        mesh_nodepath.setDepthTest(not flags.get("no_z_test"))
+        mesh_nodepath.setDepthTest(True)
         mesh_nodepath.setDepthWrite(False)
 
         self._texture_stage.setCombineRgb(
@@ -365,13 +384,13 @@ class ParticleSystemFactory:
             )
 
         color_blend_attrib = None
-        if flags.get("fb_mul"):
+        if kwargs.get("fb_mul"):
             color_blend_attrib = ColorBlendAttrib.make(
                 ColorBlendAttrib.MAdd,
                 ColorBlendAttrib.OFbufferColor,
                 ColorBlendAttrib.OZero,
                 )
-        elif flags.get("fb_add"):
+        elif kwargs.get("fb_add"):
             color_blend_attrib = ColorBlendAttrib.make(
                 ColorBlendAttrib.MAdd,
                 ColorBlendAttrib.OIncomingAlpha,
@@ -380,7 +399,7 @@ class ParticleSystemFactory:
 
         self._texture_stage.setSort(c.DRAW_SORT_PARTICLES)
 
-        if flags.get("sort") and color_blend_attrib is None:
+        if kwargs.get("sort") and color_blend_attrib is None:
             mesh_nodepath.setTransparency(TransparencyAttrib.MAlpha)
         else:
             mesh_nodepath.setTransparency(TransparencyAttrib.MDual)
@@ -394,24 +413,6 @@ class ParticleSystemFactory:
         mesh_nodepath.node().setBounds(OmniBoundingVolume())
         mesh_nodepath.node().setFinal(True)
 
-    @property
-    def gravity(self):
-        return self._gravity*30
-    @gravity.setter
-    def gravity(self, new_val):
-        self._gravity = new_val/30
-    @property
-    def particle_life_a(self):
-        return self._particle_life_a/3
-    @particle_life_a.setter
-    def particle_life_a(self, new_val):
-        self._particle_life_a = new_val*3
-    @property
-    def particle_life_b(self):
-        return self._particle_life_b/3
-    @particle_life_b.setter
-    def particle_life_b(self, new_val):
-        self._particle_life_b = new_val*3
     @property
     def max_particle_age(self):
         return self.particle_life_a + self.particle_life_b
@@ -481,7 +482,7 @@ class ParticleSystemFactory:
                 continue
 
             # reverse to draw oldest particles on top
-            for particle in reversed(psys.particles):
+            for particle in psys.particles[::-1]:
                 if budget <= 0:
                     break
                 elif particle.is_visible(cam):
