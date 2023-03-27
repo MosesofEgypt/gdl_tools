@@ -6,7 +6,9 @@ from ..assets import particle_system
 DEFAULT_TEX_NAME = "000GRID"
 
 
-def load_particle_system_from_block(name_prefix, psys_block, textures, tex_anims):
+def load_particle_system_from_block(
+        name_prefix, psys_block, textures, tex_anims, render_nodepath
+        ):
     texname = psys_block.part_texname if psys_block.enables.part_texname else None
 
     if texname in tex_anims:
@@ -24,18 +26,18 @@ def load_particle_system_from_block(name_prefix, psys_block, textures, tex_anims
         (particle_system.DEFAULT_EMITTER_LIFE, particle_system.DEFAULT_EMITTER_LIFE)
         )
     particle_lives = (
-        tuple(max(0, v) for v in psys_block.part_life)
+        tuple(max(0, v/3) for v in psys_block.part_life)
         if psys_block.enables.part_life else
         (particle_system.DEFAULT_PARTICLE_LIFE, particle_system.DEFAULT_PARTICLE_LIFE)
         )
 
     psys_data = dict(
         texture        = texture,
-        max_particles  = psys_block.max_particles if psys_block.enables.max_particles else 10000,
-        emit_range     = psys_block.emit_angle    if psys_block.enables.emit_angle    else 0,
-        emit_delay     = psys_block.emit_delay    if psys_block.enables.emit_delay    else 0, # TODO: determine purpose
-        part_gravity   = psys_block.part_gravity  if psys_block.enables.part_gravity  else 0,
-        part_speed     = psys_block.part_speed    if psys_block.enables.part_speed    else 0,
+        max_particles  = psys_block.max_particles   if psys_block.enables.max_particles else 10000,
+        emit_range     = psys_block.emit_angle      if psys_block.enables.emit_angle    else 0,
+        emit_delay     = psys_block.emit_delay      if psys_block.enables.emit_delay    else 0, # TODO: determine purpose
+        gravity        = psys_block.part_gravity*30 if psys_block.enables.part_gravity  else 0,
+        speed          = psys_block.part_speed      if psys_block.enables.part_speed    else 0,
         emit_lives     = emit_lives,
         particle_lives = particle_lives,
         emit_dir = (
@@ -44,18 +46,20 @@ def load_particle_system_from_block(name_prefix, psys_block, textures, tex_anims
             psys_block.emit_dir[1]
             ) if psys_block.enables.emit_dir else (0.0, 0.0, 1.0),
         emit_vol = (
-            psys_block.emit_vol[0],
-            psys_block.emit_vol[2],
-            psys_block.emit_vol[1]
+            abs(psys_block.emit_vol[0]),
+            abs(psys_block.emit_vol[2]),
+            abs(psys_block.emit_vol[1])
             ) if psys_block.enables.emit_vol else (0.0, 0.0, 0.0),
         flags = {
             n: bool(psys_block.flags[n] and psys_block.flag_enables[n])
             for n in (
-                "gravity", "sort", "no_tex_rgb", "no_tex_a",
-                "fb_add", "fb_mul", "no_z_test", "no_z_write"
+                "gravity", "sort", "no_z_test", "fb_add", "fb_mul"
                 )
             }
         )
+
+    if render_nodepath:
+        psys_data["render_nodepath"] = render_nodepath
 
     for phase in "ab":
         psys_data[phase] = dict()
@@ -83,7 +87,7 @@ def load_particle_system_from_block(name_prefix, psys_block, textures, tex_anims
 
 
 def load_particle_systems_from_worlds_tag(
-        worlds_tag, world_name="", textures=(), tex_anims=(),
+        worlds_tag, world_name="", textures=(), tex_anims=(), render_nodepath=None
         ):
     if not textures:  textures  = {}
     if not tex_anims: tex_anims = {}
@@ -92,7 +96,7 @@ def load_particle_systems_from_worlds_tag(
     name_prefix = world_name.upper() + "PSYS"
     for psys_block in worlds_tag.data.particle_systems:
         psys = load_particle_system_from_block(
-            name_prefix, psys_block, textures, tex_anims
+            name_prefix, psys_block, textures, tex_anims, render_nodepath
             )
         if psys.name in psys_by_name:
             print(f"Warning: Duplicate particle system '{psys.name}' detected. Skipping.")
@@ -103,7 +107,7 @@ def load_particle_systems_from_worlds_tag(
 
 
 def load_particle_systems_from_animations_tag(
-        anim_tag, resource_name="", textures=(), tex_anims=(),
+        anim_tag, resource_name="", textures=(), tex_anims=(), render_nodepath=None
         ):
     if not textures:  textures  = {}
     if not tex_anims: tex_anims = {}
@@ -117,7 +121,7 @@ def load_particle_systems_from_animations_tag(
 
     for psys_block in psys_array:
         psys = load_particle_system_from_block(
-            name_prefix, psys_block, textures, tex_anims
+            name_prefix, psys_block, textures, tex_anims, render_nodepath
             )
         psys_by_index.append(psys)
 

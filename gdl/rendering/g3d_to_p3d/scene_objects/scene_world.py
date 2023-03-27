@@ -136,7 +136,8 @@ def load_scene_world_from_tags(
         worlds_tag, scene_world.static_objects_node
         )
     particle_systems = load_particle_systems_from_worlds_tag(
-        worlds_tag, world_name, textures, global_tex_anims
+        worlds_tag, world_name, textures, global_tex_anims,
+        render_nodepath=scene_world.p3d_nodepath
         )
     scene_item_infos = load_scene_item_infos_from_worlds_tag(
         worlds_tag, level_data

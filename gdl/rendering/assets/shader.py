@@ -1,6 +1,7 @@
 import panda3d
 
 from . import texture
+from . import constants as c
 
 class GeometryShader:
     dist_alpha   = False
@@ -36,13 +37,6 @@ class GeometryShader:
     _u_offset    = 0.0
     _v_offset    = 0.0
 
-    DRAW_SORT_LMAP          = 0
-    DRAW_SORT_OPAQUE        = 10
-    DRAW_SORT_ALPHA         = 20
-    DRAW_SORT_ALPHA_LAST    = 30
-    DRAW_SORT_ALPHA_LAST2   = 40
-    DRAW_SORT_SFX           = 1000
-
     ALPHA_SCALE_PRIORITY = 10000
 
     def __init__(self, *args, **kwargs):
@@ -53,8 +47,8 @@ class GeometryShader:
         self._lm_texture_stage   = panda3d.core.TextureStage('lightmap')
 
         self._lm_texture_stage.setTexcoordName("lm")
-        self._lm_texture_stage.setSort(GeometryShader.DRAW_SORT_LMAP)
-        self._diff_texture_stage.setSort(GeometryShader.DRAW_SORT_OPAQUE)
+        self._lm_texture_stage.setSort(c.DRAW_SORT_LMAP)
+        self._diff_texture_stage.setSort(c.DRAW_SORT_OPAQUE)
 
     @property
     def lm_texture(self):
@@ -155,15 +149,15 @@ class GeometryShader:
             nodepath.setAttrib(self._shade_model_attrib)
 
         if self.fb_add or self.fb_mul or self.add_first:
-            self._diff_texture_stage.setSort(GeometryShader.DRAW_SORT_SFX)
+            self._diff_texture_stage.setSort(c.DRAW_SORT_SFX)
         elif self.alpha_last_2:
-            self._diff_texture_stage.setSort(GeometryShader.DRAW_SORT_ALPHA_LAST2)
+            self._diff_texture_stage.setSort(c.DRAW_SORT_ALPHA_LAST2)
         elif self.alpha_last:
-            self._diff_texture_stage.setSort(GeometryShader.DRAW_SORT_ALPHA_LAST)
+            self._diff_texture_stage.setSort(c.DRAW_SORT_ALPHA_LAST)
         elif self.alpha or self.sort:
-            self._diff_texture_stage.setSort(GeometryShader.DRAW_SORT_ALPHA)
+            self._diff_texture_stage.setSort(c.DRAW_SORT_ALPHA)
         else:
-            self._diff_texture_stage.setSort(GeometryShader.DRAW_SORT_OPAQUE)
+            self._diff_texture_stage.setSort(c.DRAW_SORT_OPAQUE)
 
         if (self.fb_mul or self.fb_add or self.alpha or self.sort_alpha or
             self.alpha_last or self.alpha_last_2 or self.dist_alpha):

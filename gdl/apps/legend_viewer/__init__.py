@@ -79,7 +79,7 @@ class LegendViewer(Scene, HotkeyMenuBinder):
                     for scene_item in scene_items:
                         psys_by_name.update(scene_item.node_particle_systems)
 
-            elif self.active_actor:
+            if self.active_actor:
                 psys_by_name.update(self.active_actor.node_particle_systems)
 
             for psys in psys_by_name.values():
