@@ -3,13 +3,14 @@ import random
 import traceback
 import types
 
-from panda3d.core import NodePath, PandaNode, LVector3, LVector4, Point2,\
-     OmniBoundingVolume, MeshDrawer, TextureStage,\
-     ColorBlendAttrib, TransparencyAttrib, ShadeModelAttrib
+from panda3d.core import NodePath, PandaNode, \
+     LVector3, LVector4, Point2, Point3,\
+     OmniBoundingVolume, MeshDrawer, ColorBlendAttrib
 from direct.particles.ParticleEffect import ParticleEffect
-from .texture import Texture
 from . import shader
 from . import constants as c
+from ...compilation.g3d.serialization import vector_util
+from .scene_objects import util
 
 MIN_PHASE_PERIOD    = 0.00001
 MAX_PARTICLES       = 1000
@@ -105,20 +106,17 @@ class Particle:
         return w0 + (w1 - w0)*point
 
     @property
-    def tex_coords(self):
-        # TODO: look into whether or not particle textures can uv animate as well
-        return 0.0, 0.0, 1.0, 1.0
-
-    @property
     def geom_data(self):
         return (
             LVector3(*self.pos),
-            LVector4(*self.tex_coords),
+            LVector4(0.0, 0.0, 1.0, 1.0),
             self.width/2,
             LVector4(*self.color),
             )
 
     def is_visible(self, cam):
+        # TODO: optimize to not consider particle
+        #       visible if it's too far from camera
         p1 = cam.getRelativePoint(render, self.pos)
         return cam.node().getLens().project(p1, Point2())
 
@@ -180,23 +178,10 @@ class ParticleSystem:
     def root_p3d_nodepath(self): return self._root_p3d_nodepath
     @property
     def particles(self): return self._particles
-
     @property
     def emit_velocity(self):
-        y, p    = self.factory.emit_dir_yp
         speed   = self.factory.speed
-        angle   = self.factory.emit_range
-
-        i, j, k = self.factory.emit_dir
-        if angle:
-            # TODO: correct this to make it uniform and constrain to max angle
-            dy = random.random() * angle*2 - angle
-            dp = random.random() * angle*2 - angle
-            y += dy
-            p += dp
-
-        # TODO: convert i/j/k from a local vector to world
-
+        i, j, k = self.factory.random_emit_vector
         return i*speed, j*speed, k*speed
 
     @property
@@ -214,7 +199,8 @@ class ParticleSystem:
     def emit_rate(self):
         age = self.age
         if age < 0:
-            # invert for negative age
+            # invert for negative age to keep our calculations
+            # in the non-negative realm and make life easier.
             age = 1 - age
 
         phase, point = get_phase_and_point_from_age(
@@ -228,7 +214,7 @@ class ParticleSystem:
         if self.p3d_nodepath.isHidden():
             return False
 
-        p1 = cam.getRelativePoint(render, self.p3d_nodepath.getPos())
+        p1 = cam.getRelativePoint(self.p3d_nodepath, Point3(0.0, 0.0, 0.0))
         return cam.node().getLens().project(p1, Point2())
 
     def emit(self, invert_age=False):
@@ -252,6 +238,8 @@ class ParticleSystem:
         self._age           += age_delta
         self._emit_counter  += abs(age_delta * self.emit_rate)
 
+        # TODO: figure out what to do for emit_delay
+
         # update age of particles(clean up any that are too old)
         particles_to_delete = set()
         particles = self._particles
@@ -263,6 +251,10 @@ class ParticleSystem:
                 particles_to_delete.add(i)
             else:
                 particle.update(age_delta)
+
+                # TODO: record bounding radius of furthest away particle + its width to
+                #       determine the bounding radius of this system. use that for quick
+                #       determination of whether this system is visible or not.
 
         if particles_to_delete:
             self._particles = tuple(
@@ -280,15 +272,14 @@ class ParticleSystemFactory:
     _name       = ""
     _instances  = ()
     _enabled    = False
+    _shader     = None
     gravity     = False
 
     _mesh_drawer = None
     
     _max_particles  = MAX_PARTICLES
-    _texture        = None
     gravity_mod     = 0.0
     speed           = 0.0
-    emit_range      = 0.0
     emit_delay      = 0.0
 
     emit_life_a     = 1.0
@@ -296,8 +287,9 @@ class ParticleSystemFactory:
     particle_life_a = 1.0
     particle_life_b = 1.0
 
-    emit_dir           = (0.0, 0.0, 1.0)
-    emit_dir_yp        = (0.0, 0.0)
+    _emit_dir_quat     = (0.0, 0.0, 0.0, 1.0)
+    _emit_dir          = (0.0, 0.0, 1.0)
+    _emit_range        = 0.0
     emit_vol           = (0.0, 0.0, 0.0)
     emit_rates_a       = (1, 1)
     emit_rates_b       = (1, 1)
@@ -308,15 +300,14 @@ class ParticleSystemFactory:
     particle_colors_b  = [(1.0, 1.0, 1.0, 1.0),
                           (1.0, 1.0, 1.0, 1.0)]
 
-    _texture_stage = None
-
     def __init__(self, **kwargs):
         render_nodepath  = kwargs.pop("render_nodepath", render)
-        
-        self._texture_stage = TextureStage('diffuse')
+
+        # setup the particles mesh
         self._mesh_drawer = MeshDrawer()
-        mesh_nodepath = self._mesh_drawer.getRoot()
-        mesh_nodepath.reparentTo(render_nodepath)
+        self.p3d_nodepath.reparentTo(render_nodepath)
+        self.p3d_nodepath.node().setBounds(OmniBoundingVolume())
+        self.p3d_nodepath.node().setFinal(True)
 
         self._instances = []
 
@@ -324,7 +315,6 @@ class ParticleSystemFactory:
         self.gravity       = bool(kwargs.get("gravity", self.gravity))
         self.gravity_mod   = kwargs.get("gravity_mod", self.gravity_mod)
         self.speed         = kwargs.get("speed", self.speed)
-        self.texture       = kwargs.get("texture", self.texture)
         self.max_particles = kwargs.get("max_particles", self.max_particles)
         self.emit_range    = kwargs.get("emit_range", self.emit_range)
         self.emit_delay    = kwargs.get("emit_delay", self.emit_delay)
@@ -359,59 +349,19 @@ class ParticleSystemFactory:
             kwargs.get("b_out_color", DEFAULT_COLOR),
             )
 
-        if "emit_dir" in kwargs:
-            self._set_emit_dir(*kwargs["emit_dir"])
-            self.emit_dir = kwargs["emit_dir"]  # TEMPORARY
+        self.emit_dir = kwargs.get("emit_dir", self.emit_dir)
 
-        mesh_nodepath.setTwoSided(False)
-
-        mesh_nodepath.setDepthTest(True)
-        mesh_nodepath.setDepthWrite(False)
-
-        self._texture_stage.setCombineRgb(
-            TextureStage.CMModulate,
-            TextureStage.CSPrevious,
-            TextureStage.COSrcColor,
-            TextureStage.CSTexture,
-            TextureStage.COSrcColor,
+        self._shader = shader.GeometryShader(
+            diff_texture=kwargs.get("texture"),
             )
-        self._texture_stage.setCombineAlpha(
-            TextureStage.CMModulate,
-            TextureStage.CSPrevious,
-            TextureStage.COSrcAlpha,
-            TextureStage.CSTexture,
-            TextureStage.COSrcAlpha,
-            )
-
-        color_blend_attrib = None
-        if kwargs.get("fb_mul"):
-            color_blend_attrib = ColorBlendAttrib.make(
-                ColorBlendAttrib.MAdd,
-                ColorBlendAttrib.OFbufferColor,
-                ColorBlendAttrib.OZero,
-                )
-        elif kwargs.get("fb_add"):
-            color_blend_attrib = ColorBlendAttrib.make(
-                ColorBlendAttrib.MAdd,
-                ColorBlendAttrib.OIncomingAlpha,
-                ColorBlendAttrib.OOne,
-                )
-
-        self._texture_stage.setSort(c.DRAW_SORT_PARTICLES)
-
-        if kwargs.get("sort") and color_blend_attrib is None:
-            mesh_nodepath.setTransparency(TransparencyAttrib.MAlpha)
-        else:
-            mesh_nodepath.setTransparency(TransparencyAttrib.MDual)
-
-        if color_blend_attrib:
-            mesh_nodepath.setAttrib(color_blend_attrib)
-
-        mesh_nodepath.setAttrib(ShadeModelAttrib.make(ShadeModelAttrib.M_flat))
-
-        # setup bounding sphere for particles mesh
-        mesh_nodepath.node().setBounds(OmniBoundingVolume())
-        mesh_nodepath.node().setFinal(True)
+        self.shader.alpha       = True
+        self.shader.no_z_write  = True
+        self.shader.no_shading  = True
+        self.shader.sort        = kwargs.get("sort")
+        self.shader.fb_mul      = kwargs.get("fb_mul")
+        self.shader.fb_add      = kwargs.get("fb_add")
+        self.shader.forced_sort = c.DRAW_SORT_PARTICLES
+        self.apply_shader()
 
     @property
     def max_particle_age(self):
@@ -423,37 +373,102 @@ class ParticleSystemFactory:
     def max_particles(self, new_val):
         self._max_particles = int(new_val)
         self._mesh_drawer.setBudget(2*self.max_particles)
-
     @property
-    def enabled(self):
-        return self._enabled
+    def emit_range(self): return self._emit_range
+    @emit_range.setter
+    def emit_range(self, new_val):
+        self._emit_range = max(0.0, min(180.0, abs(new_val)))
+        emit_angle = self.emit_range*(math.pi/180)
+        emit_angle /= 2   # divide by 2 since emit_range is provided as the
+        #                   the angle of the entire inner cone, but for our
+        #                   calculations we want the half-cone angle
+        if emit_angle <= 90:
+            self._top_cap_radius    = math.sin(emit_angle)
+            self._bottom_cap_radius = 1.0
+        else:
+            self._top_cap_radius    = 1.0
+            self._bottom_cap_radius = math.sin(emit_angle-math.pi/2)
+    @property
+    def shader(self): return self._shader
+    @property
+    def p3d_node(self): return self.p3d_nodepath.node()
+    @property
+    def p3d_nodepath(self): return self.mesh_drawer.getRoot()
     @property
     def instances(self): return tuple(self._instances)
     @property
     def mesh_drawer(self): return self._mesh_drawer
     @property
+    def enabled(self): return self._enabled
+    @property
     def name(self): return self._name
     @property
-    def texture(self): return self._texture
-    @texture.setter
-    def texture(self, texture):
-        if not isinstance(texture, (Texture, type(None))):
-            raise TypeError(
-                f"texture must be of type texture.Texture, not {type(texture)}"
-                )
-        self._texture = texture
-        if getattr(texture, "p3d_texture", None):
-            nodepath = self._mesh_drawer.getRoot()
-            self._texture_stage.setAlphaScale(
-                2 if texture.signed_alpha else 1
-                )
-            nodepath.setTexture(
-                self._texture_stage, texture.p3d_texture
-                )
+    def emit_dir_quat(self): return self._emit_dir_quat
+    @property
+    def emit_dir(self): return self._emit_dir
+    @emit_dir.setter
+    def emit_dir(self, emit_dir):
+        # normalize the supplied vector and convert to a rotation quaternion
+        i, j, k = emit_dir
+        length = i**2 + j**2 + k**2
+        if length:
+            length = math.sqrt(length)
+        else:
+            i, j, k, length = 0.0, 0.0, 1.0, 1.0
 
-    def _set_emit_dir(self, i, j, k):
-        # TODO: calculate self.emit_dir_yp from i, j, k dir(look at collision code for example)
-        pass
+        i, j, k = emit_dir = (i/length, j/length, k/length)
+        r, y = math.acos(max(-1.0, min(1.0, k))), math.atan2(i, j)
+
+        qw, qi, qj, qk = util.gdl_euler_to_quaternion(y, 0, r)
+        self._emit_dir_quat = (qi, qj, qk, qw)
+        self._emit_dir = emit_dir
+    @property
+    def random_emit_vector(self):
+        i, j, k = 0.0, 0.0, 1.0
+        if self._top_cap_radius:
+            # NOTE: we're using the rejection method to select a random
+            #       point within the spawn cone. We calculate the radius
+            #       of the top cap of the cone(spawnable area), and the
+            #       radius of the bottom cap of the cone(non-spawnable).
+            #       the bottom radius is only not 1.0 when the cone is
+            #       inverted, extending around to the bottom of the sphere.
+            #       if the point we select is inside the top cap radius
+            #       and outside the bottom cap radius, we can choose to
+            #       spawn in either the top or bottom half. If the point
+            #       is inside the top cap radius and inside the bottom
+            #       cap radius, we can spawn in the top half. otherwise,
+            #       we have to randomly select a different point to try.
+            radius_scale = 2*self._top_cap_radius
+            for _ in range(10):
+                x = (random.random()-0.5)*radius_scale
+                y = (random.random()-0.5)*radius_scale
+                radius = math.sqrt(x**2 + y**2)
+                if radius > self._top_cap_radius:
+                    # not inside bounds. try again
+                    continue
+
+                i, j, k = x, y, math.sqrt(1.0 - radius**2)
+                if radius >= self._bottom_cap_radius and random.random() >= 0.5:
+                    k = -k
+                break
+
+        i, j, k = vector_util.rotate_vector_by_quaternion(
+            (i, j, k), self.emit_dir_quat
+            )
+        return i, j, k
+
+    def clear_shader(self):
+        self.shader.clear(self.p3d_nodepath)
+
+    def apply_shader(self):
+        self.shader.apply(self.p3d_nodepath)
+
+    def set_enabled(self, enabled=None):
+        self._enabled = bool(not self.enabled if enabled is None else enabled)
+        if self.enabled:
+            self.p3d_nodepath.show()
+        else:
+            self.p3d_nodepath.hide()
 
     def update(self, age_delta, cam=None):
         if cam is None: cam = base.cam
@@ -476,13 +491,12 @@ class ParticleSystemFactory:
 
         lens_bounds = cam.node().getLens().makeBounds()
         for psys in self.instances:
-            if budget <= 0:
+            if budget <= 0 or not self.enabled:
                 break
             elif not psys.is_visible(cam, lens_bounds):
                 continue
 
-            # reverse to draw oldest particles on top
-            for particle in psys.particles[::-1]:
+            for particle in psys.particles:
                 if budget <= 0:
                     break
                 elif particle.is_visible(cam):
@@ -490,9 +504,6 @@ class ParticleSystemFactory:
                     budget -= 1
 
         self.mesh_drawer.end()
-
-    def set_enabled(self, enabled=None):
-        self._enabled = bool(not self.enabled if enabled is None else enabled)
 
     def create_instance(self, nodepath):
         psys = ParticleSystem(factory=self, p3d_node=nodepath.node())

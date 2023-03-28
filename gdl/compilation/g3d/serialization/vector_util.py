@@ -15,6 +15,7 @@ cos_angle_between_vectors = dot_product
 
 
 def rotate_vector_by_quaternion(v, q):
+    # NOTE: quaternion is expected to be in form i, j, k, w
     vm_sq = v[0]**2 + v[1]**2 + v[2]**2
     if not vm_sq:
         return (0, 0, 0)

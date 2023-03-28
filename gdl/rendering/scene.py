@@ -93,7 +93,7 @@ class Scene(ShowBase):
         self.camera.setH(45)
         self.camera.setP(-35)
         self.camera.setR(0)
-        self.set_fov(90)
+        self.set_fov(70)
 
         self._actor_camera_pos = self._object_camera_pos = self.camera.getPos()
         self._actor_camera_rot = self._object_camera_rot = self.camera.getHpr()

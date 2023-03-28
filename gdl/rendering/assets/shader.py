@@ -7,6 +7,7 @@ class GeometryShader:
     dist_alpha   = False
     alpha        = False
     sort         = False
+    forced_sort  = None
 
     no_z_test    = False
     no_z_write   = False
@@ -97,6 +98,13 @@ class GeometryShader:
                 self.diff_texture.p3d_texture
                 )
 
+    def clear(self, nodepath):
+        nodepath.clearTexture()
+        nodepath.clearTexGen()
+        nodepath.clearTexTransform()
+        nodepath.clearAttrib(panda3d.core.ColorBlendAttrib)
+        nodepath.clearTransparency()
+
     def apply(self, nodepath):
         self.apply_diffuse(nodepath)
         if self.lm_texture:
@@ -148,7 +156,9 @@ class GeometryShader:
                 )
             nodepath.setAttrib(self._shade_model_attrib)
 
-        if self.fb_add or self.fb_mul or self.add_first:
+        if self.forced_sort is not None:
+            self._diff_texture_stage.setSort(self.forced_sort)
+        elif self.fb_add or self.fb_mul or self.add_first:
             self._diff_texture_stage.setSort(c.DRAW_SORT_SFX)
         elif self.alpha_last_2:
             self._diff_texture_stage.setSort(c.DRAW_SORT_ALPHA_LAST2)

@@ -271,6 +271,7 @@ class TextureAnimation(Animation):
         texture = self.get_frame_data(frame_time) if self.has_swap_animation else None
 
         # iterate as tuple in case we unbind it in the loop
+        models = []
         for ref_id, geometry_ref in tuple(self._geometry_binds.items()):
             geometry = geometry_ref()
             if geometry is None:
@@ -278,9 +279,18 @@ class TextureAnimation(Animation):
                 continue
             elif geometry.actor_tex_anim not in (self, None):
                 continue
+            models.append(geometry)
 
-            nodepath = geometry.p3d_nodepath
-            shader   = geometry.shader
+        for ref_id, psys_ref in tuple(self._psys_binds.items()):
+            psys = psys_ref()
+            if psys is None:
+                self.psys_unbind(ref_id)
+                continue
+            models.append(psys)
+
+        for model in models:
+            nodepath = model.p3d_nodepath
+            shader   = model.shader
             if self.has_uv_animation:
                 shader.set_diffuse_offset(nodepath, u, v)
 
@@ -290,15 +300,6 @@ class TextureAnimation(Animation):
             if shader.diff_texture is not texture and texture:
                 shader.diff_texture = texture
                 shader.apply_diffuse(nodepath)
-
-        for ref_id, psys_ref in tuple(self._psys_binds.items()):
-            psys = psys_ref()
-            if psys is None:
-                self.psys_unbind(ref_id)
-                continue
-
-            if psys.texture is not texture and texture:
-                psys.texture = texture
 
     def get_uv(self, frame_time):
         rate_u = self.scroll_rate_u

@@ -323,8 +323,6 @@ class SceneWorld(SceneObject):
                     scene_item.set_conatiner_item_visible(visible)
 
     def set_particles_visible(self, visible=None):
-        return
-        # TODO: retool this
         if visible is None:
             visible = not self._visible_states["particle_systems"]
 

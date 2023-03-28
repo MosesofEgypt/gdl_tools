@@ -44,11 +44,7 @@ class Geometry:
         self._actor_tex_anim = tex_anim
 
     def clear_shader(self):
-        self.p3d_nodepath.clearTexture()
-        self.p3d_nodepath.clearTexGen()
-        self.p3d_nodepath.clearTexTransform()
-        self.p3d_nodepath.clearAttrib(panda3d.core.ColorBlendAttrib)
-        self.p3d_nodepath.clearTransparency()
+        self.shader.clear(self.p3d_nodepath)
 
     def apply_shader(self):
         self.shader.apply(self.p3d_nodepath)
