@@ -1,4 +1,6 @@
 import panda3d
+from panda3d.core import TextureStage, ColorBlendAttrib,\
+     ShadeModelAttrib, TransparencyAttrib
 
 from . import texture
 from . import constants as c
@@ -44,8 +46,8 @@ class GeometryShader:
         self.lm_texture    = kwargs.pop("lm_texture",   self.lm_texture)
         self.diff_texture  = kwargs.pop("diff_texture", self.diff_texture)
         
-        self._diff_texture_stage = panda3d.core.TextureStage('diffuse')
-        self._lm_texture_stage   = panda3d.core.TextureStage('lightmap')
+        self._diff_texture_stage = TextureStage('diffuse')
+        self._lm_texture_stage   = TextureStage('lightmap')
 
         self._lm_texture_stage.setTexcoordName("lm")
         self._lm_texture_stage.setSort(c.DRAW_SORT_LMAP)
@@ -102,7 +104,7 @@ class GeometryShader:
         nodepath.clearTexture()
         nodepath.clearTexGen()
         nodepath.clearTexTransform()
-        nodepath.clearAttrib(panda3d.core.ColorBlendAttrib)
+        nodepath.clearAttrib(ColorBlendAttrib)
         nodepath.clearTransparency()
 
     def apply(self, nodepath):
@@ -122,18 +124,18 @@ class GeometryShader:
             nodepath.clearTexGen()
 
         self._diff_texture_stage.setCombineRgb(
-            panda3d.core.TextureStage.CMModulate,
-            panda3d.core.TextureStage.CSPrevious,
-            panda3d.core.TextureStage.COSrcColor,
-            panda3d.core.TextureStage.CSTexture,
-            panda3d.core.TextureStage.COSrcColor,
+            TextureStage.CMModulate,
+            TextureStage.CSPrevious,
+            TextureStage.COSrcColor,
+            TextureStage.CSTexture,
+            TextureStage.COSrcColor,
             )
         self._diff_texture_stage.setCombineAlpha(
-            panda3d.core.TextureStage.CMModulate,
-            panda3d.core.TextureStage.CSPrevious,
-            panda3d.core.TextureStage.COSrcAlpha,
-            panda3d.core.TextureStage.CSTexture,
-            panda3d.core.TextureStage.COSrcAlpha,
+            TextureStage.CMModulate,
+            TextureStage.CSPrevious,
+            TextureStage.COSrcAlpha,
+            TextureStage.CSTexture,
+            TextureStage.COSrcAlpha,
             )
         
         nodepath.clearDepthTest()
@@ -143,16 +145,16 @@ class GeometryShader:
         nodepath.setDepthWrite(not self.no_z_write)
 
         if self._color_blend_attrib:
-            nodepath.clearAttrib(panda3d.core.ColorBlendAttrib)
+            nodepath.clearAttrib(ColorBlendAttrib)
             self._color_blend_attrib = None
 
         if self._shade_model_attrib:
-            nodepath.clearAttrib(panda3d.core.ShadeModelAttrib)
+            nodepath.clearAttrib(ShadeModelAttrib)
             self._shade_model_attrib = None
 
         if self.no_shading:
-            self._shade_model_attrib = panda3d.core.ShadeModelAttrib.make(
-                panda3d.core.ShadeModelAttrib.M_flat 
+            self._shade_model_attrib = ShadeModelAttrib.make(
+                ShadeModelAttrib.M_flat 
                 )
             nodepath.setAttrib(self._shade_model_attrib)
 
@@ -172,24 +174,24 @@ class GeometryShader:
         if (self.fb_mul or self.fb_add or self.alpha or self.sort_alpha or
             self.alpha_last or self.alpha_last_2 or self.dist_alpha):
             if self.fb_mul:
-                self._color_blend_attrib = panda3d.core.ColorBlendAttrib.make(
-                    panda3d.core.ColorBlendAttrib.MAdd,
-                    panda3d.core.ColorBlendAttrib.OFbufferColor,
-                    panda3d.core.ColorBlendAttrib.OZero,
+                self._color_blend_attrib = ColorBlendAttrib.make(
+                    ColorBlendAttrib.MAdd,
+                    ColorBlendAttrib.OFbufferColor,
+                    ColorBlendAttrib.OZero,
                     )
             elif self.fb_add:
-                self._color_blend_attrib = panda3d.core.ColorBlendAttrib.make(
-                    panda3d.core.ColorBlendAttrib.MAdd,
-                    panda3d.core.ColorBlendAttrib.OIncomingAlpha,
-                    panda3d.core.ColorBlendAttrib.OOne,
+                self._color_blend_attrib = ColorBlendAttrib.make(
+                    ColorBlendAttrib.MAdd,
+                    ColorBlendAttrib.OIncomingAlpha,
+                    ColorBlendAttrib.OOne,
                     )
 
             if self.sort_alpha and not (self.fb_mul or self.fb_add):
-                nodepath.setTransparency(panda3d.core.TransparencyAttrib.MDual)
+                nodepath.setTransparency(TransparencyAttrib.MDual)
             else:
-                nodepath.setTransparency(panda3d.core.TransparencyAttrib.MAlpha)
+                nodepath.setTransparency(TransparencyAttrib.MAlpha)
         else:
-            nodepath.setTransparency(panda3d.core.TransparencyAttrib.MNone)
+            nodepath.setTransparency(TransparencyAttrib.MNone)
 
         if self._color_blend_attrib:
             nodepath.setAttrib(self._color_blend_attrib)

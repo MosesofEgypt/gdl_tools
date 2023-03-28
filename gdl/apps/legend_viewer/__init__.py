@@ -65,6 +65,16 @@ class LegendViewer(Scene, HotkeyMenuBinder):
             delta = self._frame_step_amount
             self._frame_step_amount = 0
 
+        psys_by_name = {}
+        if self.active_world:
+            psys_by_name.update(self.active_world.node_particle_systems)
+            for scene_items in self.active_world.node_scene_items.values():
+                for scene_item in scene_items:
+                    psys_by_name.update(scene_item.node_particle_systems)
+
+        if self.active_actor:
+            psys_by_name.update(self.active_actor.node_particle_systems)
+
         if delta:
             self._animation_timer += delta
             for set_name, resource_set in self._cached_resource_texture_anims.items():
@@ -80,19 +90,11 @@ class LegendViewer(Scene, HotkeyMenuBinder):
                 if isinstance(contained_item, SceneItemRandom):
                     contained_item.update(self._animation_timer)
 
-            psys_by_name = {}
-            if self.active_world:
-                psys_by_name.update(self.active_world.node_particle_systems)
-                for scene_items in self.active_world.node_scene_items.values():
-                    for scene_item in scene_items:
-                        psys_by_name.update(scene_item.node_particle_systems)
-
-            if self.active_actor:
-                psys_by_name.update(self.active_actor.node_particle_systems)
-
             for psys in psys_by_name.values():
                 psys.update(delta, self.cam)
-                psys.render(render, self.cam)
+
+        for psys in psys_by_name.values():
+            psys.render(render, self.cam)
 
         self._prev_animation_timer = task.time
         return direct.task.Task.cont

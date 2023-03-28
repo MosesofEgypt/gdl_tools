@@ -12,6 +12,10 @@ from . import constants as c
 from ...compilation.g3d.serialization import vector_util
 from .scene_objects import util
 
+
+SPAWN_PATCH_CUTOFF  = math.cos(30*(math.pi/180)) # patch will cover last 30 degrees
+SPAWN_PATCH_MAGIC   = 0.367879442  # used to shift and scale range for logrithm input
+SPAWN_REJECT_MAX    = 5 # max number of times to reject a particle before using default vector
 MIN_PHASE_PERIOD    = 0.00001
 MAX_PARTICLES       = 1000
 FLOAT_INFINITY      = float("inf") 
@@ -211,7 +215,8 @@ class ParticleSystem:
         return particles_per_sec
 
     def is_visible(self, cam, lens_bounds):
-        if self.p3d_nodepath.isHidden():
+        if (self.p3d_nodepath.isHidden() or not
+            self.root_p3d_nodepath.isAncestorOf(self.p3d_nodepath)):
             return False
 
         p1 = cam.getRelativePoint(self.p3d_nodepath, Point3(0.0, 0.0, 0.0))
@@ -278,6 +283,7 @@ class ParticleSystemFactory:
     _mesh_drawer = None
     
     _max_particles  = MAX_PARTICLES
+    _spawn_patch_cutoff = SPAWN_PATCH_CUTOFF
     gravity_mod     = 0.0
     speed           = 0.0
     emit_delay      = 0.0
@@ -377,17 +383,17 @@ class ParticleSystemFactory:
     def emit_range(self): return self._emit_range
     @emit_range.setter
     def emit_range(self, new_val):
-        self._emit_range = max(0.0, min(180.0, abs(new_val)))
-        emit_angle = self.emit_range*(math.pi/180)
-        emit_angle /= 2   # divide by 2 since emit_range is provided as the
-        #                   the angle of the entire inner cone, but for our
-        #                   calculations we want the half-cone angle
+        self._emit_range = max(0.0, min(360.0, abs(new_val)))
+        emit_angle = self.emit_range / 2
+        # NOTE: we divide by 2 since emit_range is provided as the angle of
+        #       the entire inner cone, but our calculations want half-angles
+        deg_to_rad = math.pi/180
         if emit_angle <= 90:
-            self._top_cap_radius    = math.sin(emit_angle)
+            self._top_cap_radius    = math.sin(emit_angle*deg_to_rad)
             self._bottom_cap_radius = 1.0
         else:
             self._top_cap_radius    = 1.0
-            self._bottom_cap_radius = math.sin(emit_angle-math.pi/2)
+            self._bottom_cap_radius = math.sin((180-emit_angle)*deg_to_rad)
     @property
     def shader(self): return self._shader
     @property
@@ -438,11 +444,30 @@ class ParticleSystemFactory:
             #       is inside the top cap radius and inside the bottom
             #       cap radius, we can spawn in the top half. otherwise,
             #       we have to randomly select a different point to try.
+            # NOTE: to fix a weakness of the rejection method and cover
+            #       bald spots it generates on the outside ring of the
+            #       sphere, we take the rejections as a chance to generate
+            #       a coordinate a certain minimum distance from the edge.
+            #       we use a logrithmic scale to weight the positions
+            #       towards the edge and away from the center. we do this
+            #       to try to smooth the transition from bald to patched.
             radius_scale = 2*self._top_cap_radius
-            for _ in range(10):
+            convert_period = self._top_cap_radius - self._spawn_patch_cutoff
+            for _ in range(SPAWN_REJECT_MAX):
                 x = (random.random()-0.5)*radius_scale
                 y = (random.random()-0.5)*radius_scale
                 radius = math.sqrt(x**2 + y**2)
+                if radius > self._top_cap_radius and self._spawn_patch_cutoff <= self._top_cap_radius:
+                    # not inside bounds. generate coordinates from edge and try those
+                    angle = math.pi*random.random()*2
+                    radius_scale = 1 - math.log(
+                        1/(random.random()*(1 - SPAWN_PATCH_MAGIC)+SPAWN_PATCH_MAGIC)
+                        )**3
+
+                    radius = self._spawn_patch_cutoff + convert_period*radius_scale
+                    x = math.sin(angle) * radius
+                    y = math.cos(angle) * radius
+
                 if radius > self._top_cap_radius:
                     # not inside bounds. try again
                     continue
