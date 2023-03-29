@@ -41,6 +41,24 @@ OBJECT_NAME_SHADOW1   = "SHADOW1L1"
 OBJECT_NAME_SHADOW2   = "SHADOW2L1"
 OBJECT_NAME_SHADOW3   = "SHADOW3L1"
 
+# NOTE: sorted to match PLAYER_COLORS enum
+SFX_FOLDER_NAMES = (
+    "SFXYEL",
+    "SFXBLU",
+    "SFXRED",
+    "SFXGRE",
+    )
+BASE_CHARACTER_FOLDER_NAMES = (
+    "WAR",
+    "VAL",
+    "WIZ",
+    "ARC",
+    "DWF",
+    "KNI",
+    "SOR",
+    "JES",
+    )
+
 # if these are found, they will be replaced real-time
 # with those found in the level data. fucking Midway...
 DEFAULT_ENEMY_TYPE_TINY = "RAT"

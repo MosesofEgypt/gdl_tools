@@ -363,9 +363,11 @@ class ParticleSystemFactory:
         self.shader.alpha       = True
         self.shader.no_z_write  = True
         self.shader.no_shading  = True
+        self.shader.color_scale = 2
         self.shader.sort        = kwargs.get("sort")
         self.shader.fb_mul      = kwargs.get("fb_mul")
         self.shader.fb_add      = kwargs.get("fb_add")
+
         self.shader.forced_sort = c.DRAW_SORT_PARTICLES
         self.apply_shader()
 

@@ -94,7 +94,7 @@ def load_nodes_from_anim_tag(actor_name, anim_tag):
                 fb_mul       = bool(flags.fb_mul),
                 ),
             billboard    = (flags.front_face or flags.camera_dir),
-            effect_index = anode_info.parent_index,
+            effect_index = anode_info.anim_seq_info_index,
             ))
 
     # link the nodes together

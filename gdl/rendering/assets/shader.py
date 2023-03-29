@@ -19,9 +19,10 @@ class GeometryShader:
     alpha_last   = False
     alpha_last_2 = False
     no_shading   = False
+    color_scale  = 1
 
-    fb_add       = False
-    fb_mul       = False
+    fb_add      = False
+    fb_mul      = False
 
     chrome       = False
     sharp        = False
@@ -123,6 +124,10 @@ class GeometryShader:
         else:
             nodepath.clearTexGen()
 
+        if self.color_scale != 1:
+            self._diff_texture_stage.setRgbScale(self.color_scale)
+            self._diff_texture_stage.setMode(TextureStage.MCombine)
+
         self._diff_texture_stage.setCombineRgb(
             TextureStage.CMModulate,
             TextureStage.CSPrevious,
@@ -137,7 +142,7 @@ class GeometryShader:
             TextureStage.CSTexture,
             TextureStage.COSrcAlpha,
             )
-        
+
         nodepath.clearDepthTest()
         nodepath.clearDepthWrite()
 

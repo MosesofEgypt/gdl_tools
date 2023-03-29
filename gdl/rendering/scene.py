@@ -11,6 +11,7 @@ from panda3d.core import AmbientLight, DirectionalLight, PointLight,\
      NodePath, PandaNode, ConfigVariableBool
 
 from . import free_camera
+from .assets import constants as c
 from .assets.scene_objects import scene_actor, scene_object, scene_world
 from .g3d_to_p3d.util import load_objects_dir_files, locate_objects_dir_files,\
      load_realm_data, locate_dir
@@ -131,6 +132,10 @@ class Scene(ShowBase):
     def curr_object_name(self): return self._curr_object_name
     @property
     def curr_object_set_name(self): return self._curr_object_set_name
+    @property
+    def cached_texture_set_names(self): return tuple(self._cached_resource_textures)
+    @property
+    def cached_texture_anim_set_names(self): return tuple(self._cached_resource_texture_anims)
 
     @property
     def active_world(self):
@@ -349,7 +354,7 @@ class Scene(ShowBase):
                 objects_tag, filepath, is_ngc
                 ) if objects_tag else {}
 
-        return dict(self._cached_resource_textures.get(set_name, {}))
+        return self.get_cached_textures(set_name)
 
     def get_resource_set_texture_anims(self, dirpath, recache=False):
         set_name = self.get_resource_set_name(dirpath)
@@ -367,6 +372,12 @@ class Scene(ShowBase):
                 anim_tag, textures
                 ) if anim_tag else {}
 
+        return self.get_cached_texture_anims(set_name)
+
+    def get_cached_textures(self, set_name):
+        return dict(self._cached_resource_textures.get(set_name, {}))
+
+    def get_cached_texture_anims(self, set_name):
         return dict(self._cached_resource_texture_anims.get(set_name, {}))
 
     def get_realm_level(self, dirpath, level_name, recache=False):
@@ -458,12 +469,21 @@ class Scene(ShowBase):
         textures_filepath = objects_data.get("textures_filepath")
         actor_tex_anims   = texture_anims.get("actor_anims", {})
         seq_tex_anims     = texture_anims.get("seq_anims", {})
-        global_tex_anims  = texture_anims.get("global_anims", {})
         if not objects_tag:
             return {}, {}
 
-        # TODO: load more textures since some particle effect textures rely on outside sources
-        textures = self.get_resource_set_textures(textures_filepath, is_ngc)
+        textures = {}
+        global_tex_anims = {}
+        # utilize every texture and animation we have loaded
+        for set_name in self.cached_texture_set_names:
+            textures.update(self.get_cached_textures(set_name))
+
+        for set_name in self.cached_texture_anim_set_names:
+            global_tex_anims.update(self.get_cached_texture_anims(set_name))
+
+        # NOTE: do these last to give them priority in the dict.update
+        textures.update(self.get_resource_set_textures(textures_filepath, is_ngc))
+        global_tex_anims.update(texture_anims.get("global_anims", {}))
 
         actor_names  = anim_tag.actor_names if anim_tag else ()
         object_names = set()
@@ -544,7 +564,17 @@ class Scene(ShowBase):
         # locate the folder all the level and shared item dirs are in
         level_items_dir = locate_dir(game_root_dir, "ITEMS", level_name)
         realm_items_dir = locate_dir(game_root_dir, "ITEMS", realm_name)
+        sfx_dir = ""
+        for char_dirname in c.BASE_CHARACTER_FOLDER_NAMES:
+            for sfx_dirname in c.SFX_FOLDER_NAMES:
+                if sfx_dir: break
+                sfx_dir = locate_dir(
+                    game_root_dir, "PLAYERS", char_dirname, sfx_dirname
+                    )
+
         items_dirs = set([
+            locate_dir(game_root_dir, "STATIC"),
+            sfx_dir,
             level_items_dir,
             realm_items_dir,
             locate_dir(game_root_dir, "POWERUPS"),
