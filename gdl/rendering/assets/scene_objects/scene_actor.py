@@ -8,6 +8,9 @@ class SceneActor(SceneObject):
     _actor_animations = ()
     _texture_animations = ()
     _shape_morph_animations = ()
+
+    # TODO: create method to take all attached models and
+    #       make skin-rigged singular mesh out of them.
     
     def __init__(self, **kwargs):
         self._actor_animations = {}
