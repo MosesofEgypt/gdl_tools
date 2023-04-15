@@ -18,7 +18,7 @@ SPAWN_PATCH_MAGIC   = 0.367879442  # used to shift and scale range for logrithm 
 SPAWN_REJECT_MAX    = 5 # max number of times to reject a particle before using default vector
 WIDTH_TO_RADIUS     = math.sqrt(2)/2
 MIN_PHASE_PERIOD    = 0.00001
-MAX_PARTICLES       = 1000
+MAX_PARTICLES       = 500
 
 DEFAULT_SYSTEM_RADIUS   = 1.0
 DEFAULT_EMITTER_LIFE    = 1.0
@@ -26,6 +26,7 @@ DEFAULT_PARTICLE_LIFE   = 1.0
 DEFAULT_PARTICLE_WIDTH  = 1.0
 DEFAULT_EMIT_RATE       = 30
 DEFAULT_COLOR           = (1.0, 1.0, 1.0, 1.0)
+MIN_PARTICLE_SIZE_SQ    = 1/10000
 
 
 def get_phase_and_point_from_age(age, *periods, clamp=False):
@@ -37,11 +38,12 @@ def get_phase_and_point_from_age(age, *periods, clamp=False):
         point = age - cycles * total_period
 
     for i, period in enumerate(periods):
-        if point < period and period:
-            return i, point / max(MIN_PHASE_PERIOD, period)
+        period = max(MIN_PHASE_PERIOD, period)
+        if point <= period and period:
+            return i, point / period
         point -= period
 
-    return 0, 0  # default case
+    return 0, 0  # default case that should never be hit
 
 
 class Particle:
@@ -143,19 +145,24 @@ class Particle:
             render_p3d_nodepath = render
 
         pos = cam.getRelativePoint(render_p3d_nodepath, self.pos)
+        # if the particle is too small from this distance, dont render it
+        part_dist_sq = pos.x**2 + pos.y**2 + pos.z**2
+        part_size_sq = (self.width**2) / part_dist_sq
+        if part_size_sq < MIN_PARTICLE_SIZE_SQ:
+            return False
+        
         lens = cam.node().getLens()
 
-        # do a cheap center point check
+        # if the center point is in the camera view, it's visible
         if lens.project(pos, Point2()):
             return True
 
-        bounding_volume = BoundingSphere(
-            pos, self.width*WIDTH_TO_RADIUS
-            )
-
+        part_bounds = BoundingSphere(pos, self.width*WIDTH_TO_RADIUS)
         if lens_bounds is None:
             lens_bounds = lens.makeBounds()
-        return lens_bounds.contains(bounding_volume)
+
+        # return whether the particle bounds is inside the camera frustum
+        return lens_bounds.contains(part_bounds)
 
     def reset(self, invert_age=False):
         self._age = self.factory.max_particle_age if invert_age else 0.0
@@ -258,7 +265,6 @@ class ParticleSystem:
         return particles_per_sec
 
     def is_visible(self, cam, lens_bounds=None):
-        # TODO: optimize to not consider system visible if it's occluded
         if (self.p3d_nodepath.isHidden() or not
             self.root_p3d_nodepath.isAncestorOf(self.p3d_nodepath)):
             return False

@@ -25,7 +25,9 @@ def load_textures_from_objects_tag(
         for index, name in texture_names.items():
             bitm = objects_tag.data.bitmaps[index]
             format_name = bitm.format.enum_name
-            if getattr(bitm.flags, "external", False) or bitm.frame_count > 0:
+            if (getattr(bitm.flags, "external", False) or
+                getattr(bitm.flags, "invalid", False) or
+                bitm.frame_count > 0):
                 # empty placeholder texture
                 p3d_texture = panda3d.core.Texture()
             else:
