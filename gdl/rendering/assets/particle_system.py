@@ -16,6 +16,7 @@ DEG_TO_RAD          = math.pi/180
 SPAWN_PATCH_CUTOFF  = math.cos(30*DEG_TO_RAD) # patch will cover last 30 degrees
 SPAWN_PATCH_MAGIC   = 0.367879442  # used to shift and scale range for logrithm input
 SPAWN_REJECT_MAX    = 5 # max number of times to reject a particle before using default vector
+WIDTH_TO_RADIUS     = math.sqrt(2)/2
 MIN_PHASE_PERIOD    = 0.00001
 MAX_PARTICLES       = 1000
 
@@ -27,17 +28,20 @@ DEFAULT_EMIT_RATE       = 30
 DEFAULT_COLOR           = (1.0, 1.0, 1.0, 1.0)
 
 
-def get_phase_and_point_from_age(age, period_a, period_b, clamp=False):
-    total_period = max(MIN_PHASE_PERIOD, period_a + period_b)
+def get_phase_and_point_from_age(age, *periods, clamp=False):
+    total_period = max(MIN_PHASE_PERIOD, sum(periods))
     if clamp:
         point = max(0, min(age, total_period))
     else:
         cycles  = int(age / total_period)
         point = age - cycles * total_period
 
-    if point >= period_a and period_b:
-        return 1, (point - period_a) / period_b
-    return 0, point / max(MIN_PHASE_PERIOD, period_a)
+    for i, period in enumerate(periods):
+        if point < period and period:
+            return i, point / max(MIN_PHASE_PERIOD, period)
+        point -= period
+
+    return 0, 0  # default case
 
 
 class Particle:
@@ -79,7 +83,7 @@ class Particle:
             i, j, k = self.init_vel
             t = self.age
             if self.factory.gravity:
-                k -= t*(c.PARTICLE_GRAVITY * self.factory.gravity_mod)
+                k -= t * c.PARTICLE_GRAVITY * self.factory.gravity_mod
 
             self._cached_pos = (
                 x + t*i,
@@ -146,7 +150,7 @@ class Particle:
             return True
 
         bounding_volume = BoundingSphere(
-            pos, self.width*0.71 # divide by close to sqrt(2)/2 to convert width to radius
+            pos, self.width*WIDTH_TO_RADIUS
             )
 
         if lens_bounds is None:
@@ -181,7 +185,7 @@ class ParticleSystem:
             raise TypeError(
                 f"root_p3d_node must be of type panda3d.core.PandaNode, not {type(root_p3d_node)}"
                 )
-        if not isinstance(p3d_node, PandaNode):
+        elif not isinstance(p3d_node, PandaNode):
             raise TypeError(
                 f"p3d_node must be of type panda3d.core.PandaNode, not {type(p3d_node)}"
                 )
@@ -243,9 +247,13 @@ class ParticleSystem:
             age = -age
 
         phase, point = get_phase_and_point_from_age(
-            age, self.factory.emit_life_a, self.factory.emit_life_b
+            age, self.factory.emit_delay, self.factory.emit_life_a, self.factory.emit_life_b
             )
-        r0, r1 = self.factory.emit_rates_b if phase == 1 else self.factory.emit_rates_a
+        if phase == 0:
+            # dont emit anything during delay period
+            return 0
+
+        r0, r1 = self.factory.emit_rates_b if phase == 2 else self.factory.emit_rates_a
         particles_per_sec = r0 + (r1 - r0)*point
         return particles_per_sec
 
@@ -283,8 +291,6 @@ class ParticleSystem:
 
         self._age           += age_delta
         self._emit_counter  += abs(age_delta * self.emit_rate)
-
-        # TODO: figure out what to do for emit_delay
 
         # update age of particles(clean up any that are too old)
         particles_to_delete = set()
