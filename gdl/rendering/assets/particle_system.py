@@ -26,7 +26,7 @@ DEFAULT_PARTICLE_LIFE   = 1.0
 DEFAULT_PARTICLE_WIDTH  = 1.0
 DEFAULT_EMIT_RATE       = 30
 DEFAULT_COLOR           = (1.0, 1.0, 1.0, 1.0)
-MIN_PARTICLE_SIZE_SQ    = (1/128)**2
+MIN_PARTICLE_SIZE_SQ    = (1/200)**2
 
 
 def get_phase_and_point_from_age_cycle(age, *periods):
