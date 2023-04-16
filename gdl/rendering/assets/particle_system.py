@@ -26,19 +26,30 @@ DEFAULT_PARTICLE_LIFE   = 1.0
 DEFAULT_PARTICLE_WIDTH  = 1.0
 DEFAULT_EMIT_RATE       = 30
 DEFAULT_COLOR           = (1.0, 1.0, 1.0, 1.0)
-MIN_PARTICLE_SIZE_SQ    = 1/10000
+MIN_PARTICLE_SIZE_SQ    = (1/128)**2
 
 
-def get_phase_and_point_from_age(age, *periods, clamp=False):
-    total_period = max(MIN_PHASE_PERIOD, sum(periods))
-    if clamp:
-        point = max(0, min(age, total_period))
-    else:
-        cycles  = int(age / total_period)
-        point = age - cycles * total_period
+def get_phase_and_point_from_age_cycle(age, *periods):
+    total_period = sum(periods)
+    total_period = MIN_PHASE_PERIOD if total_period < MIN_PHASE_PERIOD else total_period
+    point        = age - int(age / total_period) * total_period
 
     for i, period in enumerate(periods):
-        period = max(MIN_PHASE_PERIOD, period)
+        period = MIN_PHASE_PERIOD if period < MIN_PHASE_PERIOD else period
+        if point <= period and period:
+            return i, point / period
+        point -= period
+
+    return 0, 0  # default case that should never be hit
+
+
+def get_phase_and_point_from_age_clamp(age, *periods):
+    total_period = sum(periods)
+    total_period = MIN_PHASE_PERIOD if total_period < MIN_PHASE_PERIOD else total_period
+    point        = 0 if age < 0 else (total_period if age > total_period else age)
+
+    for i, period in enumerate(periods):
+        period = MIN_PHASE_PERIOD if period < MIN_PHASE_PERIOD else period
         if point <= period and period:
             return i, point / period
         point -= period
@@ -47,9 +58,9 @@ def get_phase_and_point_from_age(age, *periods, clamp=False):
 
 
 class Particle:
-    _age = 0.0
-    _system = None
+    system = None
 
+    age      = 0.0
     init_pos = (0.0, 0.0, 0.0)
     init_vel = (0.0, 0.0, 0.0)
 
@@ -61,31 +72,27 @@ class Particle:
     _cached_width = 0.0
 
     def __init__(self, **kwargs):
-        self._system  = kwargs.pop("system", self._system)
+        self.system   = kwargs.pop("system", self.system)
         self.init_pos = kwargs.pop("init_pos", self.init_pos)
         self.init_vel = kwargs.pop("init_vel", self.init_vel)
 
-        if not isinstance(self._system, ParticleSystem):
+        if not isinstance(self.system, ParticleSystem):
             raise TypeError(
-                f"system must be of type ParticleSystem, not {type(self._system)}"
+                f"system must be of type ParticleSystem, not {type(self.system)}"
                 )
         self.reset(invert_age=kwargs.get("invert_age"))
 
     @property
-    def age(self): return self._age
-    @property
-    def system(self): return self._system
-    @property
-    def factory(self): return self.system.factory
-
-    @property
     def pos(self):
         if self._cached_pos_age != self.age:
+            #pos = self.init_pos
+            #vel = self.init_vel
             x, y, z = self.init_pos
             i, j, k = self.init_vel
             t = self.age
-            if self.factory.gravity:
-                k -= t * c.PARTICLE_GRAVITY * self.factory.gravity_mod
+            factory = self.system.factory
+            if factory.gravity:
+                k -= t * c.PARTICLE_GRAVITY * factory.gravity_mod
 
             self._cached_pos = (
                 x + t*i,
@@ -98,12 +105,13 @@ class Particle:
     @property
     def color(self):
         if self._cached_color_age != self.age:
-            phase, point = get_phase_and_point_from_age(
-                self.age, self.factory.particle_life_a, self.factory.particle_life_b, clamp=True
+            factory = self.system.factory
+            phase, point = get_phase_and_point_from_age_clamp(
+                self.age, factory.particle_life_a, factory.particle_life_b
                 )
             colors = (
-                self.factory.particle_colors_b if phase == 1 else
-                self.factory.particle_colors_a
+                factory.particle_colors_b if phase == 1 else
+                factory.particle_colors_a
                 )
             r0, g0, b0, a0 = colors[0]
             r1, g1, b1, a1 = colors[1]
@@ -120,12 +128,13 @@ class Particle:
     @property
     def width(self):
         if self._cached_width_age != self.age:
-            phase, point = get_phase_and_point_from_age(
-                self.age, self.factory.particle_life_a, self.factory.particle_life_b, clamp=True
+            factory = self.system.factory
+            phase, point = get_phase_and_point_from_age_clamp(
+                self.age, factory.particle_life_a, factory.particle_life_b
                 )
             w0, w1 = (
-                self.factory.particle_widths_b if phase == 1 else
-                self.factory.particle_widths_a
+                factory.particle_widths_b if phase == 1 else
+                factory.particle_widths_a
                 )
             self._cached_width = w0 + (w1 - w0)*point
             self._cached_width_age = self.age
@@ -140,7 +149,7 @@ class Particle:
             LVector4(*self.color),
             )
 
-    def is_visible(self, cam, lens_bounds=None, render_p3d_nodepath=None):
+    def is_visible(self, cam, lens_bounds, render_p3d_nodepath=None):
         if render_p3d_nodepath is None:
             render_p3d_nodepath = render
 
@@ -150,7 +159,7 @@ class Particle:
         part_size_sq = (self.width**2) / part_dist_sq
         if part_size_sq < MIN_PARTICLE_SIZE_SQ:
             return False
-        
+
         lens = cam.node().getLens()
 
         # if the center point is in the camera view, it's visible
@@ -158,17 +167,14 @@ class Particle:
             return True
 
         part_bounds = BoundingSphere(pos, self.width*WIDTH_TO_RADIUS)
-        if lens_bounds is None:
-            lens_bounds = lens.makeBounds()
-
         # return whether the particle bounds is inside the camera frustum
         return lens_bounds.contains(part_bounds)
 
     def reset(self, invert_age=False):
-        self._age = self.factory.max_particle_age if invert_age else 0.0
+        self.age = self.system.factory.max_particle_age if invert_age else 0.0
 
     def update(self, age_delta):
-        self._age += age_delta
+        self.age += age_delta
 
 
 class ParticleSystem:
@@ -176,15 +182,16 @@ class ParticleSystem:
     _emit_counter    = 0.0
     _bounding_radius = 1.0
     _paused          = False
-    _factory         = None
     _particles       = ()
+
+    factory          = None
 
     _p3d_nodepath           = None
     _root_p3d_nodepath      = None
 
     def __init__(self, **kwargs):
         self._paused    = kwargs.pop("paused", False)
-        self._factory   = kwargs.pop("factory", None)
+        self.factory    = kwargs.pop("factory", self.factory)
         p3d_node        = kwargs.pop("p3d_node", None)
         root_p3d_node   = kwargs.pop("root_p3d_node", render.node())
 
@@ -196,9 +203,9 @@ class ParticleSystem:
             raise TypeError(
                 f"p3d_node must be of type panda3d.core.PandaNode, not {type(p3d_node)}"
                 )
-        elif not isinstance(self._factory, ParticleSystemFactory):
+        elif not isinstance(self.factory, ParticleSystemFactory):
             raise TypeError(
-                f"factory must be of type ParticleSystemFactory, not {type(self._factory)}"
+                f"factory must be of type ParticleSystemFactory, not {type(self.factory)}"
                 )
 
         self._p3d_nodepath = NodePath(p3d_node)
@@ -206,8 +213,6 @@ class ParticleSystem:
         self._bounding_radius = DEFAULT_SYSTEM_RADIUS
         self.reset()
 
-    @property
-    def factory(self): return self._factory
     @property
     def age(self): return self._age
     @property
@@ -227,12 +232,12 @@ class ParticleSystem:
     @property
     def emit_velocity(self):
         speed   = self.factory.speed
-        i, j, k = self.factory.random_emit_vector
-        return i*speed, j*speed, k*speed
+        vector  = self.factory.random_emit_vector
+        return vector[0]*speed, vector[1]*speed, vector[2]*speed
     @property
     def pos(self):
-        x, y, z = self.p3d_nodepath.get_pos(self.root_p3d_nodepath) # world-relative position
-        return x, y, z
+        # world-relative position
+        return tuple(self.p3d_nodepath.get_pos(self.root_p3d_nodepath))
 
     @property
     def emit_position(self):
@@ -253,7 +258,7 @@ class ParticleSystem:
             # in the non-negative realm and make life easier.
             age = -age
 
-        phase, point = get_phase_and_point_from_age(
+        phase, point = get_phase_and_point_from_age_cycle(
             age, self.factory.emit_delay, self.factory.emit_life_a, self.factory.emit_life_b
             )
         if phase == 0:
@@ -264,7 +269,7 @@ class ParticleSystem:
         particles_per_sec = r0 + (r1 - r0)*point
         return particles_per_sec
 
-    def is_visible(self, cam, lens_bounds=None):
+    def is_visible(self, cam, lens_bounds):
         if (self.p3d_nodepath.isHidden() or not
             self.root_p3d_nodepath.isAncestorOf(self.p3d_nodepath)):
             return False
@@ -273,18 +278,18 @@ class ParticleSystem:
         bounding_volume.setRadius(self._bounding_radius)
         bounding_volume.xform(self.p3d_nodepath.getMat(cam))
 
-        if lens_bounds is None:
-            lens_bounds = cam.node().getLens().makeBounds()
         return lens_bounds.contains(bounding_volume)
 
-    def emit(self, invert_age=False):
-        particle = Particle(
-            system=self,
-            init_pos=self.emit_position,
-            init_vel=self.emit_velocity,
-            invert_age=invert_age
+    def emit(self, count=1, invert_age=False):
+        self._particles += tuple(
+            Particle(
+                system=self,
+                init_pos=self.emit_position,
+                init_vel=self.emit_velocity,
+                invert_age=invert_age
+                )
+            for i in range(count)
             )
-        self._particles += (particle, )
 
     def reset(self):
         self._age           = 0.0
@@ -299,39 +304,38 @@ class ParticleSystem:
         self._emit_counter  += abs(age_delta * self.emit_rate)
 
         # update age of particles(clean up any that are too old)
-        particles_to_delete = set()
-        particles = self._particles
+        retained_particles = ()
         radius_sq = DEFAULT_SYSTEM_RADIUS**2
         x0, y0, z0 = self.pos
-        for i, particle in enumerate(particles):
+        for particle in self.particles:
             # NOTE: checking for age < 0 to allow rewinding
             #       system to previous times(i.e. play in reverse)
-            if (particle.age < 0 or
-                particle.age > self.factory.max_particle_age):
-                particles_to_delete.add(i)
-            else:
+            if (particle.age >= 0 and
+                particle.age <= self.factory.max_particle_age
+                ):
                 particle.update(age_delta)
+                retained_particles += (particle, )
+
                 x1, y1, z1 = particle.pos
-                dist_sq = (x1-x0)**2 +(y1-y0)**2 +(z1-z0)**2
+                new_radius_sq = (
+                    (x1-x0)**2 + (y1-y0)**2 + (z1-z0)**2 +
+                    (particle.width/2)**2
+                    )
 
                 # record bounding radius of furthest away particle + its
                 # width to determine the bounding radius of this system.
                 # NOTE: adding width this way will produce a larger bounding
                 #       radius, than actual, but it's close enough to be fine.
-                radius_sq = max(radius_sq, dist_sq + (particle.width/2)**2)
+                radius_sq = radius_sq if new_radius_sq <= radius_sq else new_radius_sq
 
-        if particles_to_delete:
-            self._particles = tuple(
-                particle for i, particle in enumerate(particles)
-                if i not in particles_to_delete
-                )
-
+        self._particles = retained_particles
         self._bounding_radius = math.sqrt(radius_sq)
 
         # emit new particles if it's time to
-        for i in range(int(math.ceil(self.emit_counter))):
-            self._emit_counter -= 1
-            self.emit(age_delta < 0)
+        if self._emit_counter > 0:
+            emit_count = int(math.ceil(self.emit_counter))
+            self.emit(emit_count, age_delta < 0)
+            self._emit_counter -= emit_count
 
 
 class ParticleSystemFactory:
@@ -515,11 +519,16 @@ class ParticleSystemFactory:
             #       to try to smooth the transition from bald to patched.
             radius_scale = 2*self._top_cap_radius
             convert_period = self._top_cap_radius - self._spawn_patch_cutoff
-            for _ in range(SPAWN_REJECT_MAX):
+            spawn_tries = SPAWN_REJECT_MAX
+            while spawn_tries > 0:
+                spawn_tries -= 1
+
                 x = (random.random()-0.5)*radius_scale
                 y = (random.random()-0.5)*radius_scale
                 radius_sq = x**2 + y**2
-                if radius_sq > self._top_cap_radius**2 and self._spawn_patch_cutoff <= self._top_cap_radius:
+
+                if (radius_sq > self._top_cap_radius**2 and
+                    self._spawn_patch_cutoff <= self._top_cap_radius):
                     # not inside bounds. generate coordinates from edge and try those
                     angle = math.pi*random.random()*2
                     radius_scale = 1 - math.log(
@@ -540,9 +549,12 @@ class ParticleSystemFactory:
                     k = -k
                 break
 
-        i, j, k = vector_util.rotate_vector_by_quaternion(
-            (i, j, k), self.emit_dir_quat
-            )
+        emit_dir_quat = self.emit_dir_quat
+        if emit_dir_quat != (0.0, 0.0, 0.0, 1.0):
+            i, j, k = vector_util.rotate_vector_by_quaternion(
+                (i, j, k), emit_dir_quat
+                )
+
         return i, j, k
 
     def clear_shader(self):

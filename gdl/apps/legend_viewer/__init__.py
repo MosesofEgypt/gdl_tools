@@ -1,3 +1,4 @@
+import cProfile
 import traceback
 import direct
 import os
@@ -26,6 +27,7 @@ class LegendViewer(Scene, HotkeyMenuBinder):
     _cycle_subview_left  = 0
     _cycle_subview_right = 0
     _frame_step_amount   = 0
+    _run_profile_loop    = 0
 
     main_window = None
 
@@ -37,6 +39,7 @@ class LegendViewer(Scene, HotkeyMenuBinder):
         dict(key="arrow_left-up",  func="lambda s=self: setattr(s, '_cycle_subview_left',  0)"),
         dict(key="arrow_right",    func="lambda s=self: setattr(s, '_cycle_subview_right', 1)"),
         dict(key="arrow_right-up", func="lambda s=self: setattr(s, '_cycle_subview_right', 0)"),
+        #dict(key="p", func="lambda s=self: setattr(s, '_run_profile_loop', 1)"),
         )
 
     def __init__(self):
@@ -57,6 +60,14 @@ class LegendViewer(Scene, HotkeyMenuBinder):
         self.taskMgr.add(self.shader_main_loop, 'main_loop::shader_update')
 
     def shader_main_loop(self, task):
+        if self._run_profile_loop:
+            self._run_profile_loop = 0
+            cProfile.runctx("self._shader_main_loop(task)", globals(), locals())
+            return direct.task.Task.cont
+        else:
+            return self._shader_main_loop(task)
+
+    def _shader_main_loop(self, task):
         # TODO: replace this with a proper animation handler
         delta = 0
         if not self._animation_timer_paused:
