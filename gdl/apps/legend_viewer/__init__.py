@@ -31,7 +31,6 @@ class LegendViewer(Scene, HotkeyMenuBinder):
     _run_profile_loop    = 0
 
     main_window = None
-    direct_tools = False
 
     _hotkey_menu_binds = (
         dict(key="tab",            func="self.cycle_scene_type", args=[1]),
@@ -44,27 +43,36 @@ class LegendViewer(Scene, HotkeyMenuBinder):
         dict(key="p", func="lambda s=self: setattr(s, '_run_profile_loop', 1)"),
         )
 
-    def __init__(self):
-        self.main_window = MainWindow(scene=self)
-        super().__init__(windowType='none')
+    def __init__(self, **kwargs):
+        debug = kwargs.pop("debug", False)
+        if debug:
+            ConfigVariableBool("want-tk").setValue(True)
+        else:
+            kwargs.update(windowType='none')
+
+        super().__init__(**kwargs)
+
         self.main_window.post_initialize()
 
         self.bind_hotkeys(self)
         self.cycle_scene_type()
         self.taskMgr.add(self.update_task, 'LegendViewer::update_task')
         self.taskMgr.add(self.shader_main_loop, 'main_loop::shader_update')
-        if self.direct_tools:
+        if debug:
             self.startDirect()
+            self.direct.disableModifierEvents()
+            self.direct.disableMouseEvents()
+            self.direct.disableKeyEvents()
 
     def create_main_window(self):
+        self.main_window = MainWindow(scene=self)
         self.tkRoot = Pmw.initialise(self.main_window)
+
         ConfigVariableBool("want-tk").setValue(True)
 
-        props = WindowProperties()
+        props = WindowProperties().get_default()
         props.setParentWindow(self.main_window.winfo_id())
-        props.setSize(1, 1)  # will be overridden by resize below
         self.openDefaultWindow(startDirect=False, props=props)
-        self.main_window.resize(None) # force screen refresh and size update
         self.startTk(True)
 
     def shader_main_loop(self, task):

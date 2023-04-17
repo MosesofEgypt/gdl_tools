@@ -18,7 +18,7 @@ SPAWN_PATCH_MAGIC   = 0.367879442  # used to shift and scale range for logrithm 
 SPAWN_REJECT_MAX    = 5 # max number of times to reject a particle before using default vector
 WIDTH_TO_RADIUS     = math.sqrt(2)/2
 MIN_PHASE_PERIOD    = 0.00001
-MAX_PARTICLES       = 500
+MAX_PARTICLES       = 256
 
 DEFAULT_SYSTEM_RADIUS   = 1.0
 DEFAULT_EMITTER_LIFE    = 1.0
@@ -464,6 +464,9 @@ class ParticleSystemFactory:
         return self._max_particles
     @max_particles.setter
     def max_particles(self, new_val):
+        if new_val is None:
+            new_val = MAX_PARTICLES
+
         self._max_particles = int(new_val)
         self._mesh_drawer.setBudget(2*self.max_particles)
     @property

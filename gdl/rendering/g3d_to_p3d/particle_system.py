@@ -32,9 +32,9 @@ def load_particle_system_from_block(
 
     psys_data = dict(
         texture         = texture,
-        max_particles   = psys_block.max_particles       if psys_block.enables.max_particles     else 10000,
+        max_particles   = psys_block.max_particles       if psys_block.enables.max_particles     else None,
         emit_range      = psys_block.emit_angle          if psys_block.enables.emit_angle        else 0,
-        emit_delay      = psys_block.emit_delay          if psys_block.enables.emit_delay        else 0, # TODO: determine purpose
+        emit_delay      = psys_block.emit_delay          if psys_block.enables.emit_delay        else 0,
         gravity_mod     = psys_block.part_gravity_mod    if psys_block.enables.part_gravity_mod  else 0,
         speed           = psys_block.part_speed          if psys_block.enables.part_speed        else 0,
         emit_life_a     = emit_life_a,

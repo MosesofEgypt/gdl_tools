@@ -184,10 +184,10 @@ def load_scene_world_from_tags(
             p3d_nodepath.node().set_preserve_transform(
                 ModelNode.PT_no_touch
                 )
-
-        collision = load_collision_from_worlds_tag(
-            worlds_tag, object_name, tri_index, tri_count,
-            )
+        else:
+            collision = load_collision_from_worlds_tag(
+                worlds_tag, object_name, tri_index, tri_count,
+                )
 
         if psys:
             try:
