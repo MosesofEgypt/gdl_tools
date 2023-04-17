@@ -243,7 +243,8 @@ item_info_data = Struct("item_info_data",
     Bool32("mb_flags",
         # only a single flag, and only set on damage tiles
         # (specifically only FLAMEV, FLAMEH, FORCEF, and FORCEF_S)
-        ("unknown", 0x10000),
+        # NOTE: currently unconfirmed, but highly likely
+        ("state_controls_psys_emitter", 0x10000),
         ),
     Union("properties",
         # NOTE: only used for powerups and damage tiles
@@ -338,39 +339,39 @@ world_object = Struct("world_object",
         # its possible for no flags to be set on all node types
         ("no_z_test",       1<<6),
         ("no_z_write",      1<<7),
-        ("color_obj",       1<<8),  # IS NEVER SET
-        ("alpha_obj",       1<<9),  # IS NEVER SET
+        {NAME: "color_obj", VALUE: 1<<8, VISIBLE: False},  # IS NEVER SET
+        {NAME: "alpha_obj", VALUE: 1<<9, VISIBLE: False},  # IS NEVER SET
         ("dist_alpha",      1<<10), 
         ("sort_alpha",      1<<11),
         ("no_shading",      1<<12),
         ("add_first",       1<<13),
         #("object_lmap",     1<<13),
-        ("temp_no_shade",   1<<14),  # IS NEVER SET
+        {NAME: "temp_no_shade", VALUE: 1<<14, VISIBLE: False},  # IS NEVER SET
 
         ("chrome",          1<<15),
-        ("no_alpha_z_write",1<<16),  # IS NEVER SET
-        ("car_body",        1<<17),  # IS NEVER SET
+        {NAME: "no_alpha_z_write", VALUE: 1<<16, VISIBLE: False},  # IS NEVER SET
+        {NAME: "car_body", VALUE: 1<<17, VISIBLE: False},  # IS NEVER SET
         #("object_o_chrome", 1<<17),
-        ("local_light",     1<<18),  # IS NEVER SET
+        {NAME: "local_light", VALUE: 1<<18, VISIBLE: False},  # IS NEVER SET
         ("alpha_last",      1<<19),
         #("object_t_chrome", 1<<19),
         ("dist_alpha_2",    1<<20),
 
-        ("no_filter",       1<<21),  # IS NEVER SET
+        {NAME: "no_filter", VALUE: 1<<21, VISIBLE: False},  # IS NEVER SET
 
         ("alpha_last_2",    1<<22),
         ("fb_add",          1<<23),
 
         ("front_face",      1<<24),
-        ("front_dir",       1<<25),  # IS NEVER SET
+        {NAME: "front_dir", VALUE: 1<<25, VISIBLE: False},  # IS NEVER SET
         ("camera_dir",      1<<26),
-        ("top_face",        1<<27),  # IS NEVER SET
+        {NAME: "top_face", VALUE: 1<<27, VISIBLE: False},  # IS NEVER SET
         #("object_keep_a",   1<<27),
 
-        ("tex_shift",       1<<28),  # IS NEVER SET
-        ("harden_a",        1<<29),  # IS NEVER SET
-        ("fb_mul",          1<<30),  # IS NEVER SET
-        ("scrn_clip",       1<<31),  # IS NEVER SET
+        {NAME: "tex_shift", VALUE: 1<<28, VISIBLE: False},  # IS NEVER SET
+        {NAME: "harden_a",  VALUE: 1<<29, VISIBLE: False},  # IS NEVER SET
+        {NAME: "fb_mul",    VALUE: 1<<30, VISIBLE: False},  # IS NEVER SET
+        {NAME: "scrn_clip", VALUE: 1<<31, VISIBLE: False},  # IS NEVER SET
         ),
     QStruct("pos", INCLUDE=xyz_float),
 

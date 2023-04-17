@@ -1,6 +1,7 @@
-from panda3d.core import ModelNode, NodePath
+from panda3d.core import ModelNode, NodePath, LQuaternionf
 from panda3d.physics import ActorNode
 
+from ....compilation.g3d.serialization import vector_util
 from ...assets.scene_objects.scene_actor import SceneActor
 from ..model import load_model_from_objects_tag
 from .. import util
@@ -137,7 +138,15 @@ def load_scene_actor_from_tags(
         flags      = node_info["flags"]
         eff_index  = node_info["effect_index"]
         if node_type == "particle_system" and eff_index in range(len(psys_by_index)):
-            psys_by_index[eff_index].create_instance(NodePath(p3d_node))
+            psys = psys_by_index[eff_index]
+            p3d_nodepath = NodePath(p3d_node)
+
+            # NOTE: for some reason, actor particle systems default to
+            #       facing along the x-axis if emit_dir is not set.
+            qi, qj, qk, qw = vector_util.gdl_normal_to_quaternion(1, 0, 0)
+            p3d_nodepath.setQuat(LQuaternionf(qw, qi, qj, qk))
+
+            psys.create_instance(p3d_nodepath)
 
         if not model_name:
             continue

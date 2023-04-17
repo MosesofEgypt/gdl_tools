@@ -47,20 +47,14 @@ class CollisionTriangle:
     def v2_xz(self): return (self.v2_x, self.v2_z)
 
     def local_xz_to_world_xyz(self, vx, vz):
-        r = math.acos(max(-1.0, min(1.0, self.n_j)))
-        y = math.atan2(
+        rot_quat = vector_util.gdl_normal_to_quaternion(
             -self.n_i * self.scale,
+            self.n_j,
             -self.n_k * self.scale
-            ) if self.scale != c.FLOAT_INFINITY else 0
-
-        # rotations occur in this order:
-        #   yaw:  around y axis from +z to +x
-        #   roll: around z axis from +x to +y
-        c0, c1 = math.cos(y / 2), math.cos(r / 2)
-        s0, s1 = math.sin(y / 2), math.sin(r / 2)
-        rot_quat = (-c0*s1, s0*c1, s0*s1, c0*c1)
-
-        vd = vector_util.rotate_vector_by_quaternion((vx, 0, vz), rot_quat)
+            )
+        vd = vector_util.rotate_vector_by_quaternion(
+            (vx, 0, vz), rot_quat
+            )
 
         # add the v0 offset
         return (self.v0_x + vd[0],

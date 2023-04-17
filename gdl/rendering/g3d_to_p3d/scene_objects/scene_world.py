@@ -1,8 +1,9 @@
 import traceback
 
-from panda3d.core import NodePath, ModelNode, GeomNode, Geom,\
+from panda3d.core import NodePath, ModelNode, GeomNode, Geom, LQuaternionf,\
      GeomTriangles, GeomVertexFormat, GeomVertexData, GeomVertexWriter
 
+from ....compilation.g3d.serialization import vector_util
 from ...assets.scene_objects.scene_world import SceneWorld
 from .scene_world_object import load_scene_world_object_from_tags
 from ..collision import load_collision_from_worlds_tag,\
@@ -128,7 +129,8 @@ def load_scene_world_from_tags(
         if world_name: break
         world_name = world_obj.name[:2]
 
-    collision_grid   = load_collision_grid_from_worlds_tag(worlds_tag)
+    collision_grid  = load_collision_grid_from_worlds_tag(worlds_tag)
+    coll_tris       = worlds_tag.data.coll_tris
     scene_world = SceneWorld(
         name=world_name, collision_grid=collision_grid,
         )
@@ -174,21 +176,33 @@ def load_scene_world_from_tags(
         p3d_nodepath = scene_world_object.p3d_nodepath
 
         collision = psys = None
+        tri_index = world_object.coll_tri_index
+        tri_count = world_object.coll_tri_count
         if world_object.flags.particle_system:
             psys_name = world_object.name[:psys_prefix_len].upper()
             psys = particle_systems.get(psys_name)
             p3d_nodepath.node().set_preserve_transform(
                 ModelNode.PT_no_touch
                 )
-        else:
-            collision = load_collision_from_worlds_tag(
-                worlds_tag, object_name,
-                world_object.coll_tri_index,
-                world_object.coll_tri_count,
-                )
+
+        collision = load_collision_from_worlds_tag(
+            worlds_tag, object_name, tri_index, tri_count,
+            )
 
         if psys:
+            try:
+                coll_tri   = coll_tris[tri_index]
+                ni, nj, nk = coll_tri.norm
+                qi, qj, qk, qw = vector_util.gdl_normal_to_quaternion(
+                    # HACK: we're negating nj because it seems to correct the
+                    #       facing direction of several particle systems.
+                    -ni * coll_tri.scale, -nj, -nk * coll_tri.scale
+                    )
+            except IndexError:
+                qi, qj, qk, qw = (0.0, 0.0, 0.0, 1.0)
+
             psys.create_instance(p3d_nodepath)
+            p3d_nodepath.setQuat(LQuaternionf(qw, qi, qj, qk))
 
         if collision:
             parent_node = (p3d_nodepath.node() if world_object.flags.animated

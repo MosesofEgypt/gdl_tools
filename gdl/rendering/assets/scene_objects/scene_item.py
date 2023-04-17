@@ -205,6 +205,12 @@ class SceneItem(SceneObject):
     @property
     def hidden(self):
         return self._flags.get("hidden", False)
+    @property
+    def node_particle_systems(self):
+        psys = dict(self._node_particle_systems)
+        if self._scene_object:
+            psys.update(self._scene_object.node_particle_systems)
+        return psys
 
     @property
     def scene_object(self):
@@ -275,6 +281,13 @@ class SceneItemContainer(SceneItem):
             if item_index in range(len(self.item_infos)):
                 self.contained_item_info = self.item_infos[item_index]
 
+    @property
+    def node_particle_systems(self):
+        psys = dict(self._node_particle_systems)
+        contained_item = self.contained_item
+        if contained_item:
+            psys.update(contained_item.node_particle_systems)
+        return psys
     @property
     def contained_item(self):
         return self._cached_contained_items.get(id(self._contained_item_info))

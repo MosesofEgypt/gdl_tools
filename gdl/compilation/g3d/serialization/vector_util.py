@@ -1,4 +1,7 @@
-from math import cos, sin, sqrt, pi
+from math import atan2, acos, cos, sin, sqrt, pi, isinf, isnan
+
+ACOS_NEG_ONE = acos(-1)
+ACOS_ONE     = acos(1)
 
 
 def dot_product(v0, v1):
@@ -9,6 +12,25 @@ def cross_product(ray_a, ray_b):
     return ((ray_a[1]*ray_b[2] - ray_a[2]*ray_b[1],
              ray_a[2]*ray_b[0] - ray_a[0]*ray_b[2],
              ray_a[0]*ray_b[1] - ray_a[1]*ray_b[0]))
+
+def gdl_normal_to_quaternion(ni, nj, nk):
+    # NOTE: quaternion is returned in the form i, j, k, w
+    r = (
+        ACOS_NEG_ONE if nj <= -1.0 else
+        ACOS_ONE     if nj >=  1.0 else
+        acos(nj)
+        )
+    if isnan(ni) or isnan(nk) or (isinf(ni) and isinf(nk)):
+        y = 0
+    else:
+        y = atan2(ni, nk)
+
+    # rotations occur in this order:
+    #   yaw:  around y axis from +z to +x
+    #   roll: around z axis from +x to +y
+    c0, c1 = cos(y / 2), cos(r / 2)
+    s0, s1 = sin(y / 2), sin(r / 2)
+    return -c0*s1, s0*c1, s0*s1, c0*c1
 
 
 cos_angle_between_vectors = dot_product

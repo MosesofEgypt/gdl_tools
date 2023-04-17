@@ -85,8 +85,6 @@ class Particle:
     @property
     def pos(self):
         if self._cached_pos_age != self.age:
-            #pos = self.init_pos
-            #vel = self.init_vel
             x, y, z = self.init_pos
             i, j, k = self.init_vel
             t = self.age
@@ -183,8 +181,10 @@ class ParticleSystem:
     _bounding_radius = 1.0
     _paused          = False
     _particles       = ()
-
     factory          = None
+
+    phase_override   = None
+    point_override   = None
 
     _p3d_nodepath           = None
     _root_p3d_nodepath      = None
@@ -231,9 +231,13 @@ class ParticleSystem:
     def particles(self): return self._particles
     @property
     def emit_velocity(self):
-        speed   = self.factory.speed
-        vector  = self.factory.random_emit_vector
-        return vector[0]*speed, vector[1]*speed, vector[2]*speed
+        speed  = self.factory.speed
+        i, j, k = self.factory.random_emit_vector
+        if not self.factory.fixed_dir:
+            i, j, k = self.root_p3d_nodepath.getRelativeVector(
+                self.p3d_nodepath, LVector3(i, j, k)
+                )
+        return i*speed, j*speed, k*speed
     @property
     def pos(self):
         # world-relative position
@@ -241,12 +245,17 @@ class ParticleSystem:
 
     @property
     def emit_position(self):
-        x, y, z = self.pos
         w, h, l = self.factory.emit_vol
         if w or h or l:
-            x += (random.random() * w*2 - w)/2
-            y += (random.random() * h*2 - h)/2
-            z += (random.random() * l*2 - l)/2
+            x, y, z = self.root_p3d_nodepath.getRelativePoint(
+                self.p3d_nodepath, LVector3(
+                    (random.random() * w*2 - w)/2,
+                    (random.random() * h*2 - h)/2,
+                    (random.random() * l*2 - l)/2
+                    )
+                )
+        else:
+            x, y, z = self.pos
 
         return x, y, z
 
@@ -258,9 +267,18 @@ class ParticleSystem:
             # in the non-negative realm and make life easier.
             age = -age
 
-        phase, point = get_phase_and_point_from_age_cycle(
-            age, self.factory.emit_delay, self.factory.emit_life_a, self.factory.emit_life_b
-            )
+        if self.phase_override is not None and self.point_override is not None:
+            phase = self.phase_override
+            point = self.point_override
+        elif self.factory.emit_life_a < 0 and self.factory.emit_life_b < 0:
+            # TEMPORARY FOR TESTING
+            phase = 1
+            point = 1
+        else:
+            phase, point = get_phase_and_point_from_age_cycle(
+                age, self.factory.emit_delay, self.factory.emit_life_a, self.factory.emit_life_b
+                )
+
         if phase == 0:
             # dont emit anything during delay period
             return 0
@@ -344,6 +362,7 @@ class ParticleSystemFactory:
     _enabled    = False
     _shader     = None
     gravity     = False
+    fixed_dir   = False
 
     _mesh_drawer = None
     
@@ -390,6 +409,7 @@ class ParticleSystemFactory:
         self.emit_range    = kwargs.get("emit_range", self.emit_range)
         self.emit_delay    = kwargs.get("emit_delay", self.emit_delay)
         self.emit_vol      = kwargs.get("emit_vol", self.emit_vol)
+        self.fixed_dir     = kwargs.get("fixed_dir", self.fixed_dir)
 
         self.emit_life_a        = kwargs.get("emit_life_a", self.emit_life_a)
         self.emit_life_b        = kwargs.get("emit_life_b", self.emit_life_b)
@@ -591,6 +611,7 @@ class ParticleSystemFactory:
 
         lens_bounds = cam.node().getLens().makeBounds()
         for psys in self.instances:
+            # TODO: implement proper rendering for instances of each instance(i.e. items)
             if budget <= 0 or not self.enabled:
                 break
             elif not psys.is_visible(cam, lens_bounds):

@@ -45,14 +45,11 @@ def load_particle_system_from_block(
         sort            = bool(psys_block.flags.sort    and psys_block.flag_enables.sort),
         fb_add          = bool(psys_block.flags.fb_add  and psys_block.flag_enables.fb_add),
         fb_mul          = bool(psys_block.flags.fb_mul  and psys_block.flag_enables.fb_mul),
+        fixed_dir       = bool(psys_block.enables.emit_dir),
         emit_dir = (
             psys_block.emit_dir[0],
             psys_block.emit_dir[2],
             psys_block.emit_dir[1]
-            # NOTE: default emit dir facing up seems correct for MOST things,
-            #       but appears wrong for others. for example, it appears to
-            #       be correct for all world particle systems, but SOME actor
-            #       particle systems need it set to (0, 1, 0), such as FLAMEH
             ) if psys_block.enables.emit_dir else (0.0, 0.0, 1.0),
         emit_vol = (
             abs(psys_block.emit_vol[0]),
