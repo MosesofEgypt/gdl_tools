@@ -8,7 +8,7 @@ import tkinter.filedialog
 
 from direct.showbase.ShowBase import ShowBase
 from panda3d.core import AmbientLight, DirectionalLight, PointLight,\
-     NodePath, PandaNode, ConfigVariableBool
+     NodePath, PandaNode, ConfigVariableBool, ConfigVariableString
 
 from . import free_camera
 from .assets import constants as c
@@ -27,7 +27,7 @@ from .g3d_to_p3d.particle_system import load_particle_systems_from_animations_ta
 # speed increase in windows because tkinter has to be emulated there.
 # don't enable this in Mac because according to the docs it will
 # lock up the GUI(no explanation as to why though)
-TK_CONTROL_MAINLOOP = os.name != "nt"
+TK_CONTROL_MAINLOOP = bool(os.name != "nt")
 
 
 class Scene(ShowBase):
@@ -70,11 +70,10 @@ class Scene(ShowBase):
     def __init__(self, **kwargs):
         # do this before anything
         ConfigVariableBool("tk-main-loop").setValue(TK_CONTROL_MAINLOOP)
+        #ConfigVariableString("threading-model").setValue("Cull/Draw")
 
-        super().__init__()
-
-        # turn em on
-        self.enableParticles()
+        super().__init__(**kwargs)
+        self.create_main_window()
 
         # put lighting on the main scene
         self._ambient_light = AmbientLight('alight')
@@ -150,6 +149,9 @@ class Scene(ShowBase):
     def active_object(self):
         return self._scene_objects.get(self.curr_object_set_name, {})\
                .get(self.curr_object_name)
+
+    def create_main_window(self):
+        pass
 
     def get_fov(self):
         return self.camNode.getLens(0).fov.getX()

@@ -4,12 +4,13 @@ import direct
 import os
 
 import tkinter.filedialog
+import Pmw
 
 from .main_window import MainWindow
 from ...rendering.scene import Scene
 from ...rendering.assets.scene_objects.scene_item import SceneItemRandom
 from .hotkey_menu_binder import HotkeyMenuBinder
-from panda3d.core import WindowProperties
+from panda3d.core import WindowProperties, ConfigVariableBool
 
 
 class LegendViewer(Scene, HotkeyMenuBinder):
@@ -30,6 +31,7 @@ class LegendViewer(Scene, HotkeyMenuBinder):
     _run_profile_loop    = 0
 
     main_window = None
+    direct_tools = False
 
     _hotkey_menu_binds = (
         dict(key="tab",            func="self.cycle_scene_type", args=[1]),
@@ -39,25 +41,31 @@ class LegendViewer(Scene, HotkeyMenuBinder):
         dict(key="arrow_left-up",  func="lambda s=self: setattr(s, '_cycle_subview_left',  0)"),
         dict(key="arrow_right",    func="lambda s=self: setattr(s, '_cycle_subview_right', 1)"),
         dict(key="arrow_right-up", func="lambda s=self: setattr(s, '_cycle_subview_right', 0)"),
-        #dict(key="p", func="lambda s=self: setattr(s, '_run_profile_loop', 1)"),
+        dict(key="p", func="lambda s=self: setattr(s, '_run_profile_loop', 1)"),
         )
 
     def __init__(self):
-        super().__init__(windowType='none')
         self.main_window = MainWindow(scene=self)
-        self.startTk()
+        super().__init__(windowType='none')
+        self.main_window.post_initialize()
+
+        self.bind_hotkeys(self)
+        self.cycle_scene_type()
+        self.taskMgr.add(self.update_task, 'LegendViewer::update_task')
+        self.taskMgr.add(self.shader_main_loop, 'main_loop::shader_update')
+        if self.direct_tools:
+            self.startDirect()
+
+    def create_main_window(self):
+        self.tkRoot = Pmw.initialise(self.main_window)
+        ConfigVariableBool("want-tk").setValue(True)
 
         props = WindowProperties()
         props.setParentWindow(self.main_window.winfo_id())
         props.setSize(1, 1)  # will be overridden by resize below
-        self.openDefaultWindow(props=props)
+        self.openDefaultWindow(startDirect=False, props=props)
         self.main_window.resize(None) # force screen refresh and size update
-
-        self.bind_hotkeys(self)
-
-        self.cycle_scene_type()
-        self.taskMgr.add(self.update_task, 'LegendViewer::update_task')
-        self.taskMgr.add(self.shader_main_loop, 'main_loop::shader_update')
+        self.startTk(True)
 
     def shader_main_loop(self, task):
         if self._run_profile_loop:

@@ -41,6 +41,7 @@ class AnimationControlsWindow(tk.Toplevel, HotkeyMenuBinder):
         self.update()
         width  = max((
             self.menus[""].winfo_reqwidth(),  # width of the root menu
+            300
             )) + 4  # account for padding
         height = sum((
             0,

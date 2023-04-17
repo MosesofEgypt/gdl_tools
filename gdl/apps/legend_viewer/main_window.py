@@ -56,18 +56,24 @@ class MainWindow(tk.Tk, HotkeyMenuBinder):
         self.title(self.get_title_text())
         self.update()  # necessary to allow focus to shift to window
 
-        self.scene_controls     = SceneControlsWindow(self, scene=self.scene)
-        self.animation_controls = AnimationControlsWindow(self, scene=self.scene)
-        self.scene_controls.withdraw()
-        self.animation_controls.withdraw()
-
         self.bind("<Configure>", self.resize)
+
+    def post_initialize(self):
+        if self.scene_controls is None:
+            self.scene_controls     = SceneControlsWindow(self, scene=self.scene)
+            self.scene_controls.withdraw()
+
+        if self.animation_controls is None:
+            self.animation_controls = AnimationControlsWindow(self, scene=self.scene)
+            self.animation_controls.withdraw()
+
         self.bind_hotkeys(self.scene)
         self.generate_menu()
 
     def scene_updated(self):
         self.title(self.get_title_text())
-        self.scene_controls.scene_updated()
+        if self.scene_controls:
+            self.scene_controls.scene_updated()
 
     def get_title_text(self):
         if self.scene.scene_type == self.scene.SCENE_TYPE_WORLD:

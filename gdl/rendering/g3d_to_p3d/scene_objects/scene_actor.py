@@ -131,6 +131,7 @@ def load_scene_actor_from_tags(
             tex_anims_by_tex_name.setdefault(tex_name, []).append(anim)
 
     # load and attach models
+    psys_to_add = {}
     for node_info in nodes_infos:
         model_name = node_info["model_name"]
         node_type  = node_info["node_type"]
@@ -147,6 +148,7 @@ def load_scene_actor_from_tags(
             p3d_nodepath.setQuat(LQuaternionf(qw, qi, qj, qk))
 
             psys.create_instance(p3d_nodepath)
+            psys_to_add[psys.name] = psys
 
         if not model_name:
             continue
@@ -173,7 +175,7 @@ def load_scene_actor_from_tags(
             if shader_updated:
                 geometry.apply_shader()
 
-    for psys in psys_by_index:
+    for psys in psys_to_add.values():
         scene_actor.add_particle_system(psys)
         psys.set_enabled(True)
 

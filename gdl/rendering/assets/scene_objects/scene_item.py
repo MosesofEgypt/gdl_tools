@@ -208,8 +208,8 @@ class SceneItem(SceneObject):
     @property
     def node_particle_systems(self):
         psys = dict(self._node_particle_systems)
-        if self._scene_object:
-            psys.update(self._scene_object.node_particle_systems)
+        if self.scene_object:
+            psys.update(self.scene_object.node_particle_systems)
         return psys
 
     @property
