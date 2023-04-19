@@ -241,13 +241,13 @@ class ParticleSystem:
     @property
     def pos(self):
         # world-relative position
-        return tuple(self.p3d_nodepath.get_pos(self.root_p3d_nodepath))
+        return self.p3d_nodepath.getPos(self.root_p3d_nodepath)
 
     @property
     def emit_position(self):
         w, h, l = self.factory.emit_vol
         if w or h or l:
-            x, y, z = self.root_p3d_nodepath.getRelativePoint(
+            pos = self.root_p3d_nodepath.getRelativePoint(
                 self.p3d_nodepath, LVector3(
                     (random.random() * w*2 - w)/2,
                     (random.random() * h*2 - h)/2,
@@ -255,9 +255,9 @@ class ParticleSystem:
                     )
                 )
         else:
-            x, y, z = self.pos
+            pos = self.pos
 
-        return x, y, z
+        return pos
 
     @property
     def emit_rate(self):
@@ -288,13 +288,13 @@ class ParticleSystem:
         return particles_per_sec
 
     def is_visible(self, cam, lens_bounds):
-        if (self.p3d_nodepath.isHidden() or not
-            self.root_p3d_nodepath.isAncestorOf(self.p3d_nodepath)):
+        nodepath = self.p3d_nodepath
+        if nodepath.isHidden() or not self.root_p3d_nodepath.isAncestorOf(nodepath):
             return False
 
         bounding_volume = BoundingSphere()
         bounding_volume.setRadius(self._bounding_radius)
-        bounding_volume.xform(self.p3d_nodepath.getMat(cam))
+        bounding_volume.xform(nodepath.getMat(cam))
 
         return lens_bounds.contains(bounding_volume)
 
@@ -440,6 +440,7 @@ class ParticleSystemFactory:
             kwargs.get("b_out_color", DEFAULT_COLOR),
             )
 
+        self.p3d_nodepath.name = self.name
         self.emit_dir = kwargs.get("emit_dir", self.emit_dir)
 
         self._shader = shader.GeometryShader(
@@ -605,6 +606,12 @@ class ParticleSystemFactory:
                 continue
             psys.update(age_delta)
 
+    def clear_render(self, root=None, cam=None):
+        if root is None: root = render
+        if cam is None:  cam  = base.cam
+        self.mesh_drawer.begin(cam, root)
+        self.mesh_drawer.end()
+
     def render(self, root=None, cam=None):
         if root is None: root = render
         if cam is None:  cam  = base.cam
@@ -630,5 +637,7 @@ class ParticleSystemFactory:
         self.mesh_drawer.end()
 
     def create_instance(self, nodepath):
-        psys = ParticleSystem(factory=self, p3d_node=nodepath.node())
+        psys = ParticleSystem(
+            factory=self, p3d_node=nodepath.node(),
+            )
         self._instances.append(psys)

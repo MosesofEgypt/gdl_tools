@@ -146,6 +146,7 @@ def load_scene_world_from_tags(
         )
 
     dyn_p3d_nodepath = NodePath(scene_world.dynamic_objects_node)
+    static_psys_p3d_nodepath = NodePath(scene_world.static_psys_node)
     dyn_coll_objects = collision_grid.dyn_collision_objects
     dyn_obj_indices = set(
         worlds_tag.data.dynamic_grid_objects.world_object_indices
@@ -182,7 +183,8 @@ def load_scene_world_from_tags(
             psys_name = world_object.name[:psys_prefix_len].upper()
             psys = particle_systems.get(psys_name)
             p3d_nodepath.node().set_preserve_transform(
-                ModelNode.PT_no_touch
+                ModelNode.PT_local if world_object.flags.animated else
+                ModelNode.PT_net
                 )
         else:
             collision = load_collision_from_worlds_tag(
@@ -201,6 +203,11 @@ def load_scene_world_from_tags(
             except IndexError:
                 qi, qj, qk, qw = (0.0, 0.0, 0.0, 1.0)
 
+            if not world_object.flags.animated:
+                p3d_nodepath.wrtReparentTo(static_psys_p3d_nodepath)
+                p3d_nodepath.setScale(1,1,1)
+                p3d_nodepath.setShear(0,0,0)
+
             psys.create_instance(p3d_nodepath)
             p3d_nodepath.setQuat(LQuaternionf(qw, qi, qj, qk))
 
@@ -217,9 +224,9 @@ def load_scene_world_from_tags(
 
         # reparent the dynamic object to the dynamic root if it's not already under it
         if i in dyn_obj_indices and dyn_p3d_nodepath.find_path_to(p3d_nodepath.node()).is_empty():
-            world_pos = p3d_nodepath.get_pos(dyn_p3d_nodepath)
-            p3d_nodepath.reparent_to(dyn_p3d_nodepath)
-            p3d_nodepath.set_pos(dyn_p3d_nodepath, world_pos)
+            p3d_nodepath.wrtReparentTo(dyn_p3d_nodepath)
+            p3d_nodepath.setScale(1,1,1)
+            p3d_nodepath.setShear(0,0,0)
 
     # optimize the world by flattening all statics
     if flatten_static:

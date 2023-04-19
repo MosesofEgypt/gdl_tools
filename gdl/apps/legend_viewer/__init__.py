@@ -29,6 +29,7 @@ class LegendViewer(Scene, HotkeyMenuBinder):
     _cycle_subview_right = 0
     _frame_step_amount   = 0
     _run_profile_loop    = 0
+    _last_rendered_psys  = ()
 
     main_window = None
 
@@ -44,6 +45,7 @@ class LegendViewer(Scene, HotkeyMenuBinder):
         )
 
     def __init__(self, **kwargs):
+        self._last_rendered_psys = {}
         debug = kwargs.pop("debug", False)
         if debug:
             ConfigVariableBool("want-tk").setValue(True)
@@ -59,10 +61,19 @@ class LegendViewer(Scene, HotkeyMenuBinder):
         self.taskMgr.add(self.update_task, 'LegendViewer::update_task')
         self.taskMgr.add(self.shader_main_loop, 'main_loop::shader_update')
         if debug:
-            self.startDirect()
-            self.direct.disableModifierEvents()
-            self.direct.disableMouseEvents()
-            self.direct.disableKeyEvents()
+            self.setup_direct_tools()
+
+    def setup_direct_tools(self):
+        self.startDirect()
+        self.direct.disableModifierEvents()
+        self.direct.disableMouseEvents()
+        self.direct.disableKeyEvents()
+        def noop(): pass
+
+        # don't want direct tools hotkeys interfering with ours
+        self.direct.enableModifierEvents = noop
+        self.direct.enableMouseEvents = noop
+        self.direct.enableKeyEvents = noop
 
     def create_main_window(self):
         self.main_window = MainWindow(scene=self)
@@ -123,6 +134,7 @@ class LegendViewer(Scene, HotkeyMenuBinder):
         for psys in psys_by_name.values():
             psys.render(render, self.cam)
 
+        self._last_rendered_psys = psys_by_name
         self._prev_animation_timer = task.time
         return direct.task.Task.cont
 
@@ -204,7 +216,7 @@ class LegendViewer(Scene, HotkeyMenuBinder):
             self.switch_scene_subview()
         else:
             return
-
+        
     def switch_scene_subview(self, increment=0):
         if self.scene_type == self.SCENE_TYPE_WORLD:
             # TODO: implement switching between camera points
@@ -242,3 +254,7 @@ class LegendViewer(Scene, HotkeyMenuBinder):
             return
 
         self.main_window.scene_updated()
+
+        # TODO: replace this when a proper particle system manager exists
+        for psys in self._last_rendered_psys.values():
+            psys.clear_render(render, self.cam)

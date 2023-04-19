@@ -15,6 +15,7 @@ class SceneWorld(SceneObject):
     _coll_grid = None
     _static_collision_node = None
     _static_objects_node   = None
+    _static_psys_node      = None
     _dynamic_objects_node  = None
     _coll_grid_model_node  = None
     _items_root_nodes   = ()
@@ -57,6 +58,7 @@ class SceneWorld(SceneObject):
         self._dynamic_objects_node  = panda3d.core.PandaNode("__DYNAMIC_OBJECTS_ROOT")
         self._coll_grid_model_node  = panda3d.core.ModelNode("__COLL_GRID_MODEL")
         self._static_collision_node = panda3d.core.ModelNode("__STATIC_COLLISION_ROOT")
+        self._static_psys_node      = panda3d.core.ModelNode("__STATIC_PSYS_ROOT")
         self._items_root_nodes = {}
         for item_type in (
                 "powerup", "container", "generator", "enemy", "trigger",
@@ -74,8 +76,12 @@ class SceneWorld(SceneObject):
         self.p3d_node.add_child(self._static_objects_node)
         self.p3d_node.add_child(self._dynamic_objects_node)
         self.p3d_node.add_child(self._coll_grid_model_node)
+        self.p3d_node.add_child(self._static_psys_node)
 
         self._static_collision_node.set_preserve_transform(
+            panda3d.core.ModelNode.PT_no_touch
+            )
+        self._static_psys_node.set_preserve_transform(
             panda3d.core.ModelNode.PT_no_touch
             )
 
@@ -85,6 +91,8 @@ class SceneWorld(SceneObject):
     def node_scene_items(self): return { k: tuple(v) for k, v in self._node_scene_items.items() }
     @property
     def static_objects_node(self): return self._static_objects_node
+    @property
+    def static_psys_node(self): return self._static_psys_node
     @property
     def static_collision_node(self): return self._static_collision_node
     @property
