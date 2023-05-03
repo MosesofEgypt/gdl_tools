@@ -1,13 +1,12 @@
 import traceback
 
-from panda3d.core import NodePath, ModelNode, GeomNode, Geom, LQuaternionf,\
+from panda3d.core import NodePath, ModelNode, GeomNode, Geom,\
      GeomTriangles, GeomVertexFormat, GeomVertexData, GeomVertexWriter
 
-from ....compilation.g3d.serialization import vector_util
 from ...assets.scene_objects.scene_world import SceneWorld
-from .scene_world_object import load_scene_world_object_from_tags
-from ..collision import load_collision_from_worlds_tag,\
-     load_collision_grid_from_worlds_tag
+from .scene_world_object import load_scene_world_object_from_tags,\
+     load_scene_world_psys_instance_from_tags
+from ..collision import load_collision_grid_from_worlds_tag
 from ..particle_system import load_particle_systems_from_worlds_tag
 from .scene_item import load_scene_item_infos_from_worlds_tag,\
      load_scene_item_from_item_instance
@@ -112,8 +111,7 @@ def generate_collision_grid_model(coll_grid):
 
 def load_scene_world_from_tags(
         *, worlds_tag, objects_tag, textures, anim_tag=None, level_data=None, 
-        world_item_actors=(), world_item_objects=(), global_tex_anims=(),
-        flatten_static=True, flatten_static_tex_anims=True
+        world_item_actors=(), world_item_objects=(), world_tex_anims=(), optimize=True,
         ):
     if world_item_actors is None:
         world_item_actors = {}
@@ -129,8 +127,7 @@ def load_scene_world_from_tags(
         if world_name: break
         world_name = world_obj.name[:2]
 
-    collision_grid  = load_collision_grid_from_worlds_tag(worlds_tag)
-    coll_tris       = worlds_tag.data.coll_tris
+    collision_grid = load_collision_grid_from_worlds_tag(worlds_tag)
     scene_world = SceneWorld(
         name=world_name, collision_grid=collision_grid,
         )
@@ -138,19 +135,18 @@ def load_scene_world_from_tags(
         worlds_tag, scene_world.static_objects_node
         )
     particle_systems = load_particle_systems_from_worlds_tag(
-        worlds_tag, world_name, textures, global_tex_anims,
+        worlds_tag, world_name, textures, world_tex_anims,
         render_nodepath=scene_world.p3d_nodepath
         )
     scene_item_infos = load_scene_item_infos_from_worlds_tag(
         worlds_tag, level_data
         )
-
-    dyn_p3d_nodepath = NodePath(scene_world.dynamic_objects_node)
-    static_psys_p3d_nodepath = NodePath(scene_world.static_psys_node)
-    dyn_coll_objects = collision_grid.dyn_collision_objects
     dyn_obj_indices = set(
         worlds_tag.data.dynamic_grid_objects.world_object_indices
         )
+
+    for texmod in world_tex_anims.values():
+        scene_world.add_world_texmod(texmod)
 
     # load the grid for use in debugging
     scene_world.coll_grid_model_node.addChild(
@@ -158,81 +154,33 @@ def load_scene_world_from_tags(
         )
     scene_world.set_collision_grid_visible(False)
 
-    psys_prefix_len = max((0,) + tuple(len(n) for n in particle_systems))
-
     # load and attach models and collision
     for i, world_object in enumerate(worlds_tag.data.world_objects):
         # TODO: pass animations list to have them bound to the object and
         #       allow determining if the node hierarchy can be flattened.
         # TODO: figure out how collision transforms will need to be handled.
         #       maybe look at world_object.flags.animated???
-        object_name = world_object.name.upper().strip()
-        scene_world_object = load_scene_world_object_from_tags(
-            world_object, textures=textures,
-            worlds_tag=worlds_tag, objects_tag=objects_tag,
-            global_tex_anims=global_tex_anims,
-            allow_model_flatten=flatten_static,
-            p3d_model=world_nodes[i]
-            )
-        p3d_nodepath = scene_world_object.p3d_nodepath
-
-        collision = psys = None
-        tri_index = world_object.coll_tri_index
-        tri_count = world_object.coll_tri_count
         if world_object.flags.particle_system:
-            psys_name = world_object.name[:psys_prefix_len].upper()
-            psys = particle_systems.get(psys_name)
-            p3d_nodepath.node().set_preserve_transform(
-                ModelNode.PT_local if world_object.flags.animated else
-                ModelNode.PT_net
+            load_scene_world_psys_instance_from_tags(
+                world_object, scene_world=scene_world, worlds_tag=worlds_tag,
+                particle_systems=particle_systems, p3d_node=world_nodes[i]
                 )
         else:
-            collision = load_collision_from_worlds_tag(
-                worlds_tag, object_name, tri_index, tri_count,
+            is_dynamic = i in dyn_obj_indices
+            scene_world_object = load_scene_world_object_from_tags(
+                world_object, scene_world=scene_world,
+                textures=textures, worlds_tag=worlds_tag, objects_tag=objects_tag,
+                world_tex_anims=world_tex_anims,
+                is_dynamic=is_dynamic, p3d_model=world_nodes[i]
                 )
+            scene_world.add_world_object(scene_world_object)
 
-        if psys:
-            try:
-                coll_tri   = coll_tris[tri_index]
-                ni, nj, nk = coll_tri.norm
-                qi, qj, qk, qw = vector_util.gdl_normal_to_quaternion(
-                    # HACK: we're negating nj because it seems to correct the
-                    #       facing direction of several particle systems.
-                    -ni * coll_tri.scale, -nj, -nk * coll_tri.scale
-                    )
-            except IndexError:
-                qi, qj, qk, qw = (0.0, 0.0, 0.0, 1.0)
-
-            if not world_object.flags.animated:
-                p3d_nodepath.wrtReparentTo(static_psys_p3d_nodepath)
-                p3d_nodepath.setScale(1,1,1)
-                p3d_nodepath.setShear(0,0,0)
-
-            psys.create_instance(p3d_nodepath)
-            p3d_nodepath.setQuat(LQuaternionf(qw, qi, qj, qk))
-
-        if collision:
-            parent_node = (p3d_nodepath.node() if world_object.flags.animated
-                           else scene_world.static_collision_node)
-
-            parent_node.add_child(collision.p3d_collision)
-            scene_world.add_collision(collision)
-            if object_name in dyn_coll_objects:
-                dyn_coll_objects[object_name].scene_object = scene_world_object
-
-        scene_world.add_world_object(scene_world_object)
-
-        # reparent the dynamic object to the dynamic root if it's not already under it
-        if i in dyn_obj_indices and dyn_p3d_nodepath.find_path_to(p3d_nodepath.node()).is_empty():
-            p3d_nodepath.wrtReparentTo(dyn_p3d_nodepath)
-            p3d_nodepath.setScale(1,1,1)
-            p3d_nodepath.setShear(0,0,0)
+            #if scene_world_object.p3d_node.get_preserve_transform() == ModelNode.PT_no_touch:
+            #    print(scene_world_object.name)
 
     # optimize the world by flattening all statics
-    if flatten_static:
-        scene_world.flatten_static_geometries(
-            global_tex_anims, flatten_static_tex_anims
-            )
+    if 0 and optimize:
+        scene_world.optimize_node_graph()
 
     for psys in particle_systems.values():
         scene_world.add_particle_system(psys)
@@ -245,7 +193,7 @@ def load_scene_world_from_tags(
                 level_data = level_data,
                 objects_tag = objects_tag,
                 textures = textures,
-                global_tex_anims = global_tex_anims,
+                world_tex_anims = world_tex_anims,
                 item_instance = item_instance,
                 scene_item_infos = scene_item_infos,
                 world_item_actors = world_item_actors,

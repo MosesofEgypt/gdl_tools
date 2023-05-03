@@ -25,11 +25,13 @@ def load_textures_from_objects_tag(
         for index, name in texture_names.items():
             bitm = objects_tag.data.bitmaps[index]
             format_name = bitm.format.enum_name
+            is_placeholder = False
             if (getattr(bitm.flags, "external", False) or
                 getattr(bitm.flags, "invalid", False) or
                 bitm.frame_count > 0):
                 # empty placeholder texture
                 p3d_texture = panda3d.core.Texture()
+                is_placeholder = True
             else:
                 f.seek(bitm.tex_pointer)
                 g3d_texture = G3DTexture()
@@ -54,7 +56,7 @@ def load_textures_from_objects_tag(
 
             texture = Texture(
                 name=name, signed_alpha=is_alpha_signed(format_name),
-                p3d_texture=p3d_texture
+                p3d_texture=p3d_texture, is_placeholder=is_placeholder,
                 )
 
             # in some instances we need to reference textures by

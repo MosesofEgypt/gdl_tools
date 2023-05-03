@@ -38,6 +38,19 @@ class SceneObject:
     @property
     def node_particle_systems(self): return dict(self._node_particle_systems)
 
+    def get_bound_texmods(self, p3d_nodepath=None):
+        if p3d_nodepath is None:
+            p3d_nodepath = self.p3d_nodepath
+
+        tex_anims_by_id = {}
+        for child in p3d_nodepath.findAllMatches('**'):
+            node = child.node()
+            texmod = node.getPythonTag("tex_anim")
+            if texmod:
+                tex_anims_by_id[id(texmod)] = texmod
+        
+        return tuple(tex_anims_by_id.values())
+
     def add_model(self, model):
         if not isinstance(model, Model):
             raise TypeError(f"model must be of type Model, not {type(model)}")
@@ -90,3 +103,10 @@ class SceneObject:
             visible = psys.enabled() if visible is None else visible
             psys.set_enabled(visible)
         return visible
+
+    def optimize_node_graph(self):
+        self.p3d_nodepath.flatten_strong()
+
+        for model in self.node_models.values():
+            for geometry in model.geometries:
+                geometry.apply_shader()

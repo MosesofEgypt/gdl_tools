@@ -23,7 +23,7 @@ def _register_g3d_vertex_format():
     return GeomVertexFormat.registerFormat(vformat)
 
 
-def load_geom_from_g3d_model(g3d_model, geom_shader, billboard=False):
+def load_geom_from_g3d_model(g3d_model, billboard=False):
     vdata = GeomVertexData('', G3DVertexFormat, Geom.UHDynamic)
     vdata.setNumRows(len(g3d_model.verts))
 
@@ -67,15 +67,9 @@ def load_geom_from_g3d_model(g3d_model, geom_shader, billboard=False):
         for tri in tri_list:
             addVertices(tri[0], tri[3], tri[6])
 
-    p3d_geometry = GeomNode("")
     geom = Geom(vdata)
     geom.addPrimitive(tris)
-    p3d_geometry.addGeom(geom)
-
-    return Geometry(
-        p3d_geometry=p3d_geometry, shader=geom_shader,
-        billboard=billboard
-        )
+    return geom
 
 
 def load_model_from_objects_tag(
@@ -100,8 +94,8 @@ def load_model_from_objects_tag(
         obj = objects_tag.data.objects[obj_index]
 
         flags    = getattr(obj, "flags", None)
-        subobjs  = (obj.sub_object_0, *getattr(obj.data, "sub_objects", ()))
         has_lmap = getattr(flags, "lmap", False)
+        subobjs  = (obj.sub_object_0, *getattr(obj.data, "sub_objects", ()))
         bnd_rad  = obj.bnd_rad
 
         datas = [ m.data for m in obj.data.sub_object_models ]
@@ -118,6 +112,9 @@ def load_model_from_objects_tag(
     model = model_class(
         name=model_name, p3d_model=p3d_model, bounding_radius=bnd_rad
         )
+    can_drop_node = True
+
+    p3d_geometry = GeomNode(model_name)
     for data, tex_name, lm_name in zip(datas, tex_names, lm_names):
         data.seek(0)  # reset in case data was read previously
 
@@ -136,28 +133,35 @@ def load_model_from_objects_tag(
         geom_shader.sort       = getattr(flags, "sort", False)
         geom_shader.sort_alpha = getattr(flags, "sort_a", False)
 
-        geometry = load_geom_from_g3d_model(
-            g3d_model, geom_shader, billboard
+        p3d_geometry.addGeom(
+            load_geom_from_g3d_model(g3d_model, billboard)
             )
+        geometry = Geometry(
+            p3d_geometry=p3d_geometry, shader=geom_shader,
+            billboard=billboard,
+            geom_index=p3d_geometry.getNumGeoms() - 1
+            )
+
+        # bind any texmods
         model.add_geometry(geometry)
         if tex_name in global_tex_anims:
             global_tex_anims[tex_name].geometry_bind(geometry)
-            is_static = False
+            can_drop_node = False
 
         if tex_name in seq_tex_anims:
+            can_drop_node = False
             for tex_anim in seq_tex_anims[tex_name]:
                 tex_anim.geometry_bind(geometry)
-                is_static = False
 
     if is_obj_anim and model_name in shape_morph_anims:
         for shape_morph_anim in shape_morph_anims[model_name]:
             shape_morph_anim.bind(model)
-            is_static = False
+            can_drop_node = False
 
-    if is_static:
+    if not is_static and can_drop_node:
         model.p3d_model.set_preserve_transform(ModelNode.PT_drop_node)
     else:
-        model.p3d_model.set_preserve_transform(ModelNode.PT_no_touch)
+        model.p3d_model.set_preserve_transform(ModelNode.PT_local)
 
     return model
 

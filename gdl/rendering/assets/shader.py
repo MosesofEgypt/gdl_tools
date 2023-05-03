@@ -1,6 +1,6 @@
 import panda3d
-from panda3d.core import TextureStage, ColorBlendAttrib,\
-     ShadeModelAttrib, TransparencyAttrib
+from panda3d.core import NodePath, PandaNode, TextureStage, ColorBlendAttrib,\
+     ShadeModelAttrib, TransparencyAttrib, RenderState
 
 from . import texture
 from . import constants as c
@@ -93,20 +93,6 @@ class GeometryShader:
         # the value to achieve the transparency level we want
         signed = not self.dist_alpha and getattr(self.diff_texture, "signed_alpha", True)
         self._diff_texture_stage.setAlphaScale(2 if signed else 1)
-
-    def apply_diffuse(self, nodepath):
-        if self.diff_texture:
-            nodepath.setTexture(
-                self._diff_texture_stage,
-                self.diff_texture.p3d_texture
-                )
-
-    def clear(self, nodepath):
-        nodepath.clearTexture()
-        nodepath.clearTexGen()
-        nodepath.clearTexTransform()
-        nodepath.clearAttrib(ColorBlendAttrib)
-        nodepath.clearTransparency()
 
     def apply(self, nodepath):
         self.apply_diffuse(nodepath)
@@ -203,3 +189,25 @@ class GeometryShader:
 
         self.set_diffuse_offset(nodepath)
         self.set_diffuse_alpha_level(nodepath)
+
+    def apply_diffuse(self, nodepath):
+        if self.diff_texture:
+            nodepath.setTexture(
+                self._diff_texture_stage,
+                self.diff_texture.p3d_texture
+                )
+
+    def clear(self, nodepath):
+        nodepath.clearTexture()
+        nodepath.clearTexGen()
+        nodepath.clearTexTransform()
+        nodepath.clearAttrib(ColorBlendAttrib)
+        nodepath.clearTransparency()
+
+    def make_render_state(self, parent_nodepath=None):
+        temp_nodepath = NodePath(PandaNode(""))
+        if parent_nodepath:
+            temp_nodepath.setState(parent_nodepath.getNetState())
+
+        self.apply(temp_nodepath)
+        return temp_nodepath.getNetState()

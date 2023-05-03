@@ -6,11 +6,12 @@ from . import shader
 class Geometry:
     _shader = None
     _p3d_nodepath = None
-    _actor_tex_anim = None
+    _geom_index = 0
     billboard = False
 
     def __init__(self, **kwargs):
         self._shader  = kwargs.pop("shader", self._shader)
+        self._geom_index = int(kwargs.pop("geom_index", self._geom_index))
         self.billboard = bool(kwargs.pop("billboard", self.billboard))
         if self._shader is None:
             self._shader = shader.GeometryShader()
@@ -38,16 +39,21 @@ class Geometry:
     @property
     def p3d_nodepath(self): return self._p3d_nodepath
     @property
-    def actor_tex_anim(self): return self._actor_tex_anim
-    @actor_tex_anim.setter
-    def actor_tex_anim(self, tex_anim):
-        self._actor_tex_anim = tex_anim
+    def geom_index(self): return self._geom_index
+    @property
+    def geom(self): return self._p3d_geometry.getGeom(self._geom_index)
 
     def clear_shader(self):
-        self.shader.clear(self.p3d_nodepath)
+        if self.geom_index in range(self.p3d_geometry.getNumGeoms()):
+            self.p3d_geometry.setGeomState(
+                self.geom_index, panda3d.core.RenderState.makeEmpty()
+                )
 
     def apply_shader(self):
-        self.shader.apply(self.p3d_nodepath)
+        if self.geom_index in range(self.p3d_geometry.getNumGeoms()):
+            self.p3d_geometry.setGeomState(
+                self.geom_index, self.shader.make_render_state(self.p3d_nodepath)
+                )
 
 
 class Model:

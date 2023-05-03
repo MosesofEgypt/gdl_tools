@@ -5,12 +5,14 @@ class Texture:
     _p3d_texture = None
 
     # usually signed
-    signed_alpha = True
+    signed_alpha    = True
+    is_placeholder  = False
 
     def __init__(self, **kwargs):
-        self._name        = kwargs.pop("name", self._name).upper().strip()
-        self._p3d_texture = kwargs.pop("p3d_texture", self._p3d_texture)
-        self.signed_alpha = kwargs.pop("signed_alpha", self.signed_alpha)
+        self._name          = kwargs.pop("name", self._name).upper().strip()
+        self._p3d_texture   = kwargs.pop("p3d_texture", self._p3d_texture)
+        self.signed_alpha   = kwargs.pop("signed_alpha", self.signed_alpha)
+        self.is_placeholder = kwargs.pop("is_placeholder", self.is_placeholder)
 
         if not isinstance(self.p3d_texture, panda3d.core.Texture):
             raise TypeError(

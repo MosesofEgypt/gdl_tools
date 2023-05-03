@@ -73,7 +73,7 @@ def load_scene_item_infos_from_worlds_tag(worlds_tag, level_data=None):
 def load_scene_item_from_item_instance(
         *, worlds_tag, objects_tag, textures, level_data,
         item_instance, scene_item_infos,
-        world_item_actors, world_item_objects, global_tex_anims
+        world_item_actors, world_item_objects, world_tex_anims
         ):
     instance_name = item_instance.name.upper().strip()
 
@@ -116,7 +116,7 @@ def load_scene_item_from_item_instance(
     elif instance_name:
         model = load_model_from_objects_tag(
             objects_tag, instance_name, textures, is_static=False,
-            global_tex_anims=global_tex_anims
+            global_tex_anims=world_tex_anims
             )
         if model:
             scene_item.add_model(model)

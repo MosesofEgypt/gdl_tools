@@ -40,10 +40,19 @@ def load_nodes_from_anim_tag(actor_name, anim_tag):
         p3d_nodepath = NodePath(p3d_node)
         p3d_nodepath.set_pos(x, z, y)
 
+        can_drop_node = node_type in ("null", "skeletal")
         if flags.front_face:
             p3d_nodepath.setBillboardAxis()
+            can_drop_node = False
         elif flags.camera_dir:
             p3d_nodepath.setBillboardPointWorld()
+            can_drop_node = False
+
+        if node_type == "skeletal" and can_drop_node:
+            for seq_info in anode_info.anim_seq_infos:
+                if seq_info.size:
+                    can_drop_node = False
+                    break
 
         # either find the root node, or setup info to link this node to its parent
         if parent in range(len(anodes)):
@@ -74,6 +83,9 @@ def load_nodes_from_anim_tag(actor_name, anim_tag):
         else:
             model_name = actor_prefix + node_name
 
+        if can_drop_node:
+            p3d_node.set_preserve_transform(ModelNode.PT_drop_node)
+
         p3d_nodes.append(p3d_node)
         nodes_infos.append(dict(
             node_type=node_type,
@@ -94,8 +106,9 @@ def load_nodes_from_anim_tag(actor_name, anim_tag):
                 fb_add       = bool(flags.fb_add),
                 fb_mul       = bool(flags.fb_mul),
                 ),
-            billboard    = (flags.front_face or flags.camera_dir),
-            effect_index = anode_info.anim_seq_info_index,
+            can_drop_node = can_drop_node,
+            billboard     = (flags.front_face or flags.camera_dir),
+            effect_index  = anode_info.anim_seq_info_index,
             ))
 
     # link the nodes together
@@ -112,7 +125,8 @@ def load_nodes_from_anim_tag(actor_name, anim_tag):
 
 def load_scene_actor_from_tags(
         actor_name, *, anim_tag, textures, objects_tag=None,
-        global_tex_anims=(), seq_tex_anims=(), shape_morph_anims=(), psys_by_index=()
+        global_tex_anims=(), seq_tex_anims=(), shape_morph_anims=(), psys_by_index=(),
+        optimize=True
         ):
     actor_name = actor_name.upper().strip()
     actor_node = ActorNode(actor_name)
@@ -133,47 +147,56 @@ def load_scene_actor_from_tags(
     # load and attach models
     psys_to_add = {}
     for node_info in nodes_infos:
-        model_name = node_info["model_name"]
-        node_type  = node_info["node_type"]
-        p3d_node   = node_info["p3d_node"]
-        flags      = node_info["flags"]
-        eff_index  = node_info["effect_index"]
-        if node_type == "particle_system" and eff_index in range(len(psys_by_index)):
-            psys = psys_by_index[eff_index]
-            p3d_nodepath = NodePath(p3d_node)
+        can_drop_node = node_info["can_drop_node"]
+        model_name    = node_info["model_name"]
+        node_type     = node_info["node_type"]
+        p3d_node      = node_info["p3d_node"]
+        flags         = node_info["flags"]
+        eff_index     = node_info["effect_index"]
 
+        if node_type == "particle_system":
             # NOTE: for some reason, actor particle systems default to
             #       facing along the x-axis if emit_dir is not set.
             qi, qj, qk, qw = vector_util.gdl_normal_to_quaternion(1, 0, 0)
+            p3d_nodepath = NodePath(p3d_node)
             p3d_nodepath.setQuat(LQuaternionf(qw, qi, qj, qk))
 
-            psys.create_instance(p3d_nodepath)
-            psys_to_add[psys.name] = psys
+            if eff_index in range(len(psys_by_index)):
+                psys = psys_by_index[eff_index]
+                psys.create_instance(p3d_nodepath)
+                psys_to_add[psys.name] = psys
+            else:
+                print("Warning: Referenced particle system {eff_index} does not exist")
 
-        if not model_name:
-            continue
+        elif node_type == "skeletal" and model_name:
+            model = load_model_from_objects_tag(
+                objects_tag, model_name, textures,
+                global_tex_anims, tex_anims_by_tex_name,
+                shape_morph_anims=shape_morph_anims, p3d_model=p3d_node,
+                is_static=can_drop_node, is_obj_anim=(node_type == "object"),
+                billboard=node_info["billboard"]
+                )
 
-        model = load_model_from_objects_tag(
-            objects_tag, model_name, textures,
-            global_tex_anims, tex_anims_by_tex_name,
-            shape_morph_anims=shape_morph_anims, p3d_model=p3d_node,
-            is_static=False, is_obj_anim=(node_type == "object"),
-            billboard=node_info["billboard"]
-            )
-        scene_actor.add_model(model)
+            scene_actor.add_model(model)
+            for geometry in model.geometries:
+                shader_updated = False
+                for flag_name in (
+                        "no_z_test", "no_z_write", "chrome",
+                        "fb_add", "fb_mul", "add_first", "no_shading",
+                        "sort_alpha", "alpha_last", "alpha_last2",
+                        ):
+                    if flags.get(flag_name):
+                        setattr(geometry.shader, flag_name, True)
+                        shader_updated = True
 
-        for geometry in model.geometries:
-            shader_updated = False
-            for flag_name in (
-                    "no_z_test", "no_z_write", "chrome", "fb_add", "fb_mul",
-                    "add_first", "sort_alpha", "alpha_last", "alpha_last2", "no_shading",
-                    ):
-                if flags.get(flag_name):
-                    setattr(geometry.shader, flag_name, True)
-                    shader_updated = True
-
-            if shader_updated:
-                geometry.apply_shader()
+                if shader_updated:
+                    geometry.apply_shader()
+        elif node_type == "texture":
+            # TODO: bind texmod to node with higher priority than default
+            pass
+        elif can_drop_node:
+            # node isn't animated. prepare to drop
+            p3d_node.set_preserve_transform(ModelNode.PT_drop_node)
 
     for psys in psys_to_add.values():
         scene_actor.add_particle_system(psys)
@@ -182,5 +205,8 @@ def load_scene_actor_from_tags(
     for anims in tex_anims_by_tex_name.values():
         for anim in anims:
             scene_actor.add_texture_animation(anim)
+
+    if optimize:
+        scene_actor.optimize_node_graph()
 
     return scene_actor

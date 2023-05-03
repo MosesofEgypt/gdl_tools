@@ -70,7 +70,7 @@ class Scene(ShowBase):
     def __init__(self, **kwargs):
         # do this before anything
         ConfigVariableBool("tk-main-loop").setValue(TK_CONTROL_MAINLOOP)
-        #ConfigVariableString("threading-model").setValue("Cull/Draw")
+        #ConfigVariableString("threading-model").setValue("Cull")#"Cull/Draw")
 
         super().__init__(**kwargs)
         self.create_main_window()
@@ -551,7 +551,7 @@ class Scene(ShowBase):
         anim_tag          = objects_data.get("anim_tag")
         objects_tag       = objects_data.get("objects_tag")
         worlds_tag        = objects_data.get("worlds_tag")
-        global_tex_anims  = texture_anims.get("global_anims", {})
+        world_tex_anims   = texture_anims.get("global_anims", {})
         if not worlds_tag:
             return None
 
@@ -635,7 +635,7 @@ class Scene(ShowBase):
             objects_tag=objects_tag, textures=textures, anim_tag=anim_tag,
             world_item_actors=world_item_actors,
             world_item_objects=world_item_objects,
-            global_tex_anims=global_tex_anims,
+            world_tex_anims=world_tex_anims,
             )
         self.add_scene_world(scene_world)
         if switch_display:

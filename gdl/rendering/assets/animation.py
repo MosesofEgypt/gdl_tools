@@ -222,6 +222,8 @@ class TextureAnimation(Animation):
         return tuple(ref() for ref in self._geometry_binds.values() if ref())
     def geometry_bind(self, geometry):
         self._geometry_binds[id(geometry)] = weakref.ref(geometry)
+        # NOTE: might cause circular dependency. consider using weakref
+        geometry.p3d_geometry.setPythonTag("tex_anim", self)
     def geometry_unbind(self, geometry_or_id):
         if isinstance(geometry_or_id, int):
             del self._geometry_binds[geometry_or_id]
@@ -233,6 +235,8 @@ class TextureAnimation(Animation):
         return tuple(ref() for ref in self._psys_binds.values() if ref())
     def psys_bind(self, psys):
         self._psys_binds[id(psys)] = weakref.ref(psys)
+        # NOTE: might cause circular dependency. consider using weakref
+        psys.p3d_node.setPythonTag("tex_anim", self)
     def psys_unbind(self, psys_or_id):
         if isinstance(psys_or_id, int):
             del self._psys_binds[psys_or_id]
@@ -277,8 +281,6 @@ class TextureAnimation(Animation):
             if geometry is None:
                 self.geometry_unbind(ref_id)
                 continue
-            elif geometry.actor_tex_anim not in (self, None):
-                continue
             models.append(geometry)
 
         for ref_id, psys_ref in tuple(self._psys_binds.items()):
@@ -299,7 +301,8 @@ class TextureAnimation(Animation):
 
             if shader.diff_texture is not texture and texture:
                 shader.diff_texture = texture
-                shader.apply_diffuse(nodepath)
+                #shader.apply_diffuse(nodepath)
+            model.apply_shader()
 
     def get_uv(self, frame_time):
         rate_u = self.scroll_rate_u
