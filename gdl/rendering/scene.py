@@ -122,7 +122,7 @@ class Scene(ShowBase):
     @property
     def scene_type(self): return self._scene_type
     @property
-    def curr_world_name(self):return self._curr_world_name
+    def curr_world_name(self): return self._curr_world_name
     @property
     def curr_actor_name(self): return self._curr_actor_name
     @property

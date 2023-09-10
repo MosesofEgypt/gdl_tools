@@ -168,7 +168,8 @@ def load_scene_actor_from_tags(
             else:
                 print("Warning: Referenced particle system {eff_index} does not exist")
 
-        elif node_type == "skeletal" and model_name:
+        elif node_type in ("null", "skeletal") and model_name:
+            # NOTE: the null type is used on ALL the nodes found in the skeleton of players
             model = load_model_from_objects_tag(
                 objects_tag, model_name, textures,
                 global_tex_anims, tex_anims_by_tex_name,
