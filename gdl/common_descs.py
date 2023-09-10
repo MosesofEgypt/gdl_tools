@@ -5,6 +5,7 @@ from supyr_struct.util import fourcc_to_int
 from binilla.widgets.field_widgets import *
 from binilla.constants import *
 from .field_types import *
+from .supyr_struct_ext import *  # imported so its fixes are applied
 
 try:
     from binilla.widgets.field_widgets import DynamicArrayFrame, TextFrame
