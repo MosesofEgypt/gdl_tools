@@ -224,7 +224,7 @@ class ObjectsPs2Tag(GdlTag):
         header.obj_end = header.tex_bits = offset
 
     def serialize(self, **kwargs):
-        if self.data.version_header.version.enum_name == "v4":
+        if self.data.version_header.version.enum_name in ("v1", "v4"):
             raise ValueError("Cannot serialize v4 objects.")
 
         min_lm_index = len(self.data.bitmaps)

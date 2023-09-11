@@ -30,13 +30,19 @@ object_flags = Bool32("flags",
     {NAME:"dyn_lit",  VALUE:0x100000, DEFAULT:False},
     )
 
-bitmap_format_v4 = UEnum8("format",
+bitmap_format_v1 = UEnum8("format",
     #these formats are palettized
+    ("UNKNOWN_0", 0),
+    ("UNKNOWN_1", 1),
+    ("UNKNOWN_2", 2),
     ("ABGR_8888_IDX_8", 3),
+    ("UNKNOWN_4", 4),
     ("ABGR_1555_IDX_8", 5),
+    ("UNKNOWN_6", 6),
+    ("UNKNOWN_7", 7),
     )
 
-bitmap_flags_v4 = Bool8("flags",
+bitmap_flags_v1 = Bool8("flags",
     ("see_alpha", 0x01),
     )
 
@@ -90,6 +96,33 @@ v13_sub_object_block = QStruct("sub_object",
     #Maybe the higher it is, the smaller the model must be to disappear.
     #Value is definitely signed. Don't know why though
     SInt16("lod_k",       GUI_NAME="lod coefficient"),
+    )
+
+v1_object_unknown_struct = QStruct("v1_object_unknown_struct",
+    UInt32("zero"),
+    UInt32("unknown0"),
+    UInt32("unknown_count0"),
+    UInt32("unknown_pointer0"),
+    UInt32("unknown_count1"),
+    UInt32("unknown_pointer1"),
+    UInt32("unknown_count2"),
+    UInt32("unknown_pointer2"),
+    )
+
+v1_object_block = Struct("object",
+    Float("inv_rad"),
+    Float("bnd_rad"),
+    UInt32("unknown0"),
+    QStruct("unknown1", INCLUDE=v1_object_unknown_struct),
+    QStruct("unknown2", INCLUDE=v1_object_unknown_struct),
+    QStruct("unknown3", INCLUDE=v1_object_unknown_struct),
+
+    SIZE=140,
+    #STEPTREE=Container("data",
+    #    Array("sub_object_models",
+    #          SIZE="..sub_objects_count", SUB_STRUCT=sub_object_model,
+    #          POINTER="..sub_object_models_pointer"),
+    #    )
     )
 
 v4_object_block = Struct("object",
@@ -237,11 +270,11 @@ mip_tbp_struct = BitStruct("mip_tbp",
     SIZE=16, VISIBLE=False
     )
 
-v4_bitmap_block = Struct("bitmap",
+v1_bitmap_block = Struct("bitmap",
     UInt8("mipmap_count", EDITABLE=False),
     SInt8("lod_k"),
-    bitmap_format_v4,
-    bitmap_flags_v4,
+    bitmap_format_v1,
+    bitmap_flags_v1,
 
     UInt16("width", EDITABLE=False),
     UInt16("height", EDITABLE=False),
@@ -250,7 +283,7 @@ v4_bitmap_block = Struct("bitmap",
     Pad(4),
     UInt16("unknown", EDITABLE=False),
     Pad(6),
-    UInt16("frame_count"),
+    SInt16("frame_count"),
     Pad(2),
 
     Pad(52),
@@ -312,12 +345,25 @@ version_header = Struct('version_header',
     StrNntLatin1("dir_name",   SIZE=32),
     StrNntLatin1("model_name", SIZE=32),
     UEnum32("version",
+        ("v1",  0xF00B0001),
         ("v4",  0xF00B0004),
         ("v12", 0xF00B000C),
         ("v13", 0xF00B000D),
         DEFAULT=0xF00B000D, EDITABLE=False
         ),
     SIZE=68
+    )
+
+v1_objects_header = Struct('header',
+    UInt32("bitmap_defs_count", EDITABLE=False, VISIBLE=False),
+    Pad(16),
+    Pointer32("object_defs_pointer", VISIBLE=False),
+    Pointer32("bitmap_defs_pointer", VISIBLE=False),
+    # NOTE: keeping named as object_defs_count to keep from
+    #       having to make another switch in the object_defs field
+    UInt32("object_defs_count", EDITABLE=False, VISIBLE=False),
+    UInt32("bitmaps_count", EDITABLE=False, VISIBLE=False),
+    SIZE=36
     )
 
 v4_objects_header = Struct('header',
@@ -379,6 +425,10 @@ bitmap_def = Struct("bitmap_def",
     SIZE=36
     )
 
+v1_objects_array = Array("objects",
+    SIZE='.header.object_defs_count',
+    SUB_STRUCT=v1_object_block,
+    )
 v4_objects_array = Array("objects",
     SIZE='.header.objects_count',
     SUB_STRUCT=v4_object_block,
@@ -394,9 +444,9 @@ v13_objects_array = Array("objects",
     SUB_STRUCT=v13_object_block,
     )
 
-v4_bitmaps_array = Array("bitmaps",
+v1_bitmaps_array = Array("bitmaps",
     SIZE='.header.bitmaps_count',
-    SUB_STRUCT=v4_bitmap_block
+    SUB_STRUCT=v1_bitmap_block
     )
 v12_bitmaps_array = Array("bitmaps",
     SIZE='.header.bitmaps_count',
@@ -408,6 +458,7 @@ objects_ps2_def = TagDef("objects",
     version_header,
     Switch("header",
         CASES={
+            "v1":  v1_objects_header,
             "v4":  v4_objects_header,
             "v12": v12_objects_header,
             "v13": v12_objects_header,
@@ -416,6 +467,7 @@ objects_ps2_def = TagDef("objects",
         ),
     Switch("objects",
         CASES={
+            "v1":  v1_objects_array,
             "v4":  v4_objects_array,
             "v12": v12_objects_array,
             "v13": v13_objects_array,
@@ -424,7 +476,8 @@ objects_ps2_def = TagDef("objects",
         ),
     Switch("bitmaps",
         CASES={
-            "v4":  v4_bitmaps_array,
+            "v1":  v1_bitmaps_array,
+            "v4":  v1_bitmaps_array,
             "v12": v12_bitmaps_array,
             "v13": v12_bitmaps_array,
             },

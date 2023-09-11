@@ -437,6 +437,8 @@ obstacle_subtype = SEnum16("obstacle_subtype", *ITEM_SUBTYPES)
 
 item_subtype = SEnum32("item_subtype", *ITEM_SUBTYPES)
 
+# TODO: create effects lump for arcade. 72 bytes instead of 80.
+#       seems to be missing something after 'offset'
 effects_lump = Lump('effects',
     SUB_STRUCT=Struct('effect',
         Bool32('flags',
