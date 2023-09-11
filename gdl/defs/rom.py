@@ -2,7 +2,7 @@ from supyr_struct.defs.tag_def import TagDef
 from .objs.rom import RomTag
 from ..common_descs import *
 
-def get(): return rom_def, rom_old_def
+def get(): return rom_def, rom_arcade_def
 
 
 font_lump = Lump('fonts',
@@ -70,7 +70,7 @@ lump_types = (
     {NAME:'ldef', VALUE:lump_fcc('LDEF'), GUI_NAME:'message list def offsets'},
     )
 rom_lump_headers = lump_headers(*lump_types)
-rom_lump_headers_old = lump_headers(*lump_types, extra_size_field=False)
+rom_arcade_lump_headers = lump_headers(*lump_types, extra_size_field=False)
 rom_lumps_array = lumps_array(**{
     "font": font_lump,
     "text": string_data_lump,
@@ -90,9 +90,9 @@ rom_def = TagDef("rom",
     ext=".rom", endian="<", tag_cls=RomTag
     )
 
-rom_old_def = TagDef("rom_old",
+rom_arcade_def = TagDef("rom_arcade",
     wad_header,
-    rom_lump_headers_old,
+    rom_arcade_lump_headers,
     rom_lumps_array,
     ext=".rom", endian="<", tag_cls=RomTag
     )
