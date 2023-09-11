@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-filepath   = r"C:\Users\Moses\Desktop\gauntlet_modding\arcade\gauntdl.raw"
-output_dir = r"C:\Users\Moses\Desktop\gauntlet_modding\arcade\gauntdl_disc2"
+filepath   = r"C:\Users\Moses\Desktop\gauntlet_modding\arcade\gauntleg.raw"
+output_dir = r"C:\Users\Moses\Desktop\gauntlet_modding\arcade\gauntleg_disc2"
 disc       = 2
 
 
@@ -15,7 +15,7 @@ if __name__ == "__main__":
 
         # hack to allow running within import dir
         sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))
-        from gdl.defs.arcade_hdd import dump_hdd
+        from gdl.compilation.arcade_hdd import dump_hdd
 
         dump_hdd(filepath=filepath, output_dir=output_dir, disc=disc)
     except Exception:
