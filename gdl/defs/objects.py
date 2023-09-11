@@ -5,10 +5,43 @@ from .texdef import bitmap_format as bitmap_format_v12
 
 def get(): return objects_ps2_def
 
+
+def object_defs_count(*args, parent=None, new_value=None, **kwargs):
+    if parent is None:
+        return
+    elif new_value is not None:
+        parent.header.object_defs_count = new_value
+    elif (parent.version_header.version.enum_name in ('v1', 'v0') and
+          parent.header.object_defs_count == 0):
+        # midway did some stupid shit with v0/v1 of this file
+        return parent.header.objects_count
+    else:
+        return parent.header.object_defs_count
+
+
+def bitmap_defs_count(*args, parent=None, new_value=None, **kwargs):
+    if parent is None:
+        return
+    elif new_value is not None:
+        parent.header.bitmap_defs_count = new_value
+    elif (parent.version_header.version.enum_name in ('v1', 'v0') and
+          parent.header.bitmap_defs_count == 0):
+        # midway did some stupid shit with v0/v1 of this file
+        return parent.header.bitmaps_count
+    else:
+        return parent.header.bitmap_defs_count
+
 # normals are compressed as 1555 with the most significant bit
 # reserved to mean whether or not the face should be created.
 
-object_flags = Bool32("flags",
+v1_object_flags = Bool32("flags",
+    ("alpha",     0x01),
+    ("unknown0",  0x02), # always set?
+    ("unknown1",  0x04), # not seen set
+    ("unknown2",  0x08), # rarely seen set
+    )
+
+v12_object_flags = Bool32("flags",
     ("alpha",     0x01),
     ("v_normals", 0x02),
     ("v_colors",  0x04),
@@ -40,6 +73,11 @@ bitmap_format_v1 = UEnum8("format",
     ("ABGR_1555_IDX_8", 5),
     ("UNKNOWN_6", 6),
     ("UNKNOWN_7", 7),
+    ("UNKNOWN_8", 8),
+    ("UNKNOWN_9", 9),
+    ("UNKNOWN_10", 10),
+    ("UNKNOWN_11", 11),
+    ("UNKNOWN_12", 12),
     )
 
 bitmap_flags_v1 = Bool8("flags",
@@ -98,24 +136,22 @@ v13_sub_object_block = QStruct("sub_object",
     SInt16("lod_k",       GUI_NAME="lod coefficient"),
     )
 
-v1_object_unknown_struct = QStruct("v1_object_unknown_struct",
-    UInt32("zero"),
+v1_lod_struct = Struct("lod_struct",
     UInt32("unknown0"),
-    UInt32("unknown_count0"),
-    UInt32("unknown_pointer0"),
-    UInt32("unknown_count1"),
-    UInt32("unknown_pointer1"),
-    UInt32("unknown_count2"),
-    UInt32("unknown_pointer2"),
+    v1_object_flags,
+    SInt32("vert_count"),
+    UInt32("sub_objects_pointer"),
+    SInt32("tri_count"),
+    UInt32("sub_object_models_pointer"),
+    UInt32("id_num"),
+    UInt32("unknown1"),
     )
 
 v1_object_block = Struct("object",
     Float("inv_rad"),
     Float("bnd_rad"),
-    UInt32("unknown0"),
-    QStruct("unknown1", INCLUDE=v1_object_unknown_struct),
-    QStruct("unknown2", INCLUDE=v1_object_unknown_struct),
-    QStruct("unknown3", INCLUDE=v1_object_unknown_struct),
+    UInt32("unknown"),
+    Array("lods", SUB_STRUCT=v1_lod_struct, SIZE=3),
 
     SIZE=140,
     #STEPTREE=Container("data",
@@ -148,7 +184,7 @@ v4_object_block = Struct("object",
 v12_object_block = Struct("object",
     Float("inv_rad"),
     Float("bnd_rad"),
-    object_flags,
+    v12_object_flags,
 
     SInt32('sub_objects_count', EDITABLE=False),
     Struct("sub_object_0", INCLUDE=v13_sub_object_block),
@@ -345,6 +381,7 @@ version_header = Struct('version_header',
     StrNntLatin1("dir_name",   SIZE=32),
     StrNntLatin1("model_name", SIZE=32),
     UEnum32("version",
+        ("v0",  0x00000000),
         ("v1",  0xF00B0001),
         ("v4",  0xF00B0004),
         ("v12", 0xF00B000C),
@@ -356,12 +393,13 @@ version_header = Struct('version_header',
 
 v1_objects_header = Struct('header',
     UInt32("bitmap_defs_count", EDITABLE=False, VISIBLE=False),
-    Pad(16),
+    UInt32("unknown0", EDITABLE=False, VISIBLE=False),
+    UInt32("unknown1", EDITABLE=False, VISIBLE=False),
+    UInt32("object_defs_count", EDITABLE=False, VISIBLE=False),
+    UInt32("unknown2", EDITABLE=False, VISIBLE=False),
     Pointer32("object_defs_pointer", VISIBLE=False),
     Pointer32("bitmap_defs_pointer", VISIBLE=False),
-    # NOTE: keeping named as object_defs_count to keep from
-    #       having to make another switch in the object_defs field
-    UInt32("object_defs_count", EDITABLE=False, VISIBLE=False),
+    UInt32("objects_count", EDITABLE=False, VISIBLE=False),
     UInt32("bitmaps_count", EDITABLE=False, VISIBLE=False),
     SIZE=36
     )
@@ -426,7 +464,7 @@ bitmap_def = Struct("bitmap_def",
     )
 
 v1_objects_array = Array("objects",
-    SIZE='.header.object_defs_count',
+    SIZE='.header.objects_count',
     SUB_STRUCT=v1_object_block,
     )
 v4_objects_array = Array("objects",
@@ -458,6 +496,7 @@ objects_ps2_def = TagDef("objects",
     version_header,
     Switch("header",
         CASES={
+            "v0":  v1_objects_header,
             "v1":  v1_objects_header,
             "v4":  v4_objects_header,
             "v12": v12_objects_header,
@@ -467,6 +506,7 @@ objects_ps2_def = TagDef("objects",
         ),
     Switch("objects",
         CASES={
+            "v0":  v1_objects_array,
             "v1":  v1_objects_array,
             "v4":  v4_objects_array,
             "v12": v12_objects_array,
@@ -476,6 +516,7 @@ objects_ps2_def = TagDef("objects",
         ),
     Switch("bitmaps",
         CASES={
+            "v0":  v1_bitmaps_array,
             "v1":  v1_bitmaps_array,
             "v4":  v1_bitmaps_array,
             "v12": v12_bitmaps_array,
@@ -484,13 +525,13 @@ objects_ps2_def = TagDef("objects",
         CASE=".version_header.version.enum_name"
         ),
     Array("object_defs",
-        SIZE='.header.object_defs_count',
+        SIZE=object_defs_count,
         POINTER='.header.object_defs_pointer',
         SUB_STRUCT=object_def,
         DYN_NAME_PATH='.name', WIDGET=DynamicArrayFrame
         ),
     Array("bitmap_defs",
-        SIZE='.header.bitmap_defs_count',
+        SIZE=bitmap_defs_count,
         POINTER='.header.bitmap_defs_pointer',
         SUB_STRUCT=bitmap_def,
         DYN_NAME_PATH='.name', WIDGET=DynamicArrayFrame

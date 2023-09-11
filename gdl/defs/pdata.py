@@ -5,34 +5,41 @@ from ..field_types import *
 
 def get(): return pdata_def, pdata_arcade_def
 
-# TODO: create player_datas lump for arcade. 140 bytes instead of 384.
-#       seems to reduce fx_offsets and scales to 1, remove streak_fwd_mul,
-#       and remove one of turbo_a_offset, familiar_offset, or familiar_proj_offset
-player_datas_lump = Lump('player_datas',
+base_stats = Struct("base_stats",
+    QStruct('strength', INCLUDE=stat_range),
+    QStruct('speed', INCLUDE=stat_range),
+    QStruct('armor', INCLUDE=stat_range),
+    QStruct('magic', INCLUDE=stat_range),
+    SIZE=32,
+    )
+
+damage_indices = QStruct("damage_indices",
+    SInt16('turbo_a_close'),
+    SInt16('turbo_a_low'),
+    SInt16('turbo_a_step'),
+    SInt16('turbo_a_360'),
+    SInt16('turbo_a_throw'),
+    SInt16('turbo_b'),
+    SInt16('turbo_c1'),
+    SInt16('turbo_c2'),
+    SInt16('combo1'),
+    SInt16('combo2'),
+    SInt16('combo_hit'),
+    SInt16('victory'),
+    SIZE=24
+    )
+
+player_data_lump = Lump('player_datas',
     SUB_STRUCT=Container('player_data',
         SInt16('num_sfx'),
         SInt16('num_damage'),
-        Pointer32('plyr_sfx'),
-        Pointer32('plyr_damage'),
+        Pointer32('player_sfx'),
+        Pointer32('player_damage'),
 
-        SInt16('turbo_a_close'),
-        SInt16('turbo_a_low'),
-        SInt16('turbo_a_step'),
-        SInt16('turbo_a_360'),
-        SInt16('turbo_a_throw'),
-        SInt16('turbo_b'),
-        SInt16('turbo_c1'),
-        SInt16('turbo_c2'),
-        SInt16('combo1'),
-        SInt16('combo2'),
-        SInt16('combo_hit'),
-        SInt16('victory'),
+        damage_indices,
         SInt32('init_flag'),
 
-        QStruct('strength', INCLUDE=stat_range),
-        QStruct('speed', INCLUDE=stat_range),
-        QStruct('armor', INCLUDE=stat_range),
-        QStruct('magic', INCLUDE=stat_range),
+        base_stats,
 
         Float('height'),
         Float('width'),
@@ -50,6 +57,31 @@ player_datas_lump = Lump('player_datas',
         QStruct('familiar_offset', INCLUDE=xyz_float),
         QStruct('familiar_proj_offset', INCLUDE=xyz_float),
         Float('streak_fwd_mul'),
+        SIZE=384
+        ),
+    )
+
+player_data_arcade_lump = Lump('player_data',
+    SUB_STRUCT=Container('player_data',
+        SInt16('num_sfx'),
+        SInt16('num_damage'),
+        Pointer32('player_sfx'),
+        Pointer32('player_damage'),
+
+        damage_indices,
+        base_stats,
+
+        Float('height'),
+        Float('width'),
+        Float('attny'),
+        Float('coly'),
+        Float('powerup_time'),
+        QStruct('weapon_offset',   INCLUDE=xyz_float),
+        QStruct('turbo_a_offset',  INCLUDE=xyz_float),
+        QStruct('familiar_offset', INCLUDE=xyz_float),
+        QStruct('familiar_proj_offset', INCLUDE=xyz_float),
+        Float('streak_fwd_mul'),
+        SIZE=140
         ),
     )
 
@@ -64,7 +96,13 @@ pdata_arcade_lump_headers = lump_headers(*lump_types, extra_size_field=False)
 pdata_lumps_array = lumps_array(
     sfxx = effects_lump,
     damg = damages_lump,
-    pdat = player_datas_lump,
+    pdat = player_data_lump,
+    )
+
+pdata_arcade_lumps_array = lumps_array(
+    sfxx = effects_arcade_lump,
+    damg = damages_lump,
+    pdat = player_data_arcade_lump,
     )
 
 pdata_def = TagDef("pdata",
@@ -77,6 +115,6 @@ pdata_def = TagDef("pdata",
 pdata_arcade_def = TagDef("pdata_arcade",
     wad_header,
     pdata_arcade_lump_headers,
-    pdata_lumps_array,
+    pdata_arcade_lumps_array,
     ext=".wad", endian="<", tag_cls=WadTag
     )
