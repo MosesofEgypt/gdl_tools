@@ -12,6 +12,7 @@ BUILD_TARGETS = {
     "PlayStation2": "ps2",
     "Gamecube":     "ngc",
     "Xbox":         "xbox",
+    #"Arcade":       "arcade", # TODO
     }
 MOD_EXTRACT_FORMATS = {
     "Wavefront OBJ": "obj",
@@ -234,6 +235,7 @@ class CrucibleApp(Tk):
     def get_objects_compiler(self, **kwargs):
         build_target = BUILD_TARGETS.get(self.build_target.get(), "ps2")
         kwargs.update(
+            #build_arcade_files          = (build_target == "arcade"), # TODO
             build_ngc_files             = (build_target == "ngc"),
             build_xbox_files            = (build_target == "xbox"),
             build_ps2_files             = (build_target == "ps2"),
@@ -250,8 +252,10 @@ class CrucibleApp(Tk):
             return objects_compiler.ObjectsCompiler(**kwargs)
 
     def get_messages_compiler(self, **kwargs):
+        build_target = BUILD_TARGETS.get(self.build_target.get(), "ps2")
         kwargs.update(
             target_dir = self.target_messages_dir.get(),
+            target_arcade = (build_target == "arcade"),
             overwrite = self.overwrite.get(),
             )
         return messages_compiler.MessagesCompiler(**kwargs)

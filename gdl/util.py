@@ -23,3 +23,18 @@ def process_jobs(job_function, all_job_args=(), process_count=None):
                 print(traceback.format_exc())
 
     return results
+
+def get_is_arcade_wad(filepath):
+    # TODO: fix this to work if the wad header is at the start of the file
+    try:
+        # do a little peek to see if the file is arcade or not
+        with open(filepath, "rb") as f:
+            wad_header_start = int.from_bytes(f.read(4), 'little')
+            wad_header_count = int.from_bytes(f.read(4), 'little')
+            f.seek(2, 2)
+            wad_header_size = (f.tell() - wad_header_start) // wad_header_count
+
+        # arcade size is 12, console size is 16
+        return wad_header_size == 12
+    except Exception:
+        return False

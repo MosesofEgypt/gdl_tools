@@ -42,7 +42,7 @@ def get_lump_type(*args, **kwargs):
     return lump_headers[i].lump_id.enum_name
 
 
-def get_lump_size(*args, new_value=None, **kwargs):
+def get_set_lump_size(*args, new_value=None, **kwargs):
     i, lump_headers = _get_lump_context(*args, **kwargs)
     if None in (i, lump_headers):
         return 0
@@ -94,7 +94,7 @@ def get_lump_rawdata_size(
     return end - start
 
 
-def get_lump_pointer(*args, new_value=None, **kwargs):
+def get_set_lump_pointer(*args, new_value=None, **kwargs):
     i, lump_headers = _get_lump_context(*args, **kwargs)
     if None in (i, lump_headers):
         return 0
@@ -195,8 +195,8 @@ def lumps_array(**cases):
         )
 
 def Lump(*args, **kwargs):
-    kwargs.setdefault("SIZE", get_lump_size)
-    kwargs.setdefault("POINTER", get_lump_pointer)
+    kwargs.setdefault("SIZE", get_set_lump_size)
+    kwargs.setdefault("POINTER", get_set_lump_pointer)
     return LumpArray(*args, **kwargs)
 
 
