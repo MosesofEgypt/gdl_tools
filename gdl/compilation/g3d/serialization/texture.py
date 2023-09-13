@@ -45,6 +45,7 @@ class G3DTexture:
     channel_map = ()
 
     mono_channel_map = (-1, 0, 0, 0)
+    dual_channel_map = (0, 1, 1, 1)
     argb_channel_map = (0, 1, 2, 3)
 
     @property
@@ -73,6 +74,11 @@ class G3DTexture:
                 arbytmap.FORMAT_A1R5G5B5 if has_alpha else
                 arbytmap.FORMAT_X1R5G5B5
                 )
+        elif format_name == c.PIX_FMT_IA_8_IDX_88:
+            arby_format = arbytmap.FORMAT_A8L8
+            channel_count = 2
+        elif format_name == c.PIX_FMT_XBGR_332:
+            arby_format = arbytmap.FORMAT_R3G3B2
         else:
             arby_format = arbytmap.FORMAT_L8
             channel_count = 1
@@ -165,8 +171,11 @@ class G3DTexture:
         conv_settings.update(target_format=target_arby_format)
 
         # handle converting full color source bitmaps to monochrome
-        if source_channels == 4 and target_channels == 1:
-            conv_settings["channel_merge_mapping"] = arbytmap.constants.M_ARGB_TO_L
+        if source_channels == 4:
+            if target_channels == 1:
+                conv_settings["channel_merge_mapping"] = arbytmap.constants.M_ARGB_TO_L
+            elif target_channels == 2:
+                conv_settings["channel_merge_mapping"] = arbytmap.constants.M_ARGB_TO_LA
 
         indexing_size = (
             None if target_format_name in c.MONOCHROME_FORMATS else
@@ -243,7 +252,7 @@ class G3DTexture:
 
     def import_gtx(self, input_buffer, headerless=False, flags=0, source_md5=b'\x00'*16,
                    width=0, height=0, mipmaps=0, format_name="ABGR_8888", lod_k=0,
-                   is_ngc=False, buffer_end=-1
+                   is_ngc=False, is_arcade=False, buffer_end=-1
                    ):
         if not headerless:
             header = ROMTEX_HEADER_STRUCT.unpack(
@@ -260,6 +269,7 @@ class G3DTexture:
             format_name = c.PIX_FMT_ABGR_3555_NGC
         elif is_ngc and format_name == c.PIX_FMT_XBGR_1555:
             format_name = c.PIX_FMT_XBGR_3555_NGC
+        # NOTE: need to do hack like this for arcade formats
 
         if format_name not in c.PIXEL_SIZES:
             raise TypeError("Invalid format name: '%s'" % format_name)
@@ -346,14 +356,18 @@ class G3DTexture:
                 for pixels in ([palette] if palette else textures):
                     arbytmap.bitmap_io.swap_array_items(pixels, swap_map)
 
-        elif not is_monochrome and itemsize > 1:
+        elif not is_monochrome and itemsize > 1 and not is_arcade:
             # swap from BGRA to RGBA for ps2/xbox
             if palette:
                 arbytmap.channel_swap_bgra_rgba_array([palette], itemsize)
             else:
                 arbytmap.channel_swap_bgra_rgba_array(textures, itemsize)
 
-        self.channel_map = self.mono_channel_map if is_monochrome else self.argb_channel_map
+        self.channel_map = (
+            self.dual_channel_map if format_name == c.PIX_FMT_IA_8_IDX_88 else
+            self.mono_channel_map if is_monochrome else
+            self.argb_channel_map
+            )
 
         self.palette = palette
         self.textures = textures
@@ -374,7 +388,9 @@ class G3DTexture:
             keep_alpha=self.has_alpha
             )
 
-    def export_gtx(self, output_buffer, headerless=False, target_ngc=False, target_ps2=False):
+    def export_gtx(self, output_buffer, headerless=False,
+                   target_ngc=False, target_ps2=False, target_arcade=False
+                   ):
         is_monochrome = self.format_name in c.MONOCHROME_FORMATS
 
         if not self.textures:

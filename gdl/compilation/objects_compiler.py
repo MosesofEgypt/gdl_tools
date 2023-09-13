@@ -105,7 +105,7 @@ class ObjectsCompiler:
             comp_kwargs.append(dict(name="XBOX", target_xbox=True))
 
         if self.build_arcade_files:
-            comp_kwargs.append(dict(name="XBOX", target_arcade=True))
+            comp_kwargs.append(dict(name="ARC", target_arcade=True))
 
         compilation_outputs = dict()
         for kwargs in comp_kwargs:

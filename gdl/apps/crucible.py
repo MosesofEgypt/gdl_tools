@@ -7,12 +7,13 @@ from tkinter import *
 from traceback import format_exc
 from ..compilation import objects_compiler, messages_compiler,\
      worlds_compiler
+from ..compilation.g3d import constants as c
 
 BUILD_TARGETS = {
     "PlayStation2": "ps2",
     "Gamecube":     "ngc",
     "Xbox":         "xbox",
-    #"Arcade":       "arcade", # TODO
+    "Arcade":       "arcade", # TODO
     }
 MOD_EXTRACT_FORMATS = {
     "Wavefront OBJ": "obj",
@@ -235,7 +236,7 @@ class CrucibleApp(Tk):
     def get_objects_compiler(self, **kwargs):
         build_target = BUILD_TARGETS.get(self.build_target.get(), "ps2")
         kwargs.update(
-            #build_arcade_files          = (build_target == "arcade"), # TODO
+            build_arcade_files          = (build_target == "arcade"),
             build_ngc_files             = (build_target == "ngc"),
             build_xbox_files            = (build_target == "xbox"),
             build_ps2_files             = (build_target == "ps2"),
@@ -363,14 +364,17 @@ class CrucibleApp(Tk):
                 #    coll_asset_types.append("g3c")
 
                 if build_target == "ngc":
-                    mod_asset_types.append("g3n")
-                    tex_asset_types.append("gtn")
+                    mod_asset_types.append(c.MODEL_CACHE_EXTENSION_NGC)
+                    tex_asset_types.append(c.TEXTURE_CACHE_EXTENSION_NGC)
                 elif build_target == "xbox":
-                    mod_asset_types.append("g3x")
-                    tex_asset_types.append("gtx")
+                    mod_asset_types.append(c.MODEL_CACHE_EXTENSION_XBOX)
+                    tex_asset_types.append(c.TEXTURE_CACHE_EXTENSION_XBOX)
+                elif build_target == "arcade":
+                    mod_asset_types.append(c.MODEL_CACHE_EXTENSION_ARC)
+                    tex_asset_types.append(c.TEXTURE_CACHE_EXTENSION_ARC)
                 else:
-                    mod_asset_types.append("g3p")
-                    tex_asset_types.append("gtp")
+                    mod_asset_types.append(c.MODEL_CACHE_EXTENSION_PS2)
+                    tex_asset_types.append(c.TEXTURE_CACHE_EXTENSION_PS2)
 
             if source:
                 if world:

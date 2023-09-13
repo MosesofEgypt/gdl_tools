@@ -12,7 +12,8 @@ from . import constants as c
 
 
 def compile_cache_files(
-        objects_dir, target_ngc=False, target_ps2=False, target_xbox=False,
+        objects_dir,
+        target_ngc=False, target_ps2=False, target_xbox=False, target_arcade=False,
         serialize_cache_files=False, use_force_index_hack=False,
         build_anim_cache=True, build_texdef_cache=False,
         ):
@@ -25,7 +26,9 @@ def compile_cache_files(
     objects_tag.filepath = os.path.join(
         objects_dir, "%s.%s" % (
             c.OBJECTS_FILENAME,
-            c.NGC_EXTENSION if target_ngc else c.PS2_EXTENSION
+            c.NGC_EXTENSION if target_ngc else
+            c.ARC_EXTENSION if target_arcade else
+            c.PS2_EXTENSION
             )
         )
     objects_tag.data.version_header.dir_name = (
@@ -80,11 +83,13 @@ def decompile_cache_files(
         parallel_processing=False, swap_lightmap_and_diffuse=False, **kwargs
         ):
 
-    ps2_objects_filepath = os.path.join(target_dir,  "objects.ps2")
-    ngc_objects_filepath = os.path.join(target_dir,  "objects.ngc")
-    texdef_filepath      = os.path.join(target_dir,  "texdef.ps2")
-    ps2_worlds_filepath  = os.path.join(target_dir,  "worlds.ps2")
-    ngc_worlds_filepath  = os.path.join(target_dir,  "worlds.ngc")
+    ps2_objects_filepath    = os.path.join(target_dir,  "objects.ps2")
+    ngc_objects_filepath    = os.path.join(target_dir,  "objects.ngc")
+    arcade_objects_filepath = os.path.join(target_dir,  "objects.rom")
+    texdef_filepath         = os.path.join(target_dir,  "texdef.ps2")
+    ps2_worlds_filepath     = os.path.join(target_dir,  "worlds.ps2")
+    ngc_worlds_filepath     = os.path.join(target_dir,  "worlds.ngc")
+    arcade_worlds_filepath  = os.path.join(target_dir,  "worlds.rom")
 
     objects_tag = None
     texdef_tag  = None
@@ -99,6 +104,8 @@ def decompile_cache_files(
 
     elif os.path.isfile(ngc_objects_filepath):
         objects_tag = objects_ps2_def.build(filepath=ngc_objects_filepath)
+    elif os.path.isfile(arcade_objects_filepath):
+        objects_tag = objects_ps2_def.build(filepath=arcade_objects_filepath)
     elif os.path.isfile(texdef_filepath):
         # no objects. default to texdef for trying to get texture headers
         texdef_tag = texdef_ps2_def.build(filepath=texdef_filepath)
@@ -107,6 +114,8 @@ def decompile_cache_files(
         worlds_tag = worlds_ps2_def.build(filepath=ps2_worlds_filepath)
     elif os.path.isfile(ngc_worlds_filepath):
         worlds_tag = worlds_ps2_def.build(filepath=ngc_worlds_filepath)
+    elif os.path.isfile(arcade_worlds_filepath):
+        worlds_tag = worlds_ps2_def.build(filepath=arcade_worlds_filepath)
 
     if data_dir is None:
         data_dir = os.path.join(target_dir, c.DATA_FOLDERNAME)

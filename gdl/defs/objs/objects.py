@@ -86,13 +86,15 @@ class ObjectsPs2Tag(GdlTag):
             object_names[i] = dict(name=object_name, asset_name=asset_name, index=i)
 
             # populate maps to help name bitmaps
-            obj            = objects[i]
-            obj_flags      = getattr(obj, "flags", None)
-            subobj_headers = tuple(getattr(obj.data, "sub_objects", ())) + (obj.sub_object_0, )
-            for subobj_header in subobj_headers:
-                texture_model_indices.setdefault(subobj_header.tex_index, set()).add(i)
-                if getattr(obj_flags, "lmap", False):
-                    lightmap_indices.add(subobj_header.lm_index)
+            if self.data.version_header.version.enum_name not in ("v0", "v1"):
+                obj            = objects[i]
+                obj_flags      = getattr(obj, "flags", None)
+                subobj_headers = tuple(getattr(obj.data, "sub_objects", ())) + (obj.sub_object_0, )
+
+                for subobj_header in subobj_headers:
+                    texture_model_indices.setdefault(subobj_header.tex_index, set()).add(i)
+                    if getattr(obj_flags, "lmap", False):
+                        lightmap_indices.add(subobj_header.lm_index)
 
 
         lightmap_indices = list(sorted(lightmap_indices))
@@ -224,7 +226,7 @@ class ObjectsPs2Tag(GdlTag):
         header.obj_end = header.tex_bits = offset
 
     def serialize(self, **kwargs):
-        if self.data.version_header.version.enum_name in ("v1", "v4"):
+        if self.data.version_header.version.enum_name in ("v0", "v1", "v4"):
             raise ValueError("Cannot serialize v4 objects.")
 
         min_lm_index = len(self.data.bitmaps)

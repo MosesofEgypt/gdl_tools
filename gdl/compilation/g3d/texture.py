@@ -14,6 +14,7 @@ def _compile_texture(kwargs):
     name           = kwargs.pop("name")
     target_ngc     = kwargs.pop("target_ngc")
     target_ps2     = kwargs.pop("target_ps2")
+    target_arcade  = kwargs.pop("target_arcade")
     cache_filepath = kwargs.pop("cache_filepath")
     asset_filepath = kwargs.pop("asset_filepath")
 
@@ -30,7 +31,10 @@ def _compile_texture(kwargs):
     g3d_texture.import_asset(asset_filepath, **kwargs)
     os.makedirs(os.path.dirname(cache_filepath), exist_ok=True)
     with open(cache_filepath, "wb") as f:
-        g3d_texture.export_gtx(f, target_ngc=target_ngc, target_ps2=target_ps2)
+        g3d_texture.export_gtx(
+            f, target_ngc=target_ngc, target_ps2=target_ps2,
+            target_arcade=target_arcade
+            )
 
 
 def _decompile_texture(kwargs):
@@ -65,7 +69,8 @@ def _decompile_texture(kwargs):
 def compile_textures(
         data_dir,
         force_recompile=False, optimize_format=False, parallel_processing=False,
-        target_ps2=False, target_ngc=False, target_xbox=False, retarget_textures_for_ngc=True
+        target_ps2=False, target_ngc=False, target_xbox=False, target_arcade=False,
+        retarget_textures_for_ngc=True
         ):
     asset_folder    = os.path.join(data_dir, c.EXPORT_FOLDERNAME, c.TEX_FOLDERNAME)
     cache_path_base = os.path.join(data_dir, c.IMPORT_FOLDERNAME, c.TEX_FOLDERNAME)
@@ -85,6 +90,7 @@ def compile_textures(
     asset_type = (
         c.TEXTURE_CACHE_EXTENSION_PS2  if target_ps2 else
         c.TEXTURE_CACHE_EXTENSION_NGC  if target_ngc else
+        c.TEXTURE_CACHE_EXTENSION_ARC  if target_arcade else
         c.TEXTURE_CACHE_EXTENSION_XBOX
         )
     for name in sorted(all_assets):
@@ -148,7 +154,7 @@ def compile_textures(
                 mipmap_count=max(0, 0 if target_ngc else meta.get("mipmap_count", 0)),
                 name=name, cache_filepath=cache_filepath, target_format_name=target_format,
                 keep_alpha=(flags.get("has_alpha") or "A" in target_format),
-                target_ngc=target_ngc, target_ps2=target_ps2
+                target_ngc=target_ngc, target_ps2=target_ps2, target_arcade=target_arcade
                 ))
         except Exception:
             print(format_exc())
@@ -165,20 +171,23 @@ def compile_textures(
 
 def import_textures(
         objects_tag, data_dir, use_force_index_hack=False,
-        target_ngc=False, target_ps2=False, target_xbox=False,
+        target_ngc=False, target_ps2=False, target_xbox=False, target_arcade=False
         ):
     # locate and load all assets
     gtx_textures_by_name = {}
     all_asset_filepaths = util.locate_textures(
         os.path.join(data_dir, c.IMPORT_FOLDERNAME, c.TEX_FOLDERNAME),
-        cache_files=True, target_ngc=target_ngc, target_xbox=target_xbox
+        cache_files=True, target_ngc=target_ngc,
+        target_xbox=target_xbox, target_arcade=target_arcade
         )
     for name in sorted(all_asset_filepaths):
         try:
             with open(all_asset_filepaths[name], "rb") as f:
                 name = name.upper()
                 gtx_textures_by_name[name] = G3DTexture()
-                gtx_textures_by_name[name].import_gtx(f, is_ngc=target_ngc)
+                gtx_textures_by_name[name].import_gtx(
+                    f, is_ngc=target_ngc, is_arcade=target_arcade
+                    )
         except Exception:
             print(format_exc())
             print("Could not load texture:\n    %s" % all_asset_filepaths[name])
@@ -275,6 +284,7 @@ def import_textures(
             bitm.tex_palette_index = meta.get("tex_palette_index", 0)
             bitm.tex_palette_count = meta.get("tex_palette_count", 0)
             bitm.tex_shift_index   = meta.get("tex_shift_index", 0)
+
         elif g3d_texture:
             # there is actually a texture to import
             bitmap_size = 0
@@ -305,6 +315,10 @@ def import_textures(
                 bitm.mipmap_count = meta.get("mipmap_count", 0)
             else:
                 bitm.mipmap_count = max(0, len(g3d_texture.textures) - 1)
+
+            if target_arcade:
+                # for arcade, it's mipmap_count + 1
+                bitm.mipmap_count += 1
 
             bitm.flags.has_alpha = "A" in g3d_texture.format_name
         else:
@@ -409,7 +423,8 @@ def decompile_textures(
         bitmaps = texdef_tag.data.bitmaps
         bitmap_assets = texdef_tag.get_bitmap_names()
 
-    is_ngc = (textures_ext.lower() == c.NGC_EXTENSION.lower())
+    is_ngc    = (textures_ext.lower() == c.NGC_EXTENSION.lower())
+    is_arcade = (textures_ext.lower() == c.ARC_EXTENSION.lower())
     textures_filepath = os.path.join(
         tag_dir, "%s.%s" % (c.TEXTURES_FILENAME, textures_ext)
         )
@@ -437,10 +452,14 @@ def decompile_textures(
             bitm_data = dict(
                 # NOTE: using flags.data won't work for texdef bitmaps, as different bits are set
                 flags=bitm.flags.data, width=bitm.width, height=bitm.height,
-                lod_k=bitm.lod_k, is_ngc=is_ngc, format_name=bitm.format.enum_name,
+                lod_k=bitm.lod_k, is_ngc=is_ngc, is_arcade=is_arcade,
+                format_name=bitm.format.enum_name,
                 # regardless of what the objects says, gamecube doesnt contain mipmaps
                 mipmaps=(0 if is_ngc else bitm.mipmap_count)
                 )
+
+            if is_arcade:
+                bitm_data["mipmaps"] -= 1
 
             for asset_type in asset_types:
                 filename = "%s.%s" % (asset['name'], asset_type)

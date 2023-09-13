@@ -22,7 +22,7 @@ bitmap_format = UEnum8("format",
     (PIX_FMT_ABGR_1555_IDX_8, 48),
     (PIX_FMT_XBGR_1555_IDX_8, 49),
     (PIX_FMT_ABGR_3555_IDX_8_NGC, 50),
-    #(PIX_FMT_IDXA_88,         56), #i have no idea how this format works
+    (PIX_FMT_IA_8_IDX_88,         56), #i have no idea how this format works
     (PIX_FMT_ABGR_8888_IDX_8, 66),
     (PIX_FMT_XBGR_8888_IDX_8, 67),
     (PIX_FMT_A_8_IDX_8, 130),
