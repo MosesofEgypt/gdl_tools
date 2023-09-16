@@ -48,6 +48,41 @@ def _upscale(src_depth, dst_depth, val, max_val=None):
     scale = max_val / (scale_ct - 1)
     return min(max_val, int(val * scale + 0.5))
 
+def _yiq_to_rgb(y, i, q):
+    # https://en.wikipedia.org/wiki/YIQ
+    r = y + 0.9469*i + 0.6236*q
+    g = y - 0.2748*i - 0.6357*q
+    b = y - 1.1*i + 1.7*q
+    # TODO: figure out if clamping is the correct thing to do
+    return (
+        max(0, min(1.0, r)),
+        max(0, min(1.0, g)),
+        max(0, min(1.0, b))
+        )
+
+def _rgb_to_yiq(r, g, b):
+    # https://en.wikipedia.org/wiki/YIQ
+    y = 0.3*r + 0.59*g + 0.11*b
+    i = -0.27*(b - y) + 0.74*(r - y)
+    q =  0.41*(b - y) + 0.48*(r - y)
+    return y, i, q
+
+def _yiq_422_to_rgb_888(yiq_422):
+    r, g, b = _yiq_to_rgb(
+        # NOTE: i and q are signed, so divide and then shift
+        ((yiq_422 >> 4) & 0xF) / 15,
+        ((yiq_422 >> 2) & 0x3) / 1.5 - 1.0,
+        (yiq_422 & 0x3) / 1.5 - 1.0
+        )
+    return (int(round(r * 255.5)) |
+            (int(round(g * 255.5)) << 8) |
+            (int(round(b * 255.5)) << 16))
+
+def _ayiq_8422_to_argb_8888(ayiq_8422):
+    #r, g, b = _yiq_422_to_rgb_888(ayiq_8422&0xFF)
+    rgb_888 = _yiq_422_to_rgb_888(ayiq_8422 >> 8)
+    return rgb_888 | ((ayiq_8422&0xFF) << 24)
+
 # NOTE: we are doing some fucky stuff with the gamecube alpha values.
 #       we're intentionally unpacking it at half brightness to ensure
 #       assets are compatible between each platform(xbox/ps2/gamecube).
@@ -66,6 +101,8 @@ UPSCALE_3555_TO_8888 = tuple(
      )
     for i in range(0x10000)
     )
+CONVERT_YIQ_422_TO_XRGB_8888   = tuple(_yiq_422_to_rgb_888(i)     for i in range(0x100))
+CONVERT_AYIQ_8422_TO_XRGB_8888 = tuple(_ayiq_8422_to_argb_8888(i) for i in range(0x10000))
 # used to quickly convert to gamecube format from A8R8G8B8
 DOWNSCALE_8_TO_3A = tuple(min(int((i / 128)*7  + 0.5), 7) for i in range(256))
 DOWNSCALE_8_TO_4  = tuple(int((i / 255)*15 + 0.5) for i in range(256))
@@ -131,6 +168,63 @@ def load_from_png_file(arby, input_path, ext, **kwargs):
         texture_block=[array("I", pixels)],
         texture_info=tex_info
         )
+
+
+def argb_8888_to_ayiq_8422(source_pixels):
+    # converts packed/unpacked pixels to packed pixels
+    if isinstance(source_pixels, array):
+        source_pixels = source_pixels.tobytes()
+
+    packed_pixels = array("H", b'\x00\x00'*(len(source_pixels) // 4))
+    for i in range(len(source_pixels)//4):
+        a, r, g, b = source_pixels[i*4: i*4+4]
+        y, i, q = _rgb_to_yiq(r/255, g/255, b/255)
+
+        # TODO: figure out the signed rounding crap for yiq packing
+        packed_pixels[i] = (
+            (int((q + 1.0) *(3.5/2))) |
+            (int((i + 1.0) *(3.5/2)) << 2) |
+            (int(y*15.5) << 4) |
+            (a << 8)
+            )
+
+    return array("H", packed_pixels)
+
+
+def xrgb_8888_to_yiq_422(source_pixels):
+    # converts packed/unpacked pixels to packed pixels
+    if isinstance(source_pixels, array):
+        source_pixels = source_pixels.tobytes()
+
+    packed_pixels = array("B", b'\x00'*(len(source_pixels) // 4))
+    for i in range(len(source_pixels)//4):
+        _, r, g, b = source_pixels[i*4: i*4+4]
+        y, i, q = _rgb_to_yiq(r/255, g/255, b/255)
+
+        # TODO: figure out the signed rounding crap for yiq packing
+        packed_pixels[i] = (
+            (int((q + 1.0) *(3.5/2))) |
+            (int((i + 1.0) *(3.5/2)) << 2) |
+            (int(y * 15.5) << 4)
+            )
+
+    return array("B", packed_pixels)
+
+
+def ayiq_8422_to_argb_8888(source_pixels):
+    # converts packed pixels to packed pixels
+    if not isinstance(source_pixels, array):
+        source_pixels = array("H", source_pixels)
+
+    return array("I", map(CONVERT_AYIQ_8422_TO_ARGB_8888.__getitem__, source_pixels))
+
+
+def yiq_422_to_xrgb_8888(source_pixels):
+    # converts packed pixels to packed pixels
+    if not isinstance(source_pixels, array):
+        source_pixels = array("B", source_pixels)
+
+    return array("I", map(CONVERT_YIQ_422_TO_XRGB_8888.__getitem__, source_pixels))
 
 
 def argb_8888_to_3555(source_pixels, no_alpha=False):

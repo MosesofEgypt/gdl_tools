@@ -74,15 +74,22 @@ v12_object_flags = Bool32("flags",
     )
 
 bitmap_format_v0 = UEnum8("format",
-    (PIX_FMT_I_8_IDX_8, 1),
-    (PIX_FMT_A_8_IDX_8, 2),
-    ("UNKNOWN_3", 3),
-    ("UNKNOWN_4", 4),
-    ("UNKNOWN_5", 5),
-    (PIX_FMT_XBGR_1555, 9),
-    ("UNKNOWN_10", 10),
-    (PIX_FMT_ABGR_1555, 11),
-    (PIX_FMT_IA_8_IDX_88, 12),
+    PIX_FMT_RGB_332,
+    PIX_FMT_YIQ_422,
+    PIX_FMT_A_8,
+    PIX_FMT_I_8,
+    PIX_FMT_AI_44,
+    PIX_FMT_P_8,
+    "RSVD0",
+    "RSVD1",
+    PIX_FMT_ARGB_8332,
+    PIX_FMT_AYIQ_8422,
+    PIX_FMT_RGB_565,
+    PIX_FMT_ARGB_1555,
+    PIX_FMT_ARGB_4444,
+    PIX_FMT_AI_88,
+    PIX_FMT_AP_88,
+    "RSVD2",
     )
 
 bitmap_format_v4 = UEnum8("format",
@@ -93,10 +100,14 @@ bitmap_format_v4 = UEnum8("format",
 
 bitmap_flags_v0 = Bool8("flags",
     # confirmed these are the only flags set
-    ("see_alpha", 0x01),
-    ("unknown1",  0x02),
-    ("unknown2",  0x04),
-    ("unknown3",  0x08),
+    ("halfres",    0x01), # confirmed
+    ("force_tmu1", 0x02), # ???
+    ("force_tmu0", 0x04), # ???
+    ("unknown",    0x08), # ???
+    )
+
+bitmap_flags_v4 = Bool8("flags",
+    ("see_alpha", 0x01), # confirmed
     )
 
 bitmap_flags_v12 = Bool16("flags",
@@ -326,20 +337,21 @@ mip_tbp_struct = BitStruct("mip_tbp",
     )
 
 v0_bitmap_block = Struct("bitmap",
-    UInt8("mipmap_count", EDITABLE=False),
-    SInt8("lod_k"),
-    bitmap_format_v0,
-    bitmap_flags_v0,
+    UInt8("large_lod_log2", EDITABLE=False),
+    UInt8("small_lod_log2", EDITABLE=False),
+    bitmap_format_v0, # 2
+    bitmap_flags_v0,  # 3
 
-    UInt16("width", EDITABLE=False),
-    UInt16("height", EDITABLE=False),
-    Pointer32("tex_pointer", EDITABLE=False),
+    UInt16("width", EDITABLE=False),   # 4
+    UInt16("height", EDITABLE=False),  # 6
+    Pointer32("tex_pointer", EDITABLE=False),  # 8
 
-    Pad(4),
-    UInt16("unknown", EDITABLE=False),
-    Pad(6),
-    SInt16("frame_count"),
-    Pad(54),
+    SInt32("adr", EDITABLE=False, VISIBLE=False), # 12
+    SInt32("mod", EDITABLE=False, VISIBLE=False), # 16
+    SInt32("lod", EDITABLE=False, VISIBLE=False), # 20
+    SInt32("frame_count"), # 24
+    SInt32("pkt", EDITABLE=False, VISIBLE=False), # 28
+    Pad(48),
     SIZE=80
     )
 
@@ -347,7 +359,7 @@ v4_bitmap_block = Struct("bitmap",
     UInt8("mipmap_count", EDITABLE=False),
     SInt8("lod_k"),
     bitmap_format_v4,
-    bitmap_flags_v0,
+    bitmap_flags_v4,
 
     UInt16("width", EDITABLE=False),
     UInt16("height", EDITABLE=False),

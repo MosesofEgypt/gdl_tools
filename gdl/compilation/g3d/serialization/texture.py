@@ -64,7 +64,10 @@ class G3DTexture:
     @staticmethod
     def get_arby_format_and_channel_count(format_name, has_alpha):
         channel_count = 4
-        if "8888" in format_name or "3555" in format_name:
+        if format_name == c.PIX_FMT_IA_8_IDX_88:
+            arby_format = arbytmap.FORMAT_A8L8
+            channel_count = 2
+        elif "8888" in format_name or "3555" in format_name:
             arby_format = (
                 arbytmap.FORMAT_A8R8G8B8 if has_alpha else
                 arbytmap.FORMAT_X8R8G8B8
@@ -74,11 +77,6 @@ class G3DTexture:
                 arbytmap.FORMAT_A1R5G5B5 if has_alpha else
                 arbytmap.FORMAT_X1R5G5B5
                 )
-        elif format_name == c.PIX_FMT_IA_8_IDX_88:
-            arby_format = arbytmap.FORMAT_A8L8
-            channel_count = 2
-        elif format_name == c.PIX_FMT_XBGR_332:
-            arby_format = arbytmap.FORMAT_R3G3B2
         else:
             arby_format = arbytmap.FORMAT_L8
             channel_count = 1
