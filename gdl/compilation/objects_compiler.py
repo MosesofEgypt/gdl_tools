@@ -13,7 +13,6 @@ class ObjectsCompiler:
     build_ps2_files = True
     build_xbox_files = True
     build_arcade_files = False
-    retarget_textures_for_ngc = True
 
     parallel_processing = False
 
@@ -48,7 +47,6 @@ class ObjectsCompiler:
             parallel_processing=self.parallel_processing,
             force_recompile=self.force_recompile,
             optimize_format=self.optimize_textures,
-            retarget_textures_for_ngc=self.retarget_textures_for_ngc,
             )
         if self.build_ps2_files:
             texture_comp.compile_textures(asset_dir, target_ps2=True, **kwargs)

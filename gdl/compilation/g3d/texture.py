@@ -5,6 +5,7 @@ import os
 from traceback import format_exc
 from ..metadata import objects as objects_metadata
 from .serialization.texture import G3DTexture, ROMTEX_HEADER_STRUCT
+from .serialization import ncc
 from . import constants as c
 from . import texture_buffer_packer
 from . import util
@@ -21,8 +22,7 @@ def _compile_texture(kwargs):
     if target_ngc and kwargs.get("target_format_name") in (c.PIX_FMT_ABGR_1555, c.PIX_FMT_XBGR_1555):
         # MIDWAY HACK
         kwargs["target_format_name"] = (
-            c.PIX_FMT_ABGR_3555_NGC
-            if kwargs.get("keep_alpha") else
+            c.PIX_FMT_ABGR_3555_NGC if kwargs.get("keep_alpha") else
             c.PIX_FMT_XBGR_3555_NGC
             )
 
@@ -35,6 +35,7 @@ def _compile_texture(kwargs):
             f, target_ngc=target_ngc, target_ps2=target_ps2,
             target_arcade=target_arcade
             )
+        # TODO: export ncc_table if format requires it
 
 
 def _decompile_texture(kwargs):
@@ -62,15 +63,16 @@ def _decompile_texture(kwargs):
     elif not os.path.isfile(filepath) or overwrite:
         with open(filepath, "wb+") as f:
             g3d_texture.export_gtx(
-                f, target_ngc=(asset_type == c.TEXTURE_CACHE_EXTENSION_NGC)
+                f, target_ngc=(asset_type == c.TEXTURE_CACHE_EXTENSION_NGC),
+                target_arcade=(asset_type == c.TEXTURE_CACHE_EXTENSION_ARC)
                 )
+            # TODO: export ncc_table if format requires it
 
 
 def compile_textures(
         data_dir,
         force_recompile=False, optimize_format=False, parallel_processing=False,
-        target_ps2=False, target_ngc=False, target_xbox=False, target_arcade=False,
-        retarget_textures_for_ngc=True
+        target_ps2=False, target_ngc=False, target_xbox=False, target_arcade=False
         ):
     asset_folder    = os.path.join(data_dir, c.EXPORT_FOLDERNAME, c.TEX_FOLDERNAME)
     cache_path_base = os.path.join(data_dir, c.IMPORT_FOLDERNAME, c.TEX_FOLDERNAME)
@@ -121,39 +123,41 @@ def compile_textures(
                 continue
 
             target_format = meta.get("format", c.DEFAULT_FORMAT_NAME)
-            new_format = target_format
+            has_alpha     = meta.get("flags", {}).get("has_alpha")
+            new_format    = target_format
 
             # do some format swapping depending on the target platform
-            if not target_ngc:
+            if target_ngc:
+                # retarget to the format replacements gamecube uses
+                if target_format in (c.PIX_FMT_ABGR_8888, c.PIX_FMT_XBGR_8888):
+                    new_format = c.PIX_FMT_ABGR_3555_NGC if has_alpha else c.PIX_FMT_XBGR_3555_NGC
+                elif target_format in (c.PIX_FMT_ABGR_8888_IDX_4, c.PIX_FMT_XBGR_8888_IDX_4):
+                    new_format = c.PIX_FMT_ABGR_3555_IDX_4_NGC
+                elif target_format in (c.PIX_FMT_ABGR_8888_IDX_8, c.PIX_FMT_XBGR_8888_IDX_8):
+                    new_format = c.PIX_FMT_ABGR_3555_IDX_8_NGC
+            elif target_arcade:
+                # TODO: fill out the many format swaps
+                pass
+            else:
                 # target away from gamecube-exclusive formats
                 if target_format == c.PIX_FMT_XBGR_3555_NGC:
                     new_format = c.PIX_FMT_ABGR_1555
                 elif target_format == c.PIX_FMT_ABGR_3555_NGC:
-                    new_format = c.PIX_FMT_ABGR_8888 if flags.get("has_alpha") else c.PIX_FMT_XBGR_8888
+                    new_format = c.PIX_FMT_ABGR_8888 if has_alpha else c.PIX_FMT_XBGR_8888
                 elif target_format == c.PIX_FMT_ABGR_3555_IDX_4_NGC:
                     new_format = c.PIX_FMT_ABGR_8888_IDX_4
                 elif target_format == c.PIX_FMT_ABGR_3555_IDX_8_NGC:
                     new_format = c.PIX_FMT_ABGR_8888_IDX_8
 
-            elif retarget_textures_for_ngc:
-                # retarget to the format replacements gamecube uses
-                if target_format in (c.PIX_FMT_ABGR_8888, c.PIX_FMT_XBGR_8888):
-                    new_format = c.PIX_FMT_ABGR_3555_NGC if flags.get("has_alpha") else c.PIX_FMT_XBGR_3555_NGC
-                elif target_format in (c.PIX_FMT_ABGR_8888_IDX_4, c.PIX_FMT_XBGR_8888_IDX_4):
-                    new_format = c.PIX_FMT_ABGR_3555_IDX_4_NGC
-                elif target_format in (c.PIX_FMT_ABGR_8888_IDX_8, c.PIX_FMT_XBGR_8888_IDX_8):
-                    new_format = c.PIX_FMT_ABGR_3555_IDX_8_NGC
-
             if new_format != target_format:
                 print(f"Retargeting {filename} from '{target_format}' to '{new_format}' to match platform.")
                 target_format = new_format
 
-            flags = meta.get("flags", {})
             all_job_args.append(dict(
                 asset_filepath=asset_filepath, optimize_format=optimize_format,
                 mipmap_count=max(0, 0 if target_ngc else meta.get("mipmap_count", 0)),
                 name=name, cache_filepath=cache_filepath, target_format_name=target_format,
-                keep_alpha=(flags.get("has_alpha") or "A" in target_format),
+                keep_alpha=(has_alpha or "A" in target_format),
                 target_ngc=target_ngc, target_ps2=target_ps2, target_arcade=target_arcade
                 ))
         except Exception:
@@ -266,7 +270,18 @@ def import_textures(
             # the only names stored to the texdef names are the non-sequence bitmaps
             objects_tag.texdef_names[tex_pointer] = meta["name"]
 
-        if bitm.frame_count or bitm.flags.external or bitm.flags.invalid:
+        flags = bitm.flags
+        is_invalid  = bool(getattr(flags, "invalid"))
+        is_external = bool(getattr(flags, "external"))
+
+        if target_ngc and "mipmap_count" in meta:
+            mipmap_count = meta["mipmap_count"]
+        elif g3d_texture:
+            mipmap_count = max(0, len(g3d_texture.textures) - 1)
+        else:
+            mipmap_count = 0
+
+        if bitm.frame_count or is_external or is_invalid:
             # no bitmap to import; only import metadata
             try:
                 bitm.format.set_to(meta["format"])
@@ -274,16 +289,19 @@ def import_textures(
                 print(format_exc())
                 print("Warning: Could not set bitmap format.")
 
-            bitm.flags.data   = 0
-            bitm.lod_k        = meta.get("lod_k", c.DEFAULT_TEX_LOD_K)
-            bitm.width        = meta.get("width", 0)
-            bitm.height       = meta.get("height", 0)
-            bitm.mipmap_count = meta.get("mipmap_count", 0)
-            bitm.frame_count  = meta.get("frame_count", bitm.frame_count)
+            if hasattr(bitm, "lod_k"): # v4 and higher
+                bitm.mipmap_count = meta.get("mipmap_count", 0)
+                bitm.lod_k        = meta.get("lod_k", c.DEFAULT_TEX_LOD_K)
 
-            bitm.tex_palette_index = meta.get("tex_palette_index", 0)
-            bitm.tex_palette_count = meta.get("tex_palette_count", 0)
-            bitm.tex_shift_index   = meta.get("tex_shift_index", 0)
+            if hasattr(bitm, "tex_palette_index"): # v12 and higher
+                bitm.tex_palette_index = meta.get("tex_palette_index", 0)
+                bitm.tex_palette_count = meta.get("tex_palette_count", 0)
+                bitm.tex_shift_index   = meta.get("tex_shift_index", 0)
+
+            flags.data       = 0
+            bitm.width       = meta.get("width", 0)
+            bitm.height      = meta.get("height", 0)
+            bitm.frame_count = meta.get("frame_count", bitm.frame_count)
 
         elif g3d_texture:
             # there is actually a texture to import
@@ -300,44 +318,45 @@ def import_textures(
                     )
 
             tex_pointer += bitmap_size
-                
-            bitm.format.set_to(
-                # MIDWAY HACK
-                c.PIX_FMT_ABGR_1555
-                if g3d_texture.format_name in (c.PIX_FMT_ABGR_3555_NGC, c.PIX_FMT_XBGR_3555_NGC)
-                else g3d_texture.format_name
-                )
-            bitm.lod_k      = meta.get("lod_k", g3d_texture.lod_k)
-            bitm.flags.data = g3d_texture.flags
-            bitm.width      = g3d_texture.width
-            bitm.height     = g3d_texture.height
-            if target_ngc:
-                bitm.mipmap_count = meta.get("mipmap_count", 0)
+
+            # MIDWAY HACK
+            if g3d_texture.format_name in (c.PIX_FMT_ABGR_3555_NGC, c.PIX_FMT_XBGR_3555_NGC):
+                bitm.format.set_to(c.PIX_FMT_ABGR_1555)
             else:
-                bitm.mipmap_count = max(0, len(g3d_texture.textures) - 1)
+                bitm.format.set_to(g3d_texture.format_name)
 
-            if target_arcade:
-                # for arcade, it's mipmap_count + 1
-                bitm.mipmap_count += 1
+            flags.data  = g3d_texture.flags
+            bitm.width  = g3d_texture.width
+            bitm.height = g3d_texture.height
 
-            bitm.flags.has_alpha = "A" in g3d_texture.format_name
+            if hasattr(bitm, "lod_k"): # v4 and higher
+                bitm.mipmap_count = mipmap_count
+                bitm.lod_k        = meta.get("lod_k", g3d_texture.lod_k)
+                flags.has_alpha   = "A" in g3d_texture.format_name
+
         else:
             print("Warning: Could not locate bitmap file for '%s'" % asset_name)
 
         # copy flags from metadata
         for flag_name in meta.get("flags", {}):
-            if hasattr(bitm.flags, flag_name):
-                setattr(bitm.flags, flag_name, meta["flags"][flag_name])
+            if hasattr(flags, flag_name):
+                setattr(flags, flag_name, meta["flags"][flag_name])
 
         # align after each bitmap
         tex_pointer += util.calculate_padding(tex_pointer, c.DEF_TEXTURE_BUFFER_CHUNK_SIZE)
 
-        # add 1 to make sure we dont try to do log(0, 2)
-        bitm.log2_of_width  = int(math.log(bitm.width + 1, 2))
-        bitm.log2_of_height = int(math.log(bitm.height + 1, 2))
-        bitm.width_64       = max(1, (bitm.width + 63) // 64)
+        if target_arcade:
+            # values range from 0 to 8, and they represent the log2 of the width or height(whichever
+            # is largest). for 256, the value is 8, and for 1 the value is 0. so do 8 - log2(w_or_h)
+            bitm.large_lod_log2_inv = 8 - int(math.log(max(bitm.width, bitm.height, 1), 2))
+            bitm.small_lod_log2_inv = bitm.large_lod_log2_inv + mipmap_count
+        else:
+            # do max with 1 to make sure we dont try to do log(0, 2)
+            bitm.log2_of_width  = int(math.log(max(bitm.width, 1), 2))
+            bitm.log2_of_height = int(math.log(max(bitm.height, 1), 2))
+            bitm.width_64       = max(1, (bitm.width + 63) // 64)
 
-        if bitm.flags.external or meta.get("cache_name"):
+        if is_external or meta.get("cache_name"):
             # create a bitmap def
             bitmap_defs.append()
             bitmap_defs[-1].name = meta["name"][:30]
@@ -345,7 +364,7 @@ def import_textures(
             bitmap_defs[-1].height = bitm.height
             bitmap_defs[-1].tex_index = i
 
-        if bitm.flags.external or bitm.flags.invalid:
+        if is_external or is_invalid or target_arcade:
             continue
 
         # populate tex0 and miptbp
@@ -417,11 +436,13 @@ def decompile_textures(
         textures_ext = os.path.splitext(objects_tag.filepath)[-1].strip(".")
         bitmaps = objects_tag.data.bitmaps
         _, bitmap_assets = objects_tag.get_cache_names()
-    else:
+    elif texdef_tag:
         tag_dir = os.path.dirname(texdef_tag.filepath)
         textures_ext = os.path.splitext(texdef_tag.filepath)[-1].strip(".")
         bitmaps = texdef_tag.data.bitmaps
         bitmap_assets = texdef_tag.get_bitmap_names()
+    else:
+        textures_ext = tag_dir = ""
 
     is_ngc    = (textures_ext.lower() == c.NGC_EXTENSION.lower())
     is_arcade = (textures_ext.lower() == c.ARC_EXTENSION.lower())
@@ -433,6 +454,18 @@ def decompile_textures(
         print("No textures cache to extract from.")
         return
 
+    # filter out the asset types that cannot be extracted as-is(requires bitmap recompilation)
+    incompatible_asset_types = set(c.TEXTURE_CACHE_EXTENSIONS)
+    if is_arcade:
+        incompatible_asset_types.discard(c.TEXTURE_CACHE_EXTENSION_ARC)
+    elif is_ngc:
+        incompatible_asset_types.discard(c.TEXTURE_CACHE_EXTENSION_NGC)
+    else:
+        incompatible_asset_types.discard(c.TEXTURE_CACHE_EXTENSION_PS2)
+        incompatible_asset_types.discard(c.TEXTURE_CACHE_EXTENSION_XBOX)
+
+    asset_types = tuple(a for a in asset_types if a not in incompatible_asset_types)
+
     all_job_args = []
 
     for i in range(len(bitmaps)):
@@ -440,26 +473,35 @@ def decompile_textures(
         asset = bitmap_assets.get(i)
 
         try:
+            format_name = bitm.format.enum_name
+            ncc_table = None
             if (asset is None or getattr(bitm, "frame_count", 0) or
                 getattr(bitm.flags, "external", False) or
                 getattr(bitm.flags, "invalid", False)
                 ):
                 continue
-            elif bitm.format.enum_name == "<INVALID>":
+            elif format_name == "<INVALID>":
                 print("Invalid bitmap format detected in bitmap %s at index %s" % (asset, i))
                 continue
+
+            if is_arcade:
+                mipmap_count = bitm.small_lod_log2_inv - bitm.large_lod_log2_inv
+                if "YIQ" in format_name:
+                    ncc_table = ncc.NccTable()
+                    ncc_table.import_from_rawdata(bitm.ncc_table_data)
+            elif not is_ngc:
+                # regardless of what the objects says, gamecube doesnt contain mipmaps
+                mipmap_count = bitm.mipmap_count
+            else:
+                mipmap_count = 0
 
             bitm_data = dict(
                 # NOTE: using flags.data won't work for texdef bitmaps, as different bits are set
                 flags=bitm.flags.data, width=bitm.width, height=bitm.height,
-                lod_k=bitm.lod_k, is_ngc=is_ngc, is_arcade=is_arcade,
-                format_name=bitm.format.enum_name,
-                # regardless of what the objects says, gamecube doesnt contain mipmaps
-                mipmaps=(0 if is_ngc else bitm.mipmap_count)
+                lod_k=getattr(bitm, "lod_k", c.DEFAULT_TEX_LOD_K),
+                is_ngc=is_ngc, is_arcade=is_arcade, ncc_table=ncc_table,
+                format_name=format_name, mipmaps=(mipmap_count if mipmaps else 0)
                 )
-
-            if is_arcade:
-                bitm_data["mipmaps"] -= 1
 
             for asset_type in asset_types:
                 filename = "%s.%s" % (asset['name'], asset_type)
@@ -472,6 +514,10 @@ def decompile_textures(
                     )
                 if os.path.isfile(filepath) and not overwrite:
                     continue
+
+                if ncc_table:
+                    from pprint import pprint
+                    pprint(dict(fp=filepath, y=ncc_table.y, a=ncc_table.a, b=ncc_table.b))
 
                 all_job_args.append(dict(
                     bitm_data=bitm_data, name=asset["name"],

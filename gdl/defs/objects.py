@@ -80,8 +80,8 @@ bitmap_format_v0 = UEnum8("format",
     PIX_FMT_I_8,
     PIX_FMT_AI_44,
     PIX_FMT_P_8,
-    "RSVD0",
-    "RSVD1",
+    "RSVD0", # reserved
+    "RSVD1", # reserved
     PIX_FMT_ARGB_8332,
     PIX_FMT_AYIQ_8422,
     PIX_FMT_RGB_565,
@@ -89,7 +89,7 @@ bitmap_format_v0 = UEnum8("format",
     PIX_FMT_ARGB_4444,
     PIX_FMT_AI_88,
     PIX_FMT_AP_88,
-    "RSVD2",
+    "RSVD2", # reserved
     )
 
 bitmap_format_v4 = UEnum8("format",
@@ -337,21 +337,27 @@ mip_tbp_struct = BitStruct("mip_tbp",
     )
 
 v0_bitmap_block = Struct("bitmap",
-    UInt8("large_lod_log2", EDITABLE=False),
-    UInt8("small_lod_log2", EDITABLE=False),
-    bitmap_format_v0, # 2
-    bitmap_flags_v0,  # 3
+    UInt8("large_lod_log2_inv", EDITABLE=False),
+    UInt8("small_lod_log2_inv", EDITABLE=False),
+    bitmap_format_v0,
+    bitmap_flags_v0,
 
-    UInt16("width", EDITABLE=False),   # 4
-    UInt16("height", EDITABLE=False),  # 6
-    Pointer32("tex_pointer", EDITABLE=False),  # 8
+    UInt16("width", EDITABLE=False),
+    UInt16("height", EDITABLE=False),
+    Pointer32("tex_pointer", EDITABLE=False),
 
-    SInt32("adr", EDITABLE=False, VISIBLE=False), # 12
-    SInt32("mod", EDITABLE=False, VISIBLE=False), # 16
-    SInt32("lod", EDITABLE=False, VISIBLE=False), # 20
-    SInt32("frame_count"), # 24
-    SInt32("pkt", EDITABLE=False, VISIBLE=False), # 28
-    Pad(48),
+    # NOTE: adr, mod, lod, and pkt are runtime values
+    SInt32("adr", EDITABLE=False, VISIBLE=False),
+    SInt32("mod", EDITABLE=False, VISIBLE=False),
+    SInt32("lod", EDITABLE=False, VISIBLE=False),
+    SInt32("frame_count"),
+    SInt32("pkt", EDITABLE=False, VISIBLE=False),
+    # NOTE: i believe a and b are actually 9-bit signed ints packed
+    #       into a uint32 to preserve a large enough range for them
+    #UInt8Array("ncc_table_y", SIZE=16, EDITABLE=False, VISIBLE=False),
+    #UInt32Array("ncc_table_a", SIZE=16, EDITABLE=False, VISIBLE=False),
+    #UInt32Array("ncc_table_b", SIZE=16, EDITABLE=False, VISIBLE=False),
+    BytesRaw("ncc_table_data", SIZE=48),
     SIZE=80
     )
 

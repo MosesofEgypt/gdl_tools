@@ -12,6 +12,8 @@ from arbytmap import bitmap_io, constants, format_defs
 from arbytmap.arby import *
 
 format_defs.FORMAT_X1R5G5B5 = FORMAT_X1R5G5B5 = "X1R5G5B5"
+format_defs.FORMAT_A8R3G3B2 = FORMAT_A8R3G3B2 = "A8R3G3B2"
+
 
 INDEXING_4BPP_TO_8BPP = tuple(
      (i & 0xF) |      # isolate bits 1-4
@@ -40,6 +42,7 @@ BYTESWAP_5551_ARGB_AND_ABGR = tuple(
     for i in range(0x10000)
     )
 
+
 def _upscale(src_depth, dst_depth, val, max_val=None):
     scale_ct = 2**src_depth
     if max_val is None:
@@ -48,40 +51,34 @@ def _upscale(src_depth, dst_depth, val, max_val=None):
     scale = max_val / (scale_ct - 1)
     return min(max_val, int(val * scale + 0.5))
 
-def _yiq_to_rgb(y, i, q):
-    # https://en.wikipedia.org/wiki/YIQ
-    r = y + 0.9469*i + 0.6236*q
-    g = y - 0.2748*i - 0.6357*q
-    b = y - 1.1*i + 1.7*q
-    # TODO: figure out if clamping is the correct thing to do
+
+def _rgb_888_to_yiq_422(r, g, b, ncc_table):
+    # TODO: write this and have it accept an NccTable
     return (
-        max(0, min(1.0, r)),
-        max(0, min(1.0, g)),
-        max(0, min(1.0, b))
+        int((y - ymin) * 15) / (ymax - ymin),
+        int((i - imin) *  3) / (imax - imin),
+        int((q - qmin) *  3) / (qmax - qmin)
         )
 
-def _rgb_to_yiq(r, g, b):
-    # https://en.wikipedia.org/wiki/YIQ
-    y = 0.3*r + 0.59*g + 0.11*b
-    i = -0.27*(b - y) + 0.74*(r - y)
-    q =  0.41*(b - y) + 0.48*(r - y)
-    return y, i, q
+def _yiq_422_to_rgb_888(yiq_422, ncc_table):
+    y = ((yiq_422 >> 4) & 0xF)
+    i = ((yiq_422 >> 2) & 0x3)
+    q = ((yiq_422 >> 0) & 0x3)
+    yy = ncc_table.y[y]
 
-def _yiq_422_to_rgb_888(yiq_422):
-    r, g, b = _yiq_to_rgb(
-        # NOTE: i and q are signed, so divide and then shift
-        ((yiq_422 >> 4) & 0xF) / 15,
-        ((yiq_422 >> 2) & 0x3) / 1.5 - 1.0,
-        (yiq_422 & 0x3) / 1.5 - 1.0
+    r = yy + ncc_table.a[i*3]   + ncc_table.b[q*3]
+    g = yy + ncc_table.a[i*3+1] + ncc_table.b[q*3+1]
+    b = yy + ncc_table.a[i*3+2] + ncc_table.b[q*3+2]
+    return (
+        (int(max(0, min(255, r)))      ) |
+        (int(max(0, min(255, g))) << 8 ) |
+        (int(max(0, min(255, b))) << 16)
         )
-    return (int(round(r * 255.5)) |
-            (int(round(g * 255.5)) << 8) |
-            (int(round(b * 255.5)) << 16))
 
-def _ayiq_8422_to_argb_8888(ayiq_8422):
-    #r, g, b = _yiq_422_to_rgb_888(ayiq_8422&0xFF)
-    rgb_888 = _yiq_422_to_rgb_888(ayiq_8422 >> 8)
-    return rgb_888 | ((ayiq_8422&0xFF) << 24)
+def _ayiq_8422_to_argb_8888(ayiq_8422, ncc_table):
+    rgb_888 = _yiq_422_to_rgb_888(ayiq_8422 & 0xFF, ncc_table)
+    return rgb_888 | (((ayiq_8422 >> 8) & 0xFF) << 24)
+
 
 # NOTE: we are doing some fucky stuff with the gamecube alpha values.
 #       we're intentionally unpacking it at half brightness to ensure
@@ -101,8 +98,6 @@ UPSCALE_3555_TO_8888 = tuple(
      )
     for i in range(0x10000)
     )
-CONVERT_YIQ_422_TO_XRGB_8888   = tuple(_yiq_422_to_rgb_888(i)     for i in range(0x100))
-CONVERT_AYIQ_8422_TO_XRGB_8888 = tuple(_ayiq_8422_to_argb_8888(i) for i in range(0x10000))
 # used to quickly convert to gamecube format from A8R8G8B8
 DOWNSCALE_8_TO_3A = tuple(min(int((i / 128)*7  + 0.5), 7) for i in range(256))
 DOWNSCALE_8_TO_4  = tuple(int((i / 255)*15 + 0.5) for i in range(256))
@@ -170,7 +165,7 @@ def load_from_png_file(arby, input_path, ext, **kwargs):
         )
 
 
-def argb_8888_to_ayiq_8422(source_pixels):
+def argb_8888_to_ayiq_8422(source_pixels, ncc_table):
     # converts packed/unpacked pixels to packed pixels
     if isinstance(source_pixels, array):
         source_pixels = source_pixels.tobytes()
@@ -178,20 +173,14 @@ def argb_8888_to_ayiq_8422(source_pixels):
     packed_pixels = array("H", b'\x00\x00'*(len(source_pixels) // 4))
     for i in range(len(source_pixels)//4):
         a, r, g, b = source_pixels[i*4: i*4+4]
-        y, i, q = _rgb_to_yiq(r/255, g/255, b/255)
+        y, i, q = _rgb_888_to_yiq_422(r, g, b, ncc_table)
 
-        # TODO: figure out the signed rounding crap for yiq packing
-        packed_pixels[i] = (
-            (int((q + 1.0) *(3.5/2))) |
-            (int((i + 1.0) *(3.5/2)) << 2) |
-            (int(y*15.5) << 4) |
-            (a << 8)
-            )
+        packed_pixels[i] = q | (i << 2) | (y << 4) | (a << 8)
 
     return array("H", packed_pixels)
 
 
-def xrgb_8888_to_yiq_422(source_pixels):
+def xrgb_8888_to_yiq_422(source_pixels, ncc_table):
     # converts packed/unpacked pixels to packed pixels
     if isinstance(source_pixels, array):
         source_pixels = source_pixels.tobytes()
@@ -199,32 +188,27 @@ def xrgb_8888_to_yiq_422(source_pixels):
     packed_pixels = array("B", b'\x00'*(len(source_pixels) // 4))
     for i in range(len(source_pixels)//4):
         _, r, g, b = source_pixels[i*4: i*4+4]
-        y, i, q = _rgb_to_yiq(r/255, g/255, b/255)
+        y, i, q = _rgb_888_to_yiq_422(r, g, b, ncc_table)
 
-        # TODO: figure out the signed rounding crap for yiq packing
-        packed_pixels[i] = (
-            (int((q + 1.0) *(3.5/2))) |
-            (int((i + 1.0) *(3.5/2)) << 2) |
-            (int(y * 15.5) << 4)
-            )
+        packed_pixels[i] = q | (i << 2) | (y << 4)
 
     return array("B", packed_pixels)
 
 
-def ayiq_8422_to_argb_8888(source_pixels):
+def ayiq_8422_to_argb_8888(source_pixels, ncc_table):
     # converts packed pixels to packed pixels
     if not isinstance(source_pixels, array):
         source_pixels = array("H", source_pixels)
 
-    return array("I", map(CONVERT_AYIQ_8422_TO_ARGB_8888.__getitem__, source_pixels))
+    return array("I", (_ayiq_8422_to_argb_8888(p, ncc_table) for p in source_pixels))
 
 
-def yiq_422_to_xrgb_8888(source_pixels):
+def yiq_422_to_xrgb_8888(source_pixels, ncc_table):
     # converts packed pixels to packed pixels
     if not isinstance(source_pixels, array):
         source_pixels = array("B", source_pixels)
 
-    return array("I", map(CONVERT_YIQ_422_TO_XRGB_8888.__getitem__, source_pixels))
+    return array("I", (_yiq_422_to_rgb_888(p, ncc_table) for p in source_pixels))
 
 
 def argb_8888_to_3555(source_pixels, no_alpha=False):
@@ -400,6 +384,7 @@ Arbytmap._unpack_indexing   = _fixed_unpack_indexing
 Arbytmap._unpack_palettized = _fixed_unpack_palettized
 
 format_defs.register_format(FORMAT_X1R5G5B5, 1, depths=(5,5,5), bpp=16)
+format_defs.register_format(FORMAT_A8R3G3B2, 1, depths=(8,3,3,2), bpp=16)
 
 if png is not None:
     bitmap_io.file_readers["png"] = load_from_png_file

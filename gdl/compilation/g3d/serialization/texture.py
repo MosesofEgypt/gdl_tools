@@ -11,6 +11,7 @@ from traceback import format_exc
 from .. import util
 from . import arbytmap_ext as arbytmap
 from . import constants as c
+from . import ncc
 
 ROMTEX_HEADER_STRUCT = struct.Struct('<HH 4x bBbB 4x 16s')
 #   width
@@ -40,6 +41,7 @@ class G3DTexture:
     format_name = c.DEFAULT_FORMAT_NAME
     lod_k = 0
     flags = 0
+    ncc_table = ncc.NccTable()
 
     source_file_hash = b'\x00'*16
     channel_map = ()
@@ -64,10 +66,26 @@ class G3DTexture:
     @staticmethod
     def get_arby_format_and_channel_count(format_name, has_alpha):
         channel_count = 4
-        if format_name == c.PIX_FMT_IA_8_IDX_88:
+        if format_name == c.PIX_FMT_AI_88:
             arby_format = arbytmap.FORMAT_A8L8
             channel_count = 2
-        elif "8888" in format_name or "3555" in format_name:
+        elif format_name == c.PIX_FMT_AI_44:
+            arby_format = arbytmap.FORMAT_A4L4
+            channel_count = 2
+        elif format_name == c.PIX_FMT_AI_44:
+            arby_format = arbytmap.FORMAT_A4L4
+            channel_count = 2
+        elif format_name == c.PIX_FMT_RGB_565:
+            arby_format = arbytmap.FORMAT_R5G6B5
+        elif format_name == c.PIX_FMT_RGB_332:
+            arby_format = arbytmap.FORMAT_R3G3B2
+        elif format_name == c.PIX_FMT_ARGB_4444:
+            arby_format = arbytmap.FORMAT_A4R4G4B4
+        elif format_name == c.PIX_FMT_ARGB_8332:
+            arby_format = arbytmap.FORMAT_A8R3G3B2
+        elif "8888" in format_name or "3555" in format_name or format_name in (
+                c.PIX_FMT_YIQ_422, c.PIX_FMT_AYIQ_8422
+            ):
             arby_format = (
                 arbytmap.FORMAT_A8R8G8B8 if has_alpha else
                 arbytmap.FORMAT_X8R8G8B8
@@ -225,12 +243,24 @@ class G3DTexture:
                 palette = arby.pack_raw(palette)
 
             palette = bytearray(palette)
-        else:
+        elif textures:
             # pack the textures
             if target_format_name == c.PIX_FMT_ABGR_3555_NGC:
                 textures = [bytearray(arbytmap.argb_8888_to_3555(tex, False)) for tex in textures]
             elif target_format_name == c.PIX_FMT_XBGR_3555_NGC:
                 textures = [bytearray(arbytmap.argb_8888_to_3555(tex,  True)) for tex in textures]
+            elif target_format_name == c.PIX_FMT_AYIQ_8422:
+                self.ncc_table = ncc.NccTable()
+                self.ncc_table.calculate_from_pixels(textures[0])
+                textures = [bytearray(
+                    arbytmap.argb_8888_to_ayiq_8422(tex, self.ncc_table)
+                    ) for tex in textures]
+            elif target_format_name == c.PIX_FMT_YIQ_422:
+                self.ncc_table = ncc.NccTable()
+                self.ncc_table.calculate_from_pixels(textures[0])
+                textures = [bytearray(
+                    arbytmap.xrgb_8888_to_yiq_422(tex, self.ncc_table)
+                    ) for tex in textures]
             else:
                 textures = [bytearray(arby.pack_raw(tex)) for tex in textures]
 
@@ -250,7 +280,7 @@ class G3DTexture:
 
     def import_gtx(self, input_buffer, headerless=False, flags=0, source_md5=b'\x00'*16,
                    width=0, height=0, mipmaps=0, format_name="ABGR_8888", lod_k=0,
-                   is_ngc=False, is_arcade=False, buffer_end=-1
+                   is_ngc=False, is_arcade=False, buffer_end=-1, ncc_table=None
                    ):
         if not headerless:
             header = ROMTEX_HEADER_STRUCT.unpack(
@@ -258,16 +288,19 @@ class G3DTexture:
                 )
             width, height, mipmaps, flags, lod_k, format_id, source_md5 = header
 
-            format_name = c.FORMAT_ID_TO_NAME.get(format_id, "")
+            format_name = (
+                c.ARC_FORMAT_ID_TO_NAME if is_arcade else
+                c.FORMAT_ID_TO_NAME
+                ).get(format_id, "")
             if not format_name:
                 raise TypeError("Invalid format id: '%s'" % format_id)
 
         # MIDWAY HACK
-        if   is_ngc and format_name == c.PIX_FMT_ABGR_1555:
-            format_name = c.PIX_FMT_ABGR_3555_NGC
-        elif is_ngc and format_name == c.PIX_FMT_XBGR_1555:
-            format_name = c.PIX_FMT_XBGR_3555_NGC
-        # NOTE: need to do hack like this for arcade formats
+        if is_ngc:
+            if format_name == c.PIX_FMT_ABGR_1555:
+                format_name = c.PIX_FMT_ABGR_3555_NGC
+            elif format_name == c.PIX_FMT_XBGR_1555:
+                format_name = c.PIX_FMT_XBGR_3555_NGC
 
         if format_name not in c.PIXEL_SIZES:
             raise TypeError("Invalid format name: '%s'" % format_name)
@@ -362,13 +395,14 @@ class G3DTexture:
                 arbytmap.channel_swap_bgra_rgba_array(textures, itemsize)
 
         self.channel_map = (
-            self.dual_channel_map if format_name == c.PIX_FMT_IA_8_IDX_88 else
+            self.dual_channel_map if format_name in (c.PIX_FMT_IA_8_IDX_88, c.PIX_FMT_AI_88) else
             self.mono_channel_map if is_monochrome else
             self.argb_channel_map
             )
 
         self.palette = palette
         self.textures = textures
+        self.ncc_table = ncc_table
 
     def export_asset(self, output_filepath, include_mipmaps=False, **kwargs):
         arbytmap_instance = self.to_arbytmap_instance(
@@ -390,17 +424,18 @@ class G3DTexture:
                    target_ngc=False, target_ps2=False, target_arcade=False
                    ):
         is_monochrome = self.format_name in c.MONOCHROME_FORMATS
+        name_to_id_map = (c.ARC_FORMAT_NAME_TO_ID if target_arcade else c.FORMAT_NAME_TO_ID)
 
         if not self.textures:
             return
-        elif self.format_name not in c.FORMAT_NAME_TO_ID:
+        elif self.format_name not in name_to_id_map:
             raise TypeError("INVALID FORMAT: '%s'" % self.format_name)
 
         if not headerless:
             output_buffer.write(ROMTEX_HEADER_STRUCT.pack(
                 self.width, self.height, len(self.textures) - 1,
                 self.flags & c.GTX_FLAG_ALL, self.lod_k,
-                c.FORMAT_NAME_TO_ID[self.format_name],
+                name_to_id_map[self.format_name],
                 self.source_file_hash
                 ))
 
@@ -502,6 +537,10 @@ class G3DTexture:
                 if self.format_name in (c.PIX_FMT_ABGR_3555_NGC,
                                         c.PIX_FMT_XBGR_3555_NGC):
                     texture_block.append(arbytmap.argb_3555_to_8888(textures[i]))
+                elif self.format_name == c.PIX_FMT_AYIQ_8422:
+                    texture_block.append(arbytmap.ayiq_8422_to_argb_8888(textures[i], self.ncc_table))
+                elif self.format_name == c.PIX_FMT_YIQ_422:
+                    texture_block.append(arbytmap.yiq_422_to_xrgb_8888(textures[i], self.ncc_table))
                 else:
                     arbytmap.bitmap_io.bitmap_bytes_to_array(
                         textures[i], 0, texture_block, self.arbytmap_format,
