@@ -4,7 +4,7 @@ import pathlib
 from binilla.handler import Handler
 from .field_types import *
 from .defs.objs.tag import GdlTag
-from .util import get_is_arcade_wad
+from . import util
 
 class GdlHandler(Handler):
     default_defs_path = "gdl.defs"
@@ -49,7 +49,7 @@ class GdlHandler(Handler):
             elif filename == 'shop':
                 def_id = 'shop'
 
-            if get_is_arcade_wad(filepath):
+            if util.get_is_arcade_wad(filepath):
                 def_id = f"{def_id}_arcade"
 
             return def_id
@@ -57,6 +57,8 @@ class GdlHandler(Handler):
             for def_id in self.id_ext_map:
                 if self.id_ext_map[def_id].lower() == ext:
                     return def_id
+        #elif util.get_is_arcade_hdd(filepath):
+        #    return "arcade_hdd"
 
     def index_tags(self, directory=None, def_ids_to_index=None):
         if directory is None:

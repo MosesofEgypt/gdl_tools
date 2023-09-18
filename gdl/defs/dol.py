@@ -2,10 +2,10 @@ from supyr_struct.field_types import *
 from supyr_struct.defs.tag_def import TagDef
 from ..common_descs import *
 
-def get(): return GdlPs2Def
+def get(): return gdl_dol_def
 
 
-GdlPs2Def = TagDef('dol',
+gdl_dol_def = TagDef('dol',
     Array("secret_characters",
         SIZE=27, POINTER=1168920,
         SUB_STRUCT=secret_character_struct,

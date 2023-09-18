@@ -4,6 +4,7 @@ import traceback
 
 from .supyr_struct_ext import FixedBytearrayBuffer,\
      BytearrayBuffer, BytesBuffer
+from .defs import arcade_hdd
 
 _processing_pool = None
 
@@ -24,8 +25,8 @@ def process_jobs(job_function, all_job_args=(), process_count=None):
 
     return results
 
+
 def get_is_arcade_wad(filepath):
-    # TODO: fix this to work if the wad header is at the start of the file
     is_arcade = False
     try:
         # do a little peek to see if the file is arcade or not
@@ -41,3 +42,24 @@ def get_is_arcade_wad(filepath):
         pass
 
     return is_arcade
+
+
+def get_is_arcade_hdd(filepath):
+    is_hdd = False
+    try:
+        # check for a couple header signatures
+        with open(filepath, "rb") as f:
+            f.seek(512)
+            if int.from_bytes(f.read(4), 'little') != arcade_hdd.MBR_HEADER_SIG:
+                return False
+
+            f.seek(512 + 56)
+            if int.from_bytes(f.read(4), 'little') != arcade_hdd.UNKNOWN_MBR_SIG:
+                return False
+
+            return True
+
+    except Exception:
+        pass
+
+    return is_hdd

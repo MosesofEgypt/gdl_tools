@@ -1,5 +1,4 @@
 import hashlib
-import os
 import math
 import numpy
 import struct
@@ -10,6 +9,7 @@ from copy import deepcopy
 from traceback import format_exc
 from .. import util
 from . import arbytmap_ext as arbytmap
+from . import pixel_functions as pf
 from . import constants as c
 from . import ncc
 
@@ -238,7 +238,7 @@ class G3DTexture:
             # pack the palette
             if target_format_name in (c.PIX_FMT_ABGR_3555_IDX_4_NGC,
                                       c.PIX_FMT_ABGR_3555_IDX_8_NGC):
-                palette = arbytmap.argb_8888_to_3555(palette)
+                palette = pf.argb_8888_to_3555(palette)
             else:
                 palette = arby.pack_raw(palette)
 
@@ -246,20 +246,20 @@ class G3DTexture:
         elif textures:
             # pack the textures
             if target_format_name == c.PIX_FMT_ABGR_3555_NGC:
-                textures = [bytearray(arbytmap.argb_8888_to_3555(tex, False)) for tex in textures]
+                textures = [bytearray(pf.argb_8888_to_3555(tex, False)) for tex in textures]
             elif target_format_name == c.PIX_FMT_XBGR_3555_NGC:
-                textures = [bytearray(arbytmap.argb_8888_to_3555(tex,  True)) for tex in textures]
+                textures = [bytearray(pf.argb_8888_to_3555(tex,  True)) for tex in textures]
             elif target_format_name == c.PIX_FMT_AYIQ_8422:
                 self.ncc_table = ncc.NccTable()
                 self.ncc_table.calculate_from_pixels(textures[0])
                 textures = [bytearray(
-                    arbytmap.argb_8888_to_ayiq_8422(tex, self.ncc_table)
+                    pf.argb_8888_to_ayiq_8422(tex, self.ncc_table)
                     ) for tex in textures]
             elif target_format_name == c.PIX_FMT_YIQ_422:
                 self.ncc_table = ncc.NccTable()
                 self.ncc_table.calculate_from_pixels(textures[0])
                 textures = [bytearray(
-                    arbytmap.xrgb_8888_to_yiq_422(tex, self.ncc_table)
+                    pf.xrgb_8888_to_yiq_422(tex, self.ncc_table)
                     ) for tex in textures]
             else:
                 textures = [bytearray(arby.pack_raw(tex)) for tex in textures]
@@ -361,14 +361,14 @@ class G3DTexture:
             palette = palette_block[0] = bytearray(palette_block[0])
             if not is_ngc and not is_monochrome:
                 arbytmap.gauntlet_ps2_palette_shuffle(palette, palette_stride)
-            rescaler_4bpp = arbytmap.INDEXING_4BPP_TO_8BPP
+            rescaler_4bpp = pf.INDEXING_4BPP_TO_8BPP
         else:
-            rescaler_4bpp = arbytmap.MONOCHROME_4BPP_TO_8BPP
+            rescaler_4bpp = pf.MONOCHROME_4BPP_TO_8BPP
 
         # hack for 4bpp palettized to pad it up to 8bpp
         if pixel_stride < 8:
             textures = [
-                arbytmap.rescale_4bit_array_to_8bit(texture, rescaler_4bpp)
+                pf.rescale_4bit_array_to_8bit(texture, rescaler_4bpp)
                 for texture in textures
                 ]
 
@@ -390,9 +390,9 @@ class G3DTexture:
         elif not is_monochrome and itemsize > 1 and not is_arcade:
             # swap from BGRA to RGBA for ps2/xbox
             if palette:
-                arbytmap.channel_swap_bgra_rgba_array([palette], itemsize)
+                pf.channel_swap_bgra_rgba_array([palette], itemsize)
             else:
-                arbytmap.channel_swap_bgra_rgba_array(textures, itemsize)
+                pf.channel_swap_bgra_rgba_array(textures, itemsize)
 
         self.channel_map = (
             self.dual_channel_map if format_name in (c.PIX_FMT_IA_8_IDX_88, c.PIX_FMT_AI_88) else
@@ -469,18 +469,18 @@ class G3DTexture:
         elif not is_monochrome and itemsize > 1:
             # swap from BGRA to RGBA for ps2 and xbox
             if palette:
-                arbytmap.channel_swap_bgra_rgba_array([palette], itemsize)
+                pf.channel_swap_bgra_rgba_array([palette], itemsize)
             else:
-                arbytmap.channel_swap_bgra_rgba_array(textures, itemsize)
+                pf.channel_swap_bgra_rgba_array(textures, itemsize)
 
         # hack for 4bpp palettized to unpad from 8bpp to 4bpp
         if pixel_stride < 8:
             rescaler_4bpp = (
-                arbytmap.INDEXING_8BPP_TO_4BPP if palette else
-                arbytmap.MONOCHROME_8BPP_TO_4BPP
+                pf.INDEXING_8BPP_TO_4BPP if palette else
+                pf.MONOCHROME_8BPP_TO_4BPP
                 )
             textures = [
-                arbytmap.rescale_8bit_array_to_4bit(texture, rescaler_4bpp)
+                pf.rescale_8bit_array_to_4bit(texture, rescaler_4bpp)
                 for texture in textures
                 ]
 
@@ -513,7 +513,7 @@ class G3DTexture:
             if self.format_name in (c.PIX_FMT_ABGR_3555_IDX_4_NGC,
                                     c.PIX_FMT_ABGR_3555_IDX_8_NGC):
                 # convert gamecube-exclusive format to standard A8R8G8B8
-                palette_block.append(arbytmap.argb_3555_to_8888(palette))
+                palette_block.append(pf.argb_3555_to_8888(palette))
             else:
                 # NOTE: there's a bug in arbytmap that prevents it from properly
                 #       handling indexing with less than 8 bits per pixel. Arbytmap
@@ -529,18 +529,18 @@ class G3DTexture:
 
             if "IDX_4" in self.format_name:
                 if len(palette_block[0]) < 256:
-                    arbytmap.pad_pal16_to_pal256(palette_block[0])
+                    pf.pad_pal16_to_pal256(palette_block[0])
         else:
             palette_block = None
             # convert gamecube-exclusive format to standard A8R8G8B8
             for i in range(mipmap_count + 1):
                 if self.format_name in (c.PIX_FMT_ABGR_3555_NGC,
                                         c.PIX_FMT_XBGR_3555_NGC):
-                    texture_block.append(arbytmap.argb_3555_to_8888(textures[i]))
+                    texture_block.append(pf.argb_3555_to_8888(textures[i]))
                 elif self.format_name == c.PIX_FMT_AYIQ_8422:
-                    texture_block.append(arbytmap.ayiq_8422_to_argb_8888(textures[i], self.ncc_table))
+                    texture_block.append(pf.ayiq_8422_to_argb_8888(textures[i], self.ncc_table))
                 elif self.format_name == c.PIX_FMT_YIQ_422:
-                    texture_block.append(arbytmap.yiq_422_to_xrgb_8888(textures[i], self.ncc_table))
+                    texture_block.append(pf.yiq_422_to_xrgb_8888(textures[i], self.ncc_table))
                 else:
                     arbytmap.bitmap_io.bitmap_bytes_to_array(
                         textures[i], 0, texture_block, self.arbytmap_format,

@@ -1,13 +1,17 @@
 from supyr_struct.defs.block_def import BlockDef
+#from supyr_struct.defs.tag_def import TagDef
 from ..common_descs import *
 
 FILE_BLOCK_TYPE_DIRECTORY = 2
 FILE_BLOCK_TYPE_REGULAR   = 4
 
-MASTER_BOOT_RECORD_SIG  = 0xFEEDF00D
-FILE_TABLE_SIG          = 0xF00DFACE
-REGULAR_FILE_SIG        = 0xC0EDBABE
-SECTOR_SIZE             = 512
+MBR_HEADER_SIG      = 0xFEEDF00D
+FILE_TABLE_SIG      = 0xF00DFACE
+REGULAR_FILE_SIG    = 0xC0EDBABE
+UNKNOWN_MBR_SIG     = 0xFE1DFAED
+SECTOR_SIZE         = 512
+
+def get(): return arcade_hdd_tagdef
 
 
 def file_table_header_pointer(parent=None, new_value=None, disc=0, **kw):
@@ -49,7 +53,7 @@ partition_block = QStruct('partition_block',
     )
 
 mbr_block = Struct('mbr_block',
-    UInt32('sig', DEFAULT=MASTER_BOOT_RECORD_SIG),
+    UInt32('sig', DEFAULT=MBR_HEADER_SIG),
     UInt16('unknown0', DEFAULT=5),
     UInt16('unknown1', DEFAULT=1),
     UInt16('unknown2', DEFAULT=104),
@@ -65,7 +69,7 @@ mbr_block = Struct('mbr_block',
     UInt16('unknown11', DEFAULT=3),
     UInt16('unknown12', DEFAULT=10),
     Pad(18),
-    UInt32('unknown13', DEFAULT=0xFE1DFAED),
+    UInt32('unknown13', DEFAULT=UNKNOWN_MBR_SIG),
     UInt32('unknown14', DEFAULT=8),
     UInt32('unknown15', DEFAULT=8),
     QStruct("file_table_record", INCLUDE=file_table_record),
@@ -117,7 +121,8 @@ block_header = Struct("block_header",
     #Array("fragments_ter", SUB_STRUCT=file_fragment_locator, SIZE=20),
     )
 
-arcade_hdd_def = BlockDef("arcade_hdd",
+
+arcade_hdd_blocks = (
     partition_block,
     mbr_block,
     Struct("file_table_header_pri",
@@ -131,10 +136,12 @@ arcade_hdd_def = BlockDef("arcade_hdd",
     Struct("file_table_header_ter",
         INCLUDE=block_header,
         POINTER=lambda *a, **kw: file_table_header_pointer(*a, disc=2, **kw)
-        ),
-    # TODO: figure what to do about the multiple data copies
-    endian="<"
+        )
     )
+
+#arcade_hdd_tagdef = TagDef("arcade_hdd", *arcade_hdd_blocks, endian="<")
+
+arcade_hdd_def = BlockDef("arcade_hdd", *arcade_hdd_blocks, endian="<")
 
 dir_entry_list_def = BlockDef("dir_entry_list",
     dir_entry_list,

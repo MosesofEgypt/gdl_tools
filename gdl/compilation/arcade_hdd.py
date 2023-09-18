@@ -7,6 +7,7 @@ from ..defs.arcade_hdd import arcade_hdd_def, dir_entry_list_def,\
 
 
 # root of tree is file header 2(0 is the file table, and 1 is unknown)
+FILE_TABLE_INDEX   = 0
 UNKNOWN_FILE_INDEX = 1
 ROOT_DIR_INDEX     = 2
 

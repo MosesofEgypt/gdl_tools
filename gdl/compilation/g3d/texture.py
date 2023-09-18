@@ -368,8 +368,8 @@ def import_textures(
         tex_pointer += util.calculate_padding(tex_pointer, c.DEF_TEXTURE_BUFFER_CHUNK_SIZE)
 
         if target_arcade:
-            # values range from 0 to 8, and they represent the log2 of the width or height(whichever
-            # is largest). for 256, the value is 8, and for 1 the value is 0. so do 8 - log2(w_or_h)
+            # values range from 0 to 8, and they are tied to the log2 of the width or height(whichever
+            # is largest). for 256, the log is 8, and for 1 the log is 0. so do 8 - log2(w_or_h)
             bitm.large_lod_log2_inv = 8 - int(math.log(max(bitm.width, bitm.height, 1), 2))
             bitm.small_lod_log2_inv = bitm.large_lod_log2_inv + mipmap_count
         else:

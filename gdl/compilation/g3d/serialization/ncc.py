@@ -11,15 +11,6 @@ def quantize_rgb_888_to_yiq_888(r, g, b):
 
 
 class NccTable:
-    y_min = 0
-    y_max = 255
-    i_min = 0
-    i_max = 255
-    q_min = 0
-    q_max = 255
-
-    n_pixels = 1
-
     y = None
     a = None
     b = None
@@ -41,6 +32,9 @@ class NccTable:
         # Step 2: while converting, track histogram of each YIQ value
         # Step 3: determine Y/I/Q min/max from ignoring upper/lower X% of values
         # Step 4: calculate YAB table from min/max bounds
+        # NOTE: this won't work well if resources are extracted and then
+        #       recompressed as YIQ, as the A and B ranges will keep shrinking.
+        #       need to include flag in metadata to prevent discarding values.
         self.y = tuple(y)
         self.a = tuple(a)
         self.b = tuple(b)
