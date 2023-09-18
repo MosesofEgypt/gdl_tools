@@ -10,6 +10,7 @@ from traceback import format_exc
 
 from arbytmap import bitmap_io, constants, format_defs
 from arbytmap.arby import *
+from . import ncc
 
 format_defs.FORMAT_X1R5G5B5 = FORMAT_X1R5G5B5 = "X1R5G5B5"
 format_defs.FORMAT_A8R3G3B2 = FORMAT_A8R3G3B2 = "A8R3G3B2"
@@ -53,26 +54,38 @@ def _upscale(src_depth, dst_depth, val, max_val=None):
 
 
 def _rgb_888_to_yiq_422(r, g, b, ncc_table):
-    # TODO: write this and have it accept an NccTable
-    return (
-        int((y - ymin) * 15) / (ymax - ymin),
-        int((i - imin) *  3) / (imax - imin),
-        int((q - qmin) *  3) / (qmax - qmin)
+    y, i, q = ncc.quantize_rgb_888_to_yiq_888(r, g, b)
+    y = (
+        0  if y < ncc_table.y_min else
+        15 if y > ncc_table.y_max else
+        int((y - ncc_table.y_min) * (15 / (ncc_table.y_max - ncc_table.y_min)))
         )
+    i = (
+        0 if i < ncc_table.i_min else
+        3 if i > ncc_table.i_max else
+        int((i - ncc_table.i_min) * (3 / (ncc_table.i_max - ncc_table.i_min)))
+        )
+    q = (
+        0 if q < ncc_table.q_min else
+        3 if q > ncc_table.q_max else
+        int((q - ncc_table.q_min) * (3 / (ncc_table.q_max - ncc_table.q_min)))
+        )
+    return y, i, q
+
 
 def _yiq_422_to_rgb_888(yiq_422, ncc_table):
-    y = ((yiq_422 >> 4) & 0xF)
-    i = ((yiq_422 >> 2) & 0x3)
-    q = ((yiq_422 >> 0) & 0x3)
+    y = (yiq_422 >> 4) & 0xF
+    i = (yiq_422 >> 2) & 0x3
+    q =  yiq_422       & 0x3
     yy = ncc_table.y[y]
 
     b = yy + ncc_table.a[i*3  ] + ncc_table.b[q*3  ]
     g = yy + ncc_table.a[i*3+1] + ncc_table.b[q*3+1]
     r = yy + ncc_table.a[i*3+2] + ncc_table.b[q*3+2]
     return (
-        (int(max(0, min(255, r)))      ) |
-        (int(max(0, min(255, g))) << 8 ) |
-        (int(max(0, min(255, b))) << 16)
+        ( 0 if r <= 0 else 255 if r >= 255 else int(r)) |
+        ((0 if g <= 0 else 255 if g >= 255 else int(g)) << 8) |
+        ((0 if b <= 0 else 255 if b >= 255 else int(b)) << 16)
         )
 
 def _ayiq_8422_to_argb_8888(ayiq_8422, ncc_table):

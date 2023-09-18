@@ -5,7 +5,21 @@ NCC_TABLE_STRUCT = struct.Struct('<16B 8I')
 #   uint8  y_coeff[16]
 #   uint32 ab_coeffs[8]
 
+def quantize_rgb_888_to_yiq_888(r, g, b):
+    # TODO: write this
+    return (r + g + b) / 3, 0, 0
+
+
 class NccTable:
+    y_min = 0
+    y_max = 255
+    i_min = 0
+    i_max = 255
+    q_min = 0
+    q_max = 255
+
+    n_pixels = 1
+
     y = None
     a = None
     b = None
@@ -22,47 +36,41 @@ class NccTable:
         a = [0] * 12
         b = [0] * 12
 
-        # TODO: write this
+        # TODO: write this. look at _txPixQuantize_YIQ422 in swlibs/texus2/lib/ncc.c
+        # Step 1: convert entire texture from RGB888 to YIQ888
+        # Step 2: while converting, track histogram of each YIQ value
+        # Step 3: determine Y/I/Q min/max from ignoring upper/lower X% of values
+        # Step 4: calculate YAB table from min/max bounds
         self.y = tuple(y)
         self.a = tuple(a)
         self.b = tuple(b)
 
     def import_from_rawdata(self, rawdata):
-        unpacked_data = NCC_TABLE_STRUCT.unpack(rawdata)
-        packed_coeffs = unpacked_data[16: 24]
-        coeffs = [0]*24
-        for i, packed_vals in enumerate(packed_coeffs):
-            for j in range(3):
-                val = packed_vals & 0x1FF
-                if val & 0x100:
-                    val -= 0x200
+        ncc_values = NCC_TABLE_STRUCT.unpack(rawdata)
+        coeffs = []
 
-                coeffs[i*3 + 2 - j] = val
-                packed_vals >>= 9
+        for packed_vals in ncc_values[16: 24]:
+            coeffs.append((packed_vals >> 18) & 0x1FF)
+            if coeffs[-1] & 0x100: coeffs[-1] -= 0x200
 
-        self.y = tuple(unpacked_data[0: 16])
+            coeffs.append((packed_vals >> 9) & 0x1FF)
+            if coeffs[-1] & 0x100: coeffs[-1] -= 0x200
+
+            coeffs.append(packed_vals & 0x1FF)
+            if coeffs[-1] & 0x100: coeffs[-1] -= 0x200
+
+        self.y = tuple(ncc_values[0: 16])
         self.a = tuple(coeffs[ 0: 12])
         self.b = tuple(coeffs[12: 24])
 
     def export_to_rawdata(self):
-        a_packed = []
-        b_packed = []
-        # TODO: write this once packing format is uncovered
-        '''
-        for unpacked_vals, packed_vals_arr in [
-                (self.a, a_packed),
-                (self.b, b_packed)
-                ]:
-            for i in range(0, 12, 3):
-                packed_val = 0
-                for j in range(3):
-                    val = unpacked_vals[i + j]
-                    if val < 0: # if signed
-                        val += 0x200
+        ab_packed = []
+        ab_unpacked = (*self.a, *self.b)
+        for i in range(0, 24, 3):
+            val0, val1, val2 = ab_unpacked[i: i+3]
+            if val0 < 0: val0 += 0x200
+            if val1 < 0: val1 += 0x200
+            if val2 < 0: val2 += 0x200
+            ab_packed.append((val0 << 18) | (val1 << 9) | val2)
 
-                    packed_val |= (val & 0x1FF) << (j * 9)
-
-                packed_vals_arr.append(packed_val)
-        '''
-
-        return NCC_TABLE_STRUCT.pack(*self.y, *a_packed, *b_packed)
+        return NCC_TABLE_STRUCT.pack(*self.y, *ab_packed)

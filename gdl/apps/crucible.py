@@ -13,7 +13,7 @@ BUILD_TARGETS = {
     "PlayStation2": "ps2",
     "Gamecube":     "ngc",
     "Xbox":         "xbox",
-    "Arcade":       "arcade", # TODO
+    "Arcade":       "arcade",
     }
 MOD_EXTRACT_FORMATS = {
     "Wavefront OBJ": "obj",
@@ -37,7 +37,7 @@ class CrucibleApp(Tk):
     def __init__(self, **options):
         Tk.__init__(self, **options)
         
-        self.title("Crucible V1.1.5")
+        self.title("Crucible V1.2.0")
         self.minsize(500, 0)
         self.resizable(1, 0)
 
@@ -133,7 +133,7 @@ class CrucibleApp(Tk):
             )
         # DEBUG
 
-        self.build_target_label = Label(self.settings_frame, text="Build target")
+        self.build_target_label = Label(self.settings_frame, text="Platform target")
         self.coll_format_label  = Label(self.settings_frame, text="Collision format")
         self.mod_format_label   = Label(self.settings_frame, text="Model format")
         self.tex_format_label   = Label(self.settings_frame, text="Texture format")

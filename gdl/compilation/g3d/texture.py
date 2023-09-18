@@ -35,7 +35,17 @@ def _compile_texture(kwargs):
             f, target_ngc=target_ngc, target_ps2=target_ps2,
             target_arcade=target_arcade
             )
-        # TODO: export ncc_table if format requires it
+
+    if "YIQ" not in g3d_texture.format_name:
+        return
+
+    ncc_filepath = "%s.%s" % (
+        os.path.splitext(cache_filepath)[0], c.NCC_TABLE_CACHE_EXTENSION
+        )
+    # export ncc_table if format requires it
+    if not os.path.isfile(ncc_filepath) or overwrite:
+        with open(ncc_filepath, "wb+") as f:
+            f.write(g3d_texture.ncc_table.export_to_rawdata())
 
 
 def _decompile_texture(kwargs):
@@ -60,13 +70,25 @@ def _decompile_texture(kwargs):
             filepath, overwrite=overwrite,
             include_mipmaps=kwargs["include_mipmaps"],
             )
-    elif not os.path.isfile(filepath) or overwrite:
+        return
+
+    if not os.path.isfile(filepath) or overwrite:
         with open(filepath, "wb+") as f:
             g3d_texture.export_gtx(
                 f, target_ngc=(asset_type == c.TEXTURE_CACHE_EXTENSION_NGC),
                 target_arcade=(asset_type == c.TEXTURE_CACHE_EXTENSION_ARC)
                 )
-            # TODO: export ncc_table if format requires it
+
+    if "YIQ" not in g3d_texture.format_name:
+        return
+
+    ncc_filepath = "%s.%s" % (
+        os.path.splitext(filepath)[0], c.NCC_TABLE_CACHE_EXTENSION
+        )
+    # export ncc_table if format requires it
+    if not os.path.isfile(ncc_filepath) or overwrite:
+        with open(ncc_filepath, "wb+") as f:
+            f.write(g3d_texture.ncc_table.export_to_rawdata())
 
 
 def compile_textures(
