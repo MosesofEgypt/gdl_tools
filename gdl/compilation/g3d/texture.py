@@ -515,10 +515,6 @@ def decompile_textures(
                 if os.path.isfile(filepath) and not overwrite:
                     continue
 
-                if ncc_table:
-                    from pprint import pprint
-                    pprint(dict(fp=filepath, y=ncc_table.y, a=ncc_table.a, b=ncc_table.b))
-
                 all_job_args.append(dict(
                     bitm_data=bitm_data, name=asset["name"],
                     textures_filepath=textures_filepath,

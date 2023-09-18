@@ -33,10 +33,12 @@ class NccTable:
         coeffs = [0]*24
         for i, packed_vals in enumerate(packed_coeffs):
             for j in range(3):
-                val = ((packed_vals >> (j * 9)) & 0x1FF) - 0x100
-                #val = ((packed_vals >> (j * 8)) & 0xFF)
-                #val -= 0x100 * ((packed_vals >> (24 + j)) & 1)
-                coeffs[j*8 + i] = val
+                val = packed_vals & 0x1FF
+                if val & 0x100:
+                    val -= 0x200
+
+                coeffs[i*3 + 2 - j] = val
+                packed_vals >>= 9
 
         self.y = tuple(unpacked_data[0: 16])
         self.a = tuple(coeffs[ 0: 12])

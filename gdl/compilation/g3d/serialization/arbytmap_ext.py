@@ -66,9 +66,9 @@ def _yiq_422_to_rgb_888(yiq_422, ncc_table):
     q = ((yiq_422 >> 0) & 0x3)
     yy = ncc_table.y[y]
 
-    r = yy + ncc_table.a[i*3]   + ncc_table.b[q*3]
+    b = yy + ncc_table.a[i*3  ] + ncc_table.b[q*3  ]
     g = yy + ncc_table.a[i*3+1] + ncc_table.b[q*3+1]
-    b = yy + ncc_table.a[i*3+2] + ncc_table.b[q*3+2]
+    r = yy + ncc_table.a[i*3+2] + ncc_table.b[q*3+2]
     return (
         (int(max(0, min(255, r)))      ) |
         (int(max(0, min(255, g))) << 8 ) |

@@ -352,8 +352,13 @@ v0_bitmap_block = Struct("bitmap",
     SInt32("lod", EDITABLE=False, VISIBLE=False),
     SInt32("frame_count"),
     SInt32("pkt", EDITABLE=False, VISIBLE=False),
-    # NOTE: i believe a and b are actually 9-bit signed ints packed
-    #       into a uint32 to preserve a large enough range for them
+    # a and b are actually 9-bit signed ints packed into
+    # a uint32 to preserve a large enough range for them.
+    # they are packed like so:
+    #     a[i][0] = (ncc_table_a[i] >> 18) & 0x1FF
+    #     a[i][1] = (ncc_table_a[i] >>  9) & 0x1FF
+    #     a[i][2] = (ncc_table_a[i] >>  0) & 0x1FF
+    # since they are twos-signed, if 0x100 is set, subtract 0x200
     #UInt8Array("ncc_table_y", SIZE=16, EDITABLE=False, VISIBLE=False),
     #UInt32Array("ncc_table_a", SIZE=16, EDITABLE=False, VISIBLE=False),
     #UInt32Array("ncc_table_b", SIZE=16, EDITABLE=False, VISIBLE=False),
