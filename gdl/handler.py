@@ -57,8 +57,6 @@ class GdlHandler(Handler):
             for def_id in self.id_ext_map:
                 if self.id_ext_map[def_id].lower() == ext:
                     return def_id
-        #elif util.get_is_arcade_hdd(filepath):
-        #    return "arcade_hdd"
 
     def index_tags(self, directory=None, def_ids_to_index=None):
         if directory is None:

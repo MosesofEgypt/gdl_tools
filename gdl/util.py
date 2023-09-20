@@ -4,7 +4,6 @@ import traceback
 
 from .supyr_struct_ext import FixedBytearrayBuffer,\
      BytearrayBuffer, BytesBuffer
-from .defs import arcade_hdd
 
 _processing_pool = None
 
@@ -33,10 +32,15 @@ def get_is_arcade_wad(filepath):
         with open(filepath, "rb") as f:
             wad_header_start = int.from_bytes(f.read(4), 'little')
             wad_header_count = int.from_bytes(f.read(4), 'little')
-            if wad_header_count:
-                f.seek(wad_header_start + 8)
+            # safety check in case file isn't a wad
+            if wad_header_count > 50:
+                return False
+
+            for i in range(wad_header_count):
+                f.seek(wad_header_start + (16 * i) + 8)
                 # if the size value is present twice, its arcade
-                is_arcade = (f.read(4) == f.read(4))
+                if f.read(4) != f.read(4):
+                    return False
 
     except Exception:
         pass
@@ -44,22 +48,14 @@ def get_is_arcade_wad(filepath):
     return is_arcade
 
 
-def get_is_arcade_hdd(filepath):
-    is_hdd = False
-    try:
-        # check for a couple header signatures
-        with open(filepath, "rb") as f:
-            f.seek(512)
-            if int.from_bytes(f.read(4), 'little') != arcade_hdd.MBR_HEADER_SIG:
-                return False
-
-            f.seek(512 + 56)
-            if int.from_bytes(f.read(4), 'little') != arcade_hdd.UNKNOWN_MBR_SIG:
-                return False
-
-            return True
-
-    except Exception:
-        pass
-
-    return is_hdd
+def get_is_arcade_rom(filepath):
+    basename, _ = os.path.splitext(filepath)
+    basename = basename.lower()
+    if basename in ("anim", "objects", "textures", "worlds",
+                    "dummy", "aud_data", "hstable_e", "hstable_j"):
+        return True
+    elif len(basename) == 9 and basename.startswith("passport"):
+        return True
+    elif len(basename) == 6 and basename.startswith("index"):
+        return True
+    return False
