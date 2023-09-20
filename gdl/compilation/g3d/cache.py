@@ -133,7 +133,9 @@ def decompile_cache_files(
             asset_types=tex_asset_types, mipmaps=kwargs.get("mipmaps", False)
             )
 
-    if mod_asset_types and objects_tag:
+    if (mod_asset_types and objects_tag and
+        objects_tag.data.version_header.version.enum_name not in ("v0", "v1")
+        ):
         model.decompile_models(
             objects_tag, data_dir,
             overwrite=overwrite, parallel_processing=parallel_processing,

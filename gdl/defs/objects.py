@@ -132,6 +132,11 @@ sub_object_model = Container("sub_object_model",
     ALIGN=4,
     )
 
+v4_sub_object_block = QStruct("sub_object",
+    UInt16("tex_index",   GUI_NAME="texture index"),
+    UInt16("lm_index",    GUI_NAME="light map index"),
+    )
+
 v12_sub_object_block = QStruct("sub-object",
     #number of 16 byte chunks that the subobject model consists of.
     UInt16("qword_count", GUI_NAME="quadword count"),
@@ -141,11 +146,6 @@ v12_sub_object_block = QStruct("sub-object",
 
     #Not sure about lm_index. Might be the texture index of the
     #greyscale lightmap that the object uses for the luminance.
-    UInt16("lm_index",    GUI_NAME="light map index"),
-    )
-
-v4_sub_object_block = QStruct("sub_object",
-    UInt16("tex_index",   GUI_NAME="texture index"),
     UInt16("lm_index",    GUI_NAME="light map index"),
     )
 
@@ -178,7 +178,7 @@ v0_lod_struct = Struct("lod_struct",
     )
 
 v0_object_block = Struct("object",
-    Pad(4), # always 0
+    Float("inv_rad"), # always 0?
     Float("bnd_rad"),
     UInt32("unknown", DEFAULT=1, VISIBLE=False), # always 1
     Array("lods", SUB_STRUCT=v0_lod_struct, SIZE=3),
@@ -194,8 +194,8 @@ v0_object_block = Struct("object",
 v4_object_block = Struct("object",
     Float("inv_rad"),
     Float("bnd_rad"),
-    Pad(4),
-    SInt32('sub_objects_count', EDITABLE=False),
+    UInt32("unknown"), # always 0?
+    SInt32('sub_objects_count', EDITABLE=False), # name is a guess. always 1?
     Pointer32('sub_object_models_pointer', EDITABLE=False),
     Struct("sub_object_0", INCLUDE=v4_sub_object_block),
     SInt32("vert_count"),  # exactly the number of unique verts
@@ -226,9 +226,9 @@ v12_object_block = Struct("object",
     SInt32("tri_count"),  # exactly the number of unique triangles
     SInt32("id_num"),
 
-    #pointer to the obj def that this model uses
-    #doesnt seem to be used, so ignore it
-    Pad(4),#LPointer32("obj_def"),
+    # pointer to the obj def that this model uses
+    # always 0 in serialized form, but keeping this for documentation
+    Pointer32("obj_def"),
     Pad(16),
 
     SIZE=64,
