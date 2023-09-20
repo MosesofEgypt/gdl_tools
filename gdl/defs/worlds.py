@@ -57,6 +57,36 @@ def grid_list_indices_pointer(parent=None, **kwargs):
         return 0
 
 
+def get_extended_header_version(*args, parent=None, **kwargs):
+    version = "v2"
+    if parent is None:
+        return None
+
+    # MIDWAY HACK
+    header = parent.header
+    for count, pointer in (
+            (header.world_objects_count, header.world_objects_pointer),
+            (header.coll_tri_count, header.world_objects_pointer),
+            (header.grid_entry_count, header.grid_entry_pointer),
+            (header.item_info_count, header.item_info_pointer),
+            (header.item_instance_count, header.item_instance_pointer),
+            (header.locator_count, header.locator_pointer),
+            ):
+        if count > 0 and pointer < 120:
+            # one of the pointers points inside where the
+            # extended header WOULD be, so there isn't one
+            version = None
+
+    return version
+
+
+def get_has_world_anims(*args, parent=None, **kwargs):
+    if get_extended_header_version(*args, parent=parent, **kwargs) is None:
+        return False
+
+    return parent.ext_header.animations_count > 0
+
+
 coll_tri = Struct("coll_tri",
     SInt16("min_y"),  # unknown purpose(runtime optimization?)
     SInt16("max_y"),  # unknown purpose(runtime optimization?)
@@ -466,7 +496,7 @@ world_animation = Struct("world_animation",
             POINTER=lambda *a, **kw: get_atree_data_array_pointer(
                 *a, pointer_field_names=[
                     # i fucking hate this
-                    ".....header.animation_header_pointer",
+                    ".....ext_header.animation_header_pointer",
                     "....anim_header.blocks_pointer",
                     ".data_offset", 
                     ], **kw
@@ -479,14 +509,14 @@ world_animation = Struct("world_animation",
 world_anims = Container("world_anims",
     Struct("anim_header",
         INCLUDE=anim_header,
-        POINTER="..header.animation_header_pointer"
+        POINTER="..ext_header.animation_header_pointer"
         ),
     Container("compressed_data",
         FloatArray("comp_angles",
             SIZE=get_comp_angles_size,
             POINTER=lambda *a, **kw: get_atree_data_array_pointer(
                 *a, pointer_field_names=[
-                    "...header.animation_header_pointer",
+                    "...ext_header.animation_header_pointer",
                     "..anim_header.comp_ang_pointer",
                     ], **kw
                 )
@@ -495,7 +525,7 @@ world_anims = Container("world_anims",
             SIZE=get_comp_positions_size,
             POINTER=lambda *a, **kw: get_atree_data_array_pointer(
                 *a, pointer_field_names=[
-                    "...header.animation_header_pointer",
+                    "...ext_header.animation_header_pointer",
                     "..anim_header.comp_pos_pointer",
                     ], **kw
                 )
@@ -504,7 +534,7 @@ world_anims = Container("world_anims",
             SIZE=get_comp_scales_size,
             POINTER=lambda *a, **kw: get_atree_data_array_pointer(
                 *a, pointer_field_names=[
-                    "...header.animation_header_pointer",
+                    "...ext_header.animation_header_pointer",
                     "..anim_header.comp_scale_pointer",
                     ], **kw
                 )
@@ -512,8 +542,8 @@ world_anims = Container("world_anims",
         ),
     Array("animations",
         SUB_STRUCT=world_animation,
-        SIZE="..header.animations_count",
-        POINTER="..header.animations_pointer",
+        SIZE="..ext_header.animations_count",
+        POINTER="..ext_header.animations_pointer",
         DYN_NAME_PATH='.world_object_index', WIDGET=DynamicArrayFrame
         ),
     )
@@ -547,7 +577,10 @@ worlds_header = Struct('header',
 
     UInt32("locator_count", EDITABLE=False, VISIBLE=False),
     Pointer32("locator_pointer", EDITABLE=False, VISIBLE=False),
+    SIZE=96
+    )
 
+v2_worlds_ext_header = Struct('ext_header',
     UEnum32("world_format",
         ("v2", 0xF00BAB02),
         DEFAULT=0xF00BAB02, EDITABLE=False
@@ -559,11 +592,17 @@ worlds_header = Struct('header',
 
     UInt32("particle_systems_count", EDITABLE=False, VISIBLE=False),
     Pointer32("particle_systems_pointer", EDITABLE=False, VISIBLE=False),
-    SIZE=120
+    SIZE=24
     )
+
 
 worlds_ps2_def = TagDef("worlds",
     worlds_header,
+    Switch("ext_header",
+        CASES={ None: Void("ext_header") },
+        CASE=get_extended_header_version,
+        DEFAULT=v2_worlds_ext_header,
+        ),
     Array("world_objects",
         SUB_STRUCT=world_object,
         SIZE=".header.world_objects_count",
@@ -607,15 +646,19 @@ worlds_ps2_def = TagDef("worlds",
         POINTER=".header.locator_pointer",
         DYN_NAME_PATH='.type.enum_name', WIDGET=DynamicArrayFrame
         ),
-    Array("particle_systems",
-        SUB_STRUCT=particle_system,
-        SIZE=".header.particle_systems_count",
-        POINTER=".header.particle_systems_pointer",
-        DYN_NAME_PATH='.p_texname', WIDGET=DynamicArrayFrame
+    Switch("particle_systems",
+        CASES={ None: Void("world_anims") },
+        CASE=get_extended_header_version,
+        DEFAULT=Array("particle_systems",
+            SUB_STRUCT=particle_system,
+            SIZE=".ext_header.particle_systems_count",
+            POINTER=".ext_header.particle_systems_pointer",
+            DYN_NAME_PATH='.p_texname', WIDGET=DynamicArrayFrame
+            )
         ),
     Switch("world_anims",
-        CASE=".header.animations_count",
-        CASES={ 0: Void("world_anims") },
+        CASE=get_has_world_anims,
+        CASES={ False: Void("world_anims") },
         DEFAULT=world_anims
         ),
     ext=".ps2", endian="<", tag_cls=WorldsTag

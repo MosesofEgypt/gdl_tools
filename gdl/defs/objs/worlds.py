@@ -28,7 +28,11 @@ class WorldsTag(GdlTag):
 
     def set_pointers(self, offset):
         header = self.data.header
-        offset += 120 # size of header is 120 bytes
+        ext_header = self.data.ext_header
+
+        offset += header.binsize # size of header is 96 bytes
+        if hasattr(ext_header, "world_format"):
+            offset += ext_header.binsize # size of header is 24 bytes
 
         # set array pointers
         header.world_objects_pointer = offset
@@ -78,8 +82,12 @@ class WorldsTag(GdlTag):
         header.locator_pointer = offset
         offset += 28 * header.locator_count
 
+        if not hasattr(ext_header, "world_format"):
+            # world isn't v2, so it doesnt have animations or particle systems
+            return
+
         # now comes the animations....
-        if self.data.header.animations_count:
+        if self.data.ext_header.animations_count:
             anim_header = self.data.world_anims.anim_header
             comp_data   = self.data.world_anims.compressed_data
 
@@ -116,11 +124,12 @@ class WorldsTag(GdlTag):
 
             anim_header.blocks_pointer = anim_header_size
 
-            header.animation_header_pointer = offset
+            ext_header.animation_header_pointer = offset
             offset += anim_header_size + frame_data_size
 
-            header.animations_pointer = offset
-            offset += 16 * header.animations_count
+            ext_header.animations_pointer = offset
+            offset += 16 * ext_header.animations_count
 
-        header.particle_systems_pointer = offset
+        ext_header.particle_systems_pointer = offset
         # aaaaand we're done
+
