@@ -309,7 +309,11 @@ class CrucibleApp(Tk):
     def _compile_objects(self, models=False, textures=False, cache=False,
                          collision=False, world=False):
         target_dir = self.target_worlds_dir.get() if world else self.target_objects_dir.get()
+        build_target = BUILD_TARGETS.get(self.build_target.get(), "ps2")
         if not target_dir:
+            return
+        elif build_target == "arcade":
+            print("Error: Compiling arcade cache files is not supported yet.")
             return
 
         start = time.time()

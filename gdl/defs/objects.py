@@ -34,21 +34,33 @@ def bitmap_defs_count(*args, parent=None, new_value=None, **kwargs):
     else:
         return parent.header.bitmap_defs_count
 
+
+def get_lod_type(*args, parent=None, **kwargs):
+    try:
+        if parent.flags.fifo_cmds or parent.flags.fifo_cmds_2:
+            return "fifo"
+    except Exception:
+        pass
+
+    return "uncomp"
+
+
 # normals are compressed as 1555 with the most significant bit
 # reserved to mean whether or not the face should be created.
 
 v0_object_flags = Bool32("flags",
     # confirmed these are the only flags set
-    ("alpha",     0x00000001),
-    ("v_normals", 0x00000002),
-    ("unknown2",  0x00000004), # set in ALL levelA item objects
-    ("unknown3",  0x00000008), # triangle strip?
-    ("unknown4",  0x00000010), # set in most levelA1 world objects
-    ("unknown10", 0x00000400),
-    ("unknown12", 0x00001000),
-    ("unknown24", 0x01000000),
-    ("unknown25", 0x02000000),
-    ("unknown26", 0x04000000),
+    # for sst_cmds, data pointer is relative to lod struct
+    ("alpha",       0x00000001),
+    ("v_normals",   0x00000002),
+    ("unknown2",    0x00000004), # set in ALL levelA item objects
+    ("fifo_cmds",   0x00000008),
+    ("lightmap",    0x00000010), # contains lightmap data?
+    ("unknown10",   0x00000400),
+    ("fifo_cmds_2", 0x00001000),
+    ("unknown24",   0x01000000),
+    ("unknown25",   0x02000000),
+    ("unknown26",   0x04000000),
     )
 
 v12_object_flags = Bool32("flags",
@@ -90,6 +102,17 @@ bitmap_format_v0 = UEnum8("format",
     PIX_FMT_AI_88,
     PIX_FMT_AP_88,
     "RSVD2", # reserved
+    )
+
+# dreamcast
+bitmap_format_dc = UEnum8("format",
+    # textures might be aligned to 32-byte boundaries?
+    "unknown0",  # 16bit compressed with 64 entries
+    "unknown1",  # 16bit compressed with 256 entries
+    "unknown2",  # 16bit compressed with 256 entries
+    "unknown3",       # 16bit compressed with 32 entries
+    ("unknown9", 9),  # 16bit compressed with 32 entries
+    ("unknown10", 10),
     )
 
 bitmap_format_v4 = UEnum8("format",
@@ -162,9 +185,26 @@ v13_sub_object_block = QStruct("sub_object",
     SInt16("lod_k",       GUI_NAME="lod coefficient"),
     )
 
-v0_lod_struct = Struct("lod_struct",
-    UInt32("unknown"),
-    v0_object_flags,
+v0_lod_fifo_data = QStruct("lod_fifo_data",
+    SInt32("vert_count"),
+    # NOTE: this pointer is relative to the start of this
+    #       lod_struct in the file.
+    SInt32("unknown_pointer"),
+    # NOTE: this pointer is relative to the start of this
+    #       lod_struct in the file, AND sometimes seems
+    #       to point to the beginning of the file.
+    SInt32("unknown_pointer_2"),
+    # NOTE: this pointer is relative to the start of this
+    #       lod_struct in the file.
+    SInt32("fifo_pointer"),
+    SInt32("id_num"),
+    # is one of the following:
+    #   2, 5, 7, 9, 10, 11, 12, 13
+    SInt32("unknown"),
+    SIZE=24
+    )
+
+v0_lod_uncomp_data = QStruct("lod_uncomp_data",
     SInt32("vert_count"),
     # seems to be XYZ floats, followed by UVW floats
     # uv coords are 0-256 range floats(divide by 256 to get 0-1)
@@ -174,14 +214,32 @@ v0_lod_struct = Struct("lod_struct",
     # followed by an unknown uint16(texture index?)
     SInt32("tris_pointer"),
     SInt32("id_num"),
+    # seems to be IJK floats
+    # count is equal to vert_count if v_normals flag is set
     SInt32("norms_pointer"),
+    SIZE=24
+    )
+
+
+v0_lod_block = Struct("lod",
+    UInt32("unknown"),
+    v0_object_flags,
+    Switch("data",
+        CASES={
+            "fifo":   v0_lod_fifo_data,
+            "uncomp": v0_lod_uncomp_data,
+            },
+        CASE=get_lod_type,
+        SIZE=24
+        ),
+    SIZE=32
     )
 
 v0_object_block = Struct("object",
     Float("inv_rad"), # always 0?
     Float("bnd_rad"),
     UInt32("unknown", DEFAULT=1, VISIBLE=False), # always 1
-    Array("lods", SUB_STRUCT=v0_lod_struct, SIZE=3),
+    Array("lods", SUB_STRUCT=v0_lod_block, SIZE=4),
 
     SIZE=140,
     STEPTREE=Container("data",
@@ -350,7 +408,8 @@ v0_bitmap_block = Struct("bitmap",
     SInt32("adr", EDITABLE=False, VISIBLE=False),
     SInt32("mod", EDITABLE=False, VISIBLE=False),
     SInt32("lod", EDITABLE=False, VISIBLE=False),
-    SInt32("frame_count"),
+    SInt16("frame_count"),
+    Pad(2),
     SInt32("pkt", EDITABLE=False, VISIBLE=False),
     # a and b are actually 9-bit signed ints packed into
     # a uint32 to preserve a large enough range for them.
@@ -530,10 +589,6 @@ v0_bitmaps_array = Array("bitmaps",
     SIZE='.header.bitmaps_count',
     SUB_STRUCT=v0_bitmap_block
     )
-v1_bitmaps_array = Array("bitmaps",
-    SIZE='.header.bitmaps_count',
-    SUB_STRUCT=v0_bitmap_block
-    )
 v4_bitmaps_array = Array("bitmaps",
     SIZE='.header.bitmaps_count',
     SUB_STRUCT=v4_bitmap_block
@@ -569,7 +624,7 @@ objects_ps2_def = TagDef("objects",
     Switch("bitmaps",
         CASES={
             "v0":  v0_bitmaps_array,
-            "v1":  v1_bitmaps_array,
+            "v1":  v0_bitmaps_array,
             "v4":  v4_bitmaps_array,
             "v12": v12_bitmaps_array,
             "v13": v12_bitmaps_array,

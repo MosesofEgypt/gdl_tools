@@ -163,7 +163,7 @@ class ObjectsPs2Tag(GdlTag):
 
     def set_pointers(self, offset=0):
         '''
-        NOTE: This function is only meant to work with v12 and v13 of the objects tag.
+        NOTE: This function is only meant to work with v4, v12, and v13 of the objects tag.
         '''
         header = self.data.header
         version = self.data.version_header.version.enum_name

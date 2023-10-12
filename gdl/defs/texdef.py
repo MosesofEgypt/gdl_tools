@@ -5,6 +5,20 @@ from ..compilation.g3d.constants import *
 
 def get(): return texdef_ps2_def
 
+BITMAP_BLOCK_V23_SIG = 0xF00B0017
+
+
+def get_bitmap_version(rawdata=None, offset=0, root_offset=0, **kw):
+    if hasattr(rawdata, "seek") and hasattr(rawdata, "read"):
+        rawdata.seek(root_offset + offset)
+        if int.from_bytes(rawdata.read(4), 'little') == BITMAP_BLOCK_V23_SIG:
+            return 'v23'
+        else:
+            return 'v0'
+    # default to the newest version
+    return 'v23'
+
+
 bitmap_format = UEnum8("format",
     # NOTE: the NGC formats are some custom format that swaps
     #       between A1R5G5B5 and A4R4G4B4, depending on if the
@@ -31,10 +45,31 @@ bitmap_format = UEnum8("format",
     (PIX_FMT_I_4_IDX_4, 147)
     )
 
-bitmap_block = Struct("bitmap",
+# found on dreamcast
+bitmap_block_v0 = Struct("bitmap",
+    UInt16("unknown", DEFAULT=0x00FF, EDITABLE=False),
+    bitmap_format,
+    Bool8("flags",
+        # TODO: check these
+        ("halfres", 0x0001),
+        EDITABLE=False
+        ),
+    UInt16("width", EDITABLE=False),
+    UInt16("height", EDITABLE=False),
+    Pointer32("tex_pointer", EDITABLE=False),
+    UInt8("unknown0", EDITABLE=False),
+    UInt8("unknown1", EDITABLE=False),
+    UInt16("unknown2", EDITABLE=False),
+    UInt32("size"),
+    Pad(56),
+
+    SIZE=80
+    )
+
+bitmap_block_v23 = Struct("bitmap",
     UEnum32("version",
-        ("v23", 0xF00B0017),
-        DEFAULT=0xF00B0017, EDITABLE=False
+        ("v23", BITMAP_BLOCK_V23_SIG),
+        DEFAULT=BITMAP_BLOCK_V23_SIG, EDITABLE=False
         ),
     Bool16("flags",
         # checked every other bit in every texdef in
@@ -58,7 +93,6 @@ bitmap_block = Struct("bitmap",
     Pointer32("tex_pointer", EDITABLE=False),
     UInt32("size"),
     Pad(40),
-
     SIZE=64
     )
 
@@ -93,8 +127,14 @@ texdef_ps2_def = TagDef("texdef",
     Array("bitmaps",
         SIZE='.header.bitmaps_count',
         POINTER='.header.bitmaps_pointer',
-        SUB_STRUCT=bitmap_block
+        SUB_STRUCT=Switch("bitmap",
+            CASES={
+                "v0":  bitmap_block_v0,
+                "v23": bitmap_block_v23,
+                },
+            CASE=get_bitmap_version,
+            DEFAULT=bitmap_block_v23
+            ),
         ),
-
     endian="<", ext=".ps2", tag_cls=TexdefPs2Tag
     )

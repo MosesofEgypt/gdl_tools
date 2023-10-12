@@ -4,6 +4,7 @@ add the ability to load png files into arbytmap.
 '''
 from array import array
 from traceback import format_exc
+from arbytmap import bitmap_io
 
 from . import ncc
 
