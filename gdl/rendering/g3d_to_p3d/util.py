@@ -9,7 +9,7 @@ from arbytmap import arby, format_defs as fd
 from .systems.realm import load_realm_from_wdata_tag
 from ...util import *
 from ...compilation.g3d import constants as g3d_const
-from ...compilation.g3d.serialization import arbytmap_ext
+from ...compilation.g3d.serialization import arbytmap_ext, pixel_functions
 from ...defs.anim import anim_ps2_def
 
 from ...defs.objects import objects_ps2_def
@@ -175,7 +175,7 @@ def g3d_texture_to_dds(g3d_texture):
                            g3d_const.PIX_FMT_XBGR_3555_NGC):
             # gamecube exclusive format. convert to something we can work with
             format_name = g3d_const.PIX_FMT_ABGR_8888
-            texture = arbytmap_ext.argb_3555_to_8888(texture)
+            texture = pixel_functions.argb_3555_to_8888(texture)
 
         pfmt_head.rgb_bitcount = g3d_const.PIXEL_SIZES[format_name]
     else:
@@ -186,7 +186,7 @@ def g3d_texture_to_dds(g3d_texture):
         if format_name in (g3d_const.PIX_FMT_ABGR_3555_IDX_4_NGC,
                            g3d_const.PIX_FMT_ABGR_3555_IDX_8_NGC):
             format_name = g3d_const.PIX_FMT_ABGR_8888_IDX_8
-            palette = arbytmap_ext.argb_3555_to_8888(palette)
+            palette = pixel_functions.argb_3555_to_8888(palette)
 
         pfmt_head.rgb_bitcount = g3d_const.PALETTE_SIZES[format_name] * 8
         bpp = pfmt_head.rgb_bitcount // 8  # bytes_per_pixel
