@@ -9,7 +9,7 @@ from traceback import format_exc
 
 from arbytmap import bitmap_io, constants, format_defs
 from arbytmap.arby import *
-from . import pixel_functions
+from . import texture_conversions
 
 format_defs.FORMAT_X1R5G5B5 = FORMAT_X1R5G5B5 = "X1R5G5B5"
 format_defs.FORMAT_A8R3G3B2 = FORMAT_A8R3G3B2 = "A8R3G3B2"
@@ -57,8 +57,8 @@ def _fixed_unpack_indexing(self, packed_indexing):
     Does not support unpacking 1 or 2 bit indexing
     '''
     if self.indexing_size == 4:
-        return pixel_functions.rescale_4bit_array_to_8bit(
-            packed_indexing, pixel_functions.INDEXING_4BPP_TO_8BPP
+        return texture_conversions.rescale_4bit_array_to_8bit(
+            packed_indexing, texture_conversions.INDEXING_4BPP_TO_8BPP
             )
     elif self.indexing_size == 8:
         return array("B", packed_indexing)

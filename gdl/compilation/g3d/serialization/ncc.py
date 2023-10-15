@@ -23,6 +23,7 @@ class NccTable:
         self.b = tuple(b)
 
     def calculate_from_pixels(self, pixels):
+        raise NotImplementedError()
         y = [0] * 16
         a = [0] * 12
         b = [0] * 12

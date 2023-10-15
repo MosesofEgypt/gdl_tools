@@ -1,7 +1,3 @@
-'''
-This module is meant to fix some bugs with arbytmap, and
-add the ability to load png files into arbytmap.
-'''
 from array import array
 from traceback import format_exc
 from arbytmap import bitmap_io
@@ -116,6 +112,11 @@ del _4to8
 del _5to8
 
 
+#############################################################
+#
+#     Generic texture conversions
+#
+#############################################################
 def channel_swap_bgra_rgba_array(all_pixels, pixel_stride):
     for orig_pixels in all_pixels:
         pixels = bytearray(orig_pixels) if isinstance(orig_pixels, array) else orig_pixels
@@ -149,6 +150,11 @@ def pad_pal16_to_pal256(palette):
     palette.extend([palette[-1]]*(256-len(palette)))
 
 
+#############################################################
+#
+#     Arcade texture conversions
+#
+#############################################################
 def argb_8888_to_ayiq_8422(source_pixels, ncc_table):
     # converts packed/unpacked pixels to packed pixels
     if isinstance(source_pixels, array):
@@ -195,6 +201,11 @@ def yiq_422_to_xrgb_8888(source_pixels, ncc_table):
     return array("I", (_yiq_422_to_rgb_888(p, ncc_table) for p in source_pixels))
 
 
+#############################################################
+#
+#     Gamecube texture conversions
+#
+#############################################################
 def argb_8888_to_3555(source_pixels, no_alpha=False):
     # converts packed/unpacked pixels to packed pixels
     if isinstance(source_pixels, array):
