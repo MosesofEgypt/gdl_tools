@@ -2,7 +2,9 @@ from supyr_struct.defs.tag_def import TagDef
 from ..common_descs import *
 from ..compilation.g3d.constants import *
 from .objs.objects import ObjectsPs2Tag
-from .texdef import bitmap_format as bitmap_format_v12
+from .texdef import bitmap_format as bitmap_format_v12,\
+     bitmap_format_dc, image_type_dc, bitmap_flags_v1_dc,\
+     BITMAP_BLOCK_DC_SIG, PIX_FMT_ABGR_1555, PIX_FMT_RGB_565, PIX_FMT_ABGR_4444
 
 def get(): return objects_ps2_def
 
@@ -39,10 +41,30 @@ def get_lod_type(*args, parent=None, **kwargs):
     try:
         if parent.flags.fifo_cmds or parent.flags.fifo_cmds_2:
             return "fifo"
+        elif parent.flags.lightmap:
+            return "uncomp_lm"
     except Exception:
         pass
 
     return "uncomp"
+
+
+def get_arcade_lod_type(*args, parent=None, **kwargs):
+    lod_type = get_lod_type(*args, parent=parent, **kwargs)
+    return "uncomp" if lod_type == "uncomp_lm" else lod_type
+
+
+def get_dreamcast_or_arcade_bitmap_block(
+        rawdata=None, offset=0, root_offset=0, **kw
+        ):
+    try:
+        rawdata.seek(root_offset + offset)
+        if int.from_bytes(rawdata.read(2), 'little') != BITMAP_BLOCK_V0_DC_SIG:
+            return 'arcade'
+    except Exception:
+        pass
+
+    return "dreamcast"
 
 
 # normals are compressed as 1555 with the most significant bit
@@ -102,17 +124,6 @@ bitmap_format_v0 = UEnum8("format",
     PIX_FMT_AI_88,
     PIX_FMT_AP_88,
     "RSVD2", # reserved
-    )
-
-# dreamcast
-bitmap_format_dc = UEnum8("format",
-    # textures might be aligned to 32-byte boundaries?
-    "unknown0",  # 16bit compressed with 64 entries
-    "unknown1",  # 16bit compressed with 256 entries
-    "unknown2",  # 16bit compressed with 256 entries
-    "unknown3",       # 16bit compressed with 32 entries
-    ("unknown9", 9),  # 16bit compressed with 32 entries
-    ("unknown10", 10),
     )
 
 bitmap_format_v4 = UEnum8("format",
@@ -206,18 +217,46 @@ v0_lod_fifo_data = QStruct("lod_fifo_data",
 
 v0_lod_uncomp_data = QStruct("lod_uncomp_data",
     SInt32("vert_count"),
-    # seems to be XYZ floats, followed by UVW floats
+    # XYZ floats, followed by UVW floats
     # uv coords are 0-256 range floats(divide by 256 to get 0-1)
     SInt32("verts_pointer"),
     SInt32("tri_count"),
-    # seems to be a set of 3 uint16 for vert/norm indices,
-    # followed by an unknown uint16(texture index?)
+    # set of 3 uint16 for vert/norm indices, then uint16 texture index
     SInt32("tris_pointer"),
     SInt32("id_num"),
-    # seems to be IJK floats
-    # count is equal to vert_count if v_normals flag is set
+    # IJK floats (count is equal to vert_count)
     SInt32("norms_pointer"),
-    SIZE=24
+    SIZE=24,
+    )
+
+v1_lod_uncomp_lm_data = QStruct("lod_uncomp_lm_data",
+    SInt32("vert_count"),
+    # XYZ floats, then sint16s UVs, then uint16 lm UVs
+    SInt32("verts_pointer"),
+    SInt32("tri_count"),
+    # set of 3 uint16 for vert indices, followed by uint16 texture index
+    SInt32("tris_pointer"),
+    SInt32("id_num"),
+    SInt32("lm_header_pointer"),
+    SIZE=24,
+
+    STEPTREE=Struct("lightmap_header",
+        Pointer32("tex_pointer", EDITABLE=False),
+        # lightmaps are always R5G6B5, and this value is set to 1 in
+        # all files, and that matches the pixel format for R5G6B5 in
+        # the dreamcast PVR header, so this appears to be "format"
+        UEnum8("format",
+            PIX_FMT_ABGR_1555,
+            PIX_FMT_RGB_565,
+            PIX_FMT_ABGR_4444,
+            DEFAULT=1
+            ),
+        image_type_dc,
+        Pad(2),
+        UInt16("width", EDITABLE=False),
+        UInt16("height", EDITABLE=False),
+        POINTER=".lm_header_pointer"
+        )
     )
 
 
@@ -228,6 +267,21 @@ v0_lod_block = Struct("lod",
         CASES={
             "fifo":   v0_lod_fifo_data,
             "uncomp": v0_lod_uncomp_data,
+            },
+        CASE=get_arcade_lod_type,
+        SIZE=24
+        ),
+    SIZE=32
+    )
+
+v1_lod_block = Struct("lod",
+    UInt32("unknown"),
+    v0_object_flags,
+    Switch("data",
+        CASES={
+            "fifo":      v0_lod_fifo_data,
+            "uncomp":    v0_lod_uncomp_data,
+            "uncomp_lm": v1_lod_uncomp_lm_data,
             },
         CASE=get_lod_type,
         SIZE=24
@@ -240,13 +294,15 @@ v0_object_block = Struct("object",
     Float("bnd_rad"),
     UInt32("unknown", DEFAULT=1, VISIBLE=False), # always 1
     Array("lods", SUB_STRUCT=v0_lod_block, SIZE=4),
-
     SIZE=140,
-    STEPTREE=Container("data",
-    #    Array("sub_object_models",
-    #          SIZE="..sub_objects_count", SUB_STRUCT=sub_object_model,
-    #          POINTER="..sub_object_models_pointer"),
-        )
+    )
+
+v1_object_block = Struct("object",
+    Float("inv_rad"), # always 0?
+    Float("bnd_rad"),
+    UInt32("unknown", DEFAULT=1, VISIBLE=False), # always 1
+    Array("lods", SUB_STRUCT=v1_lod_block, SIZE=4),
+    SIZE=140,
     )
 
 v4_object_block = Struct("object",
@@ -425,6 +481,40 @@ v0_bitmap_block = Struct("bitmap",
     SIZE=80
     )
 
+v1_bitmap_block_dc = Struct("bitmap",
+    UInt16("sig", EDITABLE=False, DEFAULT=BITMAP_BLOCK_DC_SIG),
+    bitmap_flags_v1_dc,
+    UInt8("unknown1", EDITABLE=False), # set to 0, 1, 3, 4, 5, 8, 12, 13
+
+    UInt16("width", EDITABLE=False),
+    UInt16("height", EDITABLE=False),
+    Pointer32("tex_pointer", EDITABLE=False),
+
+    Pad(4),
+    bitmap_format_dc,
+    image_type_dc,
+    Pad(2),
+    # size of all pixel data
+    SInt32("size", EDITABLE=False, VISIBLE=False),
+    SInt16("frame_count"),
+    Pad(54),
+    SIZE=80
+    )
+
+# unfortunately, arcade and dreamcast each use v1 in the version header,
+# however the bitmap blocks are completely different between the two.
+# luckily, the structs can be told apart by the first 2 bytes. arcade
+# uses these as log2 values in the range[0, 7], but dreamcast always
+# has them set to 255 for the first byte, and 0 for the second.
+v1_bitmap_block = Switch("bitmap",
+    CASES={
+        "arcade":    v0_bitmap_block,
+        "dreamcast": v1_bitmap_block_dc,
+        },
+    CASE=get_dreamcast_or_arcade_bitmap_block,
+    DEFAULT=v1_bitmap_block_dc,
+    )
+
 v4_bitmap_block = Struct("bitmap",
     UInt8("mipmap_count", EDITABLE=False),
     SInt8("lod_k"),
@@ -570,6 +660,10 @@ v0_objects_array = Array("objects",
     SIZE='.header.objects_count',
     SUB_STRUCT=v0_object_block,
     )
+v1_objects_array = Array("objects",
+    SIZE='.header.objects_count',
+    SUB_STRUCT=v1_object_block,
+    )
 v4_objects_array = Array("objects",
     SIZE='.header.objects_count',
     SUB_STRUCT=v4_object_block,
@@ -588,6 +682,10 @@ v13_objects_array = Array("objects",
 v0_bitmaps_array = Array("bitmaps",
     SIZE='.header.bitmaps_count',
     SUB_STRUCT=v0_bitmap_block
+    )
+v1_bitmaps_array = Array("bitmaps",
+    SIZE='.header.bitmaps_count',
+    SUB_STRUCT=v1_bitmap_block
     )
 v4_bitmaps_array = Array("bitmaps",
     SIZE='.header.bitmaps_count',
@@ -614,7 +712,7 @@ objects_ps2_def = TagDef("objects",
     Switch("objects",
         CASES={
             "v0":  v0_objects_array,
-            "v1":  v0_objects_array,
+            "v1":  v1_objects_array,
             "v4":  v4_objects_array,
             "v12": v12_objects_array,
             "v13": v13_objects_array,
@@ -624,7 +722,7 @@ objects_ps2_def = TagDef("objects",
     Switch("bitmaps",
         CASES={
             "v0":  v0_bitmaps_array,
-            "v1":  v0_bitmaps_array,
+            "v1":  v1_bitmaps_array,
             "v4":  v4_bitmaps_array,
             "v12": v12_bitmaps_array,
             "v13": v12_bitmaps_array,
