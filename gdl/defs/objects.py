@@ -66,13 +66,10 @@ def get_dreamcast_or_arcade_bitmap_block(
 
     return "dreamcast"
 
-
-# normals are compressed as 1555 with the most significant bit
-# reserved to mean whether or not the face should be created.
-
 v0_object_flags = Bool32("flags",
     # confirmed these are the only flags set
     # for sst_cmds, data pointer is relative to lod struct
+    # NOTE: in dreamcast, only alpha and lightmap are ever set
     ("alpha",       0x00000001),
     ("v_normals",   0x00000002),
     ("unknown2",    0x00000004), # set in ALL levelA item objects
@@ -245,12 +242,7 @@ v1_lod_uncomp_lm_data = QStruct("lod_uncomp_lm_data",
         # lightmaps are always R5G6B5, and this value is set to 1 in
         # all files, and that matches the pixel format for R5G6B5 in
         # the dreamcast PVR header, so this appears to be "format"
-        UEnum8("format",
-            PIX_FMT_ABGR_1555,
-            PIX_FMT_RGB_565,
-            PIX_FMT_ABGR_4444,
-            DEFAULT=1
-            ),
+        bitmap_format_dc,
         image_type_dc,
         Pad(2),
         UInt16("width", EDITABLE=False),

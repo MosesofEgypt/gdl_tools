@@ -48,29 +48,51 @@ bitmap_format = UEnum8("format",
 
 # dreamcast
 bitmap_format_dc = UEnum8("format",
-    # textures might be aligned to 32-byte boundaries?
-    # confirmed some formats are A4R4G4B4, A1R5G5B5, and R5G6B5
+    # textures might be aligned to 16-byte boundaries?
     PIX_FMT_ABGR_1555,
-    PIX_FMT_ABGR_4444,
     PIX_FMT_RGB_565,
+    PIX_FMT_ABGR_4444,
+    # NOTE: the below 4 might not be supported, but they
+    #       are being documented for completeness sake
+    'YUV_422',
+    'BUMP',
+    'P_4',
+    'P_8',
+    DEFAULT=1
     )
 
 image_type_dc = UEnum8("image_type",
+    # NOTES:
+    #   https://segaretro.org/images/7/78/DreamcastDevBoxSystemArchitecture.pdf
     # vq stands for vector-quantized, which indicates
-    # the texture uses a codebook
-    ("square_twiddled", 1),
-    ("square_twiddled_and_mipmap", 2),
-    ("vq", 3),
-    ("vq_and_mipmap", 4),
+    #   the texture uses a codebook, whose size depends
+    #   on the dimensions and if mipmapped. additionally,
+    #   vq may only be used with square textures.
+    # codebook entries store pixels in the following order:
+    #   bottom right, top right, bottom left, top left
+    # pixel data is padded to multiples of 4 bytes, so
+    #   twiddled non-vq textures must store at least 2
+    #   pixels. this means 1x1 textures store the single
+    #   16bit pixel in bytes 2 and 3, and 0 and 1 are 0x00
+    # dreamcast twiddling is swizzling in a Z-order
+    #   curve, but in yxyxyx order instead of xyxyxy
+    # mipmaps are stored in smallest to largest order
+    # for some reason, an additional 8 bytes of 0xFF are
+    #   appended to every chunk of texture data. Unable
+    #   to determine a reason for this at the moment.
+    ("square_twiddled", 1),            # confirmed
+    ("square_twiddled_and_mipmap", 2), # confirmed
+    ("vq", 3),                         # confirmed
+    ("vq_and_mipmap", 4),              # confirmed
     ("twiddled_8bit_clut", 5),
     ("twiddled_4bit_clut", 6),
     ("twiddled_8bit", 7),
     ("twiddled_4bit", 8),
-    ("rectangle", 9),
+    ("rectangle", 9),                  # confirmed
     ("rectangular_stride", 11),
     ("rectangular_twiddled", 13),
-    ("small_vq", 16),
-    ("small_vq_and_mipmap", 17),
+    ("small_vq", 16),                  # confirmed
+    ("small_vq_and_mipmap", 17),       # confirmed
     EDITABLE=False
     )
 
