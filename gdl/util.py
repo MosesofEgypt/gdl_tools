@@ -38,9 +38,9 @@ def get_is_arcade_wad(filepath):
 
             for i in range(wad_header_count):
                 f.seek(wad_header_start + (16 * i) + 8)
-                # if the size value is present twice, its arcade
+                # if the size value is NOT present twice, its arcade
                 if f.read(4) != f.read(4):
-                    return False
+                    is_arcade = True
 
     except Exception:
         pass
