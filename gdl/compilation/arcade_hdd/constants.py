@@ -8,6 +8,9 @@ ROOT_DIR_INDEX     = 2
 FILE_BLOCK_TYPE_DIRECTORY = 2
 FILE_BLOCK_TYPE_REGULAR   = 4
 
+MAX_FILE_TABLE_ENTRIES = 0xFFFF # 65535 files should be plenty
+MAX_FILE_SIZE = 0x10000000 # 256MB should be large enough for any potential mods
+
 PARTITION_HEADER_SIG = int.from_bytes(b'PART', 'big')
 MBR_HEADER_SIG       = 0xFEEDF00D
 FILE_TABLE_SIG       = 0xF00DFACE

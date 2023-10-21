@@ -75,7 +75,10 @@ def is_arcade_chd(filepath):
     return False
 
 
-def read_file_fragments(*, block_header, rawdata, disc=0):
+def read_file_fragments(*, block_header, rawdata, disc=0, max_filesize=None):
+    if not max_filesize:
+        max_filesize = c.MAX_FILE_SIZE
+
     fragments = (
         block_header.fragments_ter if disc == 2 else
         block_header.fragments_sec if disc == 1 else
@@ -84,6 +87,9 @@ def read_file_fragments(*, block_header, rawdata, disc=0):
 
     data_remaining = block_header.data_size
     ft_data = b''
+
+    if data_remaining > max_filesize:
+        raise ValueError(f"File is too large to safely load({data_remaining} bytes).")
 
     for i in range(0, len(fragments), 2):
         # read in and concatenate all fragments of the file
@@ -108,7 +114,8 @@ def read_file_table(*, filepath=None, rawdata=None, disc=0):
             hdd_block.file_table_header_pri
             )
         ft_data = read_file_fragments(
-            block_header=ft_header, rawdata=fin, disc=disc
+            block_header=ft_header, rawdata=fin, disc=disc,
+            max_filesize=c.MAX_FILE_TABLE_ENTRIES*12
             )
 
     file_table = hdd_def.file_table_def.build(rawdata=ft_data)

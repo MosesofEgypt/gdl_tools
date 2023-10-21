@@ -50,7 +50,7 @@ bitmap_format = UEnum8("format",
 bitmap_format_dc = UEnum8("format",
     # textures might be aligned to 16-byte boundaries?
     PIX_FMT_ABGR_1555,
-    PIX_FMT_RGB_565,
+    PIX_FMT_BGR_565,
     PIX_FMT_ABGR_4444,
     # NOTE: the below 4 might not be supported, but they
     #       are being documented for completeness sake

@@ -72,16 +72,13 @@ class G3DTexture:
         elif format_name == c.PIX_FMT_AI_44:
             arby_format = arbytmap.FORMAT_A4L4
             channel_count = 2
-        elif format_name == c.PIX_FMT_AI_44:
-            arby_format = arbytmap.FORMAT_A4L4
-            channel_count = 2
-        elif format_name == c.PIX_FMT_RGB_565:
+        elif format_name == c.PIX_FMT_BGR_565:
             arby_format = arbytmap.FORMAT_R5G6B5
-        elif format_name == c.PIX_FMT_RGB_332:
+        elif format_name == c.PIX_FMT_BGR_233:
             arby_format = arbytmap.FORMAT_R3G3B2
-        elif format_name == c.PIX_FMT_ARGB_4444:
+        elif format_name == c.PIX_FMT_ABGR_4444:
             arby_format = arbytmap.FORMAT_A4R4G4B4
-        elif format_name == c.PIX_FMT_ARGB_8332:
+        elif format_name == c.PIX_FMT_ABGR_8233:
             arby_format = arbytmap.FORMAT_A8R3G3B2
         elif "8888" in format_name or "3555" in format_name or format_name in (
                 c.PIX_FMT_YIQ_422, c.PIX_FMT_AYIQ_8422

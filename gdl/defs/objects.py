@@ -4,7 +4,7 @@ from ..compilation.g3d.constants import *
 from .objs.objects import ObjectsPs2Tag
 from .texdef import bitmap_format as bitmap_format_v12,\
      bitmap_format_dc, image_type_dc, bitmap_flags_v1_dc,\
-     BITMAP_BLOCK_DC_SIG, PIX_FMT_ABGR_1555, PIX_FMT_RGB_565, PIX_FMT_ABGR_4444
+     BITMAP_BLOCK_DC_SIG, PIX_FMT_ABGR_1555, PIX_FMT_BGR_565, PIX_FMT_ABGR_4444
 
 def get(): return objects_ps2_def
 
@@ -59,12 +59,13 @@ def get_dreamcast_or_arcade_bitmap_block(
         ):
     try:
         rawdata.seek(root_offset + offset)
-        if int.from_bytes(rawdata.read(2), 'little') != BITMAP_BLOCK_V0_DC_SIG:
+        if int.from_bytes(rawdata.read(2), 'little') != BITMAP_BLOCK_DC_SIG:
             return 'arcade'
     except Exception:
         pass
 
     return "dreamcast"
+
 
 v0_object_flags = Bool32("flags",
     # confirmed these are the only flags set
@@ -105,7 +106,7 @@ v12_object_flags = Bool32("flags",
     )
 
 bitmap_format_v0 = UEnum8("format",
-    PIX_FMT_RGB_332,
+    PIX_FMT_BGR_233,
     PIX_FMT_YIQ_422,
     PIX_FMT_A_8,
     PIX_FMT_I_8,
@@ -113,11 +114,11 @@ bitmap_format_v0 = UEnum8("format",
     PIX_FMT_P_8,
     "RSVD0", # reserved
     "RSVD1", # reserved
-    PIX_FMT_ARGB_8332,
+    PIX_FMT_ABGR_8233,
     PIX_FMT_AYIQ_8422,
-    PIX_FMT_RGB_565,
-    PIX_FMT_ARGB_1555,
-    PIX_FMT_ARGB_4444,
+    PIX_FMT_BGR_565,
+    PIX_FMT_ABGR_1555,
+    PIX_FMT_ABGR_4444,
     PIX_FMT_AI_88,
     PIX_FMT_AP_88,
     "RSVD2", # reserved
@@ -453,9 +454,15 @@ v0_bitmap_block = Struct("bitmap",
     Pointer32("tex_pointer", EDITABLE=False),
 
     # NOTE: adr, mod, lod, and pkt are runtime values
-    SInt32("adr", EDITABLE=False, VISIBLE=False),
-    SInt32("mod", EDITABLE=False, VISIBLE=False),
-    SInt32("lod", EDITABLE=False, VISIBLE=False),
+    UInt16("unknown0"),
+    SInt16("unknown1"),
+    UInt16("unknown2"),
+    UInt16("unknown3"),
+    UInt16("unknown4"),
+    UInt16("unknown5"),
+    #SInt32("adr", EDITABLE=False, VISIBLE=False),
+    #SInt32("mod", EDITABLE=False, VISIBLE=False),
+    #SInt32("lod", EDITABLE=False, VISIBLE=False),
     SInt16("frame_count"),
     Pad(2),
     SInt32("pkt", EDITABLE=False, VISIBLE=False),
