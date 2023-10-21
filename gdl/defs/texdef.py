@@ -68,6 +68,17 @@ image_type_dc = UEnum8("image_type",
     #   the texture uses a codebook, whose size depends
     #   on the dimensions and if mipmapped. additionally,
     #   vq may only be used with square textures.
+    # there are 2 flavors of vq: normal and small.
+    #   normal contains a codebook of 256 2x2 16bit
+    #   texels, whereas small contains a codebook of
+    #   anywhere between 16 and 128 2x2 16bit texels.
+    #   vq is used when:
+    #       width >= 128 or (width == 64 and mipmapped)
+    #   small vq is used otherwise, and the codebook size is:
+    #       128 if width == 64 or (width == 32 and mipmapped)
+    #       64  if width == 32
+    #       32  width == 32 and mipmapped
+    #       16  width <= 16
     # codebook entries store pixels in the following order:
     #   bottom right, top right, bottom left, top left
     # pixel data is padded to multiples of 4 bytes, so
@@ -80,6 +91,7 @@ image_type_dc = UEnum8("image_type",
     # for some reason, an additional 8 bytes of 0xFF are
     #   appended to every chunk of texture data. Unable
     #   to determine a reason for this at the moment.
+    # texture data pointers are 16-byte aligned.
     ("square_twiddled", 1),            # confirmed
     ("square_twiddled_and_mipmap", 2), # confirmed
     ("vq", 3),                         # confirmed
