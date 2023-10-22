@@ -1,14 +1,88 @@
 from supyr_struct.defs.tag_def import TagDef
 from ..common_descs import *
+from ..compilation.g3d.constants import *
 from .objs.objects import ObjectsPs2Tag
-from .texdef import bitmap_format as bitmap_format_v12
+from .texdef import bitmap_flags_v1_dc, BITMAP_BLOCK_DC_SIG,\
+    bitmap_format_dc, image_type_dc, bitmap_format as bitmap_format_v12
 
 def get(): return objects_ps2_def
 
-# normals are compressed as 1555 with the most significant bit
-# reserved to mean whether or not the face should be created.
 
-object_flags = Bool32("flags",
+def object_defs_count(*args, parent=None, new_value=None, **kwargs):
+    if parent is None:
+        return
+    elif new_value is not None:
+        parent.header.object_defs_count = new_value
+    elif (parent.version_header.version.enum_name in ('v0', 'v1') and
+          parent.header.object_defs_count == 0):
+        # midway did some stupid shit with v0/v1 of this file
+        return parent.header.objects_count
+    else:
+        return parent.header.object_defs_count
+
+
+def bitmap_defs_count(*args, parent=None, new_value=None, **kwargs):
+    if parent is None:
+        return
+    elif new_value is not None:
+        parent.header.bitmap_defs_count = new_value
+    elif (parent.version_header.version.enum_name == 'v0' and
+          parent.header.bitmap_defs_count == 0):
+        # midway did some stupid shit with v0 of this file
+        # also YES, it only applies to v0. trying to load with v1 included
+        # causes errors trying to read non-existant bitmap defs
+        return parent.header.bitmaps_count
+    else:
+        return parent.header.bitmap_defs_count
+
+
+def get_lod_type(*args, parent=None, **kwargs):
+    try:
+        if parent.flags.fifo_cmds or parent.flags.fifo_cmds_2:
+            return "fifo"
+        elif parent.flags.lightmap:
+            return "uncomp_lm"
+    except Exception:
+        pass
+
+    return "uncomp"
+
+
+def get_arcade_lod_type(*args, parent=None, **kwargs):
+    lod_type = get_lod_type(*args, parent=parent, **kwargs)
+    return "uncomp" if lod_type == "uncomp_lm" else lod_type
+
+
+def get_dreamcast_or_arcade_bitmap_block(
+        rawdata=None, offset=0, root_offset=0, **kw
+        ):
+    try:
+        rawdata.seek(root_offset + offset)
+        if int.from_bytes(rawdata.read(2), 'little') != BITMAP_BLOCK_DC_SIG:
+            return 'arcade'
+    except Exception:
+        pass
+
+    return "dreamcast"
+
+
+v0_object_flags = Bool32("flags",
+    # confirmed these are the only flags set
+    # for sst_cmds, data pointer is relative to lod struct
+    # NOTE: in dreamcast, only alpha and lightmap are ever set
+    ("alpha",       0x00000001),
+    ("v_normals",   0x00000002),
+    ("unknown2",    0x00000004), # set in ALL levelA item objects
+    ("fifo_cmds",   0x00000008),
+    ("lightmap",    0x00000010), # contains lightmap data?
+    ("unknown10",   0x00000400),
+    ("fifo_cmds_2", 0x00001000),
+    ("unknown24",   0x01000000),
+    ("unknown25",   0x02000000),
+    ("unknown26",   0x04000000),
+    )
+
+v12_object_flags = Bool32("flags",
     ("alpha",     0x01),
     ("v_normals", 0x02),
     ("v_colors",  0x04),
@@ -30,14 +104,41 @@ object_flags = Bool32("flags",
     {NAME:"dyn_lit",  VALUE:0x100000, DEFAULT:False},
     )
 
+bitmap_format_v0 = UEnum8("format",
+    PIX_FMT_BGR_233,
+    PIX_FMT_YIQ_422,
+    PIX_FMT_A_8,
+    PIX_FMT_I_8,
+    PIX_FMT_AI_44,
+    PIX_FMT_P_8,
+    "RSVD0", # reserved
+    "RSVD1", # reserved
+    PIX_FMT_ABGR_8233,
+    PIX_FMT_AYIQ_8422,
+    PIX_FMT_BGR_565,
+    PIX_FMT_ABGR_1555,
+    PIX_FMT_ABGR_4444,
+    PIX_FMT_AI_88,
+    PIX_FMT_AP_88,
+    "RSVD2", # reserved
+    )
+
 bitmap_format_v4 = UEnum8("format",
     #these formats are palettized
-    ("ABGR_8888_IDX_8", 3),
-    ("ABGR_1555_IDX_8", 5),
+    (PIX_FMT_ABGR_8888_IDX_8, 3),
+    (PIX_FMT_ABGR_1555_IDX_4, 5),
+    )
+
+bitmap_flags_v0 = Bool8("flags",
+    # confirmed these are the only flags set
+    ("halfres",    0x01), # confirmed
+    ("force_tmu1", 0x02), # ???
+    ("force_tmu0", 0x04), # ???
+    ("unknown",    0x08), # ???
     )
 
 bitmap_flags_v4 = Bool8("flags",
-    ("see_alpha", 0x01),
+    ("see_alpha", 0x01), # confirmed
     )
 
 bitmap_flags_v12 = Bool16("flags",
@@ -62,6 +163,11 @@ sub_object_model = Container("sub_object_model",
     ALIGN=4,
     )
 
+v4_sub_object_block = QStruct("sub_object",
+    UInt16("tex_index",   GUI_NAME="texture index"),
+    UInt16("lm_index",    GUI_NAME="light map index"),
+    )
+
 v12_sub_object_block = QStruct("sub-object",
     #number of 16 byte chunks that the subobject model consists of.
     UInt16("qword_count", GUI_NAME="quadword count"),
@@ -71,11 +177,6 @@ v12_sub_object_block = QStruct("sub-object",
 
     #Not sure about lm_index. Might be the texture index of the
     #greyscale lightmap that the object uses for the luminance.
-    UInt16("lm_index",    GUI_NAME="light map index"),
-    )
-
-v4_sub_object_block = QStruct("sub_object",
-    UInt16("tex_index",   GUI_NAME="texture index"),
     UInt16("lm_index",    GUI_NAME="light map index"),
     )
 
@@ -92,11 +193,115 @@ v13_sub_object_block = QStruct("sub_object",
     SInt16("lod_k",       GUI_NAME="lod coefficient"),
     )
 
+v0_lod_fifo_data = QStruct("lod_fifo_data",
+    SInt32("vert_count"),
+    # NOTE: this pointer is relative to the start of this
+    #       lod_struct in the file.
+    SInt32("unknown_pointer"),
+    # NOTE: this pointer is relative to the start of this
+    #       lod_struct in the file, AND sometimes seems
+    #       to point to the beginning of the file.
+    SInt32("unknown_pointer_2"),
+    # NOTE: this pointer is relative to the start of this
+    #       lod_struct in the file.
+    SInt32("fifo_pointer"),
+    SInt32("id_num"),
+    # is one of the following:
+    #   2, 5, 7, 9, 10, 11, 12, 13
+    SInt32("unknown"),
+    SIZE=24
+    )
+
+v0_lod_uncomp_data = QStruct("lod_uncomp_data",
+    SInt32("vert_count"),
+    # XYZ floats, followed by UVW floats
+    # uv coords are 0-256 range floats(divide by 256 to get 0-1)
+    SInt32("verts_pointer"),
+    SInt32("tri_count"),
+    # set of 3 uint16 for vert/norm indices, then uint16 texture index
+    SInt32("tris_pointer"),
+    SInt32("id_num"),
+    # IJK floats (count is equal to vert_count)
+    SInt32("norms_pointer"),
+    SIZE=24,
+    )
+
+v1_lod_uncomp_lm_data = QStruct("lod_uncomp_lm_data",
+    SInt32("vert_count"),
+    # XYZ floats, then sint16s UVs, then uint16 lm UVs
+    SInt32("verts_pointer"),
+    SInt32("tri_count"),
+    # set of 3 uint16 for vert indices, followed by uint16 texture index
+    SInt32("tris_pointer"),
+    SInt32("id_num"),
+    SInt32("lm_header_pointer"),
+    SIZE=24,
+
+    STEPTREE=Struct("lightmap_header",
+        Pointer32("tex_pointer", EDITABLE=False),
+        # lightmaps are always R5G6B5, and this value is set to 1 in
+        # all files, and that matches the pixel format for R5G6B5 in
+        # the dreamcast PVR header, so this appears to be "format"
+        bitmap_format_dc,
+        image_type_dc,
+        Pad(2),
+        UInt16("width", EDITABLE=False),
+        UInt16("height", EDITABLE=False),
+        POINTER=".lm_header_pointer"
+        )
+    )
+
+
+v0_lod_block = Struct("lod",
+    UInt32("unknown"),
+    v0_object_flags,
+    Switch("data",
+        CASES={
+            "fifo":   v0_lod_fifo_data,
+            "uncomp": v0_lod_uncomp_data,
+            },
+        CASE=get_arcade_lod_type,
+        SIZE=24
+        ),
+    SIZE=32
+    )
+
+v1_lod_block = Struct("lod",
+    UInt32("unknown"),
+    v0_object_flags,
+    Switch("data",
+        CASES={
+            "fifo":      v0_lod_fifo_data,
+            "uncomp":    v0_lod_uncomp_data,
+            "uncomp_lm": v1_lod_uncomp_lm_data,
+            },
+        CASE=get_lod_type,
+        SIZE=24
+        ),
+    SIZE=32
+    )
+
+v0_object_block = Struct("object",
+    Float("inv_rad"), # always 0?
+    Float("bnd_rad"),
+    UInt32("unknown", DEFAULT=1, VISIBLE=False), # always 1
+    Array("lods", SUB_STRUCT=v0_lod_block, SIZE=4),
+    SIZE=140,
+    )
+
+v1_object_block = Struct("object",
+    Float("inv_rad"), # always 0?
+    Float("bnd_rad"),
+    UInt32("unknown", DEFAULT=1, VISIBLE=False), # always 1
+    Array("lods", SUB_STRUCT=v1_lod_block, SIZE=4),
+    SIZE=140,
+    )
+
 v4_object_block = Struct("object",
     Float("inv_rad"),
     Float("bnd_rad"),
-    Pad(4),
-    SInt32('sub_objects_count', EDITABLE=False),
+    UInt32("unknown"), # always 0?
+    SInt32('sub_objects_count', EDITABLE=False), # name is a guess. always 1?
     Pointer32('sub_object_models_pointer', EDITABLE=False),
     Struct("sub_object_0", INCLUDE=v4_sub_object_block),
     SInt32("vert_count"),  # exactly the number of unique verts
@@ -115,7 +320,7 @@ v4_object_block = Struct("object",
 v12_object_block = Struct("object",
     Float("inv_rad"),
     Float("bnd_rad"),
-    object_flags,
+    v12_object_flags,
 
     SInt32('sub_objects_count', EDITABLE=False),
     Struct("sub_object_0", INCLUDE=v13_sub_object_block),
@@ -127,9 +332,9 @@ v12_object_block = Struct("object",
     SInt32("tri_count"),  # exactly the number of unique triangles
     SInt32("id_num"),
 
-    #pointer to the obj def that this model uses
-    #doesnt seem to be used, so ignore it
-    Pad(4),#LPointer32("obj_def"),
+    # pointer to the obj def that this model uses
+    # always 0 in serialized form, but keeping this for documentation
+    Pointer32("obj_def"),
     Pad(16),
 
     SIZE=64,
@@ -237,6 +442,77 @@ mip_tbp_struct = BitStruct("mip_tbp",
     SIZE=16, VISIBLE=False
     )
 
+v0_bitmap_block = Struct("bitmap",
+    UInt8("large_lod_log2_inv", EDITABLE=False),
+    UInt8("small_lod_log2_inv", EDITABLE=False),
+    bitmap_format_v0,
+    bitmap_flags_v0,
+
+    UInt16("width", EDITABLE=False),
+    UInt16("height", EDITABLE=False),
+    Pointer32("tex_pointer", EDITABLE=False),
+
+    # NOTE: adr, mod, lod, and pkt are runtime values
+    UInt16("unknown0"),
+    SInt16("unknown1"),
+    UInt16("unknown2"),
+    UInt16("unknown3"),
+    UInt16("unknown4"),
+    UInt16("unknown5"),
+    #SInt32("adr", EDITABLE=False, VISIBLE=False),
+    #SInt32("mod", EDITABLE=False, VISIBLE=False),
+    #SInt32("lod", EDITABLE=False, VISIBLE=False),
+    SInt16("frame_count"),
+    Pad(2),
+    SInt32("pkt", EDITABLE=False, VISIBLE=False),
+    # a and b are actually 9-bit signed ints packed into
+    # a uint32 to preserve a large enough range for them.
+    # they are packed like so:
+    #     a[i][0] = (ncc_table_a[i] >> 18) & 0x1FF
+    #     a[i][1] = (ncc_table_a[i] >>  9) & 0x1FF
+    #     a[i][2] = (ncc_table_a[i] >>  0) & 0x1FF
+    # since they are twos-signed, if 0x100 is set, subtract 0x200
+    #UInt8Array("ncc_table_y", SIZE=16, EDITABLE=False, VISIBLE=False),
+    #UInt32Array("ncc_table_a", SIZE=16, EDITABLE=False, VISIBLE=False),
+    #UInt32Array("ncc_table_b", SIZE=16, EDITABLE=False, VISIBLE=False),
+    BytesRaw("ncc_table_data", SIZE=48),
+    SIZE=80
+    )
+
+v1_bitmap_block_dc = Struct("bitmap",
+    UInt16("sig", EDITABLE=False, DEFAULT=BITMAP_BLOCK_DC_SIG),
+    bitmap_flags_v1_dc,
+    UInt8("unknown1", EDITABLE=False), # set to 0, 1, 3, 4, 5, 8, 12, 13
+
+    UInt16("width", EDITABLE=False),
+    UInt16("height", EDITABLE=False),
+    Pointer32("tex_pointer", EDITABLE=False),
+
+    Pad(4),
+    bitmap_format_dc,
+    image_type_dc,
+    Pad(2),
+    # size of all pixel data
+    SInt32("size", EDITABLE=False, VISIBLE=False),
+    SInt16("frame_count"),
+    Pad(54),
+    SIZE=80
+    )
+
+# unfortunately, arcade and dreamcast each use v1 in the version header,
+# however the bitmap blocks are completely different between the two.
+# luckily, the structs can be told apart by the first 2 bytes. arcade
+# uses these as log2 values in the range[0, 7], but dreamcast always
+# has them set to 255 for the first byte, and 0 for the second.
+v1_bitmap_block = Switch("bitmap",
+    CASES={
+        "arcade":    v0_bitmap_block,
+        "dreamcast": v1_bitmap_block_dc,
+        },
+    CASE=get_dreamcast_or_arcade_bitmap_block,
+    DEFAULT=v1_bitmap_block_dc,
+    )
+
 v4_bitmap_block = Struct("bitmap",
     UInt8("mipmap_count", EDITABLE=False),
     SInt8("lod_k"),
@@ -250,10 +526,8 @@ v4_bitmap_block = Struct("bitmap",
     Pad(4),
     UInt16("unknown", EDITABLE=False),
     Pad(6),
-    UInt16("frame_count"),
-    Pad(2),
-
-    Pad(52),
+    SInt16("frame_count"),
+    Pad(54),
     SIZE=80
     )
 
@@ -312,6 +586,9 @@ version_header = Struct('version_header',
     StrNntLatin1("dir_name",   SIZE=32),
     StrNntLatin1("model_name", SIZE=32),
     UEnum32("version",
+        # fuck you midway games
+        ("v0",  0x00000000),
+        ("v1",  0xF00B0001),
         ("v4",  0xF00B0004),
         ("v12", 0xF00B000C),
         ("v13", 0xF00B000D),
@@ -320,15 +597,13 @@ version_header = Struct('version_header',
     SIZE=68
     )
 
-v4_objects_header = Struct('header',
+v0_objects_header = Struct('header',
     UInt32("bitmap_defs_count", EDITABLE=False, VISIBLE=False),
     Pad(8),
     UInt32("object_defs_count", EDITABLE=False, VISIBLE=False),
     Pad(4),
-
     Pointer32("object_defs_pointer", VISIBLE=False),
     Pointer32("bitmap_defs_pointer", VISIBLE=False),
-
     UInt32("objects_count", EDITABLE=False, VISIBLE=False),
     UInt32("bitmaps_count", EDITABLE=False, VISIBLE=False),
     SIZE=36
@@ -379,6 +654,14 @@ bitmap_def = Struct("bitmap_def",
     SIZE=36
     )
 
+v0_objects_array = Array("objects",
+    SIZE='.header.objects_count',
+    SUB_STRUCT=v0_object_block,
+    )
+v1_objects_array = Array("objects",
+    SIZE='.header.objects_count',
+    SUB_STRUCT=v1_object_block,
+    )
 v4_objects_array = Array("objects",
     SIZE='.header.objects_count',
     SUB_STRUCT=v4_object_block,
@@ -394,6 +677,14 @@ v13_objects_array = Array("objects",
     SUB_STRUCT=v13_object_block,
     )
 
+v0_bitmaps_array = Array("bitmaps",
+    SIZE='.header.bitmaps_count',
+    SUB_STRUCT=v0_bitmap_block
+    )
+v1_bitmaps_array = Array("bitmaps",
+    SIZE='.header.bitmaps_count',
+    SUB_STRUCT=v1_bitmap_block
+    )
 v4_bitmaps_array = Array("bitmaps",
     SIZE='.header.bitmaps_count',
     SUB_STRUCT=v4_bitmap_block
@@ -408,7 +699,9 @@ objects_ps2_def = TagDef("objects",
     version_header,
     Switch("header",
         CASES={
-            "v4":  v4_objects_header,
+            "v0":  v0_objects_header,
+            "v1":  v0_objects_header,
+            "v4":  v0_objects_header,
             "v12": v12_objects_header,
             "v13": v12_objects_header,
             },
@@ -416,6 +709,8 @@ objects_ps2_def = TagDef("objects",
         ),
     Switch("objects",
         CASES={
+            "v0":  v0_objects_array,
+            "v1":  v1_objects_array,
             "v4":  v4_objects_array,
             "v12": v12_objects_array,
             "v13": v13_objects_array,
@@ -424,6 +719,8 @@ objects_ps2_def = TagDef("objects",
         ),
     Switch("bitmaps",
         CASES={
+            "v0":  v0_bitmaps_array,
+            "v1":  v1_bitmaps_array,
             "v4":  v4_bitmaps_array,
             "v12": v12_bitmaps_array,
             "v13": v12_bitmaps_array,
@@ -431,13 +728,13 @@ objects_ps2_def = TagDef("objects",
         CASE=".version_header.version.enum_name"
         ),
     Array("object_defs",
-        SIZE='.header.object_defs_count',
+        SIZE=object_defs_count,
         POINTER='.header.object_defs_pointer',
         SUB_STRUCT=object_def,
         DYN_NAME_PATH='.name', WIDGET=DynamicArrayFrame
         ),
     Array("bitmap_defs",
-        SIZE='.header.bitmap_defs_count',
+        SIZE=bitmap_defs_count,
         POINTER='.header.bitmap_defs_pointer',
         SUB_STRUCT=bitmap_def,
         DYN_NAME_PATH='.name', WIDGET=DynamicArrayFrame

@@ -71,14 +71,18 @@ def _compile_wad(kwargs):
                     header["path_hash"] = int(filename_no_ext)
 
                 # compress the data if needed, and write to file
+                data_to_write = data
                 header["uncomp_size"] = len(data)
-                if header["compress_level"] and util.is_compressible(header["filename"]):
-                    data = zlib.compress(data, header["compress_level"])
-                    header["comp_size"] = len(data)
-                else:
-                    header["comp_size"] = -1
+                header["comp_size"] = -1
+                if (len(data) > c.PS2_WAD_FILE_CHUNK_SIZE and header["compress_level"] and
+                    util.is_compressible(header["filename"])
+                    ):
+                    comp_data = zlib.compress(data, header["compress_level"])
+                    if len(comp_data) < len(data):
+                        header["comp_size"] = len(comp_data)
+                        data_to_write = comp_data
 
-                fout.write(data)
+                fout.write(data_to_write)
 
                 # write padding
                 fout.write(b'\x00' * util.calculate_padding(fout.tell(), c.PS2_WAD_FILE_CHUNK_SIZE))
@@ -222,7 +226,7 @@ class Ps2WadCompiler:
             process_count=None if self.parallel_processing else 1
             )
 
-    def compile_wad(self):
+    def compile(self):
         files_to_compile = list(util.locate_ps2_wad_files(self.wad_dirpath))
 
         if not self.overwrite and os.path.isfile(self.wad_filepath):

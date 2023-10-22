@@ -7,11 +7,13 @@ from tkinter import *
 from traceback import format_exc
 from ..compilation import objects_compiler, messages_compiler,\
      worlds_compiler
+from ..compilation.g3d import constants as c
 
 BUILD_TARGETS = {
     "PlayStation2": "ps2",
     "Gamecube":     "ngc",
     "Xbox":         "xbox",
+    "Arcade":       "arcade",
     }
 MOD_EXTRACT_FORMATS = {
     "Wavefront OBJ": "obj",
@@ -35,7 +37,7 @@ class CrucibleApp(Tk):
     def __init__(self, **options):
         Tk.__init__(self, **options)
         
-        self.title("Crucible V1.1.5")
+        self.title("Crucible V1.2.0")
         self.minsize(500, 0)
         self.resizable(1, 0)
 
@@ -50,7 +52,6 @@ class CrucibleApp(Tk):
         self.meta_extract_format = StringVar(self, "YAML")
         self.use_parallel_processing = BooleanVar(self, True)
         self.optimize                = BooleanVar(self, True)
-        self.retarget_for_ngc        = BooleanVar(self, True)
         self.force_recompile_cache   = BooleanVar(self, False)
         self.overwrite               = BooleanVar(self, False)
 
@@ -132,7 +133,7 @@ class CrucibleApp(Tk):
             )
         # DEBUG
 
-        self.build_target_label = Label(self.settings_frame, text="Build target")
+        self.build_target_label = Label(self.settings_frame, text="Platform target")
         self.coll_format_label  = Label(self.settings_frame, text="Collision format")
         self.mod_format_label   = Label(self.settings_frame, text="Model format")
         self.tex_format_label   = Label(self.settings_frame, text="Texture format")
@@ -160,10 +161,6 @@ class CrucibleApp(Tk):
         self.optimize_button = Checkbutton(
             self.settings_frame, text='Optimize models and textures',
             variable=self.optimize, onvalue=1, offvalue=0
-            )
-        self.retarget_for_ngc_button = Checkbutton(
-            self.settings_frame, text='Retarget texture formats for NGC',
-            variable=self.retarget_for_ngc, onvalue=1, offvalue=0
             )
         self.force_recompile_button = Checkbutton(
             self.settings_frame, text='Force full recompile',
@@ -217,9 +214,9 @@ class CrucibleApp(Tk):
         for lbl, menu, radio in (
                 (self.build_target_label, self.build_target_menu, self.parallel_processing_button),
                 (self.coll_format_label, self.coll_format_menu, self.optimize_button),
-                (self.mod_format_label, self.mod_format_menu, self.retarget_for_ngc_button),
-                (self.tex_format_label, self.tex_format_menu, self.force_recompile_button),
-                (self.meta_format_label, self.meta_format_menu, self.overwrite_button),
+                (self.mod_format_label, self.mod_format_menu, self.force_recompile_button),
+                (self.tex_format_label, self.tex_format_menu, self.overwrite_button),
+                (self.meta_format_label, self.meta_format_menu, None),
             ):
             lbl.grid(row=y, column=0, sticky="we", padx=2)
             menu.grid(row=y, column=1, sticky="we", padx=2)
@@ -234,6 +231,7 @@ class CrucibleApp(Tk):
     def get_objects_compiler(self, **kwargs):
         build_target = BUILD_TARGETS.get(self.build_target.get(), "ps2")
         kwargs.update(
+            build_arcade_files          = (build_target == "arcade"),
             build_ngc_files             = (build_target == "ngc"),
             build_xbox_files            = (build_target == "xbox"),
             build_ps2_files             = (build_target == "ps2"),
@@ -242,7 +240,6 @@ class CrucibleApp(Tk):
             optimize_textures           = self.optimize.get(),
             force_recompile             = self.force_recompile_cache.get(),
             overwrite                   = self.overwrite.get(),
-            retarget_textures_for_ngc   = self.retarget_for_ngc.get(),
             )
         if kwargs.pop("want_world_compiler", False):
             return worlds_compiler.WorldsCompiler(**kwargs)
@@ -250,8 +247,10 @@ class CrucibleApp(Tk):
             return objects_compiler.ObjectsCompiler(**kwargs)
 
     def get_messages_compiler(self, **kwargs):
+        build_target = BUILD_TARGETS.get(self.build_target.get(), "ps2")
         kwargs.update(
             target_dir = self.target_messages_dir.get(),
+            target_arcade = (build_target == "arcade"),
             overwrite = self.overwrite.get(),
             )
         return messages_compiler.MessagesCompiler(**kwargs)
@@ -310,7 +309,11 @@ class CrucibleApp(Tk):
     def _compile_objects(self, models=False, textures=False, cache=False,
                          collision=False, world=False):
         target_dir = self.target_worlds_dir.get() if world else self.target_objects_dir.get()
+        build_target = BUILD_TARGETS.get(self.build_target.get(), "ps2")
         if not target_dir:
+            return
+        elif build_target == "arcade":
+            print("Error: Compiling arcade cache files is not supported yet.")
             return
 
         start = time.time()
@@ -359,14 +362,17 @@ class CrucibleApp(Tk):
                 #    coll_asset_types.append("g3c")
 
                 if build_target == "ngc":
-                    mod_asset_types.append("g3n")
-                    tex_asset_types.append("gtn")
+                    mod_asset_types.append(c.MODEL_CACHE_EXTENSION_NGC)
+                    tex_asset_types.append(c.TEXTURE_CACHE_EXTENSION_NGC)
                 elif build_target == "xbox":
-                    mod_asset_types.append("g3x")
-                    tex_asset_types.append("gtx")
+                    mod_asset_types.append(c.MODEL_CACHE_EXTENSION_XBOX)
+                    tex_asset_types.append(c.TEXTURE_CACHE_EXTENSION_XBOX)
+                elif build_target == "arcade":
+                    mod_asset_types.append(c.MODEL_CACHE_EXTENSION_ARC)
+                    tex_asset_types.append(c.TEXTURE_CACHE_EXTENSION_ARC)
                 else:
-                    mod_asset_types.append("g3p")
-                    tex_asset_types.append("gtp")
+                    mod_asset_types.append(c.MODEL_CACHE_EXTENSION_PS2)
+                    tex_asset_types.append(c.TEXTURE_CACHE_EXTENSION_PS2)
 
             if source:
                 if world:

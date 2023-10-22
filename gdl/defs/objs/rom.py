@@ -71,10 +71,24 @@ class RomTag(WadTag):
         return self._get_strings('text', 'toff')
 
     def get_message_names(self):
-        return self._get_strings('defs', 'sdef')
+        if self.get_lump_of_type('defs') is None:
+            # NOTE: arcade doesnt store message names
+            messages = self.get_or_add_lump_of_type('strs')
+            return list(
+                f"MESSAGE_{i}" for i in range(len(
+                () if messages is None else messages
+                )))
+        return list(s.upper().strip() for s in self._get_strings('defs', 'sdef'))
 
     def get_message_list_names(self):
-        return self._get_strings('defs', 'ldef')
+        if self.get_lump_of_type('defs') is None:
+            # NOTE: arcade doesnt store message list names
+            messages_lists = self.get_lump_of_type('list')
+            return list(
+                f"MESSAGE_LIST_{i}" for i in range(len(
+                () if messages_lists is None else messages_lists
+                )))
+        return list(s.upper().strip() for s in self._get_strings('defs', 'ldef'))
 
     def get_messages(self, names_or_indices=None):
         fonts_lump    = self.get_lump_of_type('font')
@@ -106,7 +120,7 @@ class RomTag(WadTag):
         message_lists = {}
         message_names  = self.get_message_names()
 
-        messages_lists_lump         = self.get_lump_of_type('list')
+        messages_lists_lump       = self.get_lump_of_type('list')
         message_list_indices_lump = self.get_lump_of_type('loff')
         if not messages_lists_lump or not message_list_indices_lump:
             return message_lists
@@ -159,8 +173,8 @@ class RomTag(WadTag):
             self._add_strings([name], 'defs', 'sdef')
 
     def add_message_lists(self, message_lists):
-        message_names               = self.get_message_names()
-        messages_lists_lump         = self.get_or_add_lump_of_type('list')
+        message_names             = self.get_message_names()
+        messages_lists_lump       = self.get_or_add_lump_of_type('list')
         message_list_indices_lump = self.get_or_add_lump_of_type('loff')
         if not message_list_indices_lump:
             message_list_indices_lump.append()

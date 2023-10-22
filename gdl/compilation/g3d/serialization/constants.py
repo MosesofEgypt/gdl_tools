@@ -68,8 +68,34 @@ FORMAT_ID_TO_NAME = {
     131: PIX_FMT_I_8_IDX_8,  # not really palettized
     146: PIX_FMT_A_4_IDX_4,  # not really palettized
     147: PIX_FMT_I_4_IDX_4,  # not really palettized
+    56: PIX_FMT_IA_8_IDX_88,
     }
-FORMAT_NAME_TO_ID = {v: k for k, v in FORMAT_ID_TO_NAME.items()}
+# dreamcast exclusive formats
+DC_FORMAT_ID_TO_NAME = {
+    0: PIX_FMT_ABGR_1555,
+    1: PIX_FMT_ABGR_4444,
+    2: PIX_FMT_BGR_565,
+    }
+# arcade exclusive formats
+ARC_FORMAT_ID_TO_NAME = {
+    0: PIX_FMT_BGR_233,
+    1: PIX_FMT_YIQ_422,
+    2: PIX_FMT_A_8,
+    3: PIX_FMT_I_8,
+    4: PIX_FMT_AI_44,
+    5: PIX_FMT_P_8,
+    8: PIX_FMT_ABGR_8233,
+    9: PIX_FMT_AYIQ_8422,
+    10: PIX_FMT_BGR_565,
+    11: PIX_FMT_ABGR_1555,
+    12: PIX_FMT_ABGR_4444,
+    13: PIX_FMT_AI_88,
+    14: PIX_FMT_AP_88,
+    }
+
+FORMAT_NAME_TO_ID     = {v: k for k, v in FORMAT_ID_TO_NAME.items()}
+DC_FORMAT_NAME_TO_ID  = {v: k for k, v in DC_FORMAT_ID_TO_NAME.items()}
+ARC_FORMAT_NAME_TO_ID = {v: k for k, v in ARC_FORMAT_ID_TO_NAME.items()}
 # gamecube exclusive fuckery
 FORMAT_NAME_TO_ID[PIX_FMT_ABGR_3555_NGC] = FORMAT_NAME_TO_ID[PIX_FMT_ABGR_1555]
 FORMAT_NAME_TO_ID[PIX_FMT_XBGR_3555_NGC] = FORMAT_NAME_TO_ID[PIX_FMT_ABGR_1555]

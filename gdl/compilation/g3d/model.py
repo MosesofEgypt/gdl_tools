@@ -3,8 +3,9 @@ import os
 
 from traceback import format_exc
 from ..metadata import objects as objects_metadata
-from .serialization.model import G3DModel,\
-     OBJECT_HEADER_STRUCT, SUBOBJ_HEADER_STRUCT
+from .serialization.model import G3DModel
+from .serialization.model_vif import OBJECT_HEADER_STRUCT,\
+     SUBOBJ_HEADER_STRUCT
 from . import constants as c
 from . import util
 
@@ -49,7 +50,9 @@ def _decompile_model(kwargs):
         # now that all the models are imported, export the obj
         for j in range(len(subobj_models)):
             g3d_model.import_g3d(
-                subobj_models[j]["data"], headerless=True, **subobj_headers[j]
+                subobj_models[j]["data"], headerless=True,
+                tex_name=subobj_headers[j]["tex_name"],
+                lm_name=subobj_headers[j]["lm_name"]
                 )
         g3d_model.export_obj(
             filepath, texture_assets,

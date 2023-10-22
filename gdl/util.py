@@ -23,3 +23,39 @@ def process_jobs(job_function, all_job_args=(), process_count=None):
                 print(traceback.format_exc())
 
     return results
+
+
+def get_is_arcade_wad(filepath):
+    is_arcade = False
+    try:
+        # do a little peek to see if the file is arcade or not
+        with open(filepath, "rb") as f:
+            wad_header_start = int.from_bytes(f.read(4), 'little')
+            wad_header_count = int.from_bytes(f.read(4), 'little')
+            # safety check in case file isn't a wad
+            if wad_header_count > 50:
+                return False
+
+            for i in range(wad_header_count):
+                f.seek(wad_header_start + (16 * i) + 8)
+                # if the size value is NOT present twice, its arcade
+                if f.read(4) != f.read(4):
+                    is_arcade = True
+
+    except Exception:
+        pass
+
+    return is_arcade
+
+
+def get_is_arcade_rom(filepath):
+    basename, _ = os.path.splitext(filepath)
+    basename = basename.lower()
+    if basename in ("anim", "objects", "textures", "worlds",
+                    "dummy", "aud_data", "hstable_e", "hstable_j"):
+        return True
+    elif len(basename) == 9 and basename.startswith("passport"):
+        return True
+    elif len(basename) == 6 and basename.startswith("index"):
+        return True
+    return False
