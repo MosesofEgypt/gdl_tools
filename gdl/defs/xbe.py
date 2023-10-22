@@ -4,9 +4,9 @@ from ..common_descs import *
 from supyr_struct.field_types import *
 from supyr_struct.defs.tag_def import TagDef
 
-def get(): return GdlXbeDef
+def get(): return gdl_xbe_def
 
-GdlXbeDef = TagDef('xbe',
+gdl_xbe_def = TagDef('xbe',
     Struct("xbe_image_header", INCLUDE=xbe_image_header, VISIBLE=False),
     Struct("xbe_certificate", INCLUDE=xbe_certificate, VISIBLE=False),
     Array("xbe_sec_headers", INCLUDE=xbe_sec_headers, VISIBLE=False),

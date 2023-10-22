@@ -5,6 +5,7 @@ from supyr_struct.util import fourcc_to_int
 from binilla.widgets.field_widgets import *
 from binilla.constants import *
 from .field_types import *
+from .supyr_struct_ext import *  # imported so its fixes are applied
 
 try:
     from binilla.widgets.field_widgets import DynamicArrayFrame, TextFrame
@@ -41,7 +42,7 @@ def get_lump_type(*args, **kwargs):
     return lump_headers[i].lump_id.enum_name
 
 
-def get_lump_size(*args, new_value=None, **kwargs):
+def get_set_lump_size(*args, new_value=None, **kwargs):
     i, lump_headers = _get_lump_context(*args, **kwargs)
     if None in (i, lump_headers):
         return 0
@@ -93,7 +94,7 @@ def get_lump_rawdata_size(
     return end - start
 
 
-def get_lump_pointer(*args, new_value=None, **kwargs):
+def get_set_lump_pointer(*args, new_value=None, **kwargs):
     i, lump_headers = _get_lump_context(*args, **kwargs)
     if None in (i, lump_headers):
         return 0
@@ -194,8 +195,8 @@ def lumps_array(**cases):
         )
 
 def Lump(*args, **kwargs):
-    kwargs.setdefault("SIZE", get_lump_size)
-    kwargs.setdefault("POINTER", get_lump_pointer)
+    kwargs.setdefault("SIZE", get_set_lump_size)
+    kwargs.setdefault("POINTER", get_set_lump_pointer)
     return LumpArray(*args, **kwargs)
 
 
@@ -435,6 +436,26 @@ item_type = SEnum32("item_type", *ITEM_TYPES)
 obstacle_subtype = SEnum16("obstacle_subtype", *ITEM_SUBTYPES)
 
 item_subtype = SEnum32("item_subtype", *ITEM_SUBTYPES)
+
+effects_arcade_lump = Lump('effects',
+    SUB_STRUCT=Struct('effect',
+        Bool32('flags',
+            *("unknown%s" % i for i in range(32))
+            ),
+        SInt32('next_fx_index'),
+        SInt32('fx_index'),
+        SInt32('snd_index'),
+        StrLatin1('fx_desc', SIZE=16),
+        StrLatin1('snd_desc', SIZE=16),
+        SInt16('zmod'),
+        SInt16('alpha_mod'),
+        QStruct('offset', INCLUDE=xyz_float),
+        Float('max_len'),
+        Float('radius'),
+        SIZE=72,
+        ),
+    DYN_NAME_PATH='.fx_desc', WIDGET=DynamicArrayFrame
+    )
 
 effects_lump = Lump('effects',
     SUB_STRUCT=Struct('effect',

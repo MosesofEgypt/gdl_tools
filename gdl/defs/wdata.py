@@ -3,25 +3,39 @@ from .objs.wad import WadTag
 from ..common_descs import *
 from ..field_types import *
 
-def get(): return wdata_def
+def get(): return wdata_def, wdata_arcade_def
 
+SUBTYPES = (
+    ("none",          0x0),
+    ("ankle_biter",   0x1),
+    ("generator_pri", 0x2), # used as main enemy in most levels(GUESS)
+    ("generator_sec", 0x3), # used as main enemy in few/one levels(GUESS)
+    ("aux",           0x4), # uses "aux" folder(doesn't seem to determine ranged/not)
+    ("mini_boss",     0x5), # uses different dir depending on level/name
+    ("main_boss",     0x9),
+    # each of these use strength suffixed dirname
+    #("special_l0",    0xA), # just a guess
+    ("special_l1",    0xB), # just a guess
+    ("special_l2",    0xC), # used in TEMPLE.WAD
+    ("special_l3",    0xD), # used in HELL.WAD
+    )
+
+# TODO: create arcade enemy_data_lump with type set to those in arcade
 enemy_data_lump = Lump('enemy_datas',
     SUB_STRUCT=Struct('enemy_data',
         SEnum32("type", *ENEMY_TYPES),
-        UEnum32("subtype",
-            ("none",          0x0),
-            ("ankle_biter",   0x1),
-            ("generator_pri", 0x2), # used as main enemy in most levels(GUESS)
-            ("generator_sec", 0x3), # used as main enemy in few/one levels(GUESS)
-            ("aux",           0x4), # uses "aux" folder(doesn't seem to determine ranged/not)
-            ("mini_boss",     0x5), # uses different dir depending on level/name
-            ("main_boss",     0x9),
-            # each of these use strength suffixed dirname
-            #("special_l0",    0xA), # just a guess
-            ("special_l1",    0xB), # just a guess
-            ("special_l2",    0xC), # used in TEMPLE.WAD
-            ("special_l3",    0xD), # used in HELL.WAD
-            ),
+        UEnum32("subtype", *SUBTYPES),
+        StrNntLatin1("audname", SIZE=8),
+        StrNntLatin1("name", SIZE=8),
+        SIZE=24
+        ),
+    DYN_NAME_PATH='.type.enum_name', WIDGET=DynamicArrayFrame
+    )
+
+enemy_data_arcade_lump = Lump('enemy_datas',
+    SUB_STRUCT=Struct('enemy_data',
+        SEnum32("type"),
+        UEnum32("subtype", *SUBTYPES),
         StrNntLatin1("audname", SIZE=8),
         StrNntLatin1("name", SIZE=8),
         SIZE=24
@@ -151,6 +165,20 @@ fog_data = Struct("fog_data",
     SIZE=28
     )
 
+enemy_types = QStruct("enemy_types",
+        # seems like the first defined enemy of each subtype gets used
+        # for that purpose. This is based on ghost and zombie are defined
+        # in G4, but only ghost is used(ghost is defined before zombie)
+        # The "special" generator type seems to spawn from
+        # all valid "generator" palette enemy types
+        SInt16("enemy_0"),
+        SInt16("enemy_1"),
+        SInt16("enemy_2"),
+        SInt16("enemy_3"),
+        SInt16("enemy_4"),
+        SInt16("enemy_5"),
+        )
+
 level_data_lump = Lump('level_datas',
     SUB_STRUCT=Struct('level_data',
         Bool32("flags",
@@ -170,19 +198,7 @@ level_data_lump = Lump('level_datas',
         StrNntLatin1("movie", SIZE=16),
         SEnum32("boss_type", *ENEMY_TYPES),
         SInt32("early_enemies"),
-        QStruct("enemy_types",
-            # seems like the first defined enemy of each subtype gets used
-            # for that purpose. This is based on ghost and zombie are defined
-            # in G4, but only ghost is used(ghost is defined before zombie)
-            # The "special" generator type seems to spawn from
-            # all valid "generator" palette enemy types
-            SInt16("enemy_0"),
-            SInt16("enemy_1"),
-            SInt16("enemy_2"),
-            SInt16("enemy_3"),
-            SInt16("enemy_4"),
-            SInt16("enemy_5"),
-            ),
+        enemy_types,
         SInt16("camera_idx"),
         SInt16("audio_idx"),
         SInt16("map_idx"),
@@ -222,10 +238,45 @@ level_data_lump = Lump('level_datas',
         SInt32("shop_max_kills"),
         SInt32("shop_max_exp"),
         Float("ambient"),
-        Float("light_dir", INCLUDE=bgr_float),
-        Float("light_color_fp", INCLUDE=bgr_float),
+        QStruct("light_dir", INCLUDE=bgr_float),
+        QStruct("light_color_fp", INCLUDE=bgr_float),
         Float("light_inten"),
         SIZE=268
+        ),
+    DYN_NAME_PATH='.name', WIDGET=DynamicArrayFrame
+    )
+
+level_data_arcade_lump = Lump('level_datas',
+    SUB_STRUCT=Struct('level_data',
+        Bool32("flags",
+            "stun_wave",
+            "hurt_wave",
+            "time_wave",
+            "player_light",
+            ),
+        SInt16("enabled"),
+        SInt16("setup"),
+        StrNntLatin1("name", SIZE=4),
+        SInt16("wave_time"),
+        SInt16("dummy"),
+        StrNntLatin1("prep", SIZE=4),
+        StrNntLatin1("title", SIZE=16),
+        StrNntLatin1("audbank", SIZE=16),
+        SEnum32("boss_type", *ENEMY_TYPES),
+        SInt32("early_enemies"),
+        enemy_types,
+        SInt16("camera_idx"),
+        SInt16("audio_idx"),
+        SInt16("map_idx"),
+        Pad(2),
+        Pointer32("camera_data"),
+        Pointer32("audio_data"),
+        Pointer32("map_data"),
+        Pointer32("bosscam_data"),
+        fog_data,
+        SInt16("boss_camera_index"),
+        SInt16("max_enemies"),
+        SIZE=128
         ),
     DYN_NAME_PATH='.name', WIDGET=DynamicArrayFrame
     )
@@ -250,7 +301,7 @@ world_data_lump = Lump('world_datas',
     DYN_NAME_PATH='.wave_name', WIDGET=DynamicArrayFrame
     )
 
-wdata_lump_headers = lump_headers(
+lump_types = (
     {NAME:'enmy', VALUE:lump_fcc('ENMY'), GUI_NAME:'enemy type'},
     {NAME:'bcam', VALUE:lump_fcc('BCAM'), GUI_NAME:'boss camera'},
     {NAME:'cams', VALUE:lump_fcc('CAMS'), GUI_NAME:'cameras'},
@@ -260,6 +311,9 @@ wdata_lump_headers = lump_headers(
     {NAME:'levl', VALUE:lump_fcc('LEVL'), GUI_NAME:'level details'},
     {NAME:'wrld', VALUE:lump_fcc('WRLD'), GUI_NAME:'world description'},
     )
+
+wdata_lump_headers = lump_headers(*lump_types)
+wdata_arcade_lump_headers = lump_headers(*lump_types, extra_size_field=False)
 wdata_lumps_array = lumps_array(
     enmy = enemy_data_lump,
     bcam = bosscam_data_lump,
@@ -270,10 +324,27 @@ wdata_lumps_array = lumps_array(
     levl = level_data_lump,
     wrld = world_data_lump,
     )
+wdata_arcade_lumps_array = lumps_array(
+    enmy = enemy_data_arcade_lump,
+    bcam = bosscam_data_lump,
+    cams = camera_data_lump,
+    snds = sound_data_lump,
+    auds = audio_data_lump,
+    maps = map_data_lump,
+    levl = level_data_arcade_lump,
+    wrld = world_data_lump,
+    )
 
 wdata_def = TagDef("wdata",
     wad_header,
     wdata_lump_headers,
     wdata_lumps_array,
+    ext=".wad", endian="<", tag_cls=WadTag
+    )
+
+wdata_arcade_def = TagDef("wdata_arcade",
+    wad_header,
+    wdata_arcade_lump_headers,
+    wdata_arcade_lumps_array,
     ext=".wad", endian="<", tag_cls=WadTag
     )
