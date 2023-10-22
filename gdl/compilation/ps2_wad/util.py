@@ -7,6 +7,49 @@ from . import constants as c
 INDEX_HEADER_STRUCT = struct.Struct("<iiIi")
 
 
+def is_ps2_wadbin(filepath, header_check_max=20):
+    # read header count from first 4 bytes and make sure it's a reasonably low number
+    try:
+        # check for a couple header signatures
+        with open(filepath, "rb") as f:
+            # get the filesize to check header pointers against
+            f.seek(0, 2)
+            filesize = f.tell()
+
+            f.seek(0)
+            header_count = int.from_bytes(f.read(4), 'little')
+
+            if header_count > c.PS2_WAD_MAX_FILE_COUNT or header_count == 0:
+                return False
+
+            # check the first 20 headers to make sure they look reasonable
+            for i in range(min(header_count, header_check_max)):
+                header = INDEX_HEADER_STRUCT.unpack(f.read(16))
+                uncomp_size, data_pointer, _, comp_size = header
+                size = uncomp_size if comp_size < 0 else uncomp_size
+
+                if data_pointer <= 0 or data_pointer + size >= filesize:
+                    # data is outside the files bounds
+                    return False
+                elif comp_size < -1:
+                    # compressed size must be -1 or higher
+                    return False
+
+                if (uncomp_size > c.PS2_WAD_FILE_CHUNK_SIZE and
+                    comp_size > uncomp_size * 1.05):
+                    # comp size should realistically be no more than maybe 5%
+                    # larger than the uncompressed size. skip checking if the
+                    # filesize is already small enough to fit in one sector
+                    return False
+
+            return True
+
+    except Exception:
+        pass
+
+    return False
+
+
 def sanitize_filename(filename):
     return filename.strip().upper().replace("/", "\\")
 
@@ -22,13 +65,7 @@ def is_compressible(filename):
 
 
 def locate_ps2_wad_files(wad_dir):
-    wad_files = []
-    for root, dirs, files in os.walk(wad_dir):
-        for filename in files:
-            ext = os.path.splitext(filename)[-1]
-            if ext.lower().lstrip(".") in c.PS2_WAD_FILE_EXTENSIONS:
-                wad_files.append(os.path.join(root, filename))
-    return wad_files
+    return locate_target_platform_files(wad_dir, want_ps2=True)
 
 
 def read_names_list(input_data):
@@ -53,6 +90,9 @@ def write_names_list(filenames, output_file):
 def read_file_headers(input_buffer):
     file_headers = []
     file_count = struct.unpack('<I', input_buffer.read(4))[0]
+    if file_count > c.PS2_WAD_MAX_FILE_COUNT:
+        raise ValueError("WAD does not appear valid(too many files).")
+
     for i in range(file_count):
         header = INDEX_HEADER_STRUCT.unpack(input_buffer.read(16))
         uncomp_size, data_pointer, path_hash, comp_size = header

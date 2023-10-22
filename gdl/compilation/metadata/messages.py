@@ -114,7 +114,7 @@ def decompile_messages_metadata(
                 popped_messages[message_name] = message
 
                 if not message:
-                    print(f"Warning: Message list references non-existant message '{message_name}'.")
+                    print(f"Warning: Message list {list_name} references non-existant message '{message_name}'.")
                 else:
                     messages[message_name] = message
                     font_name = message.get("font_name")

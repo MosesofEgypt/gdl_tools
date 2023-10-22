@@ -79,14 +79,17 @@ def decompile_objects_metadata(
     for i in range(len(bitmaps)):
         bitm = bitmaps[i]
         metadata_bitm = dict(
-            flags={},
-            lod_k=bitm.lod_k,
+            flags={}, lod_k=0,
             format=bitm.format.enum_name,
-            mipmap_count=bitm.mipmap_count,
             name=bitmap_assets[i]["name"],
             asset_name=bitmap_assets[i]["asset_name"],
             cache_name=exported_bitmaps.get(i, False),
             )
+        if hasattr(bitm, "lod_k"): # v4 and higher
+            metadata_bitm.update(mipmap_count=bitm.mipmap_count, lod_k=bitm.lod_k)
+        else:
+            metadata_bitm.update(mipmap_count=abs(bitm.small_lod_log2_inv - bitm.large_lod_log2_inv))
+            
         if getattr(bitm.flags, "invalid", False):
             # set to arbitrary valid value(often time set to random garbage)
             metadata_bitm["format"] = "ABGR_1555"

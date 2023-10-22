@@ -12,7 +12,7 @@ class ObjectsCompiler:
     build_ngc_files = True
     build_ps2_files = True
     build_xbox_files = True
-    retarget_textures_for_ngc = True
+    build_arcade_files = False
 
     parallel_processing = False
 
@@ -39,14 +39,14 @@ class ObjectsCompiler:
         asset_dir = os.path.join(self.target_dir, c.DATA_FOLDERNAME)
         if not os.path.isdir(asset_dir):
             return
-        elif not(self.build_ngc_files or self.build_ps2_files or self.build_xbox_files):
+        elif not(self.build_ngc_files or self.build_ps2_files or
+                 self.build_xbox_files or self.build_arcade_files):
             return
 
         kwargs = dict(
             parallel_processing=self.parallel_processing,
             force_recompile=self.force_recompile,
             optimize_format=self.optimize_textures,
-            retarget_textures_for_ngc=self.retarget_textures_for_ngc,
             )
         if self.build_ps2_files:
             texture_comp.compile_textures(asset_dir, target_ps2=True, **kwargs)
@@ -57,11 +57,15 @@ class ObjectsCompiler:
         if self.build_xbox_files:
             texture_comp.compile_textures(asset_dir, target_xbox=True, **kwargs)
 
+        if self.build_arcade_files:
+            texture_comp.compile_textures(asset_dir, target_arcade=True, **kwargs)
+
     def compile_models(self):
         asset_dir = os.path.join(self.target_dir, c.DATA_FOLDERNAME)
         if not os.path.isdir(asset_dir):
             return
-        elif not(self.build_ngc_files or self.build_ps2_files or self.build_xbox_files):
+        elif not(self.build_ngc_files or self.build_ps2_files or
+                 self.build_xbox_files or self.build_arcade_files):
             return
 
         kwargs = dict(
@@ -78,10 +82,14 @@ class ObjectsCompiler:
         if self.build_xbox_files:
             model_comp.compile_models(asset_dir, target_xbox=True, **kwargs)
 
+        if self.build_arcade_files:
+            model_comp.compile_models(asset_dir, target_arcade=True, **kwargs)
+
     def compile(self):
         if not os.path.isdir(self.target_dir):
             return
-        elif not(self.build_ngc_files or self.build_ps2_files or self.build_xbox_files):
+        elif not(self.build_ngc_files or self.build_ps2_files or
+                 self.build_xbox_files or self.build_arcade_files):
             return
 
         comp_kwargs = []
@@ -93,6 +101,9 @@ class ObjectsCompiler:
 
         if self.build_xbox_files:
             comp_kwargs.append(dict(name="XBOX", target_xbox=True))
+
+        if self.build_arcade_files:
+            comp_kwargs.append(dict(name="ARC", target_arcade=True))
 
         compilation_outputs = dict()
         for kwargs in comp_kwargs:

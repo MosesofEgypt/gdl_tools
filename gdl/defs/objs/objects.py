@@ -86,13 +86,15 @@ class ObjectsPs2Tag(GdlTag):
             object_names[i] = dict(name=object_name, asset_name=asset_name, index=i)
 
             # populate maps to help name bitmaps
-            obj            = objects[i]
-            obj_flags      = getattr(obj, "flags", None)
-            subobj_headers = tuple(getattr(obj.data, "sub_objects", ())) + (obj.sub_object_0, )
-            for subobj_header in subobj_headers:
-                texture_model_indices.setdefault(subobj_header.tex_index, set()).add(i)
-                if getattr(obj_flags, "lmap", False):
-                    lightmap_indices.add(subobj_header.lm_index)
+            if self.data.version_header.version.enum_name not in ("v0", "v1"):
+                obj            = objects[i]
+                obj_flags      = getattr(obj, "flags", None)
+                subobj_headers = tuple(getattr(obj.data, "sub_objects", ())) + (obj.sub_object_0, )
+
+                for subobj_header in subobj_headers:
+                    texture_model_indices.setdefault(subobj_header.tex_index, set()).add(i)
+                    if getattr(obj_flags, "lmap", False):
+                        lightmap_indices.add(subobj_header.lm_index)
 
 
         lightmap_indices = list(sorted(lightmap_indices))
@@ -161,17 +163,28 @@ class ObjectsPs2Tag(GdlTag):
 
     def set_pointers(self, offset=0):
         '''
-        NOTE: This function is only meant to work with v12 and v13 of the objects tag.
+        NOTE: This function is only meant to work with v4, v12, and v13 of the objects tag.
         '''
         header = self.data.header
-        offset = offset + 160  # size of the header is 160 bytes
+        version = self.data.version_header.version.enum_name
 
-        if self.data.version_header.version.enum_name == "v12":
+        subobj_size = 8
+        bitmap_size = 64
+        object_size = 64
+        bitmap_def_size = 36
+        object_def_size = 24
+        # add in the header size
+        if version in "v13":
+            offset += 160
+        elif version in "v12":
+            offset += 160
             subobj_size = 6
-        elif self.data.version_header.version.enum_name == "v13":
-            subobj_size = 8
+        elif version == "v4":
+            offset += 36
+            bitmap_size = 80
+            subobj_size = 4
         else:
-            raise ValueError("Pointers can only be calculated for v12 and v13 objects.")
+            raise ValueError("Pointers can only be calculated for v4, v12, and v13 objects.")
 
         # NOTE: we are intentionally serializing the object_defs and
         #       bitmap_defs before the sub_objects. Gauntlet doesn't
@@ -183,35 +196,43 @@ class ObjectsPs2Tag(GdlTag):
         tex_def_count = header.bitmap_defs_count
 
         #set the object and bitmap arrays pointers
-        header.objects_pointer = offset
-        offset += obj_count*64
-        header.bitmaps_pointer = offset
-        offset += tex_count*64
+        if version in ("v12", "v13"):
+            header.objects_pointer = offset
+            offset += obj_count * object_size
+            header.bitmaps_pointer = offset
+            offset += tex_count * bitmap_size
+        else:
+            # v4 and earlier don't have dedicated pointers for the objects
+            # and bitmaps. its assumed they're directly after the header.
+            offset += (obj_count * object_size +
+                       tex_count * bitmap_size)
 
         #set the object_def and bitmap_def arrays pointers
         header.object_defs_pointer = offset
-        offset += obj_def_count*24
+        offset += obj_def_count * object_def_size
         offset += calculate_padding(offset, 16) # 16byte align
 
         header.bitmap_defs_pointer = offset
-        offset += tex_def_count*36
+        offset += tex_def_count * bitmap_def_size
         offset += calculate_padding(offset, 16) # 16byte align 
 
-        #loop over all objects and set the pointers of their subobjects
-        header.sub_objects_pointer = offset
-        for obj in self.data.objects:
-            #null out the subobjects pointer if none exist
-            if obj.sub_objects_count > 1:
-                obj.sub_objects_pointer = offset
-                offset += (obj.sub_objects_count-1)*subobj_size
+        # for v12 and v13, calculate subobject pointers
+        if version in ("v12", "v13"):
+            # TODO: update this with calculating it for v4 when it is determined
+            #       which bytes in the v4_object_block are the sub_objects_pointer
+            header.sub_objects_pointer = offset
+            for obj in self.data.objects:
+                if obj.sub_objects_count > 1:
+                    obj.sub_objects_pointer = offset
+                    offset += (obj.sub_objects_count-1) * subobj_size
 
-        header.sub_objects_end = offset  #not 16 byte aligned
-        offset += calculate_padding(offset, 16) # 16byte align 
+            header.sub_objects_end = offset  #not 16 byte aligned
+            offset += calculate_padding(offset, 16) # 16byte align 
 
         #loop over all objects and set the pointers of their geometry data
         for obj in self.data.objects:
             obj.sub_object_models_pointer = offset
-            if obj.sub_objects_count < 2:
+            if version in ("v12", "v13") and obj.sub_objects_count < 2:
                 obj.sub_objects_pointer = offset
 
             #increment the offset by the size of the model data
@@ -220,25 +241,29 @@ class ObjectsPs2Tag(GdlTag):
 
         offset += calculate_padding(offset, 16) # 16byte align 
 
-        #set the file length
-        header.obj_end = header.tex_bits = offset
+        if version in ("v12", "v13"):
+            #set the file length
+            header.obj_end = header.tex_bits = offset
 
     def serialize(self, **kwargs):
-        if self.data.version_header.version.enum_name == "v4":
-            raise ValueError("Cannot serialize v4 objects.")
+        version = self.data.version_header.version.enum_name
+        if version in ("v0", "v1"):
+            raise ValueError("Cannot serialize v0 and v1 objects.")
 
-        min_lm_index = len(self.data.bitmaps)
-        max_lm_index = -1
-        for obj in self.data.objects:
-            if obj.flags.lmap:
-                for subobj in (obj.sub_object_0,) + tuple(obj.data.sub_objects):
-                    min_lm_index = min(min_lm_index, subobj.lm_index)
-                    max_lm_index = max(max_lm_index, subobj.lm_index)
+        if version in ("v12", "v13"):
+            # v12 and v13 cache the lightmap indices in the header
+            min_lm_index = len(self.data.bitmaps)
+            max_lm_index = -1
+            for obj in self.data.objects:
+                if obj.flags.lmap:
+                    for subobj in (obj.sub_object_0,) + tuple(obj.data.sub_objects):
+                        min_lm_index = min(min_lm_index, subobj.lm_index)
+                        max_lm_index = max(max_lm_index, subobj.lm_index)
 
-        if min_lm_index > max_lm_index:
-            self.data.header.lm_tex_first = self.data.header.lm_tex_num = 0
-        else:
-            self.data.header.lm_tex_first = min_lm_index
-            self.data.header.lm_tex_num   = 1 + (max_lm_index - min_lm_index)
+            if min_lm_index > max_lm_index:
+                self.data.header.lm_tex_first = self.data.header.lm_tex_num = 0
+            else:
+                self.data.header.lm_tex_first = min_lm_index
+                self.data.header.lm_tex_num   = 1 + (max_lm_index - min_lm_index)
 
         return GdlTag.serialize(self, **kwargs)

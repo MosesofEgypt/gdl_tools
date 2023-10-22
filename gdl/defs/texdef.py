@@ -5,6 +5,21 @@ from ..compilation.g3d.constants import *
 
 def get(): return texdef_ps2_def
 
+BITMAP_BLOCK_V23_SIG = 0xF00B0017
+BITMAP_BLOCK_DC_SIG  = 0x00FF
+
+
+def get_bitmap_version(rawdata=None, offset=0, root_offset=0, **kw):
+    try:
+        rawdata.seek(root_offset + offset)
+        if int.from_bytes(rawdata.read(2), 'little') == BITMAP_BLOCK_DC_SIG:
+            return 'v0'
+    except Exception:
+        pass
+    # default to the newest version
+    return 'v23'
+
+
 bitmap_format = UEnum8("format",
     # NOTE: the NGC formats are some custom format that swaps
     #       between A1R5G5B5 and A4R4G4B4, depending on if the
@@ -22,7 +37,7 @@ bitmap_format = UEnum8("format",
     (PIX_FMT_ABGR_1555_IDX_8, 48),
     (PIX_FMT_XBGR_1555_IDX_8, 49),
     (PIX_FMT_ABGR_3555_IDX_8_NGC, 50),
-    #(PIX_FMT_IDXA_88,         56), #i have no idea how this format works
+    (PIX_FMT_IA_8_IDX_88,         56), #i have no idea how this format works
     (PIX_FMT_ABGR_8888_IDX_8, 66),
     (PIX_FMT_XBGR_8888_IDX_8, 67),
     (PIX_FMT_A_8_IDX_8, 130),
@@ -31,10 +46,93 @@ bitmap_format = UEnum8("format",
     (PIX_FMT_I_4_IDX_4, 147)
     )
 
-bitmap_block = Struct("bitmap",
+# dreamcast
+bitmap_format_dc = UEnum8("format",
+    # textures might be aligned to 16-byte boundaries?
+    PIX_FMT_ABGR_1555,
+    PIX_FMT_BGR_565,
+    PIX_FMT_ABGR_4444,
+    # NOTE: the below 4 might not be supported, but they
+    #       are being documented for completeness sake
+    'YUV_422',
+    'BUMP',
+    'P_4',
+    'P_8',
+    DEFAULT=1
+    )
+
+image_type_dc = UEnum8("image_type",
+    # NOTES:
+    #   https://segaretro.org/images/7/78/DreamcastDevBoxSystemArchitecture.pdf
+    # vq stands for vector-quantized, which indicates
+    #   the texture uses a codebook, whose size depends
+    #   on the dimensions and if mipmapped. additionally,
+    #   vq may only be used with square textures.
+    # there are 2 flavors of vq: normal and small.
+    #   normal contains a codebook of 256 2x2 16bit
+    #   texels, whereas small contains a codebook of
+    #   anywhere between 16 and 128 2x2 16bit texels.
+    #   vq is used when:
+    #       width >= 128 or (width == 64 and mipmapped)
+    #   small vq is used otherwise, and the codebook size is:
+    #       128 if width == 64 or (width == 32 and mipmapped)
+    #       64  if width == 32
+    #       32  width == 32 and mipmapped
+    #       16  width <= 16
+    # codebook entries store pixels in the following order:
+    #   bottom right, top right, bottom left, top left
+    # pixel data is padded to multiples of 4 bytes, so
+    #   twiddled non-vq textures must store at least 2
+    #   pixels. this means 1x1 textures store the single
+    #   16bit pixel in bytes 2 and 3, and 0 and 1 are 0x00
+    # dreamcast twiddling is swizzling in a Z-order
+    #   curve, but in yxyxyx order instead of xyxyxy
+    # mipmaps are stored in smallest to largest order
+    # for some reason, an additional 8 bytes of 0xFF are
+    #   appended to every chunk of texture data. Unable
+    #   to determine a reason for this at the moment.
+    # texture data pointers are 16-byte aligned.
+    ("square_twiddled", 1),            # confirmed
+    ("square_twiddled_and_mipmap", 2), # confirmed
+    ("vq", 3),                         # confirmed
+    ("vq_and_mipmap", 4),              # confirmed
+    ("twiddled_8bit_clut", 5),
+    ("twiddled_4bit_clut", 6),
+    ("twiddled_8bit", 7),
+    ("twiddled_4bit", 8),
+    ("rectangle", 9),                  # confirmed
+    ("rectangular_stride", 11),
+    ("rectangular_twiddled", 13),
+    ("small_vq", 16),                  # confirmed
+    ("small_vq_and_mipmap", 17),       # confirmed
+    EDITABLE=False
+    )
+
+bitmap_flags_v1_dc = Bool8("flags",
+    ("clamp_u",   0x01),
+    ("clamp_v",   0x02),
+    ("external",  0x08),
+    )
+
+# found on dreamcast
+bitmap_block_v0 = Struct("bitmap",
+    UInt16("dc_sig", EDITABLE=False, DEFAULT=BITMAP_BLOCK_DC_SIG),
+    bitmap_flags_v1_dc,
+    UInt8("unknown1", EDITABLE=False), # set to 0, 1, 3, 4, 5, 8, 12, 13
+    UInt16("width", EDITABLE=False),
+    UInt16("height", EDITABLE=False),
+    Pointer32("tex_pointer", EDITABLE=False),
+    Pad(4),
+    bitmap_format_dc,
+    image_type_dc,
+    Pad(62),
+    SIZE=80
+    )
+
+bitmap_block_v23 = Struct("bitmap",
     UEnum32("version",
-        ("v23", 0xF00B0017),
-        DEFAULT=0xF00B0017, EDITABLE=False
+        ("v23", BITMAP_BLOCK_V23_SIG),
+        DEFAULT=BITMAP_BLOCK_V23_SIG, EDITABLE=False
         ),
     Bool16("flags",
         # checked every other bit in every texdef in
@@ -58,7 +156,6 @@ bitmap_block = Struct("bitmap",
     Pointer32("tex_pointer", EDITABLE=False),
     UInt32("size"),
     Pad(40),
-
     SIZE=64
     )
 
@@ -93,8 +190,14 @@ texdef_ps2_def = TagDef("texdef",
     Array("bitmaps",
         SIZE='.header.bitmaps_count',
         POINTER='.header.bitmaps_pointer',
-        SUB_STRUCT=bitmap_block
+        SUB_STRUCT=Switch("bitmap",
+            CASES={
+                "v0":  bitmap_block_v0,
+                "v23": bitmap_block_v23,
+                },
+            CASE=get_bitmap_version,
+            DEFAULT=bitmap_block_v23
+            ),
         ),
-
     endian="<", ext=".ps2", tag_cls=TexdefPs2Tag
     )

@@ -25,6 +25,10 @@ SOFTWARE.
 from ..constants import *
 
 PS2_WAD_FILE_CHUNK_SIZE = 0x800  # 2KB chunk size
+# at 2KB chunk size, 0x100000 entries would put the wad.bin at a minimum
+# of 2GB, which is right at the border for how high a 32bit address can
+# go(depending on if you allow filesizes up to 2^32 - 1)
+PS2_WAD_MAX_FILE_COUNT  = 0x100000  # 2KB chunk size
 PS2_WAD_UNKNOWN_FILE_TEMPLATE = "unknown/%s." + PS2_WAD_UNKNOWN_EXTENSION
 PS2_WAD_PATHHASH_CHUNK_SIZE = 12
 PS2_WAD_PATHHASH_SEED = 0x9E3779B9
