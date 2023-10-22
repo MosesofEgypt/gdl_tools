@@ -656,6 +656,7 @@ worlds_ps2_def = TagDef("worlds",
             POINTER=".ext_header.particle_systems_pointer",
             DYN_NAME_PATH='.part_texname', WIDGET=DynamicArrayFrame
             )
+        ),
     Switch("world_anims",
         CASE=get_has_world_anims,
         CASES={ False: Void("world_anims") },
