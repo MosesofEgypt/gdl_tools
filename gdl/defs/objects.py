@@ -2,9 +2,8 @@ from supyr_struct.defs.tag_def import TagDef
 from ..common_descs import *
 from ..compilation.g3d.constants import *
 from .objs.objects import ObjectsPs2Tag
-from .texdef import bitmap_format as bitmap_format_v12,\
-     bitmap_format_dc, image_type_dc, bitmap_flags_v1_dc,\
-     BITMAP_BLOCK_DC_SIG, PIX_FMT_ABGR_1555, PIX_FMT_BGR_565, PIX_FMT_ABGR_4444
+from .texdef import bitmap_flags_v1_dc, BITMAP_BLOCK_DC_SIG,\
+    bitmap_format_dc, image_type_dc, bitmap_format as bitmap_format_v12
 
 def get(): return objects_ps2_def
 

@@ -8,7 +8,6 @@ INDEX_HEADER_STRUCT = struct.Struct("<iiIi")
 
 
 def is_ps2_wadbin(filepath, header_check_max=20):
-    # TODO: write this
     # read header count from first 4 bytes and make sure it's a reasonably low number
     try:
         # check for a couple header signatures
