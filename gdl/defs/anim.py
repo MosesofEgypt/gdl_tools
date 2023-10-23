@@ -2,7 +2,7 @@ from supyr_struct.defs.tag_def import TagDef
 from .objs.anim import AnimTag
 from ..common_descs import *
 
-def get(): return anim_ps2_def
+def get(): return anim_def
 
 # convert all possible frame flag values to the
 # number of frames they indicate exist in the data
@@ -428,7 +428,7 @@ atree_list_header_v8 = Struct("atree_list_header",
     SIZE=16
     )
 
-anim_ps2_def = TagDef("anim",
+anim_def = TagDef("anim",
     UInt16("atree_count", VISIBLE=False),
     UEnum16("version",
         ("v0", 0),

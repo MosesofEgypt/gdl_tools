@@ -3,9 +3,9 @@ import os
 from math import log
 from supyr_struct.util import backup_and_rename_temp
 from traceback import format_exc
-from ...defs.objects import objects_ps2_def
-from ...defs.texdef import texdef_ps2_def
-from ...defs.worlds import worlds_ps2_def
+from ...defs.objects import objects_def
+from ...defs.texdef import texdef_def
+from ...defs.worlds import worlds_def
 from ..metadata import objects as objects_metadata
 from . import animation, collision, model, texture
 from . import constants as c
@@ -13,21 +13,32 @@ from . import constants as c
 
 def compile_cache_files(
         objects_dir,
-        target_ngc=False, target_ps2=False, target_xbox=False, target_arcade=False,
+        target_ngc=False, target_ps2=False, target_xbox=False,
+        target_dreamcast=False, target_arcade=False,
         serialize_cache_files=False, use_force_index_hack=False,
         build_anim_cache=True, build_texdef_cache=False,
         ):
     # TODO: add support for compiling worlds
     data_dir    = os.path.join(objects_dir, c.DATA_FOLDERNAME)
-    objects_tag = objects_ps2_def.build()
+    objects_tag = objects_def.build()
     anim_tag    = None
     texdef_tag  = None
+
+    if target_dreamcast or target_arcade:
+        # dreamcast and arcade use v1 or v0 of the objects.
+        # set header to v1 and reparse header and all arrays
+        # so they're the correct structure versions
+        objects_tag.data.version_header.version.set_to("v1")
+        objects_tag.data.parse(attr_index="header")
+        objects_tag.data.parse(attr_index="objects")
+        objects_tag.data.parse(attr_index="bitmaps")
 
     objects_tag.filepath = os.path.join(
         objects_dir, "%s.%s" % (
             c.OBJECTS_FILENAME,
             c.NGC_EXTENSION if target_ngc else
             c.ARC_EXTENSION if target_arcade else
+            c.DC_EXTENSION  if target_dreamcast else
             c.PS2_EXTENSION
             )
         )
@@ -38,11 +49,13 @@ def compile_cache_files(
     gtx_textures = texture.import_textures(
         objects_tag, data_dir, target_ngc=target_ngc,
         target_ps2=target_ps2, target_xbox=target_xbox,
+        target_dreamcast=target_dreamcast, target_arcade=target_arcade,
         use_force_index_hack=use_force_index_hack
         )
     model.import_models(
         objects_tag, data_dir, target_ngc=target_ngc,
         target_ps2=target_ps2, target_xbox=target_xbox,
+        target_dreamcast=target_dreamcast, target_arcade=target_arcade
         )
 
     if build_anim_cache:
@@ -63,7 +76,8 @@ def compile_cache_files(
         if gtx_textures:
             serialize_textures_cache(
                 objects_tag, gtx_textures,
-                target_ngc=target_ngc, target_ps2=target_ps2
+                target_ngc=target_ngc, target_ps2=target_ps2,
+                target_dreamcast=target_dreamcast, target_arcade=target_arcade
                 )
 
     return dict(
@@ -83,39 +97,47 @@ def decompile_cache_files(
         parallel_processing=False, swap_lightmap_and_diffuse=False, **kwargs
         ):
 
-    ps2_objects_filepath    = os.path.join(target_dir,  "objects.ps2")
-    ngc_objects_filepath    = os.path.join(target_dir,  "objects.ngc")
-    arcade_objects_filepath = os.path.join(target_dir,  "objects.rom")
-    texdef_filepath         = os.path.join(target_dir,  "texdef.ps2")
-    ps2_worlds_filepath     = os.path.join(target_dir,  "worlds.ps2")
-    ngc_worlds_filepath     = os.path.join(target_dir,  "worlds.ngc")
-    arcade_worlds_filepath  = os.path.join(target_dir,  "worlds.rom")
+    ps2_objects_filepath    = os.path.join(target_dir, "objects" + c.PS2_EXTENSION)
+    ngc_objects_filepath    = os.path.join(target_dir, "objects" + c.NGC_EXTENSION)
+    arcade_objects_filepath = os.path.join(target_dir, "objects" + c.ARC_EXTENSION)
+    dc_objects_filepath     = os.path.join(target_dir, "objects" + c.DC_EXTENSION)
+
+    ps2_texdef_filepath     = os.path.join(target_dir, "texdef" + c.PS2_EXTENSION)
+    dc_texdef_filepath      = os.path.join(target_dir, "texdef" + c.DC_EXTENSION)
+
+    ps2_worlds_filepath     = os.path.join(target_dir, "worlds" + c.PS2_EXTENSION)
+    ngc_worlds_filepath     = os.path.join(target_dir, "worlds" + c.NGC_EXTENSION)
+    arcade_worlds_filepath  = os.path.join(target_dir, "worlds" + c.ARC_EXTENSION)
+    dc_worlds_filepath      = os.path.join(target_dir, "worlds" + c.DC_EXTENSION)
 
     objects_tag = None
     texdef_tag  = None
     worlds_tag  = None
 
     if os.path.isfile(ps2_objects_filepath):
-        objects_tag = objects_ps2_def.build(filepath=ps2_objects_filepath)
+        objects_tag = objects_def.build(filepath=ps2_objects_filepath)
         try:
             objects_tag.load_texdef_names()
         except Exception:
             print('Could not load texdefs. Names generated will be best guesses.')
 
     elif os.path.isfile(ngc_objects_filepath):
-        objects_tag = objects_ps2_def.build(filepath=ngc_objects_filepath)
+        objects_tag = objects_def.build(filepath=ngc_objects_filepath)
     elif os.path.isfile(arcade_objects_filepath):
-        objects_tag = objects_ps2_def.build(filepath=arcade_objects_filepath)
-    elif os.path.isfile(texdef_filepath):
+        objects_tag = objects_def.build(filepath=arcade_objects_filepath)
+    else:
         # no objects. default to texdef for trying to get texture headers
-        texdef_tag = texdef_ps2_def.build(filepath=texdef_filepath)
+        if os.path.isfile(ps2_texdef_filepath):
+            texdef_tag = texdef_def.build(filepath=ps2_texdef_filepath)
+        elif os.path.isfile(dc_objects_filepath):
+            texdef_tag = texdef_def.build(filepath=dc_objects_filepath)
 
     if os.path.isfile(ps2_worlds_filepath):
-        worlds_tag = worlds_ps2_def.build(filepath=ps2_worlds_filepath)
+        worlds_tag = worlds_def.build(filepath=ps2_worlds_filepath)
     elif os.path.isfile(ngc_worlds_filepath):
-        worlds_tag = worlds_ps2_def.build(filepath=ngc_worlds_filepath)
+        worlds_tag = worlds_def.build(filepath=ngc_worlds_filepath)
     elif os.path.isfile(arcade_worlds_filepath):
-        worlds_tag = worlds_ps2_def.build(filepath=arcade_worlds_filepath)
+        worlds_tag = worlds_def.build(filepath=arcade_worlds_filepath)
 
     if data_dir is None:
         data_dir = os.path.join(target_dir, c.DATA_FOLDERNAME)
@@ -152,13 +174,18 @@ def decompile_cache_files(
 
 def serialize_textures_cache(
         objects_tag, gtx_textures, output_filepath=None,
-        target_ngc=False, target_ps2=False
+        target_ngc=False, target_ps2=False,
+        target_dreamcast=False, target_arcade=False
         ):
     if not output_filepath:
         objects_dir     = os.path.dirname(objects_tag.filepath)
         textures_filename = "%s.%s" % (
             c.TEXTURES_FILENAME,
-            c.NGC_EXTENSION if target_ngc else c.PS2_EXTENSION
+            (c.NGC_EXTENSION if target_ngc else
+             c.ARC_EXTENSION if target_arcade else
+             c.DC_EXTENSION if target_dreamcast else
+             c.PS2_EXTENSION
+             )
             )
         output_filepath = os.path.join(objects_dir, textures_filename)
 
@@ -166,7 +193,7 @@ def serialize_textures_cache(
     # open the textures.ps2 file and serialize the texture data into it
     with open(temppath, 'w+b') as f:
         for g3d_texture, bitmap in zip(gtx_textures, objects_tag.data.bitmaps):
-            if bitmap.frame_count or bitmap.flags.external:
+            if bitmap.frame_count or getattr(bitmap.flags, "external", False):
                 continue
             elif g3d_texture is None:
                 continue
@@ -175,6 +202,7 @@ def serialize_textures_cache(
             g3d_texture.export_gtx(
                 f, headerless=True,
                 target_ngc=target_ngc, target_ps2=target_ps2,
+                target_dreamcast=target_dreamcast, target_arcade=target_arcade
                 )
 
     backup_and_rename_temp(output_filepath, temppath)
@@ -192,13 +220,17 @@ def compile_texdef_cache_from_objects(objects_tag):
         b.tex_index for b in objects_tag.data.bitmap_defs if b.name
         }
 
-    texdef_tag = texdef_ps2_def.build()
-    objects_dir         = os.path.dirname(objects_tag.filepath)
-    texdef_tag.filepath = os.path.join(objects_dir, "%s.%s" % (c.TEXDEF_FILENAME, c.PS2_EXTENSION))
+    texdef_tag = texdef_def.build()
+    objects_dir = os.path.dirname(objects_tag.filepath)
+    objects_ext = os.path.splitext(objects_tag.filepath)[-1].strip(".")
+
+    texdef_tag.filepath = os.path.join(objects_dir, "%s.%s" % (c.TEXDEF_FILENAME, objects_ext))
 
     object_bitmaps     = objects_tag.data.bitmaps
     texdef_bitmaps     = texdef_tag.data.bitmaps
     texdef_bitmap_defs = texdef_tag.data.bitmap_defs
+
+    is_dreamcast = util.is_dreamcast_bitmaps(object_bitmaps)
 
     texdef_index = 0
     for bitm_index in range(len(object_bitmaps)):
@@ -206,8 +238,13 @@ def compile_texdef_cache_from_objects(objects_tag):
         if object_bitmap.frame_count:
             # don't save the start frame of the sequence to the texdef
             continue
-        
-        texdef_bitmaps.append()
+        elif is_dreamcast and object_bitmap.flags.external:
+            # dreamcast doesnt save external textures to texdef
+            continue
+
+        texdef_bitmaps.append(
+            case = ("dreamcast" if is_dreamcast else "ps2")
+            )
         texdef_bitmap_defs.append()
 
         texdef_bitmap     = texdef_bitmaps[-1]
@@ -217,11 +254,19 @@ def compile_texdef_cache_from_objects(objects_tag):
 
         # copy data over
         texdef_bitmap.tex_pointer  = object_bitmap.tex_pointer
-        texdef_bitmap.mipmap_count = object_bitmap.mipmap_count
-        texdef_bitmap.lod_k        = object_bitmap.lod_k
         texdef_bitmap.width        = object_bitmap.width
         texdef_bitmap.height       = object_bitmap.height
         texdef_bitmap.format.set_to(format_name)
+
+        texdef_bitmap.flags.clamp_u = object_bitmap.flags.clamp_u
+        texdef_bitmap.flags.clamp_v = object_bitmap.flags.clamp_v
+        if is_dreamcast:
+            texdef_bitmap.image_type.set_to(image_type)
+        else:
+            texdef_bitmap.mipmap_count      = object_bitmap.mipmap_count
+            texdef_bitmap.lod_k             = object_bitmap.lod_k
+            texdef_bitmap.flags.halfres     = object_bitmap.flags.halfres
+            texdef_bitmap.flags.has_alpha   = object_bitmap.flags.has_alpha
 
         texdef_bitmap_def.name = bitmap_names.get(bitm_index, {}).get("name", "")[: 30]
         texdef_bitmap_def.def_in_objects.set_to(
@@ -230,25 +275,23 @@ def compile_texdef_cache_from_objects(objects_tag):
         texdef_bitmap_def.width  = texdef_bitmap.width
         texdef_bitmap_def.height = texdef_bitmap.height
 
-        # calculate the size of all the bitmap data
-        palette_stride = c.PALETTE_SIZES.get(format_name, 0)
-        pixel_stride   = c.PIXEL_SIZES.get(format_name, 0)
+        if is_dreamcast:
+            # copy size that was already computed
+            bitmap_size = object_bitmap.size
+        else:
+            # calculate the size of all the bitmap data
+            palette_stride = c.PALETTE_SIZES.get(format_name, 0)
+            pixel_stride   = c.PIXEL_SIZES.get(format_name, 0)
 
-        bitmap_size = (2**pixel_stride)*palette_stride
-        mip_width  = texdef_bitmap.width
-        mip_height = texdef_bitmap.height
-        for i in range(object_bitmap.mipmap_count + 1):
-            bitmap_size += (mip_width*mip_height*pixel_stride)//8
-            mip_width  = (mip_width + 1)//2
-            mip_height = (mip_height + 1)//2
+            bitmap_size = (2**pixel_stride)*palette_stride
+            mip_width  = texdef_bitmap.width
+            mip_height = texdef_bitmap.height
+            for i in range(object_bitmap.mipmap_count + 1):
+                bitmap_size += (mip_width*mip_height*pixel_stride)//8
+                mip_width  = (mip_width + 1)//2
+                mip_height = (mip_height + 1)//2
 
         texdef_bitmap.size = bitmap_size
-
-        # copy the flags
-        texdef_bitmap.flags.halfres   = object_bitmap.flags.halfres
-        texdef_bitmap.flags.clamp_u   = object_bitmap.flags.clamp_u
-        texdef_bitmap.flags.clamp_v   = object_bitmap.flags.clamp_v
-        texdef_bitmap.flags.has_alpha = object_bitmap.flags.has_alpha
 
     # set the header values
     curr_ptr = texdef_tag.data.header.binsize

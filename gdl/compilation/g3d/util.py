@@ -37,3 +37,11 @@ def locate_collision(data_dir, cache_files=False):
         c.COLLISION_CACHE_EXTENSION if cache_files else
         c.COLLISION_ASSET_EXTENSIONS
         )
+
+def is_dreamcast_bitmaps(bitmaps):
+    # arcacde and dreamcast have the same extensions.
+    # check the bitmap structure to tell them apart.
+    for bitm in bitmaps:
+        if hasattr(bitm, "dc_sig"):
+            return True
+    return False

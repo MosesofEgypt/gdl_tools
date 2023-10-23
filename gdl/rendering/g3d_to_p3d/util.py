@@ -10,10 +10,10 @@ from .systems.realm import load_realm_from_wdata_tag
 from ...util import *
 from ...compilation.g3d import constants as g3d_const
 from ...compilation.g3d.serialization import arbytmap_ext, texture_conversions
-from ...defs.anim import anim_ps2_def
+from ...defs.anim import anim_def
 
-from ...defs.objects import objects_ps2_def
-from ...defs.worlds import worlds_ps2_def
+from ...defs.objects import objects_def
+from ...defs.worlds import worlds_def
 from ...defs.wdata import wdata_def
 
 
@@ -117,19 +117,19 @@ def load_objects_dir_files(objects_dir):
 
     if dir_info["anim_filepath"]:
         try:
-            anim_tag = anim_ps2_def.build(filepath=dir_info["anim_filepath"])
+            anim_tag = anim_def.build(filepath=dir_info["anim_filepath"])
         except Exception:
             print(format_exc())
 
     if dir_info["worlds_filepath"]:
         try:
-            worlds_tag = worlds_ps2_def.build(filepath=dir_info["worlds_filepath"])
+            worlds_tag = worlds_def.build(filepath=dir_info["worlds_filepath"])
         except Exception:
             print(format_exc())
 
     if dir_info["objects_filepath"]:
         try:
-            objects_tag = objects_ps2_def.build(filepath=dir_info["objects_filepath"])
+            objects_tag = objects_def.build(filepath=dir_info["objects_filepath"])
         except Exception:
             print(format_exc())
 

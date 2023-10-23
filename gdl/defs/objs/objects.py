@@ -3,7 +3,7 @@ import os
 from traceback import format_exc
 
 from .tag import GdlTag
-from ..texdef import texdef_ps2_def
+from ..texdef import texdef_def
 from ...compilation.util import calculate_padding
 from ...compilation.g3d import constants as c
 
@@ -24,7 +24,7 @@ class ObjectsPs2Tag(GdlTag):
                     )
                 )
 
-        texdef_tag = texdef_ps2_def.build(filepath=filepath)
+        texdef_tag = texdef_def.build(filepath=filepath)
         bitmap_defs = texdef_tag.data.bitmap_defs
         bitmaps     = texdef_tag.data.bitmaps
         self.texdef_names = {

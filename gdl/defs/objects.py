@@ -2,10 +2,11 @@ from supyr_struct.defs.tag_def import TagDef
 from ..common_descs import *
 from ..compilation.g3d.constants import *
 from .objs.objects import ObjectsPs2Tag
-from .texdef import bitmap_flags_v1_dc, BITMAP_BLOCK_DC_SIG,\
-    bitmap_format_dc, image_type_dc, bitmap_format as bitmap_format_v12
+from .texdef import bitmap_flags_v1_dc, get_bitmap_platform,\
+    bitmap_format_dc, image_type_dc, v1_bitmap_block_dc,\
+    bitmap_format as bitmap_format_v12
 
-def get(): return objects_ps2_def
+def get(): return objects_def
 
 
 def object_defs_count(*args, parent=None, new_value=None, **kwargs):
@@ -40,7 +41,7 @@ def get_lod_type(*args, parent=None, **kwargs):
     try:
         if parent.flags.fifo_cmds or parent.flags.fifo_cmds_2:
             return "fifo"
-        elif parent.flags.lightmap:
+        elif parent.flags.lmap:
             return "uncomp_lm"
     except Exception:
         pass
@@ -53,19 +54,6 @@ def get_arcade_lod_type(*args, parent=None, **kwargs):
     return "uncomp" if lod_type == "uncomp_lm" else lod_type
 
 
-def get_dreamcast_or_arcade_bitmap_block(
-        rawdata=None, offset=0, root_offset=0, **kw
-        ):
-    try:
-        rawdata.seek(root_offset + offset)
-        if int.from_bytes(rawdata.read(2), 'little') != BITMAP_BLOCK_DC_SIG:
-            return 'arcade'
-    except Exception:
-        pass
-
-    return "dreamcast"
-
-
 v0_object_flags = Bool32("flags",
     # confirmed these are the only flags set
     # for sst_cmds, data pointer is relative to lod struct
@@ -74,7 +62,7 @@ v0_object_flags = Bool32("flags",
     ("v_normals",   0x00000002),
     ("unknown2",    0x00000004), # set in ALL levelA item objects
     ("fifo_cmds",   0x00000008),
-    ("lightmap",    0x00000010), # contains lightmap data?
+    ("lmap",        0x00000010), # contains lightmap data
     ("unknown10",   0x00000400),
     ("fifo_cmds_2", 0x00001000),
     ("unknown24",   0x01000000),
@@ -464,7 +452,9 @@ v0_bitmap_block = Struct("bitmap",
     #SInt32("lod", EDITABLE=False, VISIBLE=False),
     SInt16("frame_count"),
     Pad(2),
-    SInt32("pkt", EDITABLE=False, VISIBLE=False),
+    #SInt32("pkt", EDITABLE=False, VISIBLE=False),
+    UInt16("unknown6"),
+    UInt16("unknown7"),
     # a and b are actually 9-bit signed ints packed into
     # a uint32 to preserve a large enough range for them.
     # they are packed like so:
@@ -479,37 +469,12 @@ v0_bitmap_block = Struct("bitmap",
     SIZE=80
     )
 
-v1_bitmap_block_dc = Struct("bitmap",
-    UInt16("sig", EDITABLE=False, DEFAULT=BITMAP_BLOCK_DC_SIG),
-    bitmap_flags_v1_dc,
-    UInt8("unknown1", EDITABLE=False), # set to 0, 1, 3, 4, 5, 8, 12, 13
-
-    UInt16("width", EDITABLE=False),
-    UInt16("height", EDITABLE=False),
-    Pointer32("tex_pointer", EDITABLE=False),
-
-    Pad(4),
-    bitmap_format_dc,
-    image_type_dc,
-    Pad(2),
-    # size of all pixel data
-    SInt32("size", EDITABLE=False, VISIBLE=False),
-    SInt16("frame_count"),
-    Pad(54),
-    SIZE=80
-    )
-
-# unfortunately, arcade and dreamcast each use v1 in the version header,
-# however the bitmap blocks are completely different between the two.
-# luckily, the structs can be told apart by the first 2 bytes. arcade
-# uses these as log2 values in the range[0, 7], but dreamcast always
-# has them set to 255 for the first byte, and 0 for the second.
 v1_bitmap_block = Switch("bitmap",
     CASES={
         "arcade":    v0_bitmap_block,
         "dreamcast": v1_bitmap_block_dc,
         },
-    CASE=get_dreamcast_or_arcade_bitmap_block,
+    CASE=get_bitmap_platform,
     DEFAULT=v1_bitmap_block_dc,
     )
 
@@ -695,7 +660,7 @@ v12_bitmaps_array = Array("bitmaps",
     SUB_STRUCT=v12_bitmap_block
     )
 
-objects_ps2_def = TagDef("objects",
+objects_def = TagDef("objects",
     version_header,
     Switch("header",
         CASES={

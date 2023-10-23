@@ -1,6 +1,5 @@
 import os
 
-from ..defs.objects import objects_ps2_def
 from .g3d import cache as cache_comp
 from .g3d import model as model_comp
 from .g3d import texture as texture_comp
@@ -13,6 +12,7 @@ class ObjectsCompiler:
     build_ps2_files = True
     build_xbox_files = True
     build_arcade_files = False
+    build_dreamcast_files = False
 
     parallel_processing = False
 
@@ -40,7 +40,8 @@ class ObjectsCompiler:
         if not os.path.isdir(asset_dir):
             return
         elif not(self.build_ngc_files or self.build_ps2_files or
-                 self.build_xbox_files or self.build_arcade_files):
+                 self.build_xbox_files or self.build_arcade_files or
+                 self.build_dreamcast_files):
             return
 
         kwargs = dict(
@@ -60,12 +61,16 @@ class ObjectsCompiler:
         if self.build_arcade_files:
             texture_comp.compile_textures(asset_dir, target_arcade=True, **kwargs)
 
+        if self.build_dreamcast_files:
+            texture_comp.compile_textures(asset_dir, target_dreamcast=True, **kwargs)
+
     def compile_models(self):
         asset_dir = os.path.join(self.target_dir, c.DATA_FOLDERNAME)
         if not os.path.isdir(asset_dir):
             return
         elif not(self.build_ngc_files or self.build_ps2_files or
-                 self.build_xbox_files or self.build_arcade_files):
+                 self.build_xbox_files or self.build_arcade_files or
+                 self.build_dreamcast_files):
             return
 
         kwargs = dict(
@@ -84,6 +89,9 @@ class ObjectsCompiler:
 
         if self.build_arcade_files:
             model_comp.compile_models(asset_dir, target_arcade=True, **kwargs)
+
+        if self.build_dreamcast_files:
+            model_comp.compile_models(asset_dir, target_dreamcast=True, **kwargs)
 
     def compile(self):
         if not os.path.isdir(self.target_dir):
@@ -104,6 +112,9 @@ class ObjectsCompiler:
 
         if self.build_arcade_files:
             comp_kwargs.append(dict(name="ARC", target_arcade=True))
+
+        if self.build_dreamcast_files:
+            comp_kwargs.append(dict(name="DC", target_dreamcast=True))
 
         compilation_outputs = dict()
         for kwargs in comp_kwargs:

@@ -1,6 +1,6 @@
 '''
-This module is meant to fix some bugs with arbytmap, and
-add the ability to load png files into arbytmap.
+This module is meant to fix some bugs with arbytmap, add some more texture
+formats/swizzler masks, and add the ability to load png files into arbytmap.
 '''
 import png
 
@@ -66,61 +66,6 @@ def _fixed_unpack_indexing(self, packed_indexing):
         raise TypeError("Cannot unpack indexing from sizes other than 4 or 8 bit")
 
 
-def gauntlet_ps2_palette_shuffle(palette, pixel_stride):
-    # gauntlet textures have every OTHER pair of 8 palette entries
-    # swapped with each other for some reason. The exceptions to
-    # to this pattern are the first and last set of 8. undo that
-    w = 8 * pixel_stride
-
-    # multiply by 4 instead of 2 to skip every other pair
-    for i in range(w, len(palette)-w, w*4):
-        temp_pixels         = palette[i: i+w]
-        palette[i: i+w]     = palette[i+w: i+w*2]
-        palette[i+w: i+w*2] = temp_pixels
-
-
-def swizzle_ngc_gauntlet_textures(
-        textures, width, height, bits_per_pixel, unswizzle=True
-        ):
-    '''
-    Swizzles or unswizzles Gamecube Gauntlet textures.
-    Swizzle pattern used depends on the bits-per-pixel.
-    '''
-
-    deswizzler = swizzler.Swizzler(
-        mask_type=(
-            "NGC_GAUNTLET_4BPP"  if bits_per_pixel == 4  else
-            "NGC_GAUNTLET_8BPP"  if bits_per_pixel == 8  else
-            "NGC_GAUNTLET_16BPP" if bits_per_pixel == 16 else
-            "NGC_GAUNTLET_32BPP"
-            )
-        )
-    channel_count = 1 if bits_per_pixel <= 8 else bits_per_pixel // 8
-
-    swizzled_textures = []
-    for i in range(len(textures)):
-        texture = textures[i]
-
-        if bits_per_pixel == 4 and not unswizzle:
-            # hack to fix each pair of pixels per byte unpacking swapped
-            bitmap_io.swap_array_items(texture, (1, 0))
-
-        texture = deswizzler.swizzle_single_array(
-            texture, not unswizzle, channel_count, width, height, 1,
-            )
-
-        if bits_per_pixel == 4 and unswizzle:
-            # hack to fix each pair of pixels needing to be packed swapped
-            bitmap_io.swap_array_items(texture, (1, 0))
-
-        swizzled_textures.append(texture)
-
-        width  = (width + 1) // 2
-        height = (height + 1) // 2
-
-    return swizzled_textures
-
-
 # just a guess on the 32bpp one
 def _ngc_gauntlet_swizzle_32bpp_mask_set(*args, **kwargs):
     return _ngc_gauntlet_swizzle_mask_set(*args, **kwargs, ngc_mask_start="xxy")
@@ -134,6 +79,18 @@ def _ngc_gauntlet_swizzle_8bpp_mask_set(*args, **kwargs):
 def _ngc_gauntlet_swizzle_4bpp_mask_set(*args, **kwargs):
     return _ngc_gauntlet_swizzle_mask_set(*args, **kwargs, ngc_mask_start="xxxyyy")
 
+def _swizzle_axis_bits(axis_bits, masks, log_sizes):
+    '''
+    Sets up bit shift amounts for the Swizzler class to utilize.
+    The shift amounts are how many positions to shift each bit per axis.
+    '''
+    i = 0
+    for axis in axis_bits:
+        if axis in masks:
+            mask = masks[axis]
+            bits = max(0, min(log_sizes[axis] - len(mask), 1))
+            mask.extend([i - len(mask)]*bits)
+            i += bits
 
 def _ngc_gauntlet_swizzle_mask_set(
         swizzler_mask,
@@ -141,11 +98,6 @@ def _ngc_gauntlet_swizzle_mask_set(
         c_mask, x_mask, y_mask, z_mask,
         ngc_mask_start=""
         ):
-    '''
-    Sets up bit shift amounts for the Swizzler class to utilize.
-    The shift amounts are how many positions to shift each bit per axis.
-    '''
-
     log_sizes = dict(c=log_c, x=log_x, y=log_y, z=log_z)
     masks = dict(c=c_mask, x=x_mask, y=y_mask, z=z_mask)
 
@@ -156,20 +108,33 @@ def _ngc_gauntlet_swizzle_mask_set(
         "y" * max(0, log_y - ngc_mask_start.count("y")) +
         "z" * log_z
         )
+    _swizzle_axis_bits(axis_bits, masks, log_sizes)
 
-    i = 0
-    for axis in axis_bits:
-        if axis in masks:
-            mask = masks[axis]
-            bits = max(0, min(log_sizes[axis] - len(mask), 1))
-            mask.extend([i - len(mask)]*bits)
-            i += bits
+def _dc_gauntlet_swizzle_mask_set(
+        swizzler_mask,
+        log_c,  log_x,  log_y,  log_z,
+        c_mask, x_mask, y_mask, z_mask
+        ):
+    log_sizes = dict(c=log_c, x=log_x, y=log_y, z=log_z)
+    masks = dict(c=c_mask, x=x_mask, y=y_mask, z=z_mask)
+
+    axis_bits = "c" * log_c
+    while log_y or log_x:
+        if log_y > 0: axis_bits += "y"
+        if log_x > 0: axis_bits += "x"
+
+        log_y -= 1
+        log_x -= 1
+
+    axis_bits += "z" * log_z
+    _swizzle_axis_bits(axis_bits, masks, log_sizes)
 
 
 swizzler.SwizzlerMask.add_mask("NGC_GAUNTLET_32BPP", _ngc_gauntlet_swizzle_32bpp_mask_set)
 swizzler.SwizzlerMask.add_mask("NGC_GAUNTLET_16BPP", _ngc_gauntlet_swizzle_16bpp_mask_set)
 swizzler.SwizzlerMask.add_mask("NGC_GAUNTLET_8BPP",  _ngc_gauntlet_swizzle_8bpp_mask_set)
 swizzler.SwizzlerMask.add_mask("NGC_GAUNTLET_4BPP",  _ngc_gauntlet_swizzle_4bpp_mask_set)
+swizzler.SwizzlerMask.add_mask("DC_GAUNTLET",        _dc_gauntlet_swizzle_mask_set)
 Arbytmap._unpack_indexing   = _fixed_unpack_indexing
 Arbytmap._unpack_palettized = _fixed_unpack_palettized
 

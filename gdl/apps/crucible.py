@@ -14,6 +14,7 @@ BUILD_TARGETS = {
     "Gamecube":     "ngc",
     "Xbox":         "xbox",
     "Arcade":       "arcade",
+    "Dreamcast":    "dreamcast",
     }
 MOD_EXTRACT_FORMATS = {
     "Wavefront OBJ": "obj",
@@ -37,7 +38,7 @@ class CrucibleApp(Tk):
     def __init__(self, **options):
         Tk.__init__(self, **options)
         
-        self.title("Crucible V1.2.0")
+        self.title("Crucible V1.3.0")
         self.minsize(500, 0)
         self.resizable(1, 0)
 
@@ -232,10 +233,11 @@ class CrucibleApp(Tk):
         build_target = BUILD_TARGETS.get(self.build_target.get(), "ps2")
         kwargs.update(
             build_arcade_files          = (build_target == "arcade"),
+            build_dreamcast_files       = (build_target == "dreamcast"),
             build_ngc_files             = (build_target == "ngc"),
             build_xbox_files            = (build_target == "xbox"),
             build_ps2_files             = (build_target == "ps2"),
-            build_texdef_cache          = (build_target == "ps2"),
+            build_texdef_cache          = (build_target in ("ps2", "dreamcast")),
             optimize_models             = self.optimize.get(),
             optimize_textures           = self.optimize.get(),
             force_recompile             = self.force_recompile_cache.get(),
@@ -257,14 +259,14 @@ class CrucibleApp(Tk):
 
     def select_objects_folder(self):
         folderpath = tkinter.filedialog.askdirectory(
-            initialdir=self.curr_dir, title="Select the folder containing OBJECTS.PS2/NGC")
+            initialdir=self.curr_dir, title="Select the folder containing OBJECTS.PS2/NGC/ROM")
         if folderpath:
             self.curr_dir = folderpath.replace('/','\\')
             self.target_objects_dir.set(self.curr_dir)
 
     def select_worlds_folder(self):
         folderpath = tkinter.filedialog.askdirectory(
-            initialdir=self.curr_dir, title="Select the folder containing WORLDS.PS2/NGC")
+            initialdir=self.curr_dir, title="Select the folder containing WORLDS.PS2/NGC/ROM")
         if folderpath:
             self.curr_dir = folderpath.replace('/','\\')
             self.target_worlds_dir.set(self.curr_dir)
@@ -312,8 +314,8 @@ class CrucibleApp(Tk):
         build_target = BUILD_TARGETS.get(self.build_target.get(), "ps2")
         if not target_dir:
             return
-        elif build_target == "arcade":
-            print("Error: Compiling arcade cache files is not supported yet.")
+        elif build_target in ("arcade", "dreamcast"):
+            print("Error: Compiling arcade and dreamcast cache files is not supported yet.")
             return
 
         start = time.time()
@@ -370,6 +372,9 @@ class CrucibleApp(Tk):
                 elif build_target == "arcade":
                     mod_asset_types.append(c.MODEL_CACHE_EXTENSION_ARC)
                     tex_asset_types.append(c.TEXTURE_CACHE_EXTENSION_ARC)
+                elif build_target == "dreamcast":
+                    mod_asset_types.append(c.MODEL_CACHE_EXTENSION_DC)
+                    tex_asset_types.append(c.TEXTURE_CACHE_EXTENSION_DC)
                 else:
                     mod_asset_types.append(c.MODEL_CACHE_EXTENSION_PS2)
                     tex_asset_types.append(c.TEXTURE_CACHE_EXTENSION_PS2)

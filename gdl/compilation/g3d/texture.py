@@ -12,12 +12,13 @@ from . import util
 
 
 def _compile_texture(kwargs):
-    name           = kwargs.pop("name")
-    target_ngc     = kwargs.pop("target_ngc")
-    target_ps2     = kwargs.pop("target_ps2")
-    target_arcade  = kwargs.pop("target_arcade")
-    cache_filepath = kwargs.pop("cache_filepath")
-    asset_filepath = kwargs.pop("asset_filepath")
+    name                = kwargs.pop("name")
+    target_ngc          = kwargs.pop("target_ngc")
+    target_ps2          = kwargs.pop("target_ps2")
+    target_arcade       = kwargs.pop("target_arcade")
+    target_dreamcast    = kwargs.pop("target_dreamcast")
+    cache_filepath      = kwargs.pop("cache_filepath")
+    asset_filepath      = kwargs.pop("asset_filepath")
 
     if target_ngc and kwargs.get("target_format_name") in (c.PIX_FMT_ABGR_1555, c.PIX_FMT_XBGR_1555):
         # MIDWAY HACK
@@ -32,8 +33,8 @@ def _compile_texture(kwargs):
     os.makedirs(os.path.dirname(cache_filepath), exist_ok=True)
     with open(cache_filepath, "wb") as f:
         g3d_texture.export_gtx(
-            f, target_ngc=target_ngc, target_ps2=target_ps2,
-            target_arcade=target_arcade
+            f, target_ps2=target_ps2, target_ngc=target_ngc,
+            target_dreamcast=target_dreamcast, target_arcade=target_arcade
             )
 
     if "YIQ" not in g3d_texture.format_name:
@@ -75,7 +76,10 @@ def _decompile_texture(kwargs):
     if not os.path.isfile(filepath) or overwrite:
         with open(filepath, "wb+") as f:
             g3d_texture.export_gtx(
-                f, target_ngc=(asset_type == c.TEXTURE_CACHE_EXTENSION_NGC),
+                f,
+                target_ps2=(asset_type == c.TEXTURE_CACHE_EXTENSION_PS2),
+                target_ngc=(asset_type == c.TEXTURE_CACHE_EXTENSION_NGC),
+                target_dreamcast=(asset_type == c.TEXTURE_CACHE_EXTENSION_DC),
                 target_arcade=(asset_type == c.TEXTURE_CACHE_EXTENSION_ARC)
                 )
 
@@ -94,7 +98,8 @@ def _decompile_texture(kwargs):
 def compile_textures(
         data_dir,
         force_recompile=False, optimize_format=False, parallel_processing=False,
-        target_ps2=False, target_ngc=False, target_xbox=False, target_arcade=False
+        target_ps2=False, target_ngc=False, target_xbox=False,
+        target_dreamcast=False, target_arcade=False
         ):
     asset_folder    = os.path.join(data_dir, c.EXPORT_FOLDERNAME, c.TEX_FOLDERNAME)
     cache_path_base = os.path.join(data_dir, c.IMPORT_FOLDERNAME, c.TEX_FOLDERNAME)
@@ -114,6 +119,7 @@ def compile_textures(
     asset_type = (
         c.TEXTURE_CACHE_EXTENSION_PS2  if target_ps2 else
         c.TEXTURE_CACHE_EXTENSION_NGC  if target_ngc else
+        c.TEXTURE_CACHE_EXTENSION_DC   if target_dreamcast else
         c.TEXTURE_CACHE_EXTENSION_ARC  if target_arcade else
         c.TEXTURE_CACHE_EXTENSION_XBOX
         )
@@ -157,6 +163,9 @@ def compile_textures(
                     new_format = c.PIX_FMT_ABGR_3555_IDX_4_NGC
                 elif target_format in (c.PIX_FMT_ABGR_8888_IDX_8, c.PIX_FMT_XBGR_8888_IDX_8):
                     new_format = c.PIX_FMT_ABGR_3555_IDX_8_NGC
+            elif target_dreamcast:
+                # TODO: fill out the many format swaps
+                pass
             elif target_arcade:
                 # TODO: fill out the many format swaps
                 pass
@@ -180,7 +189,8 @@ def compile_textures(
                 mipmap_count=max(0, 0 if target_ngc else meta.get("mipmap_count", 0)),
                 name=name, cache_filepath=cache_filepath, target_format_name=target_format,
                 keep_alpha=(has_alpha or "A" in target_format),
-                target_ngc=target_ngc, target_ps2=target_ps2, target_arcade=target_arcade
+                target_ngc=target_ngc, target_ps2=target_ps2,
+                target_dreamcast=target_dreamcast, target_arcade=target_arcade
                 ))
         except Exception:
             print(format_exc())
@@ -197,7 +207,8 @@ def compile_textures(
 
 def import_textures(
         objects_tag, data_dir, use_force_index_hack=False,
-        target_ngc=False, target_ps2=False, target_xbox=False, target_arcade=False
+        target_ngc=False, target_ps2=False, target_xbox=False,
+        target_dreamcast=False, target_arcade=False
         ):
     # locate and load all assets
     gtx_textures_by_name = {}
@@ -212,7 +223,8 @@ def import_textures(
                 name = name.upper()
                 gtx_textures_by_name[name] = G3DTexture()
                 gtx_textures_by_name[name].import_gtx(
-                    f, is_ngc=target_ngc, is_arcade=target_arcade
+                    f, is_ngc=target_ngc,
+                    is_dreamcast=target_dreamcast, is_arcade=target_arcade
                     )
         except Exception:
             print(format_exc())
@@ -222,6 +234,12 @@ def import_textures(
     bitmap_defs = objects_tag.data.bitmap_defs
     del bitmaps[:]
     del bitmap_defs[:]
+
+    bitmap_parse_kwargs = {}
+    if target_dreamcast:
+        bitmap_parse_kwargs["case"] = "dreamcast"
+    elif target_arcade:
+        bitmap_parse_kwargs["case"] = "arcade"
 
     # get the metadata for all bitmaps to import
     all_metadata = objects_metadata.compile_objects_metadata(
@@ -240,7 +258,7 @@ def import_textures(
         max_forced_bitmap_index = max(
             meta.get("force_index", -1) for meta in all_metadata["bitmaps"]
             )
-        bitmaps.extend(1 + max_forced_bitmap_index)
+        bitmaps.extend(1 + max_forced_bitmap_index, **bitmap_parse_kwargs)
         all_metadata = dict(combined=all_metadata)
 
     # for inserting the metadata into the objects tag in the correct order
@@ -263,7 +281,7 @@ def import_textures(
             # NOTE: force_index is a hack until animation decomp is a thing
             bitm_index = meta.get("force_index", -1) if use_force_index_hack else -1
             if bitm_index not in range(len(bitmaps)):
-                bitmaps.append()
+                bitmaps.append(**bitmap_parse_kwargs)
                 gtx_textures.append(None)
                 sorted_bitm_meta.append(None)
                 bitm_index = len(bitmaps) - 1
@@ -351,7 +369,11 @@ def import_textures(
             bitm.width  = g3d_texture.width
             bitm.height = g3d_texture.height
 
-            if hasattr(bitm, "lod_k"): # v4 and higher
+            if target_dreamcast:
+                bitm.size = bitmap_size
+            elif target_arcade and g3d_texture.ncc_table:
+                bitm.ncc_table_data = g3d_texture.ncc_table.export_to_rawdata()
+            elif hasattr(bitm, "lod_k"): # v4 and higher
                 bitm.mipmap_count = mipmap_count
                 bitm.lod_k        = meta.get("lod_k", g3d_texture.lod_k)
                 flags.has_alpha   = "A" in g3d_texture.format_name
@@ -372,6 +394,9 @@ def import_textures(
             # is largest). for 256, the log is 8, and for 1 the log is 0. so do 8 - log2(w_or_h)
             bitm.large_lod_log2_inv = 8 - int(math.log(max(bitm.width, bitm.height, 1), 2))
             bitm.small_lod_log2_inv = bitm.large_lod_log2_inv + mipmap_count
+        elif target_dreamcast:
+            # TODO: calculate dreamcast image_type and dc_unknown
+            pass
         else:
             # do max with 1 to make sure we dont try to do log(0, 2)
             bitm.log2_of_width  = int(math.log(max(bitm.width, 1), 2))
@@ -467,7 +492,11 @@ def decompile_textures(
         textures_ext = tag_dir = ""
 
     is_ngc    = (textures_ext.lower() == c.NGC_EXTENSION.lower())
-    is_arcade = (textures_ext.lower() == c.ARC_EXTENSION.lower())
+    is_arcade = is_dreamcast = False
+    if textures_ext.lower() == c.ARC_EXTENSION.lower():
+        is_dreamcast = util.is_dreamcast_bitmaps(bitmaps)
+        is_arcade = not is_dreamcast
+
     textures_filepath = os.path.join(
         tag_dir, "%s.%s" % (c.TEXTURES_FILENAME, textures_ext)
         )
@@ -482,6 +511,8 @@ def decompile_textures(
         incompatible_asset_types.discard(c.TEXTURE_CACHE_EXTENSION_ARC)
     elif is_ngc:
         incompatible_asset_types.discard(c.TEXTURE_CACHE_EXTENSION_NGC)
+    elif is_dreamcast:
+        incompatible_asset_types.discard(c.TEXTURE_CACHE_EXTENSION_DC)
     else:
         incompatible_asset_types.discard(c.TEXTURE_CACHE_EXTENSION_PS2)
         incompatible_asset_types.discard(c.TEXTURE_CACHE_EXTENSION_XBOX)

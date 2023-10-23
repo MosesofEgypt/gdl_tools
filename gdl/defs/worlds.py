@@ -6,7 +6,7 @@ from .anim import anim_seq_info, frame_data, anim_header,\
      get_comp_angles_size, get_comp_positions_size, get_comp_scales_size,\
      get_atree_data_array_pointer
 
-def get(): return worlds_ps2_def
+def get(): return worlds_def
 
 
 def item_info_data_case(parent=None, **kwargs):
@@ -596,7 +596,7 @@ v2_worlds_ext_header = Struct('ext_header',
     )
 
 
-worlds_ps2_def = TagDef("worlds",
+worlds_def = TagDef("worlds",
     worlds_header,
     Switch("ext_header",
         CASES={ None: Void("ext_header") },

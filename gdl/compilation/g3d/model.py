@@ -94,7 +94,8 @@ def _decompile_model(kwargs):
 
 def compile_models(
         data_dir, force_recompile=False,  parallel_processing=False,
-        target_ps2=False, target_ngc=False, target_xbox=False, optimize_strips=True
+        target_ps2=False, target_ngc=False, target_xbox=False,
+        target_dreamcast=False, target_arcade=False, optimize_strips=True
         ):
     asset_folder    = os.path.join(data_dir, c.EXPORT_FOLDERNAME, c.MOD_FOLDERNAME)
     cache_path_base = os.path.join(data_dir, c.IMPORT_FOLDERNAME, c.MOD_FOLDERNAME)
@@ -151,7 +152,10 @@ def compile_models(
         )
 
 
-def import_models(objects_tag, data_dir, target_ps2=False, target_ngc=False, target_xbox=False):
+def import_models(
+        objects_tag, data_dir, target_ps2=False, target_ngc=False,
+        target_xbox=False, target_dreamcast=False, target_arcade=False,
+        ):
     _, inv_bitmap_names = objects_tag.get_cache_names(by_name=True)
     # we uppercase everything for uniformity. do it here
     inv_bitmap_names = {n.upper(): inv_bitmap_names[n] for n in inv_bitmap_names}

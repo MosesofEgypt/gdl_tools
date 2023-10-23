@@ -3,21 +3,29 @@ from .objs.texdef import TexdefPs2Tag
 from ..common_descs import *
 from ..compilation.g3d.constants import *
 
-def get(): return texdef_ps2_def
+def get(): return texdef_def
 
-BITMAP_BLOCK_V23_SIG = 0xF00B0017
+BITMAP_BLOCK_PS2_SIG = 0xF00B0017
 BITMAP_BLOCK_DC_SIG  = 0x00FF
 
 
-def get_bitmap_version(rawdata=None, offset=0, root_offset=0, **kw):
+def get_bitmap_platform(rawdata=None, offset=0, root_offset=0, **kw):
+    # unfortunately, arcade and dreamcast each use v1 in the version header,
+    # however the bitmap blocks are completely different between the two.
+    # luckily, the structs can be told apart by the first 2 or 4 bytes. arcade
+    # uses these as log2 values in the range[0, 7], but dreamcast always
+    # has them set to 255 for the first byte, and 0 for the second.
     try:
         rawdata.seek(root_offset + offset)
-        if int.from_bytes(rawdata.read(2), 'little') == BITMAP_BLOCK_DC_SIG:
-            return 'v0'
+        data = rawdata.read(4)
+        if int.from_bytes(data[:2], 'little') == BITMAP_BLOCK_DC_SIG:
+            return 'dreamcast'
+        elif int.from_bytes(data, 'little') == BITMAP_BLOCK_PS2_SIG:
+            return 'ps2'
+        return 'arcade'
     except Exception:
-        pass
-    # default to the newest version
-    return 'v23'
+        # default to the newest version
+        return 'ps2'
 
 
 bitmap_format = UEnum8("format",
@@ -115,25 +123,29 @@ bitmap_flags_v1_dc = Bool8("flags",
     )
 
 # found on dreamcast
-bitmap_block_v0 = Struct("bitmap",
+v1_bitmap_block_dc = Struct("bitmap",
     UInt16("dc_sig", EDITABLE=False, DEFAULT=BITMAP_BLOCK_DC_SIG),
     bitmap_flags_v1_dc,
-    UInt8("unknown1", EDITABLE=False), # set to 0, 1, 3, 4, 5, 8, 12, 13
+    UInt8("dc_unknown", EDITABLE=False), # set to 0, 1, 3, 4, 5, 8, 12, 13
+
     UInt16("width", EDITABLE=False),
     UInt16("height", EDITABLE=False),
     Pointer32("tex_pointer", EDITABLE=False),
+
     Pad(4),
     bitmap_format_dc,
     image_type_dc,
-    Pad(62),
+    Pad(2),
+
+    # size of all pixel data
+    SInt32("size", EDITABLE=False, VISIBLE=False),
+    SInt16("frame_count"),
+    Pad(54),
     SIZE=80
     )
 
-bitmap_block_v23 = Struct("bitmap",
-    UEnum32("version",
-        ("v23", BITMAP_BLOCK_V23_SIG),
-        DEFAULT=BITMAP_BLOCK_V23_SIG, EDITABLE=False
-        ),
+v23_bitmap_block = Struct("bitmap",
+    UInt32("ps2_sig", EDITABLE=False, DEFAULT=BITMAP_BLOCK_PS2_SIG),
     Bool16("flags",
         # checked every other bit in every texdef in
         # in the ps2 game files, and no other flag
@@ -179,7 +191,7 @@ bitmap_def = Struct("bitmap_def",
     SIZE=36
     )
 
-texdef_ps2_def = TagDef("texdef",
+texdef_def = TagDef("texdef",
     header,
     Array("bitmap_defs",
         SIZE='.header.bitmaps_count',
@@ -192,11 +204,11 @@ texdef_ps2_def = TagDef("texdef",
         POINTER='.header.bitmaps_pointer',
         SUB_STRUCT=Switch("bitmap",
             CASES={
-                "v0":  bitmap_block_v0,
-                "v23": bitmap_block_v23,
+                "dreamcast":  v1_bitmap_block_dc,
+                "ps2":        v23_bitmap_block,
                 },
-            CASE=get_bitmap_version,
-            DEFAULT=bitmap_block_v23
+            CASE=get_bitmap_platform,
+            DEFAULT=v23_bitmap_block
             ),
         ),
     endian="<", ext=".ps2", tag_cls=TexdefPs2Tag

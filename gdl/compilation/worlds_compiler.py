@@ -1,6 +1,6 @@
 import os
 
-from ..defs.worlds import worlds_ps2_def
+from ..defs.worlds import worlds_def
 from .g3d import collision as collision_comp
 from .g3d import constants as c
 from . import objects_compiler

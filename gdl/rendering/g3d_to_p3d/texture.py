@@ -3,7 +3,8 @@ import panda3d
 from . import util
 from ..assets.texture import Texture
 from ...compilation.g3d import constants as g3d_const
-from ...compilation.g3d.serialization.texture import G3DTexture, is_alpha_signed
+from ...compilation.g3d.serialization.texture import G3DTexture
+from ...compilation.g3d.serialization import texture_util
 
 
 def load_textures_from_objects_tag(
@@ -51,7 +52,7 @@ def load_textures_from_objects_tag(
                 panda3d.core.SamplerState.WM_repeat)
 
             texture = Texture(
-                name=name, signed_alpha=is_alpha_signed(format_name),
+                name=name, signed_alpha=texture_util.is_alpha_signed(format_name),
                 p3d_texture=p3d_texture
                 )
 
