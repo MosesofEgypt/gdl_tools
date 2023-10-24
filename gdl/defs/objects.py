@@ -39,9 +39,10 @@ def bitmap_defs_count(*args, parent=None, new_value=None, **kwargs):
 
 def get_lod_type(*args, parent=None, **kwargs):
     try:
-        if parent.flags.fifo_cmds or parent.flags.fifo_cmds_2:
+        flags = parent.flags
+        if flags.fifo_cmds or flags.fifo_cmds_2:
             return "fifo"
-        elif parent.flags.lmap:
+        elif flags.lmap:
             return "uncomp_lm"
     except Exception:
         pass
@@ -49,9 +50,55 @@ def get_lod_type(*args, parent=None, **kwargs):
     return "uncomp"
 
 
+def get_v0_model_data_type(*args, parent=None, **kwargs):
+    try:
+        return get_lod_type(*args, parent=parent.lods[0], **kwargs)
+    except Exception:
+        pass
+
+
 def get_arcade_lod_type(*args, parent=None, **kwargs):
     lod_type = get_lod_type(*args, parent=parent, **kwargs)
     return "uncomp" if lod_type == "uncomp_lm" else lod_type
+
+
+def _v0_uncomp_model_data_size(
+        field_name, item_size, *args, parent=None, new_value=None, **kwargs
+        ):
+    if parent is None:
+        return
+    lod_data = parent.parent.lods[0].data
+    if new_value is not None:
+        lod_data[field_name] = new_value // item_size
+    else:
+        return lod_data[field_name] * item_size
+    
+def v0_uncomp_verts_size(*args, **kwargs):
+    return _v0_uncomp_model_data_size("vert_count", 24, *args, **kwargs)
+
+def v0_uncomp_tris_size(*args, **kwargs):
+    return _v0_uncomp_model_data_size("tri_count", 8, *args, **kwargs)
+
+v0_uncomp_lm_verts_size = v0_uncomp_verts_size  # coincidentally, same size per vert
+
+def v0_uncomp_lm_tris_size(*args, **kwargs):
+    return _v0_uncomp_model_data_size("tri_count", 10, *args, **kwargs)
+
+def v0_uncomp_norms_size(*args, parent=None, new_value=None, **kwargs):
+    # NOTE: do not try to set size. this will overwrite vert count
+    if (parent is None or new_value is not None or
+        not parent.parent.lods[0].flags.v_normals):
+        return 0
+    return _v0_uncomp_model_data_size(
+        "vert_count", 12, *args, parent=parent, new_value=new_value, **kwargs
+        )
+
+def v0_uncomp_norms_pointer(*args, parent=None, new_value=None, **kwargs):
+    if parent:
+        lod = parent.parent.lods[0]
+        if lod.flags.v_normals and new_value is None:
+            return lod.data.norms_pointer
+    return 0
 
 
 v0_object_flags = Bool32("flags",
@@ -202,27 +249,29 @@ v0_lod_fifo_data = QStruct("lod_fifo_data",
 
 v0_lod_uncomp_data = QStruct("lod_uncomp_data",
     SInt32("vert_count"),
-    # XYZ floats, followed by UVW floats
+    # XYZ floats, followed by UV floats, and unknown sint16 pair
     # uv coords are 0-256 range floats(divide by 256 to get 0-1)
     SInt32("verts_pointer"),
     SInt32("tri_count"),
-    # set of 3 uint16 for vert/norm indices, then uint16 texture index
+    # set of 3 uint16 for vert/norm indices, and uint16 texture index
     SInt32("tris_pointer"),
     SInt32("id_num"),
     # IJK floats (count is equal to vert_count)
-    SInt32("norms_pointer"),
+    SInt32("norms_pointer", DEFAULT=-1),
     SIZE=24,
     )
 
 v1_lod_uncomp_lm_data = QStruct("lod_uncomp_lm_data",
     SInt32("vert_count"),
-    # XYZ floats, then sint16s UVs, then uint16 lm UVs
+    # XYZ floats, then sint16s UVs, uint16 lm UVs, and unknown sint16 pair
     SInt32("verts_pointer"),
     SInt32("tri_count"),
-    # set of 3 uint16 for vert indices, followed by uint16 texture index
+    # set of 3 uint16 for vert indices, followed by uint8 texture index, and
+    # an unknown uint8. seems first tri always has unknown byte set to 0xC0,
+    # while the next ones alternate between 0x80 and 0x00. figure this out...
     SInt32("tris_pointer"),
     SInt32("id_num"),
-    SInt32("lm_header_pointer"),
+    SInt32("lm_header_pointer", DEFAULT=-1),
     SIZE=24,
 
     STEPTREE=Struct("lightmap_header",
@@ -269,20 +318,59 @@ v1_lod_block = Struct("lod",
     SIZE=32
     )
 
+
+v0_uncomp_model_data = Container("model_data",
+    BytesRaw("vert_data",
+        SIZE=v0_uncomp_verts_size,
+        POINTER="..lods.[0].data.verts_pointer"
+        ),
+    BytesRaw("tri_data",
+        SIZE=v0_uncomp_tris_size,
+        POINTER="..lods.[0].data.tris_pointer"
+        ),
+    BytesRaw("norm_data",
+        SIZE=v0_uncomp_norms_size,
+        POINTER=v0_uncomp_norms_pointer
+        ),
+    )
+
+v0_uncomp_lm_model_data = Container("model_data",
+    BytesRaw("vert_data",
+        SIZE=v0_uncomp_verts_size,
+        POINTER="..lods.[0].data.verts_pointer"
+        ),
+    BytesRaw("tri_data",
+        SIZE=v0_uncomp_tris_size,
+        POINTER="..lods.[0].data.tris_pointer"
+        ),
+    )
+
+v0_model_data = Switch("model_data",
+    CASES={
+        "uncomp":    v0_uncomp_model_data,
+        "uncomp_lm": v0_uncomp_lm_model_data,
+        },
+    CASE=get_v0_model_data_type
+    )
+
 v0_object_block = Struct("object",
     Float("inv_rad"), # always 0?
     Float("bnd_rad"),
     UInt32("unknown", DEFAULT=1, VISIBLE=False), # always 1
+    # NOTE: I'm calling them lod's, but i have no idea what they actually are
     Array("lods", SUB_STRUCT=v0_lod_block, SIZE=4),
-    SIZE=140,
+    STEPTREE=v0_model_data,
+    SIZE=140
     )
 
 v1_object_block = Struct("object",
     Float("inv_rad"), # always 0?
     Float("bnd_rad"),
     UInt32("unknown", DEFAULT=1, VISIBLE=False), # always 1
+    # NOTE: I'm calling them lod's, but i have no idea what they actually are
     Array("lods", SUB_STRUCT=v1_lod_block, SIZE=4),
-    SIZE=140,
+    STEPTREE=v0_model_data,
+    SIZE=140
     )
 
 v4_object_block = Struct("object",

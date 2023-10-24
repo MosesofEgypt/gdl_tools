@@ -59,7 +59,7 @@ def decompile_objects_metadata(
     bitmaps = objects_tag.data.bitmaps
     exported_objects = {obj.obj_index:  True for obj  in objects_tag.data.object_defs}
     exported_bitmaps = {bitm.tex_index: True for bitm in objects_tag.data.bitmap_defs}
-    for i in range(len(objects)):
+    for i, obj in enumerate(objects):
         metadata_obj = dict(
             flags={},
             name=object_assets[i]["name"],
@@ -68,7 +68,11 @@ def decompile_objects_metadata(
 
         objects_metadata.append(metadata_obj)
 
-        obj_flags = getattr(objects[i], "flags", None)
+        if hasattr(obj, "lods"):
+            obj_flags = obj.lods[0].flags
+        else:
+            obj_flags = getattr(obj, "flags", None)
+
         for flag in c.OBJECT_FLAG_NAMES:
             if hasattr(obj_flags, flag):
                 metadata_obj["flags"][flag] = bool(getattr(obj_flags, flag))
@@ -87,20 +91,25 @@ def decompile_objects_metadata(
             )
         if hasattr(bitm, "lod_k"): # v4 and higher
             metadata_bitm.update(mipmap_count=bitm.mipmap_count, lod_k=bitm.lod_k)
+        elif hasattr(bitm, "dc_sig"): # dreamcast
+            metadata_bitm["dc_unknown"] = bitm.dc_unknown
+            for name in ("twiddled", "mipmap", "small_vq", "large_vq"):
+                if name in bitm.image_type.enum_name:
+                    metadata_bitm["name"] = True
         else:
             metadata_bitm.update(mipmap_count=abs(bitm.small_lod_log2_inv - bitm.large_lod_log2_inv))
-            
+
         if getattr(bitm.flags, "invalid", False):
             # set to arbitrary valid value(often time set to random garbage)
             metadata_bitm["format"] = "ABGR_1555"
 
-        no_bitm_data = (
-            getattr(bitm.flags, "invalid", False) or
-            getattr(bitm.flags, "external", False) or
-            bitm.frame_count > 0
+        has_bitm_data = (
+            not getattr(bitm.flags, "invalid", False) and
+            not getattr(bitm.flags, "external", False) and
+            bitm.frame_count <= 0
             )
 
-        if not(no_bitm_data or not hasattr(bitm, "tex0")):
+        if not has_bitm_data and hasattr(bitm, "tex0"):
             for name, default in (
                     ("tex_cc", "rgba"),
                     ("tex_function", "decal"),
@@ -116,7 +125,7 @@ def decompile_objects_metadata(
         bitmaps_metadata.append(metadata_bitm)
 
         attrs_to_write = ()
-        if no_bitm_data:
+        if not has_bitm_data:
             attrs_to_write += (
                 "width", "height",
                 "frame_count", "tex_palette_count",

@@ -62,10 +62,10 @@ bitmap_format_dc = UEnum8("format",
     PIX_FMT_ABGR_4444,
     # NOTE: the below 4 might not be supported, but they
     #       are being documented for completeness sake
-    'YUV_422',
-    'BUMP',
-    'P_4',
-    'P_8',
+    #'YUV_422',
+    #'BUMP',
+    #'P_4',
+    #'P_8',
     DEFAULT=1
     )
 
@@ -100,19 +100,19 @@ image_type_dc = UEnum8("image_type",
     #   appended to every chunk of texture data. Unable
     #   to determine a reason for this at the moment.
     # texture data pointers are 16-byte aligned.
-    ("square_twiddled", 1),            # confirmed
-    ("square_twiddled_and_mipmap", 2), # confirmed
-    ("vq", 3),                         # confirmed
-    ("vq_and_mipmap", 4),              # confirmed
-    ("twiddled_8bit_clut", 5),
-    ("twiddled_4bit_clut", 6),
-    ("twiddled_8bit", 7),
-    ("twiddled_4bit", 8),
-    ("rectangle", 9),                  # confirmed
-    ("rectangular_stride", 11),
+    ("square_twiddled", 1),                 # confirmed
+    ("square_twiddled_and_mipmap", 2),      # confirmed
+    ("large_vq_twiddled", 3),               # confirmed
+    ("large_vq_twiddled_and_mipmap", 4),    # confirmed
+    #("twiddled_8bit_clut", 5),
+    #("twiddled_4bit_clut", 6),
+    #("twiddled_8bit", 7),
+    #("twiddled_4bit", 8),
+    ("rectangle", 9),                       # confirmed
+    #("rectangular_stride", 11),
     ("rectangular_twiddled", 13),
-    ("small_vq", 16),                  # confirmed
-    ("small_vq_and_mipmap", 17),       # confirmed
+    ("small_vq_twiddled", 16),              # confirmed
+    ("small_vq_twiddled_and_mipmap", 17),   # confirmed
     EDITABLE=False
     )
 

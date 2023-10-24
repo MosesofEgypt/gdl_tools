@@ -32,11 +32,11 @@ class G3DTexture:
     lod_k = 0
     flags = 0
 
-    ncc_table       = ncc.NccTable()
+    ncc_table   = ncc.NccTable()
 
-    twiddled        = False
-    vq_compressed   = False
-    small_vq        = False
+    twiddled    = False
+    large_vq    = False
+    small_vq    = False
 
     source_file_hash = b'\x00'*16
     channel_map = ()
@@ -181,7 +181,7 @@ class G3DTexture:
     def import_gtx(self, input_buffer, headerless=False, flags=0, source_md5=b'\x00'*16,
                    width=0, height=0, mipmaps=0, format_name="ABGR_8888", lod_k=0,
                    is_ngc=False, is_dreamcast=False, is_arcade=False,
-                   buffer_end=-1, ncc_table=None, twiddled=False, vq=False, small_vq=False
+                   buffer_end=-1, ncc_table=None, twiddled=False, large_vq=False, small_vq=False
                    ):
         if not headerless:
             header = ROMTEX_HEADER_STRUCT.unpack(
@@ -308,9 +308,9 @@ class G3DTexture:
         self.textures = textures
         self.ncc_table = ncc_table
 
-        self.twiddled        = twiddled
-        self.vq_compressed   = vq_compressed
-        self.small_vq        = small_vq
+        self.twiddled = twiddled
+        self.large_vq = large_vq
+        self.small_vq = small_vq
 
     def export_asset(self, output_filepath, include_mipmaps=False, **kwargs):
         arbytmap_instance = self.to_arbytmap_instance(

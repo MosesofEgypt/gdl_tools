@@ -157,28 +157,93 @@ def compile_textures(
             # do some format swapping depending on the target platform
             if target_ngc:
                 # retarget to the format replacements gamecube uses
-                if target_format in (c.PIX_FMT_ABGR_8888, c.PIX_FMT_XBGR_8888):
+                if new_format in (
+                        # ps2/xbox formats
+                        c.PIX_FMT_ABGR_8888, c.PIX_FMT_XBGR_8888,
+                        # arcade formats
+                        c.PIX_FMT_ABGR_8233, c.PIX_FMT_YIQ_422, c.PIX_FMT_AYIQ_8422,
+                        c.PIX_FMT_A_8, c.PIX_FMT_I_8, c.PIX_FMT_AI_44, c.PIX_FMT_AI_88,
+                        # arcade/dreamcast formats
+                        c.PIX_FMT_BGR_565, c.PIX_FMT_ABGR_4444
+                        ):
                     new_format = c.PIX_FMT_ABGR_3555_NGC if has_alpha else c.PIX_FMT_XBGR_3555_NGC
-                elif target_format in (c.PIX_FMT_ABGR_8888_IDX_4, c.PIX_FMT_XBGR_8888_IDX_4):
+                elif new_format in (c.PIX_FMT_ABGR_8888_IDX_4, c.PIX_FMT_XBGR_8888_IDX_4):
                     new_format = c.PIX_FMT_ABGR_3555_IDX_4_NGC
-                elif target_format in (c.PIX_FMT_ABGR_8888_IDX_8, c.PIX_FMT_XBGR_8888_IDX_8):
+                elif new_format in (c.PIX_FMT_ABGR_8888_IDX_8, c.PIX_FMT_XBGR_8888_IDX_8):
                     new_format = c.PIX_FMT_ABGR_3555_IDX_8_NGC
-            elif target_dreamcast:
-                # TODO: fill out the many format swaps
-                pass
-            elif target_arcade:
-                # TODO: fill out the many format swaps
-                pass
             else:
                 # target away from gamecube-exclusive formats
-                if target_format == c.PIX_FMT_XBGR_3555_NGC:
+                if new_format == c.PIX_FMT_XBGR_3555_NGC:
                     new_format = c.PIX_FMT_ABGR_1555
-                elif target_format == c.PIX_FMT_ABGR_3555_NGC:
+                elif new_format == c.PIX_FMT_ABGR_3555_NGC:
                     new_format = c.PIX_FMT_ABGR_8888 if has_alpha else c.PIX_FMT_XBGR_8888
-                elif target_format == c.PIX_FMT_ABGR_3555_IDX_4_NGC:
+                elif new_format == c.PIX_FMT_ABGR_3555_IDX_4_NGC:
                     new_format = c.PIX_FMT_ABGR_8888_IDX_4
-                elif target_format == c.PIX_FMT_ABGR_3555_IDX_8_NGC:
+                elif new_format == c.PIX_FMT_ABGR_3555_IDX_8_NGC:
                     new_format = c.PIX_FMT_ABGR_8888_IDX_8
+
+            if target_arcade:
+                # retarget to the formats arcade uses
+                if new_format in (
+                        # 32-bit formats with alpha
+                        c.PIX_FMT_ABGR_8888, c.PIX_FMT_XBGR_8888,
+                        c.PIX_FMT_ABGR_8888_IDX_4, c.PIX_FMT_ABGR_8888_IDX_8,
+                        c.PIX_FMT_XBGR_8888_IDX_4, c.PIX_FMT_XBGR_8888_IDX_8,
+                        ):
+                    # gotta compromise on alpha and color depth
+                    new_format = c.PIX_FMT_ABGR_4444 if has_alpha else c.PIX_FMT_BGR_565
+                elif new_format in (
+                        # 16-bit formats
+                        c.PIX_FMT_XBGR_1555_IDX_4, c.PIX_FMT_ABGR_1555_IDX_4,
+                        c.PIX_FMT_XBGR_1555_IDX_8, c.PIX_FMT_ABGR_1555_IDX_8,
+                        c.PIX_FMT_XBGR_1555
+                        ):
+                    new_format = c.PIX_FMT_ABGR_1555
+                elif new_format in (c.PIX_FMT_A_4_IDX_4, c.PIX_FMT_A_8_IDX_8):
+                    new_format = c.PIX_FMT_A_8
+                elif new_format in (c.PIX_FMT_I_4_IDX_4, c.PIX_FMT_I_8_IDX_8):
+                    new_format = c.PIX_FMT_I_8
+            else:
+                # target away from arcade-exclusive formats
+                if new_format == c.PIX_FMT_AI_44:
+                    new_format = c.PIX_FMT_ABGR_4444
+                elif new_format == c.PIX_FMT_A_8:
+                    new_format = c.PIX_FMT_A_8_IDX_8
+                elif new_format == c.PIX_FMT_I_8:
+                    new_format = c.PIX_FMT_I_8_IDX_8
+                elif new_format in (c.PIX_FMT_YIQ_422, c.PIX_FMT_BGR_233):
+                    new_format = c.PIX_FMT_BGR_565
+                elif new_format in (
+                        c.PIX_FMT_ABGR_8233, c.PIX_FMT_AYIQ_8422, c.PIX_FMT_AI_88
+                        ):
+                    new_format = c.PIX_FMT_ABGR_8888
+
+            if target_dreamcast:
+                # retarget to the formats dreamcast uses
+                if new_format in (
+                        # 32-bit formats with alpha
+                        c.PIX_FMT_ABGR_8888, c.PIX_FMT_XBGR_8888,
+                        c.PIX_FMT_ABGR_8888_IDX_4, c.PIX_FMT_ABGR_8888_IDX_8,
+                        c.PIX_FMT_XBGR_8888_IDX_4, c.PIX_FMT_XBGR_8888_IDX_8,
+                        # 8-bit/4-bit monochrome formats
+                        c.PIX_FMT_A_8_IDX_8, c.PIX_FMT_I_8_IDX_8,
+                        c.PIX_FMT_A_4_IDX_4, c.PIX_FMT_I_4_IDX_4,
+                        ):
+                    # gotta compromise on alpha and color depth
+                    new_format = c.PIX_FMT_ABGR_4444 if has_alpha else c.PIX_FMT_BGR_565
+                elif new_format in (
+                        # 16-bit formats without alpha
+                        c.PIX_FMT_XBGR_1555_IDX_4, c.PIX_FMT_ABGR_1555_IDX_4,
+                        c.PIX_FMT_XBGR_1555_IDX_8, c.PIX_FMT_ABGR_1555_IDX_8,
+                        ):
+                    new_format = c.PIX_FMT_ABGR_1555
+            else:
+                # target away from dreamcast-exclusive formats
+                if new_format == c.PIX_FMT_ABGR_4444:
+                    new_format = c.PIX_FMT_ABGR_8888
+                elif new_format == c.PIX_FMT_BGR_565:
+                    # losing 1-bit depth in green isn't a big deal for half-size
+                    new_format = c.PIX_FMT_XBGR_1555
 
             if new_format != target_format:
                 print(f"Retargeting {filename} from '{target_format}' to '{new_format}' to match platform.")
@@ -395,8 +460,24 @@ def import_textures(
             bitm.large_lod_log2_inv = 8 - int(math.log(max(bitm.width, bitm.height, 1), 2))
             bitm.small_lod_log2_inv = bitm.large_lod_log2_inv + mipmap_count
         elif target_dreamcast:
-            # TODO: calculate dreamcast image_type and dc_unknown
-            pass
+            if meta.get("large_vq"):
+                image_type = "large_vq"
+            elif meta.get("small_vq"):
+                image_type = "small_vq"
+            elif bitm.width == bitm.height:
+                image_type = "square"
+            else:
+                image_type = "rectangle"
+
+            if meta.get("twiddled"):
+                image_type += "_twiddled"
+
+            if meta.get("mipmap") and bitm.width == bitm.height:
+                # only square textures can be mipmapped
+                image_type += "_mipmap"
+
+            bitm.image_type.set_to(image_type)
+            bitm.dc_unknown = meta.get("dc_unknown", 0)
         else:
             # do max with 1 to make sure we dont try to do log(0, 2)
             bitm.log2_of_width  = int(math.log(max(bitm.width, 1), 2))
@@ -411,7 +492,7 @@ def import_textures(
             bitmap_defs[-1].height = bitm.height
             bitmap_defs[-1].tex_index = i
 
-        if is_external or is_invalid or target_arcade:
+        if is_external or is_invalid or target_arcade or target_dreamcast:
             continue
 
         # populate tex0 and miptbp
