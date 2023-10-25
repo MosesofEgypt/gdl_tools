@@ -286,18 +286,18 @@ def _serialize_arcade_model_data(cache_header, model_header, texture_names, mode
 
 
 _data_parsers = {
-    (MODEL_CACHE_EXTENSION_NGC,  MODEL_CACHE_VER): _parse_ps2_model_data,
-    (MODEL_CACHE_EXTENSION_PS2,  MODEL_CACHE_VER): _parse_ps2_model_data,
-    (MODEL_CACHE_EXTENSION_XBOX, MODEL_CACHE_VER): _parse_ps2_model_data,
-    (MODEL_CACHE_EXTENSION_DC,   MODEL_CACHE_VER): _parse_arcade_model_data,
-    (MODEL_CACHE_EXTENSION_ARC,  MODEL_CACHE_VER): _parse_arcade_model_data,
+    (constants.MODEL_CACHE_EXTENSION_NGC,  MODEL_CACHE_VER): _parse_ps2_model_data,
+    (constants.MODEL_CACHE_EXTENSION_PS2,  MODEL_CACHE_VER): _parse_ps2_model_data,
+    (constants.MODEL_CACHE_EXTENSION_XBOX, MODEL_CACHE_VER): _parse_ps2_model_data,
+    (constants.MODEL_CACHE_EXTENSION_DC,   MODEL_CACHE_VER): _parse_arcade_model_data,
+    (constants.MODEL_CACHE_EXTENSION_ARC,  MODEL_CACHE_VER): _parse_arcade_model_data,
     }
 
 
 _data_serializers = {
-    (MODEL_CACHE_EXTENSION_NGC,  MODEL_CACHE_VER): _serialize_ps2_model_data,
-    (MODEL_CACHE_EXTENSION_PS2,  MODEL_CACHE_VER): _serialize_ps2_model_data,
-    (MODEL_CACHE_EXTENSION_XBOX, MODEL_CACHE_VER): _serialize_ps2_model_data,
-    (MODEL_CACHE_EXTENSION_DC,   MODEL_CACHE_VER): _serialize_arcade_model_data,
-    (MODEL_CACHE_EXTENSION_ARC,  MODEL_CACHE_VER): _serialize_arcade_model_data,
+    (constants.MODEL_CACHE_EXTENSION_NGC,  MODEL_CACHE_VER): _serialize_ps2_model_data,
+    (constants.MODEL_CACHE_EXTENSION_PS2,  MODEL_CACHE_VER): _serialize_ps2_model_data,
+    (constants.MODEL_CACHE_EXTENSION_XBOX, MODEL_CACHE_VER): _serialize_ps2_model_data,
+    (constants.MODEL_CACHE_EXTENSION_DC,   MODEL_CACHE_VER): _serialize_arcade_model_data,
+    (constants.MODEL_CACHE_EXTENSION_ARC,  MODEL_CACHE_VER): _serialize_arcade_model_data,
     }

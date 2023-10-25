@@ -1,7 +1,7 @@
 from .wad import WadTag
 
 
-class RomTag(WadTag):
+class MessagesTag(WadTag):
     def _get_names_to_indices(self, names_or_indices=None,
                               want_message_list_names=False):
         all_names = (

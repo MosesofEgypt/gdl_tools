@@ -3,9 +3,9 @@ from .objs.wad import WadTag
 from ..common_descs import *
 from ..field_types import *
 
-def get(): return critter_def
+def get(): return critter_def, critter_arcade_def
 
-critter_lump_headers = lump_headers(
+lump_types = (
     {NAME:'sfxx', VALUE:lump_fcc('SFXX'), GUI_NAME:'sound/visual fx'},
     {NAME:'damg', VALUE:lump_fcc('DAMG'), GUI_NAME:'attack damage'},
     {NAME:'desc', VALUE:lump_fcc('DESC'), GUI_NAME:'????'},
@@ -15,7 +15,14 @@ critter_lump_headers = lump_headers(
     {NAME:'ptrn', VALUE:lump_fcc('PTRN'), GUI_NAME:'????'},
     {NAME:'type', VALUE:lump_fcc('TYPE'), GUI_NAME:'????'},
     )
+
+critter_lump_headers = lump_headers(*lump_types)
+critter_arcade_lump_headers = lump_headers(*lump_types, extra_size_field=False)
 critter_lumps_array = lumps_array(
+    sfxx = effects_lump,
+    damg = damages_lump,
+    )
+critter_arcade_lumps_array = lumps_array(
     sfxx = effects_lump,
     damg = damages_lump,
     )
@@ -24,5 +31,12 @@ critter_def = TagDef("critter",
     wad_header,
     critter_lump_headers,
     critter_lumps_array,
+    ext=".wad", endian="<", tag_cls=WadTag
+    )
+
+critter_arcade_def = TagDef("critter_arcade",
+    wad_header,
+    critter_arcade_lump_headers,
+    critter_arcade_lumps_array,
     ext=".wad", endian="<", tag_cls=WadTag
     )

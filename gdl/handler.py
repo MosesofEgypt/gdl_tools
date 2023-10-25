@@ -30,24 +30,44 @@ class GdlHandler(Handler):
         elif filename + ext == "slus_200.47":
             return "slus"
         elif ext in ('.wad', '.rom'):
-            def_id = ext[1:]
-            if filename in ('arc','dwf','fal','hye',
-                            'jac','jes','kni','med',
-                            'min','ogr','sor','tig',
-                            'uni','val','war','wiz'):
-                def_id = 'pdata'
-            elif filename in ('battle','castle','desert','dream',
-                              'forest','hell','ice','mount','secret',
-                              'sky','temple','test','tower','town'):
-                def_id = 'wdata'
-            elif filename in ('lich','dragon','pboss', 'chimera',
-                              'gar_eagl','gar_lion','gar_serp',
-                              'drider','djinn','yeti','wraith',
-                              'skorne1','skorne2','garm',
-                              'general','golem','golemf', 'golemi'):
-                def_id = 'critter'
-            elif filename == 'shop':
-                def_id = 'shop'
+            if ext == '.wad':
+                if filename in ('arc','dwf','fal','hye',
+                                'jac','jes','kni','med',
+                                'min','ogr','sor','tig',
+                                'uni','val','war','wiz'):
+                    def_id = 'pdata'
+                elif filename in ('battle','castle','desert','dream',
+                                  'forest','hell','ice','mount','secret',
+                                  'sky','temple','test','tower','town'):
+                    def_id = 'wdata'
+                elif filename in ('lich','dragon','pboss', 'chimera',
+                                  'gar_eagl','gar_lion','gar_serp',
+                                  'drider','djinn','yeti','wraith',
+                                  'skorne1','skorne2','garm',
+                                  'general','golem','golemf', 'golemi',
+                                  'critter' # dreamcast has some weird files
+                                  ):
+                    def_id = 'critter'
+                elif filename == 'shop':
+                    def_id = 'shop'
+                else:
+                    def_id = "wad"
+            elif filename.startswith("index") and len(filename) == 6:
+                def_id = "arcade_save_index"
+            elif filename.startswith("passport") and len(filename) == 9:
+                # NOTE: can't tell the difference between gdl and gleg
+                #       passport save files, so just default to gdl here
+                def_id = "arcade_gdl_save_file"
+            elif filename.startswith("hstable_") and len(filename) == 9:
+                # NOTE: not implemented
+                def_id = "high_score_table"
+            elif filename in ("aud_data", "audatps2"):
+                # NOTE: not implemented
+                def_id = "audio_data"
+            elif filename in ("colworlds", "dummy"):
+                def_id = None
+            else:
+                def_id = 'messages'
 
             if util.get_is_arcade_wad(filepath):
                 def_id = f"{def_id}_arcade"

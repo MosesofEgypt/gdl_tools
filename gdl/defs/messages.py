@@ -1,8 +1,8 @@
 from supyr_struct.defs.tag_def import TagDef
-from .objs.rom import RomTag
+from .objs.messages import MessagesTag
 from ..common_descs import *
 
-def get(): return rom_def, rom_arcade_def
+def get(): return messages_def, messages_arcade_def
 
 
 font_lump = Lump('fonts',
@@ -69,9 +69,9 @@ lump_types = (
     {NAME:'sdef', VALUE:lump_fcc('SDEF'), GUI_NAME:'message def offsets'},
     {NAME:'ldef', VALUE:lump_fcc('LDEF'), GUI_NAME:'message list def offsets'},
     )
-rom_lump_headers = lump_headers(*lump_types)
-rom_arcade_lump_headers = lump_headers(*lump_types, extra_size_field=False)
-rom_lumps_array = lumps_array(**{
+messages_lump_headers = lump_headers(*lump_types)
+messages_arcade_lump_headers = lump_headers(*lump_types, extra_size_field=False)
+messages_lumps_array = lumps_array(**{
     "font": font_lump,
     "text": string_data_lump,
     "toff": string_offsets_lump,
@@ -83,16 +83,16 @@ rom_lumps_array = lumps_array(**{
     "ldef": message_list_def_offsets_lump,
     })
 
-rom_def = TagDef("rom",
+messages_def = TagDef("messages",
     wad_header,
-    rom_lump_headers,
-    rom_lumps_array,
-    ext=".rom", endian="<", tag_cls=RomTag
+    messages_lump_headers,
+    messages_lumps_array,
+    ext=".rom", endian="<", tag_cls=MessagesTag
     )
 
-rom_arcade_def = TagDef("rom_arcade",
+messages_arcade_def = TagDef("messages_arcade",
     wad_header,
-    rom_arcade_lump_headers,
-    rom_lumps_array,
-    ext=".rom", endian="<", tag_cls=RomTag
+    messages_arcade_lump_headers,
+    messages_lumps_array,
+    ext=".rom", endian="<", tag_cls=MessagesTag
     )

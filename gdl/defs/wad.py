@@ -6,7 +6,7 @@ from .wdata import enemy_data_lump, bosscam_data_lump, camera_data_lump,\
     world_data_lump, level_data_arcade_lump, enemy_data_arcade_lump
 from .pdata import effects_lump, damages_lump, player_data_lump,\
     effects_arcade_lump, player_data_arcade_lump
-from .rom import font_lump, string_data_lump, string_offsets_lump,\
+from .messages import font_lump, string_data_lump, string_offsets_lump,\
     messages_lump, message_list_indices_lump, message_lists_lump,\
     defs_data_lump, message_def_offsets_lump, message_list_def_offsets_lump
 from ..common_descs import lumps_array, lump_headers, lump_fcc, wad_header

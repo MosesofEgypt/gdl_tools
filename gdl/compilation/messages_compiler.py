@@ -1,7 +1,7 @@
 import os
 from traceback import format_exc
 
-from ..defs.rom import rom_def, rom_arcade_def
+from ..defs.messages import messages_def, messages_arcade_def
 from .metadata import messages as metadata_comp
 from .util import get_is_arcade_wad
 
@@ -30,29 +30,29 @@ class MessagesCompiler:
                 target_filenames.extend(dirnames)
                 break
 
-        rom_tags = []
+        messages_tags = []
         for dirname in target_filenames:
             dirpath = os.path.join(self.target_dir, dirname)
             try:
                 metadata = metadata_comp.compile_messages_metadata(dirpath)
 
                 if self.target_arcade:
-                    rom_tag = rom_arcade_def.build()
+                    messages_tag = messages_arcade_def.build()
                 else:
-                    rom_tag = rom_def.build()
+                    messages_tag = messages_def.build()
 
-                rom_tag.filepath = dirpath + ".ROM"
-                rom_tag.add_fonts(metadata["fonts"])
-                rom_tag.add_messages(metadata["messages"])
-                rom_tag.add_message_lists(metadata["message_lists"])
+                messages_tag.filepath = dirpath + ".ROM"
+                messages_tag.add_fonts(metadata["fonts"])
+                messages_tag.add_messages(metadata["messages"])
+                messages_tag.add_message_lists(metadata["message_lists"])
                 if self.serialize_cache_files:
-                    rom_tag.serialize(temp=False)
+                    messages_tag.serialize(temp=False)
 
-                rom_tags.append(rom_tag)
+                messages_tags.append(messages_tag)
             except Exception:
                 print(format_exc())
 
-        return rom_tags
+        return messages_tags
 
     def decompile(self, **kwargs):
         target_filenames = list(self.target_filenames)
@@ -69,9 +69,9 @@ class MessagesCompiler:
             filepath = os.path.join(self.target_dir, filename)
             try:
                 if get_is_arcade_wad(filepath):
-                    rom_tag = rom_arcade_def.build(filepath=filepath)
+                    messages_tag = messages_arcade_def.build(filepath=filepath)
                 else:
-                    rom_tag = rom_def.build(filepath=filepath)
+                    messages_tag = messages_def.build(filepath=filepath)
 
                 decompile_kwargs = dict(
                     overwrite=self.overwrite,
@@ -79,7 +79,7 @@ class MessagesCompiler:
                     )
                 decompile_kwargs.update(kwargs)
                 metadata_comp.decompile_messages_metadata(
-                    rom_tag, os.path.splitext(filepath)[0], **decompile_kwargs
+                    messages_tag, os.path.splitext(filepath)[0], **decompile_kwargs
                     )
             except Exception:
                 print(format_exc())

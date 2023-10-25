@@ -52,6 +52,7 @@ gdl_save_header = Struct('header',
     UInt32('unknown13'),
     UInt32('unknown14'),
     UInt32('unknown15'),
+    UInt32('unknown16'),
     SIZE=64,
     )
 
@@ -73,6 +74,7 @@ gleg_save_header = Struct('header',
     UInt32('unknown13'),
     UInt32('unknown14'),
     UInt32('unknown15'),
+    UInt32('unknown16'),
     SIZE=64,
     )
 
