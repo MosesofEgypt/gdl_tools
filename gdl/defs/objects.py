@@ -117,6 +117,8 @@ v0_object_flags = Bool32("flags",
     ("unknown26",   0x04000000),
     )
 
+v4_object_flags = Bool32("flags") # no flags defined?
+
 v12_object_flags = Bool32("flags",
     ("alpha",     0x01),
     ("v_normals", 0x02),
@@ -253,7 +255,10 @@ v0_lod_uncomp_data = QStruct("lod_uncomp_data",
     # uv coords are 0-256 range floats(divide by 256 to get 0-1)
     SInt32("verts_pointer"),
     SInt32("tri_count"),
-    # set of 3 uint16 for vert/norm indices, and uint16 texture index
+    # set of 3 uint16 for vert/norm indices, followed by the texture index
+    # packed into the lower 12 bits of a uint16, with the upper 4 serving
+    # another purpose. seems first tri always has upper 4 bits set to 0xC,
+    # while the next ones alternate between 0x8 and 0x0. figure this out...
     SInt32("tris_pointer"),
     SInt32("id_num"),
     # IJK floats (count is equal to vert_count)
@@ -266,9 +271,7 @@ v1_lod_uncomp_lm_data = QStruct("lod_uncomp_lm_data",
     # XYZ floats, then sint16s UVs, uint16 lm UVs, and unknown sint16 pair
     SInt32("verts_pointer"),
     SInt32("tri_count"),
-    # set of 3 uint16 for vert indices, followed by uint8 texture index, and
-    # an unknown uint8. seems first tri always has unknown byte set to 0xC0,
-    # while the next ones alternate between 0x80 and 0x00. figure this out...
+    # these tris are the same structure as v0_lod_uncomp_data tris
     SInt32("tris_pointer"),
     SInt32("id_num"),
     SInt32("lm_header_pointer", DEFAULT=-1),
@@ -376,7 +379,7 @@ v1_object_block = Struct("object",
 v4_object_block = Struct("object",
     Float("inv_rad"),
     Float("bnd_rad"),
-    UInt32("unknown"), # always 0?
+    v4_object_flags, # always 0?
     SInt32('sub_objects_count', EDITABLE=False), # name is a guess. always 1?
     Pointer32('sub_object_models_pointer', EDITABLE=False),
     Struct("sub_object_0", INCLUDE=v4_sub_object_block),

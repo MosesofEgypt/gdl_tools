@@ -13,13 +13,14 @@ class G3DModel():
 
     source_file_hash = b'\x00'*16
 
-    def __init__(self, target_ps2=False, target_ngc=False, target_xbox=False):
+    def __init__(self, optimize_for_ps2=False, optimize_for_ngc=False,
+                 optimize_for_xbox=False):
         self.stripifier = Stripifier()
         self.stripifier.degen_link = False
         self.stripifier.max_strip_len = (
-            c.PS2_MAX_STRIP_LEN if target_ps2 else
-            c.NGC_MAX_STRIP_LEN if target_ngc else
-            c.XBOX_MAX_STRIP_LEN if target_xbox else
+            c.PS2_MAX_STRIP_LEN if optimize_for_ps2 else
+            c.NGC_MAX_STRIP_LEN if optimize_for_ngc else
+            c.XBOX_MAX_STRIP_LEN if optimize_for_xbox else
             c.RETAIL_MAX_STRIP_LEN
             )
 

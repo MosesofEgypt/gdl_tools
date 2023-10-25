@@ -12,8 +12,8 @@ CACHE_HEADER_STRUCT = struct.Struct('<8s II 4s H 10s 16s')
 #   signature
 #   version
 #   flags
-#   subtype
-#   subtype_version
+#   asset_type
+#   asset_type_version
 #   checksum_algorithm
 #   source_asset_checksum
 
@@ -41,7 +41,7 @@ def parse_cache_header(rawdata):
     if not rawdata:
         raise ValueError("No header data to read.")
 
-    sig, ver, flags, subtype, subtype_ver, algo, checksum = \
+    sig, ver, flags, asset_type, asset_type_ver, algo, checksum = \
          CACHE_HEADER_STRUCT.unpack(rawdata.read(CACHE_HEADER_STRUCT.size))
     if sig != CACHE_HEADER_SIG:
         raise ValueError("File does not appear to be a G3DCache file.")
@@ -49,17 +49,25 @@ def parse_cache_header(rawdata):
         raise ValueError(f"Unknown G3DCache file version: {ver}")
 
     algo = algo.decode("latin-1")
-    return dict(version=ver, flags=flags,
-                subtype=subtype, subtype_version=subtype_ver,
-                checksum_algorithm=algo, checksum=checksum)
+    return dict(
+        version=ver,
+        flags=flags,
+        asset_type=asset_type,
+        asset_type_version=asset_type_ver,
+        checksum_algorithm=algo,
+        checksum=checksum
+        )
 
 
-def serialize_cache_header(subtype, subtype_version, *, flags=0, checksum=b''):
-    if len(subtype) > 4:
-        raise ValueError(f"Subtype '{subtype}' is too long to be stored in cache file.")
+def serialize_cache_header(asset_type, asset_type_version, *,
+                           flags=0, checksum=b''):
+    if len(asset_type) > 4:
+        raise ValueError(
+            f"Asset type '{asset_type}' is too long to be stored in cache file."
+            )
 
     header_data = CACHE_HEADER_STRUCT.pack(
-        CACHE_HEADER_SIG, CACHE_HEADER_VER, flags, subtype, subtype_version,
+        CACHE_HEADER_SIG, CACHE_HEADER_VER, flags, asset_type, asset_type_version,
         CACHE_CHECKSUM_ALGORITHM.encode("latin-1"), checksum
         )
 
@@ -76,6 +84,13 @@ def verify_source_asset_checksum(
         )
 
     return asset_checksum == header["checksum"]
+
+
+def verify_source_file_asset_checksum(asset_filepath, cache_filepath):
+    with open(cache_filepath, "rb") as f:
+        return verify_source_asset_checksum(
+            asset_filepath=asset_filepath, cache_rawdata=f
+            )
     
 
 def get_readable_rawdata(filepath=None, rawdata=None):
