@@ -86,6 +86,7 @@ class ObjectsPs2Tag(GdlTag):
             object_names[i] = dict(name=object_name, asset_name=asset_name, index=i)
 
             # populate maps to help name bitmaps
+            # TODO: update to handle dreamcast and arcade textures and lightmaps
             if self.data.version_header.version.enum_name not in ("v0", "v1"):
                 obj            = objects[i]
                 obj_flags      = getattr(obj, "flags", None)
@@ -106,6 +107,7 @@ class ObjectsPs2Tag(GdlTag):
         name_counts[c.LIGHTMAP_NAME] = 0
 
         # name the lightmaps
+        # TODO: update to handle dreamcast and arcade lightmaps
         for i in lightmap_indices:
             if i not in bitmap_names:
                 asset_name = "%s.%s" % (c.LIGHTMAP_NAME, name_counts[c.LIGHTMAP_NAME])
@@ -174,6 +176,7 @@ class ObjectsPs2Tag(GdlTag):
         bitmap_def_size = 36
         object_def_size = 24
         # add in the header size
+        # TODO: update to handle dreamcast v1
         if version in "v13":
             offset += 160
         elif version in "v12":
@@ -250,6 +253,7 @@ class ObjectsPs2Tag(GdlTag):
         if version in ("v0", "v1"):
             raise ValueError("Cannot serialize v0 and v1 objects.")
 
+        # TODO: update to handle dreamcast v1
         if version in ("v12", "v13"):
             # v12 and v13 cache the lightmap indices in the header
             min_lm_index = len(self.data.bitmaps)
