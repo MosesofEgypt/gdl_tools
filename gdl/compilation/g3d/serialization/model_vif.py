@@ -281,7 +281,7 @@ def import_vif_to_g3d(input_buffer, start_vert=0, stream_len=-1):
         colors = colors,
         uvs = uvs,
         lm_uvs = lm_uvs,
-        bounding_radius = max(sqrt(bnd_rad_square))
+        bounding_radius = sqrt(bnd_rad_square)
         )
 
 
@@ -455,10 +455,12 @@ def export_g3d_to_vif(g3d_model, idx_key):
             )
         linked = True
 
+    vif_buffer = bytes(vif_buffer)
     return dict(
-        vif_rawdata = bytes(vif_buffer),
+        vif_rawdata = vif_buffer,
         vert_count  = written_vert_count,
         tri_count   = written_tri_count,
+        qword_count = (len(vif_buffer) // 16),
         lod_k       = g3d_model.lod_ks.get(idx_key, 0),
         tex_name    = idx_key[0].upper(),
         lm_name     = idx_key[1].upper(),

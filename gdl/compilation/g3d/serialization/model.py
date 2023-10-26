@@ -5,7 +5,7 @@ import urllib
 from math import sqrt
 
 from .stripify import Stripifier
-from . import model_cache
+from .model_cache import VifModelCache, DreamcastModelCache, ArcadeModelCache
 from . import model_vif
 from . import constants as c
 
@@ -328,19 +328,14 @@ class G3DModel():
         digester = hashlib.md5(obj_bytes)
         self.source_file_hash = digester.digest()
 
-    def import_g3d(self, object_model):
-        cache_type = object_model["cache_header"]["asset_type"]
-
+    def import_g3d(self, model_cache):
         self.clear()
-        if cache_type in (c.MODEL_CACHE_EXTENSION_PS2,
-                          c.MODEL_CACHE_EXTENSION_NGC,
-                          c.MODEL_CACHE_EXTENSION_XBOX):
-            for model in object_model["model_data"]:
-                input_buffer = model["vif_rawdata"]
-                idx_key      = (model["tex_name"].upper(),
-                                model["lm_name"].upper())
+        if isinstance(model_cache, VifModelCache):
+            for geom in model_cache.geoms:
+                idx_key  = (geom["tex_name"].upper(),
+                            geom["lm_name"].upper())
                 parsed_data = model_vif.import_vif_to_g3d(
-                    input_buffer, start_vert=len(self.verts),
+                    geom["vif_rawdata"], start_vert=len(self.verts),
                     )
 
                 # if nothing was imported, remove the triangles
@@ -348,7 +343,7 @@ class G3DModel():
                     continue
 
                 self.tri_lists.setdefault(idx_key, []).extend(parsed_data["tris"])
-                self.lod_ks[idx_key] = model.get("lod_k", c.DEFAULT_MOD_LOD_K)
+                self.lod_ks[idx_key] = geom.get("lod_k", c.DEFAULT_MOD_LOD_K)
                 self.verts.extend(parsed_data["verts"])
                 self.norms.extend(parsed_data["norms"])
                 self.colors.extend(parsed_data["colors"])
@@ -364,40 +359,40 @@ class G3DModel():
         for tex_name, lm_name in self.stripifier.all_strips:
             texture_names.update((tex_name.upper(), lm_name.upper()))
 
-        model_header  = dict(
-            flags           = (
-                (model_cache.MODEL_CACHE_FLAG_MESH    * bool(self.vert_count)) |
-                (model_cache.MODEL_CACHE_FLAG_NORMALS * bool(self.norms)) |
-                (model_cache.MODEL_CACHE_FLAG_COLORS  * bool(self.colors)) |
-                (model_cache.MODEL_CACHE_FLAG_LMAP    * bool(self.lm_uvs))
-                ),
-            bounding_radius = self.bounding_radius,
-            vert_count      = 0,
-            tri_count       = 0,
-            )
-        object_model = dict(
-            cache_header  = dict(
-                asset_type = cache_type,
-                checksum   = self.source_file_hash,
-                ),
-            model_header  = model_header,
-            texture_names = list(sorted(texture_names)),
-            model_data    = []
-            )
-
         if cache_type in (c.MODEL_CACHE_EXTENSION_PS2,
                           c.MODEL_CACHE_EXTENSION_NGC,
                           c.MODEL_CACHE_EXTENSION_XBOX):
+            model_cache = VifModelCache()
+
             self.make_strips()
 
             # loop over each subobject
             for idx_key in self.stripifier.all_strips.keys():
-                vif_data = model_vif.export_g3d_to_vif(self)
+                vif_data = model_vif.export_g3d_to_vif(self, idx_key)
 
-                model_header["vert_count"] += vif_data.pop("vert_count")
-                model_header["tri_count"]  += vif_data.pop("tri_count")
-                object_model["model_data"].append(vif_data)
-        else:
+                model_cache.vert_count += vif_data.pop("vert_count", 0)
+                model_cache.tri_count  += vif_data.pop("tri_count",  0)
+                model_cache.geoms.append(vif_data)
+
+            model_cache.is_fifo2 = False
+        elif cache_type == c.MODEL_CACHE_EXTENSION_DC:
+            model_cache = DreamcastModelCache()
             raise NotImplementedError()
+        elif cache_type == c.MODEL_CACHE_EXTENSION_ARC:
+            model_cache = ArcadeModelCache()
+            raise NotImplementedError()
+        else:
+            raise ValueError(f"Unexpected cache type '{cache_type}'")
 
-        return model
+        model_cache.cache_type              = cache_type
+        model_cache.vert_count              = self.vert_count
+        model_cache.tri_count               = self.tri_count
+        model_cache.bounding_radius         = self.bounding_radius
+        model_cache.texture_names           = list(sorted(texture_names))
+        model_cache.source_asset_checksum   = self.source_file_hash
+        
+        model_cache.has_normals = bool(self.norms)
+        model_cache.has_colors  = bool(self.colors)
+        model_cache.has_lmap    = bool(self.lm_uvs)
+
+        return model_cache
