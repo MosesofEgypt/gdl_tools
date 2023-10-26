@@ -5,6 +5,7 @@ import urllib
 from math import sqrt
 
 from .stripify import Stripifier
+from . import model_cache
 from . import model_vif
 from . import constants as c
 
@@ -44,7 +45,7 @@ class G3DModel():
         self.all_lm_uv_shifts = {}
         self.all_uv_maxs      = {}
 
-        self.bnd_rad = 0.0
+        self.bounding_radius = 0.0
 
     def make_strips(self):
         # load the triangles into the stripifier, calculate
@@ -119,7 +120,7 @@ class G3DModel():
                     ))
 
     def import_obj(self, input_lines, source_file_hash=b'\x00'*16):
-        # when importing an obj, we have to clear the existing data 
+        # when importing an obj, we have to clear the existing data
         self.clear()
 
         # default tex_name to use if one isnt given
@@ -127,7 +128,7 @@ class G3DModel():
         lm_name  = c.DEFAULT_LM_NAME
         idx_key  = c.DEFAULT_INDEX_KEY
 
-        bnd_rad_square = 0.0
+        bounding_radius_square = 0.0
         tris = self.tri_lists[idx_key]
 
         # collect all all tris, verts, uvw, normals, and texture indexes
@@ -192,14 +193,14 @@ class G3DModel():
                 # x-axis is reversed
                 x, y, z = -float(line[0]), float(line[1]), float(line[2])
                 self.verts.append([x, y, z])
-                bnd_rad_square = max(x**2 + y**2 + z**2, bnd_rad_square)
+                bounding_radius_square = max(x**2 + y**2 + z**2, bounding_radius_square)
             elif line[0] == 'f':
                 line = [v.strip() for v in line[1:].split(' ') if v]
                 tris.append((tuple(int(i)-1 for i in line[0].split('/')),
                              tuple(int(i)-1 for i in line[1].split('/')),
                              tuple(int(i)-1 for i in line[2].split('/'))))
 
-        self.bnd_rad = sqrt(bnd_rad_square)
+        self.bounding_radius = sqrt(bounding_radius_square)
         self.source_file_hash = source_file_hash
 
         # if no untextured triangles exist, remove the entries
@@ -327,14 +328,76 @@ class G3DModel():
         digester = hashlib.md5(obj_bytes)
         self.source_file_hash = digester.digest()
 
-    def import_g3d(
-            self, input_buffer, headerless=False, stream_len=-1, **kwargs
-            ):
-        return model_vif.import_vif_to_g3d(
-            self, input_buffer, headerless, stream_len, **kwargs
+    def import_g3d(self, object_model):
+        cache_type = object_model["cache_header"]["asset_type"]
+
+        self.clear()
+        if cache_type in (c.MODEL_CACHE_EXTENSION_PS2,
+                          c.MODEL_CACHE_EXTENSION_NGC,
+                          c.MODEL_CACHE_EXTENSION_XBOX):
+            for model in object_model["model_data"]:
+                input_buffer = model["vif_rawdata"]
+                idx_key      = (model["tex_name"].upper(),
+                                model["lm_name"].upper())
+                parsed_data = model_vif.import_vif_to_g3d(
+                    input_buffer, start_vert=len(self.verts),
+                    )
+
+                # if nothing was imported, remove the triangles
+                if len(parsed_data["tri_lists"].get(idx_key, [None])) == 0:
+                    continue
+
+                self.tri_lists.setdefault(idx_key, []).extend(parsed_data["tris"])
+                self.lod_ks[idx_key] = model.get("lod_k", c.DEFAULT_MOD_LOD_K)
+                self.verts.extend(parsed_data["verts"])
+                self.norms.extend(parsed_data["norms"])
+                self.colors.extend(parsed_data["colors"])
+                self.uvs.extend(parsed_data["uvs"])
+                self.lm_uvs.extend(parsed_data["lm_uvs"])
+
+                self.bounding_radius = max(parsed_data["bounding_radius"], self.bounding_radius)
+        else:
+            raise NotImplementedError()
+
+    def compile_g3d(self, cache_type):
+        texture_names = set()
+        for tex_name, lm_name in self.stripifier.all_strips:
+            texture_names.update((tex_name.upper(), lm_name.upper()))
+
+        model_header  = dict(
+            flags           = (
+                (model_cache.MODEL_CACHE_FLAG_MESH    * bool(self.vert_count)) |
+                (model_cache.MODEL_CACHE_FLAG_NORMALS * bool(self.norms)) |
+                (model_cache.MODEL_CACHE_FLAG_COLORS  * bool(self.colors)) |
+                (model_cache.MODEL_CACHE_FLAG_LMAP    * bool(self.lm_uvs))
+                ),
+            bounding_radius = self.bounding_radius,
+            vert_count      = 0,
+            tri_count       = 0,
+            )
+        object_model = dict(
+            cache_header  = dict(
+                asset_type = cache_type,
+                checksum   = self.source_file_hash,
+                ),
+            model_header  = model_header,
+            texture_names = list(sorted(texture_names)),
+            model_data    = []
             )
 
-    def export_g3d(self, output_buffer, headerless=False, **kwargs):
-        return model_vif.export_g3d_to_vif(
-            self, output_buffer, headerless, **kwargs
-            )
+        if cache_type in (c.MODEL_CACHE_EXTENSION_PS2,
+                          c.MODEL_CACHE_EXTENSION_NGC,
+                          c.MODEL_CACHE_EXTENSION_XBOX):
+            self.make_strips()
+
+            # loop over each subobject
+            for idx_key in self.stripifier.all_strips.keys():
+                vif_data = model_vif.export_g3d_to_vif(self)
+
+                model_header["vert_count"] += vif_data.pop("vert_count")
+                model_header["tri_count"]  += vif_data.pop("tri_count")
+                object_model["model_data"].append(vif_data)
+        else:
+            raise NotImplementedError()
+
+        return model

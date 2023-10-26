@@ -44,13 +44,6 @@ MISSING_ASSET_NAME = "__MISSING"
 UNNAMED_ASSET_NAME = "__UNNAMED"
 LIGHTMAP_NAME      = "LIGHTMAP"
 
-# these flags map to the ones in the objects.ps2 struct
-G3D_FLAG_NORMALS = 0x0002
-G3D_FLAG_COLORS  = 0x0004
-G3D_FLAG_MESH    = 0x0008
-G3D_FLAG_LMAP    = 0x0020
-G3D_FLAG_ALL     = G3D_FLAG_NORMALS | G3D_FLAG_MESH | G3D_FLAG_COLORS | G3D_FLAG_LMAP
-
 DEFAULT_MOD_LOD_K = -90
 DEFAULT_TEX_LOD_K = -64
 DEFAULT_FORMAT_NAME = "ABGR_8888"
@@ -58,11 +51,6 @@ DEFAULT_FORMAT_NAME = "ABGR_8888"
 PS2_TEXTURE_BUFFER_CHUNK_SIZE = 256
 DC_TEXTURE_BUFFER_CHUNK_SIZE  = 16
 DEF_TEXTURE_BUFFER_CHUNK_SIZE = 16
-
-# these flags and format names map to the ones in the objects.ps2 struct
-GTX_FLAG_HAS_ALPHA = 0x0080
-GTX_FLAG_ALL       = GTX_FLAG_HAS_ALPHA
-
 
 # NOTE: code looks for "IDX_8", "IDX_4", "1555", "8888", "ABGR",
 #       "NGC", and/or different combinations of the above to

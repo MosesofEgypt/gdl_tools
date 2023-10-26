@@ -167,16 +167,14 @@ def compile_textures(
                         c.PIX_FMT_BGR_565, c.PIX_FMT_ABGR_4444
                         ):
                     new_format = c.PIX_FMT_ABGR_3555_NGC if has_alpha else c.PIX_FMT_XBGR_3555_NGC
-                elif new_format in (c.PIX_FMT_ABGR_8888_IDX_4, c.PIX_FMT_XBGR_8888_IDX_4):
-                    new_format = c.PIX_FMT_ABGR_3555_IDX_4_NGC
-                elif new_format in (c.PIX_FMT_ABGR_8888_IDX_8, c.PIX_FMT_XBGR_8888_IDX_8):
-                    new_format = c.PIX_FMT_ABGR_3555_IDX_8_NGC
+                elif new_format == c.PIX_FMT_XBGR_8888_IDX_4:
+                    new_format = c.PIX_FMT_ABGR_8888_IDX_4
+                elif new_format == c.PIX_FMT_XBGR_8888_IDX_8:
+                    new_format = c.PIX_FMT_ABGR_8888_IDX_8
             else:
                 # target away from gamecube-exclusive formats
-                if new_format == c.PIX_FMT_XBGR_3555_NGC:
-                    new_format = c.PIX_FMT_ABGR_1555
-                elif new_format == c.PIX_FMT_ABGR_3555_NGC:
-                    new_format = c.PIX_FMT_ABGR_8888 if has_alpha else c.PIX_FMT_XBGR_8888
+                if new_format in (c.PIX_FMT_ABGR_3555_NGC, c.PIX_FMT_XBGR_3555_NGC):
+                    new_format = c.PIX_FMT_ABGR_8888 if has_alpha else c.PIX_FMT_XBGR_1555
                 elif new_format == c.PIX_FMT_ABGR_3555_IDX_4_NGC:
                     new_format = c.PIX_FMT_ABGR_8888_IDX_4
                 elif new_format == c.PIX_FMT_ABGR_3555_IDX_8_NGC:

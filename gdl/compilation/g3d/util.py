@@ -3,9 +3,9 @@ from ..util import *
 
 
 def locate_models(
-        data_dir, cache_files=False,
+        data_dir, cache_files=False, target_ps2=False,
         target_xbox=False, target_ngc=False,
-        target_dreamcast=False, target_arcade=False
+        target_dreamcast=False, target_arcade=False,
         ):
     return locate_assets(data_dir,
         c.MODEL_ASSET_EXTENSIONS if not cache_files else
@@ -13,11 +13,12 @@ def locate_models(
         (c.MODEL_CACHE_EXTENSION_NGC, ) if target_ngc else
         (c.MODEL_CACHE_EXTENSION_DC, ) if target_dreamcast else
         (c.MODEL_CACHE_EXTENSION_ARC, ) if target_arcade else
-        (c.MODEL_CACHE_EXTENSION_PS2, )
+        (c.MODEL_CACHE_EXTENSION_PS2, ) if target_ps2 else
+        ()
         )
 
 def locate_textures(
-        data_dir, cache_files=False,
+        data_dir, cache_files=False, target_ps2=False,
         target_xbox=False, target_ngc=False,
         target_dreamcast=False, target_arcade=False
         ):
@@ -27,7 +28,8 @@ def locate_textures(
         (c.TEXTURE_CACHE_EXTENSION_NGC, ) if target_ngc else
         (c.TEXTURE_CACHE_EXTENSION_DC, ) if target_dreamcast else
         (c.TEXTURE_CACHE_EXTENSION_ARC, ) if target_arcade else
-        (c.TEXTURE_CACHE_EXTENSION_PS2, )
+        (c.TEXTURE_CACHE_EXTENSION_PS2, ) if target_ps2 else
+        ()
         )
 
 def locate_animations(data_dir, cache_files=False):

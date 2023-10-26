@@ -13,96 +13,54 @@ def _compile_model(kwargs):
     name             = kwargs.pop("name")
     source_md5       = kwargs.pop("source_md5")
     optimize         = kwargs.pop("optimize_strips")
-    target_ps2       = kwargs.pop("target_ps2")
-    target_ngc       = kwargs.pop("target_ngc")
-    target_xbox      = kwargs.pop("target_xbox")
-    target_dreamcast = kwargs.pop("target_dreamcast")
-    target_arcade    = kwargs.pop("target_arcade")
+    cache_type       = kwargs.pop("cache_type")
+    asset_type       = kwargs.pop("asset_type")
     cache_filepath   = kwargs.pop("cache_filepath")
     asset_filepath   = kwargs.pop("asset_filepath")
 
     print("Compiling model: %s" % name)
     g3d_model = G3DModel(
-        optimize_for_ps2=target_ps2 and optimize,
-        optimize_for_ngc=target_ngc and optimize,
-        optimize_for_xbox=target_xbox and optimize,
+        optimize_for_ps2=(cache_type == c.MODEL_CACHE_EXTENSION_PS2 and optimize),
+        optimize_for_ngc=(cache_type == c.MODEL_CACHE_EXTENSION_NGC and optimize),
+        optimize_for_xbox=(cache_type == c.MODEL_CACHE_EXTENSION_XBOX and optimize),
         )
-    with open(asset_filepath, "r") as f:
-        g3d_model.import_obj(f, source_md5)
+    if asset_type == "obj":
+        with open(asset_filepath, "r") as f:
+            g3d_model.import_obj(f, source_md5)
+    else:
+        raise NotImplementedError(f"Unknown asset type '{asset_type}'")
 
-    g3d_model.make_strips()
+    object_model = g3d_model.compile_g3d(cache_type)
+    model_rawdata = model_cache.serialize_model_cache(object_model)
 
     os.makedirs(os.path.dirname(cache_filepath), exist_ok=True)
-    # TODO: update this to export differently depending on platform
     with open(cache_filepath, "wb") as f:
-        g3d_model.export_g3d(f)
+        f.write(model_rawdata)
 
 
 def _decompile_model(kwargs):
     name           = kwargs["name"]
-    flags          = kwargs["flags"]
     texture_assets = kwargs["texture_assets"]
-    object_models  = kwargs["object_models"]
+    object_model   = kwargs["object_model"]
     asset_type     = kwargs["asset_type"]
     filepath       = kwargs["filepath"]
 
     print("Decompiling model: %s" % name)
     if asset_type == "obj":
         g3d_model = G3DModel()
-        # now that all the models are imported, export the obj
-        for object_model in object_models:
-            g3d_model.import_g3d(
-                object_model["data"],
-                headerless=True,
-                tex_name=object_model["tex_name"],
-                lm_name=object_model["lm_name"]
-                )
+        # import all the models are imported, export the obj
+        g3d_model.import_g3d(object_model)
         g3d_model.export_obj(
             filepath, texture_assets,
             swap_lightmap_and_diffuse=kwargs["swap_lightmap_and_diffuse"]
             )
-        return
-
-    model_flags   = (
-        (model_cache.MODEL_CACHE_FLAG_MESH    * bool(kwargs["vert_count"])) |
-        (model_cache.MODEL_CACHE_FLAG_NORMALS * flags.get("has_normals", 0)) |
-        (model_cache.MODEL_CACHE_FLAG_COLORS  * flags.get("has_colors",  0)) |
-        (model_cache.MODEL_CACHE_FLAG_LMAP    * flags.get("has_lmap",    0)) |
-        (model_cache.MODEL_CACHE_FLAG_FIFO2   * flags.get("is_fifo2",    0))
-        )
-    texture_names = []
-    if asset_type in (c.MODEL_CACHE_EXTENSION_NGC,
-                      c.MODEL_CACHE_EXTENSION_PS2,
-                      c.MODEL_CACHE_EXTENSION_XBOX):
-        model_data = []
-        for i, subobj_model in enumerate(object_models):
-            model_data.append(dict(
-                vif_rawdata = object_model["data"],
-                lod_k       = object_model["lod_k"],
-                tex_name    = object_model["tex_name"],
-                lm_name     = object_model["lm_name"],
-                ))
-    elif asset_type in (c.MODEL_CACHE_EXTENSION_DC,
-                        c.MODEL_CACHE_EXTENSION_ARC):
-        model_data = dict()
+    elif asset_type in c.MODEL_CACHE_EXTENSIONS:
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        model_rawdata = model_cache.serialize_model_cache(object_model)
+        with open(filepath, 'wb+') as f:
+            f.write(model_rawdata)
     else:
         raise NotImplementedError(f"Unknown asset type '{asset_type}'")
-
-    model_rawdata = model_cache.serialize_model_cache(dict(
-        cache_header  = dict(asset_type = asset_type),
-        model_header  = dict(
-            flags           = model_flags,
-            bounding_radius = kwargs["bnd_rad"],
-            vert_count      = kwargs["vert_count"],
-            tri_count       = kwargs["tri_count"],
-            ),
-        texture_names = texture_names,
-        model_data    = model_data
-        ))
-
-    os.makedirs(os.path.dirname(filepath), exist_ok=True)
-    with open(filepath, 'wb+') as f:
-        f.write(model_rawdata)
 
 
 def compile_models(
@@ -116,19 +74,26 @@ def compile_models(
     all_job_args = []
     all_assets = util.locate_models(os.path.join(asset_folder))
 
-    asset_type = (
-        c.MODEL_CACHE_EXTENSION_PS2  if target_ps2 else
+    cache_type = (
+        c.MODEL_CACHE_EXTENSION_ARC  if target_arcade else
+        c.MODEL_CACHE_EXTENSION_DC   if target_dreamcast else
+        c.MODEL_CACHE_EXTENSION_XBOX if target_xbox else
         c.MODEL_CACHE_EXTENSION_NGC  if target_ngc else
-        c.MODEL_CACHE_EXTENSION_XBOX
+        c.MODEL_CACHE_EXTENSION_PS2  if target_ps2 else
+        None
         )
+    if cache_type is None:
+        raise ValueError("No target platform specified")
 
     # loop over all objs, load them, convert them, and write the g3d
     for name in sorted(all_assets):
         try:
             asset_filepath = all_assets[name]
+            asset_type = os.path.splitext(asset_filepath)[-1].strip(".").lower()
+
             rel_filepath = os.path.relpath(asset_filepath, asset_folder)
             cache_filepath = os.path.join(cache_path_base, "%s.%s" % (
-                os.path.splitext(rel_filepath)[0], asset_type
+                os.path.splitext(rel_filepath)[0], cache_type
                 ))
             if not force_recompile and os.path.isfile(cache_filepath):
                 if verify_source_file_asset_checksum(asset_filepath, cache_filepath):
@@ -136,9 +101,9 @@ def compile_models(
                     continue
 
             all_job_args.append(dict(
-                asset_filepath=asset_filepath, name=name, optimize_strips=optimize_strips,
-                target_ps2=target_ps2, target_ngc=target_ngc, target_xbox=target_xbox,
-                cache_filepath=cache_filepath, source_md5=source_md5
+                name=name, asset_filepath=asset_filepath, cache_filepath=cache_filepath,
+                cache_type=cache_type, asset_type=asset_type, source_md5=source_md5,
+                optimize_strips=optimize_strips,
                 ))
         except Exception:
             print(format_exc())
@@ -164,7 +129,8 @@ def import_models(
     g3d_models_by_name = {}
     all_asset_filepaths = util.locate_models(
         os.path.join(data_dir, c.IMPORT_FOLDERNAME, c.MOD_FOLDERNAME),
-        cache_files=True, target_ngc=target_ngc, target_xbox=target_xbox,
+        cache_files=True, target_ps2=target_ps2,
+        target_ngc=target_ngc, target_xbox=target_xbox,
         target_dreamcast=target_dreamcast, target_arcade=target_arcade
         )
 
@@ -198,7 +164,7 @@ def import_models(
         model_header    = model["model_header"]
         object_models   = model["model_data"]
         model_flags     = model_header["flags"]
-        asset_type      = cache_header["asset_type"]
+        cache_type      = cache_header["cache_type"]
 
         meta.setdefault("flags", {}).update(
             mesh       = model_flags & model_cache.MODEL_CACHE_FLAG_MESH,
@@ -207,7 +173,7 @@ def import_models(
             lmap       = model_flags & model_cache.MODEL_CACHE_FLAG_LMAP
             )
 
-        if asset_type in (c.MODEL_CACHE_EXTENSION_NGC,
+        if cache_type in (c.MODEL_CACHE_EXTENSION_NGC,
                           c.MODEL_CACHE_EXTENSION_PS2,
                           c.MODEL_CACHE_EXTENSION_XBOX):
             objects.append()
@@ -247,7 +213,7 @@ def import_models(
                 subobj_header.tex_index   = tex_meta.get("index", 0)
                 subobj_header.lm_index    = lm_meta.get("index", 0)
                 subobj_header.lod_k       = object_model["lod_k"]
-        elif asset_type in (c.MODEL_CACHE_EXTENSION_DC, c.MODEL_CACHE_EXTENSION_ARC):
+        elif cache_type in (c.MODEL_CACHE_EXTENSION_DC, c.MODEL_CACHE_EXTENSION_ARC):
             raise NotImplementedError("hecken")
 
             is_fifo      = bool(object_models["fifo_rawdata"])
@@ -270,7 +236,7 @@ def import_models(
                 #       have to set the bits on each object
                 lod.flags       = obj_flags
         else:
-            raise ValueError(f"Unknown model type '{asset_type}'")
+            raise ValueError(f"Unknown model type '{cache_type}'")
 
         # populate the object def
         object_defs.append()
@@ -320,6 +286,7 @@ def decompile_models(
         is_ps2_xbox_ngc = hasattr(obj, "sub_object_0")
         is_arc_or_dc    = hasattr(obj, "lods")
 
+        texture_names = []
         if is_ps2_xbox_ngc:
             flags = dict(
                 has_lmap    = bool(getattr(obj.flags, "lmap",      False)),
@@ -328,15 +295,15 @@ def decompile_models(
                 )
             default_lod_k  = getattr(obj.sub_object_0, "lod_k", c.DEFAULT_MOD_LOD_K)
             subobjs        = getattr(obj.data, "sub_objects", ())
-            object_models  = [
-                dict(
-                    data     = model.data,
-                    tex_name = bitmap_assets.get(head.tex_index, def_name)['name'],
-                    lm_name  = bitmap_assets.get(head.lm_index, def_name)['name'] if flags["has_lmap"] else "",
-                    lod_k    = getattr(header, 'lod_k', default_lod_k),
-                    )
-                for model, head in zip(obj.data.sub_object_models, (obj.sub_object_0, *subobjs))
-                ]
+            model_data = []
+            for model, head in zip(obj.data.sub_object_models, (obj.sub_object_0, *subobjs)):
+                model_data.append(dict(
+                    vif_rawdata = model.data,
+                    lod_k       = getattr(header, 'lod_k', default_lod_k),
+                    tex_name    = bitmap_assets.get(head.tex_index, def_name)['name'],
+                    lm_name     = bitmap_assets.get(head.lm_index, def_name)['name'] if flags["has_lmap"] else "",
+                    ))
+
         elif is_arc_or_dc:
             lod = obj.lods[0]
             flags = dict(
@@ -345,24 +312,43 @@ def decompile_models(
                 is_fifo2    = bool(lod.flags.fifo_cmds_2),
                 )
 
+            model_data = dict()
             if lod.flags.fifo_cmds or flags["is_fifo2"]:
                 raise NotImplementedError("hecken")
-                object_models = dict(
+                model_data.update(
                     fifo_rawdata = obj.data.fifo_rawdata,
                     )
             else:
                 raise NotImplementedError("hecken")
-                object_models = dict(
-                    verts_rawdata = obj.data.vert_data,
-                    tris_rawdata  = obj.data.tri_data,
-                    )
 
                 if flags["has_lmap"]:
                     raise NotImplementedError("hecken")
+                    model_data.update(
+                        verts_rawdata = obj.data.vert_data,
+                        tris_rawdata  = obj.data.tri_data,
+                        )
                 else:
-                    object_models["norms_rawdata"] = obj.data.norm_data
+                    model_data.update(
+                        verts_rawdata = obj.data.vert_data,
+                        tris_rawdata  = obj.data.tri_data,
+                        norms_rawdata = obj.data.norm_data
+                        )
         else:
             raise TypeError("Unknown object platform.")
+
+        model_flags = (
+            (model_cache.MODEL_CACHE_FLAG_MESH    * bool(obj.vert_count)) |
+            (model_cache.MODEL_CACHE_FLAG_NORMALS * flags.get("has_normals", 0)) |
+            (model_cache.MODEL_CACHE_FLAG_COLORS  * flags.get("has_colors",  0)) |
+            (model_cache.MODEL_CACHE_FLAG_LMAP    * flags.get("has_lmap",    0)) |
+            (model_cache.MODEL_CACHE_FLAG_FIFO2   * flags.get("is_fifo2",    0))
+            )
+        model_header = dict(
+            flags           = model_flags,
+            bounding_radius = obj.bnd_rad,
+            vert_count      = obj.vert_count,
+            tri_count       = obj.tri_count
+            )
 
         try:
             j = None  # initialize in case exception occurs before loop starts
@@ -378,11 +364,17 @@ def decompile_models(
                 if os.path.isfile(filepath) and not overwrite:
                     continue
 
+                object_model = dict(
+                    cache_header  = dict(asset_type = asset_type),
+                    model_header  = model_header,
+                    texture_names = texture_names,
+                    model_data    = model_data
+                    )
+
                 all_job_args.append(dict(
-                    texture_assets=texture_assets, object_models=object_models, flags=flags,
+                    texture_assets=texture_assets, object_model=object_model,
                     name=asset['name'], asset_type=asset_type, filepath=filepath,
-                    bnd_rad=obj.bnd_rad, vert_count=obj.vert_count, tri_count=obj.tri_count,
-                    swap_lightmap_and_diffuse=swap_lightmap_and_diffuse
+                    swap_lightmap_and_diffuse=swap_lightmap_and_diffuse,
                     ))
 
         except:

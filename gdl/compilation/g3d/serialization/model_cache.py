@@ -1,13 +1,10 @@
-import hashlib
-import mmap
-import os
 import struct
 
 from . import constants
 from .cache import parse_cache_header, serialize_cache_header
 from .. import util
 
-# ensure they're all no more than 4 characters since we use them as the asset_type
+# ensure they're all no more than 4 characters since we use them as the cache_type
 for ext in (constants.MODEL_CACHE_EXTENSION_NGC, constants.MODEL_CACHE_EXTENSION_PS2,
             constants.MODEL_CACHE_EXTENSION_XBOX, constants.MODEL_CACHE_EXTENSION_DC,
             constants.MODEL_CACHE_EXTENSION_ARC):
@@ -65,7 +62,7 @@ def parse_model_cache_header(rawdata):
 
 
 def serialize_model_cache_header(cache_header, model_header):
-    cache_header.setdefault("asset_type_version", MODEL_CACHE_VER)
+    cache_header.setdefault("cache_type_version", MODEL_CACHE_VER)
     cache_header_rawdata = write_cache_header(**cache_header)
     model_header_rawdata = MODEL_CACHE_HEADER_STRUCT.pack(
         model_header.get("flags", 0),
@@ -84,12 +81,12 @@ def parse_model_cache(filepath=None, rawdata=None):
         cache_header, model_header = parse_model_cache_header(rawdata)
 
         # determine what parser to use
-        asset_type      = cache_header["asset_type"]
-        asset_type_ver  = cache_header["asset_type_version"]
-        parser          = _data_parsers.get((asset_type, asset_type_version))
+        cache_type      = cache_header["cache_type"]
+        cache_type_ver  = cache_header["cache_type_version"]
+        parser          = _data_parsers.get((cache_type, cache_type_version))
         if parser is None:
             raise NotImplementedError(
-                f"No parser implemented for version '{asset_type_ver}' of '{asset_type}'."
+                f"No parser implemented for version '{cache_type_ver}' of '{cache_type}'."
                 )
 
         # read texture names
@@ -116,12 +113,12 @@ def serialize_model_cache(model_cache):
     model_data    = model_cache["model_data"]
 
     # determine what serializer to use
-    asset_type      = cache_header["asset_type"]
-    asset_type_ver  = cache_header["asset_type_version"]
-    serializer      = _data_serializers.get((asset_type, asset_type_version))
+    cache_type      = cache_header["cache_type"]
+    cache_type_ver  = cache_header["cache_type_version"]
+    serializer      = _data_serializers.get((cache_type, cache_type_version))
     if serializer is None:
         raise NotImplementedError(
-            f"No serializer implemented for version '{asset_type_ver}' of '{asset_type}'."
+            f"No serializer implemented for version '{cache_type_ver}' of '{cache_type}'."
             )
 
     # serialize the model data first in case it manipulates header information
