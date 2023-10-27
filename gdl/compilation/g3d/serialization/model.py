@@ -12,8 +12,6 @@ from . import constants as c
 
 class G3DModel():
 
-    source_file_hash = b'\x00'*16
-
     def __init__(self, optimize_for_ps2=False, optimize_for_ngc=False,
                  optimize_for_xbox=False):
         self.stripifier = Stripifier()
@@ -119,7 +117,7 @@ class G3DModel():
                     uv_max_y + uv_shift_y
                     ))
 
-    def import_obj(self, input_lines, source_file_hash=b'\x00'*16):
+    def import_obj(self, input_lines):
         # when importing an obj, we have to clear the existing data
         self.clear()
 
@@ -201,7 +199,6 @@ class G3DModel():
                              tuple(int(i)-1 for i in line[2].split('/'))))
 
         self.bounding_radius = sqrt(bounding_radius_square)
-        self.source_file_hash = source_file_hash
 
         # if no untextured triangles exist, remove the entries
         if len(self.tri_lists.get(c.DEFAULT_INDEX_KEY, [None])) == 0:
@@ -325,9 +322,6 @@ class G3DModel():
         with open(output_filepath, 'wb+') as out_file:
             out_file.write(obj_bytes)
 
-        digester = hashlib.md5(obj_bytes)
-        self.source_file_hash = digester.digest()
-
     def import_g3d(self, model_cache):
         self.clear()
         if isinstance(model_cache, VifModelCache):
@@ -339,7 +333,7 @@ class G3DModel():
                     )
 
                 # if nothing was imported, remove the triangles
-                if len(parsed_data["tri_lists"].get(idx_key, [None])) == 0:
+                if len(parsed_data["tris"]) == 0:
                     continue
 
                 self.tri_lists.setdefault(idx_key, []).extend(parsed_data["tris"])
@@ -384,12 +378,9 @@ class G3DModel():
         else:
             raise ValueError(f"Unexpected cache type '{cache_type}'")
 
-        model_cache.cache_type              = cache_type
-        model_cache.vert_count              = self.vert_count
-        model_cache.tri_count               = self.tri_count
-        model_cache.bounding_radius         = self.bounding_radius
-        model_cache.texture_names           = list(sorted(texture_names))
-        model_cache.source_asset_checksum   = self.source_file_hash
+        model_cache.cache_type      = cache_type
+        model_cache.bounding_radius = self.bounding_radius
+        model_cache.texture_names   = list(sorted(texture_names))
         
         model_cache.has_normals = bool(self.norms)
         model_cache.has_colors  = bool(self.colors)

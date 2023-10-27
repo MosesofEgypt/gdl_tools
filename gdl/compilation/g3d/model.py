@@ -3,7 +3,7 @@ import os
 from traceback import format_exc
 from ..metadata import objects as objects_metadata
 from .serialization.model import G3DModel
-from .serialization.asset_cache import verify_source_file_asset_checksum
+from .serialization.asset_cache import get_asset_checksum, verify_source_file_asset_checksum
 from .serialization.model_cache import get_model_cache_class,\
      VifModelCache, DreamcastModelCache, ArcadeModelCache
 from . import constants as c
@@ -12,7 +12,6 @@ from . import util
 
 def _compile_model(kwargs):
     name             = kwargs.pop("name")
-    source_md5       = kwargs.pop("source_md5")
     optimize         = kwargs.pop("optimize_strips")
     cache_type       = kwargs.pop("cache_type")
     asset_type       = kwargs.pop("asset_type")
@@ -27,11 +26,14 @@ def _compile_model(kwargs):
         )
     if asset_type == "obj":
         with open(asset_filepath, "r") as f:
-            g3d_model.import_obj(f, source_md5)
+            g3d_model.import_obj(f)
     else:
         raise NotImplementedError(f"Unknown asset type '{asset_type}'")
 
     model_cache   = g3d_model.compile_g3d(cache_type)
+    model_cache.source_asset_checksum = get_asset_checksum(
+        filepath=asset_filepath, algorithm=model_cache.checksum_algorithm
+        )
     model_rawdata = model_cache.serialize()
 
     os.makedirs(os.path.dirname(cache_filepath), exist_ok=True)
@@ -102,7 +104,7 @@ def compile_models(
 
             all_job_args.append(dict(
                 name=name, asset_filepath=asset_filepath, cache_filepath=cache_filepath,
-                cache_type=cache_type, asset_type=asset_type, source_md5=source_md5,
+                cache_type=cache_type, asset_type=asset_type,
                 optimize_strips=optimize_strips,
                 ))
         except Exception:
@@ -137,7 +139,9 @@ def import_models(
     for name in sorted(all_asset_filepaths):
         try:
             with open(all_asset_filepaths[name], "rb") as f:
-                model_caches_by_name[name.upper()] = get_model_cache_class(f).parse(f)
+                model_cache = get_model_cache_class(f)()
+                model_cache.parse(f)
+                model_caches_by_name[name] = model_cache
         except Exception:
             print(format_exc())
             print("Could not load model:\n    %s" % all_asset_filepaths[name])
@@ -156,8 +160,9 @@ def import_models(
     for name in sorted(objects_metadata_by_name):
         meta        = objects_metadata_by_name[name]
         model_cache = model_caches_by_name.get(name)
-        if not model:
+        if not model_cache:
             print("Warning: Could not locate model file for '%s'" % name)
+            continue
 
         meta_flags = dict(meta.setdefault("flags", {}))
         meta_flags.update(
@@ -191,12 +196,12 @@ def import_models(
                 tex_meta   = inv_bitmap_names.get(geom["tex_name"], {})
                 lm_meta    = inv_bitmap_names.get(geom["lm_name"], {})
                 if not tex_meta:
-                    print("Warning: Texture '{tex_name}'  used in "
-                          "subobject {i} of '{name}' does not exist.")
+                    print(f"Warning: Texture '{geom['tex_name']}'  used in "
+                          f"subobject {i} of '{name}' does not exist.")
 
                 if model_cache.has_lmap and not lm_meta:
-                    print("Warning: Lightmap '{lm_name}'  used in "
-                          "subobject {i} of '{name}' does not exist.")
+                    print(f"Warning: Lightmap '{geom['lm_name']}'  used in "
+                          f"subobject {i} of '{name}' does not exist.")
 
                 # update the header and model data
                 subobj_model.data         = geom["vif_rawdata"]
@@ -289,7 +294,7 @@ def decompile_models(
                                    (obj.sub_object_0, *subobjs)):
                 geoms.append(dict(
                     vif_rawdata = model.data,
-                    lod_k       = getattr(header, 'lod_k', default_lod_k),
+                    lod_k       = getattr(head, 'lod_k', default_lod_k),
                     tex_name    = bitmap_assets.get(
                         head.tex_index, def_name)['name'],
                     lm_name     = bitmap_assets.get(

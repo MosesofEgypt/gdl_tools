@@ -9,6 +9,7 @@ from ...defs.worlds import worlds_def
 from ..metadata import objects as objects_metadata
 from . import animation, collision, model, texture
 from . import constants as c
+from . import util
 
 
 def compile_cache_files(
@@ -18,6 +19,16 @@ def compile_cache_files(
         serialize_cache_files=False, use_force_index_hack=False,
         build_anim_cache=True, build_texdef_cache=False,
         ):
+    extension = (
+        c.NGC_EXTENSION if target_ngc else
+        c.ARC_EXTENSION if target_arcade else
+        c.DC_EXTENSION  if target_dreamcast else
+        c.PS2_EXTENSION if target_ps2 else
+        ""
+        )
+    if not extension:
+        raise ValueError("No build target specified")
+
     # TODO: add support for compiling worlds
     data_dir    = os.path.join(objects_dir, c.DATA_FOLDERNAME)
     objects_tag = objects_def.build()
@@ -34,13 +45,7 @@ def compile_cache_files(
         objects_tag.data.parse(attr_index="bitmaps")
 
     objects_tag.filepath = os.path.join(
-        objects_dir, "%s.%s" % (
-            c.OBJECTS_FILENAME,
-            c.NGC_EXTENSION if target_ngc else
-            c.ARC_EXTENSION if target_arcade else
-            c.DC_EXTENSION  if target_dreamcast else
-            c.PS2_EXTENSION
-            )
+        objects_dir, "%s.%s" % (c.OBJECTS_FILENAME, extension)
         )
     objects_tag.data.version_header.dir_name = (
         os.path.join(objects_dir, "").replace("\\", "/")[-32:]
@@ -97,18 +102,18 @@ def decompile_cache_files(
         parallel_processing=False, swap_lightmap_and_diffuse=False, **kwargs
         ):
 
-    ps2_objects_filepath    = os.path.join(target_dir, "objects" + c.PS2_EXTENSION)
-    ngc_objects_filepath    = os.path.join(target_dir, "objects" + c.NGC_EXTENSION)
-    arcade_objects_filepath = os.path.join(target_dir, "objects" + c.ARC_EXTENSION)
-    dc_objects_filepath     = os.path.join(target_dir, "objects" + c.DC_EXTENSION)
+    ps2_objects_filepath    = os.path.join(target_dir, "objects.%s" % c.PS2_EXTENSION)
+    ngc_objects_filepath    = os.path.join(target_dir, "objects.%s" % c.NGC_EXTENSION)
+    arcade_objects_filepath = os.path.join(target_dir, "objects.%s" % c.ARC_EXTENSION)
+    dc_objects_filepath     = os.path.join(target_dir, "objects.%s" % c.DC_EXTENSION)
 
-    ps2_texdef_filepath     = os.path.join(target_dir, "texdef" + c.PS2_EXTENSION)
-    dc_texdef_filepath      = os.path.join(target_dir, "texdef" + c.DC_EXTENSION)
+    ps2_texdef_filepath     = os.path.join(target_dir, "texdef.%s" % c.PS2_EXTENSION)
+    dc_texdef_filepath      = os.path.join(target_dir, "texdef.%s" % c.DC_EXTENSION)
 
-    ps2_worlds_filepath     = os.path.join(target_dir, "worlds" + c.PS2_EXTENSION)
-    ngc_worlds_filepath     = os.path.join(target_dir, "worlds" + c.NGC_EXTENSION)
-    arcade_worlds_filepath  = os.path.join(target_dir, "worlds" + c.ARC_EXTENSION)
-    dc_worlds_filepath      = os.path.join(target_dir, "worlds" + c.DC_EXTENSION)
+    ps2_worlds_filepath     = os.path.join(target_dir, "worlds.%s" % c.PS2_EXTENSION)
+    ngc_worlds_filepath     = os.path.join(target_dir, "worlds.%s" % c.NGC_EXTENSION)
+    arcade_worlds_filepath  = os.path.join(target_dir, "worlds.%s" % c.ARC_EXTENSION)
+    dc_worlds_filepath      = os.path.join(target_dir, "worlds.%s" % c.DC_EXTENSION)
 
     objects_tag = None
     texdef_tag  = None

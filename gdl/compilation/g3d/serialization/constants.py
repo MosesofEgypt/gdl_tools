@@ -11,3 +11,7 @@ RETAIL_MAX_STRIP_LEN = 30  # safe max length from looking at retail files
 XBOX_MAX_STRIP_LEN   = 189
 NGC_MAX_STRIP_LEN    = XBOX_MAX_STRIP_LEN  # haven't tested yet
 PS2_MAX_STRIP_LEN    = RETAIL_MAX_STRIP_LEN  # dont change. levels might not load
+
+DEFAULT_TEX_NAME  = "__unnamed_0"
+DEFAULT_LM_NAME   = "__unnamed_0"
+DEFAULT_INDEX_KEY = (DEFAULT_TEX_NAME, DEFAULT_LM_NAME)

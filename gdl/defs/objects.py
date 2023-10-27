@@ -1,7 +1,7 @@
 from supyr_struct.defs.tag_def import TagDef
 from ..common_descs import *
 from ..compilation.g3d.constants import *
-from .objs.objects import ObjectsPs2Tag
+from .objs.objects import ObjectsTag
 from .texdef import bitmap_flags_v1_dc, get_bitmap_platform,\
     bitmap_format_dc, image_type_dc, v1_bitmap_block_dc,\
     bitmap_format as bitmap_format_v12
@@ -9,7 +9,10 @@ from .texdef import bitmap_flags_v1_dc, get_bitmap_platform,\
 def get(): return objects_def
 
 
-def object_defs_count(*args, parent=None, new_value=None, **kwargs):
+def object_defs_count(*args, node=None, parent=None, new_value=None, **kwargs):
+    if parent is None and node:  # fucking bugs in supyr. i hate younger me
+        parent = node.parent
+
     if parent is None:
         return
     elif new_value is not None:
@@ -22,7 +25,10 @@ def object_defs_count(*args, parent=None, new_value=None, **kwargs):
         return parent.header.object_defs_count
 
 
-def bitmap_defs_count(*args, parent=None, new_value=None, **kwargs):
+def bitmap_defs_count(*args, node=None, parent=None, new_value=None, **kwargs):
+    if parent is None and node:   # younger me was a fucking twit
+        parent = node.parent
+
     if parent is None:
         return
     elif new_value is not None:
@@ -796,5 +802,5 @@ objects_def = TagDef("objects",
         DYN_NAME_PATH='.name', WIDGET=DynamicArrayFrame
         ),
 
-    endian="<", ext=".ps2", tag_cls=ObjectsPs2Tag
+    endian="<", ext=".ps2", tag_cls=ObjectsTag
     )

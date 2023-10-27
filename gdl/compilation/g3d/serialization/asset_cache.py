@@ -19,8 +19,8 @@ CACHE_HEADER_STRUCT = struct.Struct('<8s II 4s H 10s 16s')
 DIGEST_CHUNK_SIZE = 256*1024 # 256KB
 
 def get_asset_checksum(filepath=None, rawdata=None,
-                       algo=CACHE_CHECKSUM_ALGORITHM):
-    digester = hashlib.new(algo)
+                       algorithm=CACHE_CHECKSUM_ALGORITHM):
+    digester = hashlib.new(algorithm)
     if filepath:
         with open(filepath, "rb") as f:
             data = True
@@ -42,7 +42,7 @@ def verify_source_asset_checksum(
     asset_cache.parse(cache_rawdata)
     asset_checksum = get_asset_checksum(
         filepath=asset_filepath, rawdata=asset_rawdata,
-        algo=asset_cache.checksum_algorithm
+        algorithm=asset_cache.checksum_algorithm
         )
 
     return asset_cache.source_asset_checksum == asset_checksum
@@ -76,20 +76,21 @@ class AssetCache:
 
         self.version               = ver
         self.flags                 = flags
-        self.cache_type            = cache_type
+        self.cache_type            = cache_type.strip(b'\x00').decode("latin-1")
         self.cache_type_version    = cache_type_ver
-        self.checksum_algorithm    = algo.decode("latin-1")
+        self.checksum_algorithm    = algo.strip(b'\x00').decode("latin-1")
         self.source_asset_checksum = checksum
 
     def serialize(self):
-        if len(cache_type) > 4:
+        if len(self.cache_type) > 4:
             raise ValueError(
                 f"Asset type '{cache_type}' is too long to be stored in cache file."
                 )
 
         header_data = CACHE_HEADER_STRUCT.pack(
             CACHE_HEADER_SIG, self.version, self.flags,
-            self.cache_type, self.cache_type_version,
+            self.cache_type.encode("latin-1"),
+            self.cache_type_version,
             self.checksum_algorithm.encode("latin-1"),
             self.source_asset_checksum
             )

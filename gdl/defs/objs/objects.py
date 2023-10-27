@@ -8,7 +8,7 @@ from ...compilation.util import calculate_padding
 from ...compilation.g3d import constants as c
 
 
-class ObjectsPs2Tag(GdlTag):
+class ObjectsTag(GdlTag):
     texdef_names  = None
 
     _object_assets_by_name  = None

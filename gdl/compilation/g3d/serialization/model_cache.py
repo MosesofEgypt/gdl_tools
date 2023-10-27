@@ -27,6 +27,9 @@ MODEL_CACHE_HEADER_STRUCT = struct.Struct('<I f IIi')
 #   tri_count
 #   tex_count
 
+TEXTURE_NAME_STRUCT = struct.Struct('<H')
+#   name_length
+
 ARC_OBJECT_HEADER_STRUCT = struct.Struct('<IIII')
 #   fifo_data_size
 #   vert_data_size
@@ -65,7 +68,6 @@ class ModelCache(AssetCache):
     def parse(self, rawdata):
         super().parse(rawdata)
 
-        cache_header = read_cache_header(rawdata)
         model_flags, bounding_radius, vert_count, tri_count, tex_count = \
            MODEL_CACHE_HEADER_STRUCT.unpack(
                rawdata.read(MODEL_CACHE_HEADER_STRUCT.size)
@@ -74,17 +76,10 @@ class ModelCache(AssetCache):
         # read texture names
         texture_names = []
         for i in range(tex_count):
-            start   = rawdata.tell()
-            str_len = rawdata.find(b'\x00', start) - start
-            if str_len < 0:
-                raise ValueError(
-                    "Model data appears truncated. Cannot read texture name."
-                    )
-
-            tex_name = rawdata.read(str_len+1)\
-                       .rstrip(b'\x00')\
-                       .decode('latin-1')\
-                       .upper()
+            (str_len, ) = TEXTURE_NAME_STRUCT.unpack(
+               rawdata.read(TEXTURE_NAME_STRUCT.size)
+               )
+            tex_name = rawdata.read(str_len).decode('latin-1').upper()
             texture_names.append(tex_name)
 
         self.bounding_radius = bounding_radius
@@ -108,15 +103,16 @@ class ModelCache(AssetCache):
             )
         model_header_rawdata = MODEL_CACHE_HEADER_STRUCT.pack(
             model_flags, self.bounding_radius,
-            self.vert_count, self.tri_coun, len(self.texture_names),
+            self.vert_count, self.tri_count, len(self.texture_names),
             )
 
         tex_names_rawdata = b''
         for tex_name in self.texture_names:
-            tex_names_rawdata += tex_name.upper()\
-                                 .encode('latin-1')\
-                                 .replace(b'\x00', b'')
-            tex_names_rawdata += b'\x00'
+            tex_name_rawdata = tex_name.upper().encode('latin-1')
+            tex_names_rawdata += TEXTURE_NAME_STRUCT.pack(
+                len(tex_name_rawdata)
+                )
+            tex_names_rawdata += tex_name_rawdata
 
         cache_header_rawdata = super().serialize()
         return cache_header_rawdata + model_header_rawdata + tex_names_rawdata
@@ -142,7 +138,7 @@ class VifModelCache(ModelCache):
         elif self.cache_type_version != MODEL_CACHE_VER:
             raise ValueError(f"Unexpected cache type version '{self.cache_type_version}'")
 
-        geom_count = VIF_OBJECT_HEADER_STRUCT.unpack(
+        (geom_count, ) = VIF_OBJECT_HEADER_STRUCT.unpack(
             rawdata.read(VIF_OBJECT_HEADER_STRUCT.size)
             )
         geoms = []
@@ -162,7 +158,7 @@ class VifModelCache(ModelCache):
                 vif_rawdata=vif_data,
                 qword_count=qwc,
                 lod_k=lod_k,
-                tex_name=self.texture_names[tex_index],
+                tex_name=self.texture_names[tex_idx],
                 lm_name=self.texture_names[lm_idx] if lm_idx >= 0 else "",
                 ))
 

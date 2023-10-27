@@ -35,10 +35,6 @@ POS_SCALE   = 0x80
 UV_SCALE    = 0x80
 LM_UV_SCALE = 0x8000
 
-DEFAULT_TEX_NAME  = "__unnamed_0"
-DEFAULT_LM_NAME   = "__unnamed_0"
-DEFAULT_INDEX_KEY = (DEFAULT_TEX_NAME, DEFAULT_LM_NAME)
-
 STREAM_FLAGS_DEFAULT    = 0x80
 STREAM_FLAGS_UV_DEFAULT = 0xC0
 
@@ -302,7 +298,7 @@ def export_g3d_to_vif(g3d_model, idx_key):
     norms        = g3d_model.norms
     colors       = g3d_model.colors
     lm_uvs       = g3d_model.lm_uvs
-    uvs          = g3d_model.vs
+    uvs          = g3d_model.uvs
 
     written_vert_count = 0
     written_tri_count  = 0
