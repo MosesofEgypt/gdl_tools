@@ -178,7 +178,23 @@ class G3DTexture:
         with open(input_filepath, "rb") as f:
             self.source_file_hash = hashlib.md5(f.read()).digest()
 
-    def import_gtx(self, input_buffer, headerless=False, flags=0, source_md5=b'\x00'*16,
+    def export_asset(self, output_filepath, include_mipmaps=False, **kwargs):
+        arbytmap_instance = self.to_arbytmap_instance(
+            include_mipmaps=include_mipmaps
+            )
+        # depalettize to allow images to be loaded in most programs
+        arbytmap_instance.palettize = False
+        arbytmap_instance.unpack_all()  # unpack to depalettize
+        arbytmap_instance.pack_all()    # pack for export
+
+        arbytmap_instance.save_to_file(
+            output_path=output_filepath,
+            overwrite=kwargs.get('overwrite', False),
+            channel_mapping=self.channel_map, mip_levels="all",
+            keep_alpha=self.has_alpha
+            )
+
+    def import_g3d(self, input_buffer, headerless=False, flags=0, source_md5=b'\x00'*16,
                    width=0, height=0, mipmaps=0, format_name="ABGR_8888", lod_k=0,
                    is_ngc=False, is_dreamcast=False, is_arcade=False,
                    buffer_end=-1, ncc_table=None, twiddled=False, large_vq=False, small_vq=False
@@ -312,23 +328,7 @@ class G3DTexture:
         self.large_vq = large_vq
         self.small_vq = small_vq
 
-    def export_asset(self, output_filepath, include_mipmaps=False, **kwargs):
-        arbytmap_instance = self.to_arbytmap_instance(
-            include_mipmaps=include_mipmaps
-            )
-        # depalettize to allow images to be loaded in most programs
-        arbytmap_instance.palettize = False
-        arbytmap_instance.unpack_all()  # unpack to depalettize
-        arbytmap_instance.pack_all()    # pack for export
-
-        arbytmap_instance.save_to_file(
-            output_path=output_filepath,
-            overwrite=kwargs.get('overwrite', False),
-            channel_mapping=self.channel_map, mip_levels="all",
-            keep_alpha=self.has_alpha
-            )
-
-    def export_gtx(self, output_buffer, headerless=False,
+    def export_g3d(self, output_buffer, headerless=False,
                    target_ps2=False, target_ngc=False,
                    target_dreamcast=False, target_arcade=False
                    ):
