@@ -7,10 +7,6 @@ from array import array
 from arbytmap.arby import swizzler
 
 
-def is_gamecube_format(format_name):
-    return "NGC" in format_name
-
-
 def is_alpha_signed(format_name):
     return "BGR" in format_name
 
@@ -106,19 +102,6 @@ def palettize_textures(textures, max_palette_size=256, min_palette_size=None):
     palette.extend(b"\x00" * (palette_count * 4 - len(palette)))
 
     return palette, indexings, palette_count
-
-
-def gauntlet_ps2_palette_shuffle(palette, pixel_stride):
-    # gauntlet textures have every OTHER pair of 8 palette entries
-    # swapped with each other for some reason. The exceptions to
-    # to this pattern are the first and last set of 8. undo that
-    w = 8 * pixel_stride
-
-    # multiply by 4 instead of 2 to skip every other pair
-    for i in range(w, len(palette)-w, w*4):
-        temp_pixels         = palette[i: i+w]
-        palette[i: i+w]     = palette[i+w: i+w*2]
-        palette[i+w: i+w*2] = temp_pixels
 
 
 def swizzle_dc_gauntlet_textures(

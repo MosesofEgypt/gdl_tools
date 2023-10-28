@@ -1,6 +1,10 @@
+import os
 import struct
 
 from . import constants
+from . import texture_util
+from . import arbytmap_ext as arbytmap
+from . import texture_conversions as tex_conv
 from .asset_cache import AssetCache
 from .ncc import NccTable
 from .. import util
@@ -43,6 +47,12 @@ class TextureCache(AssetCache):
     _format_name    = ""
     palette         = b''
     textures        = ()
+    texture_chunk_size = constants.DEF_TEXTURE_BUFFER_CHUNK_SIZE
+
+    def __init__(self):
+        self.format_name_to_id = {
+            v: k for k, v in self.format_id_to_name.items()
+            }
 
     @property
     def format_id(self):
@@ -54,6 +64,13 @@ class TextureCache(AssetCache):
         self.format_name = self.format_id_to_name[val]
 
     @property
+    def monochrome(self):
+        return self.format in constants.MONOCHROME_FORMATS
+    @property
+    def palettized(self):
+        return self.format in constants.PALETTE_SIZES
+
+    @property
     def format_name(self):
         return self._format_name
     @format_name.setter
@@ -61,6 +78,20 @@ class TextureCache(AssetCache):
         if val not in self.format_name_to_id:
             raise ValueError(f"{val} is not a valid format_name in {type(self)}")
         self._format_name = val
+
+    @property
+    def palette_stride(self):
+        return constants.PALETTE_SIZES.get(self.format_name, 0)
+    @property
+    def palette_count(self):
+        return 2**self.pixel_stride if self.palettized else 0
+    @property
+    def pixel_stride(self):
+        return constants.PIXEL_SIZES.get(self.format_name, 0)
+
+    @property
+    def palette_size(self):
+        return self.palette_count*self.palette_stride
 
     def parse(self, rawdata):
         super().parse(rawdata)
@@ -79,8 +110,14 @@ class TextureCache(AssetCache):
         self.large_vq   = bool(tex_flags & TEXTURE_CACHE_FLAG_SMALL_VQ)
         self.small_vq   = bool(tex_flags & TEXTURE_CACHE_FLAG_LARGE_VQ)
 
+        start = rawdata.tell()
         self.parse_palette(rawdata)
         self.parse_textures(rawdata)
+        texture_size = rawdata.tell() - start
+
+        # seek past the padding
+        pad_size = util.calculate_padding(texture_size, self.texture_chunk_size)
+        rawdata.seek(pad_size, os.SEEK_CUR)
 
     def serialize(self):
         self.cache_type_version = TEXTURE_CACHE_VER
@@ -99,18 +136,18 @@ class TextureCache(AssetCache):
         cache_header_rawdata = super().serialize()
         palette_data = self.serialize_palette()
         texture_data = self.serialize_textures()
-        return cache_header_rawdata + tex_header_rawdata + palette_data + texture_data
+
+        # pad to buffer chunk size
+        padding = b'\x00' * util.calculate_padding(
+            len(texture_data) + len(palette_data), self.texture_chunk_size
+            )
+        return (cache_header_rawdata + tex_header_rawdata +
+                palette_data + texture_data + padding)
 
     def parse_palette(self, rawdata):
-        palette_stride = constants.PALETTE_SIZES.get(self.format_name, 0)
-        pixel_stride   = constants.PIXEL_SIZES[self.format_name]
-
-        palette = None
-        if palette_stride:
-            palette_size = (2**pixel_stride)*palette_stride
-            palette      = rawdata.read(palette_size)
-            if len(palette) != palette_size:
-                raise ValueError("Palette data is truncated. Unable to parse texture cache.")
+        palette = rawdata.read(self.palette_size)
+        if len(palette) != self.palette_size:
+            raise ValueError("Palette data is truncated. Unable to parse texture cache.")
 
         self.palette = palette
 
@@ -134,10 +171,25 @@ class TextureCache(AssetCache):
             mip_width  = (mip_width + 1)//2
             mip_height = (mip_height + 1)//2
 
+        # make 4-bit indexing/monochrome into 8-bit for easy manipulation
+        if constants.PIXEL_SIZES.get(self.format_name, 0) < 8:
+            rescaler_4bpp = (
+                tex_conv.INDEXING_8BPP_TO_4BPP if self.palettized else
+                tex_conv.MONOCHROME_8BPP_TO_4BPP
+                )
+            textures = [
+                tex_conv.rescale_4bit_array_to_8bit(texture, rescaler_4bpp)
+                for texture in textures
+                ]
+
         self.textures = textures
 
     def serialize_palette(self):
-        return bytes(self.palette)
+        palette_data = bytearray(self.palette)
+        if len(palette_data) != self.palette_size:
+            raise ValueError("Palette data is incorrect size. Unable to serialize texture cache.")
+
+        return palette_data
 
     def serialize_textures(self):
         max_mipmaps = max(0, len(self.textures) - 1)
@@ -145,7 +197,17 @@ class TextureCache(AssetCache):
             print(f"Warning: Reducing mipmaps from {self.mipmaps} to {max_mipmaps}")
             self.mipmaps = max_mipmaps
 
-        return b''.join(self.textures[i] for i in range(self.mipmaps + 1))
+        texture_data = bytearray(b''.join(self.textures[i] for i in range(self.mipmaps + 1)))
+
+        # pack 8-bit indexing/monochrome back to 4-bit
+        if constants.PIXEL_SIZES.get(self.format_name, 0) < 8:
+            rescaler_4bpp = (
+                tex_conv.INDEXING_8BPP_TO_4BPP if self.palettized else
+                tex_conv.MONOCHROME_8BPP_TO_4BPP
+                )
+            texture_data = tex_conv.rescale_8bit_array_to_4bit(texture_data, rescaler_4bpp)
+
+        return texture_data
 
 
 class Ps2TextureCache(TextureCache):
@@ -169,7 +231,32 @@ class Ps2TextureCache(TextureCache):
         146: constants.PIX_FMT_A_4_IDX_4,  # not really palettized
         147: constants.PIX_FMT_I_4_IDX_4,  # not really palettized
         }
-    format_name_to_id = {v: k for k, v in format_name_to_id.items()}
+    texture_chunk_size = constants.PS2_TEXTURE_BUFFER_CHUNK_SIZE
+
+    def _ps2_palette_shuffle(self, palette):
+        # gauntlet textures have every OTHER pair of 8 palette entries
+        # swapped with each other for some reason. The exceptions to
+        # to this pattern are the first and last set of 8. undo that
+        w = 8 * self.pixel_stride
+
+        # multiply by 4 instead of 2 to skip every other pair
+        for i in range(w, len(palette)-w, w*4):
+            temp_pixels         = palette[i: i+w]
+            palette[i: i+w]     = palette[i+w: i+w*2]
+            palette[i+w: i+w*2] = temp_pixels
+
+    def parse_palette(self, rawdata):
+        super().parse_palette(rawdata)
+        if self.palettized:
+            self.palette = bytearray(self.palette)
+            self._ps2_palette_shuffle(self.palette)
+
+    def serialize_palette(self):
+        palette = super().serialize_palette()
+        if self.palettized:
+            self._ps2_palette_shuffle(palette)
+
+        return palette
 
 
 class GamecubeTextureCache(Ps2TextureCache):
@@ -185,9 +272,93 @@ class GamecubeTextureCache(Ps2TextureCache):
         130: constants.PIX_FMT_A_8_IDX_8,  # not really palettized
         146: constants.PIX_FMT_A_4_IDX_4,  # not really palettized
         }
-    format_name_to_id = {v: k for k, v in format_name_to_id.items()}
-    # gamecube exclusive fuckery(they're the same format)
-    format_name_to_id[constants.PIX_FMT_XBGR_3555_NGC] = 0
+
+    def __init__(self):
+        super().__init__()
+        # gamecube exclusive fuckery(they're the same format)
+        self.format_name_to_id[constants.PIX_FMT_XBGR_3555_NGC] = 0
+
+    @property
+    def format_name(self):
+        return self._format_name
+    @format_name.setter
+    def format_name(self, val):
+        # MIDWAY HACK
+        if val == constants.PIX_FMT_ABGR_1555:
+            val = constants.PIX_FMT_ABGR_3555_NGC
+        elif val == constants.PIX_FMT_XBGR_1555:
+            val = constants.PIX_FMT_XBGR_3555_NGC
+        elif val not in self.format_name_to_id:
+            raise ValueError(f"{val} is not a valid format_name in {type(self)}")
+
+        self._format_name = val
+
+    def _ngc_byteswap(self, pixel_buffers):
+        # byteswap colors for gamecube
+        itemsize = (
+            self.palette_stride
+            if self.palettized else
+            (self.pixel_stride//8)
+            )
+        if itemsize <= 1:
+            return
+
+        swap_map = tuple(range(itemsize))[::-1]
+
+        # swap from little to big endian
+        for pixels in pixel_buffers:
+            arbytmap.bitmap_io.swap_array_items(pixels, swap_map)
+
+    def _ngc_swizzle(self, textures, unswizzle):
+        # (un)swizzle the textures from gamecube
+        pixel_stride = constants.PIXEL_SIZES.get(self.format_name, 0)
+
+        texture_util.swizzle_ngc_gauntlet_textures(
+            textures, width=self.width, height=self.height,
+            bits_per_pixel=pixel_stride, unswizzle=unswizzle
+            )
+
+    def parse_palette(self, rawdata):
+        super().parse_palette(rawdata)
+
+        if self.palettized:
+            palette = bytearray(self.palette)
+            self._ngc_byteswap([palette])
+            self.palette = bytes(palette)
+
+    def serialize_palette(self):
+        palette_bytes = super().serialize_palette()
+
+        if self.palettized:
+            self._ngc_byteswap([palette_bytes])
+
+        return palette_bytes
+
+    def parse_textures(self, rawdata):
+        super().parse_textures(rawdata)
+        textures = [bytearray(b) for b in self.textures]
+
+        self._ngc_swizzle(textures, unswizzle=True)
+
+        if not self.palettized:
+            self._ngc_byteswap(textures)
+
+        self.textures = textures
+
+    def serialize_textures(self):
+        max_mipmaps = max(0, len(self.textures) - 1)
+        if self.mipmaps > max_mipmaps:
+            print(f"Warning: Reducing mipmaps from {self.mipmaps} to {max_mipmaps}")
+            self.mipmaps = max_mipmaps
+
+        textures = [bytearray(self.textures[i]) for i in range(self.mipmaps + 1)]
+
+        self._ngc_swizzle(textures, unswizzle=False)
+
+        if not self.palettized:
+            self._ngc_byteswap(textures)
+
+        return bytearray.join(textures)
 
 
 class DreamcastTextureCache(TextureCache):
@@ -197,15 +368,22 @@ class DreamcastTextureCache(TextureCache):
         1: constants.PIX_FMT_ABGR_4444,
         2: constants.PIX_FMT_BGR_565,
         }
-    format_name_to_id = {v: k for k, v in format_name_to_id.items()}
 
-    def parse_palette(self, rawdata):
-        if not self.large_vq and not self.small_vq:
-            return super().parse_palette(rawdata)
-
-        palette_count = 256
-        if self.small_vq:
-            pass
+    @property
+    def palettized(self):
+        # only handling vq palettized
+        return (self.large_vq or self.small_vq)
+    @property
+    def palette_stride(self):
+        # always 4 pixels per vq entry, with 2 bytes per pixel.
+        return 8 if self.palettized else 0
+    @property
+    def palette_count(self):
+        # TODO: test this logic
+        if not self.palettized:
+            palette_count = 0
+        elif self.large_vq or (self.small_vq and self.width > 64):
+            palette_count = 256
         elif self.width == 64:
             palette_count = 128
         elif self.width == 32 and self.mipmaps:
@@ -215,14 +393,11 @@ class DreamcastTextureCache(TextureCache):
         elif self.width <= 16:
             palette_count = 16
 
-        # palette stores 2x2 squares per entry
-        palette_stride  = 4 * constants.PIXEL_SIZES[self.format_name]
-        palette_size    = palette_count*palette_stride
-        palette         = rawdata.read(palette_size)
-        if len(palette) != palette_size:
-            raise ValueError("Palette data is truncated. Unable to parse texture cache.")
-
-        self.palette = palette
+        return palette_count
+    @property
+    def pixel_stride(self):
+        # always 8-bit indexing for palettized
+        return 8 if self.palettized else constants.PIXEL_SIZES.get(self.format_name, 0)
 
     def parse_textures(self, rawdata):
         is_square = (self.width == self.height)
@@ -263,6 +438,8 @@ class DreamcastTextureCache(TextureCache):
 
             textures.append(mipmap_data)
 
+        # skip past the 8 bytes of 0xFF
+        rawdata.seek(8, os.SEEK_CUR)
         self.textures = textures
 
     def serialize_textures(self):
@@ -289,10 +466,6 @@ class DreamcastTextureCache(TextureCache):
         texture_data = b''.join(self.textures[::-1])
         # for some reason the texture data always stores an extra 8 bytes of 0xFF
         texture_data += b'\xFF' * 8
-        # pad to multiple of 16 bytes
-        texture_data += b'\x00' * util.calculate_padding(
-            len(texture_data), constants.DC_TEXTURE_BUFFER_CHUNK_SIZE
-            )
         return texture_data
 
 
@@ -313,7 +486,6 @@ class ArcadeTextureCache(TextureCache):
         13: constants.PIX_FMT_AI_88,
         14: constants.PIX_FMT_AP_88,
         }
-    format_name_to_id = {v: k for k, v in format_name_to_id.items()}
     ncc_table = None
 
     def parse(self, rawdata):
