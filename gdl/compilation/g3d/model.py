@@ -372,6 +372,7 @@ def decompile_models(
                 model_cache.vert_count      = obj.vert_count
                 model_cache.tri_count       = obj.tri_count
                 model_cache.texture_names   = texture_names
+                model_cache.is_extracted    = True
 
                 all_job_args.append(dict(
                     texture_assets=texture_assets, model_cache=model_cache,

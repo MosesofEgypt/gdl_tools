@@ -57,11 +57,12 @@ def verify_source_file_asset_checksum(asset_filepath, cache_filepath):
 
 class AssetCache:
     version               = CACHE_HEADER_VER
-    flags                 = 0
     cache_type            = ''
     cache_type_version    = 0
     checksum_algorithm    = CACHE_CHECKSUM_ALGORITHM
     source_asset_checksum = b''
+
+    is_extracted          = False
 
     def parse(self, rawdata):
         if not rawdata:
@@ -75,7 +76,7 @@ class AssetCache:
             raise ValueError(f"Unknown G3DCache file version: {ver}")
 
         self.version               = ver
-        self.flags                 = flags
+        self.is_extracted          = bool(flags & CACHE_FLAG_EXTRACTED)
         self.cache_type            = cache_type.strip(b'\x00').decode("latin-1")
         self.cache_type_version    = cache_type_ver
         self.checksum_algorithm    = algo.strip(b'\x00').decode("latin-1")
@@ -87,8 +88,12 @@ class AssetCache:
                 f"Asset type '{cache_type}' is too long to be stored in cache file."
                 )
 
+        flags = (
+            (CACHE_FLAG_EXTRACTED * bool(self.is_extracted))
+            )
+
         header_data = CACHE_HEADER_STRUCT.pack(
-            CACHE_HEADER_SIG, self.version, self.flags,
+            CACHE_HEADER_SIG, self.version, flags,
             self.cache_type.encode("latin-1"),
             self.cache_type_version,
             self.checksum_algorithm.encode("latin-1"),

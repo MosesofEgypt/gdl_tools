@@ -83,9 +83,9 @@ image_type_dc = UEnum8("image_type",
     #   vq is used when:
     #       width >= 128 or (width == 64 and mipmapped)
     #   small vq is used otherwise, and the codebook size is:
-    #       128 if width == 64 or (width == 32 and mipmapped)
-    #       64  if width == 32
-    #       32  width == 32 and mipmapped
+    #       128 width == 64
+    #       64  width == 32 and mipmapped
+    #       32  width == 32
     #       16  width <= 16
     # codebook entries store pixels in the following order:
     #   bottom right, top right, bottom left, top left
