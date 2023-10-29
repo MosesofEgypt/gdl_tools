@@ -61,6 +61,7 @@ class AssetCache:
     cache_type_version    = 0
     checksum_algorithm    = CACHE_CHECKSUM_ALGORITHM
     source_asset_checksum = b''
+    expected_cache_type_versions = frozenset()
 
     is_extracted          = False
 
@@ -74,6 +75,10 @@ class AssetCache:
             raise ValueError("File does not appear to be a G3DCache file.")
         elif ver != CACHE_HEADER_VER:
             raise ValueError(f"Unknown G3DCache file version: {ver}")
+
+        cache_key = (cache_type, cache_type_ver)
+        if cache_key not in self.expected_cache_type_versions:
+            raise ValueError(f"Unexpected cache type or version '{cache_key}'")
 
         self.version               = ver
         self.is_extracted          = bool(flags & CACHE_FLAG_EXTRACTED)

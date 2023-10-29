@@ -4,7 +4,7 @@ import os
 
 from traceback import format_exc
 from ..metadata import objects as objects_metadata
-from .serialization.texture import G3DTexture, ROMTEX_HEADER_STRUCT
+from .serialization.texture import G3DTexture
 from .serialization import ncc
 from . import constants as c
 from . import texture_buffer_packer

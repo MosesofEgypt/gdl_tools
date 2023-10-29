@@ -5,7 +5,9 @@ import urllib
 from math import sqrt
 
 from .stripify import Stripifier
-from .model_cache import VifModelCache, DreamcastModelCache, ArcadeModelCache
+from .model_cache import Ps2ModelCache, XboxModelCache,\
+     GamecubeModelCache, DreamcastModelCache, ArcadeModelCache,\
+     get_model_cache_class_from_cache_type
 from . import model_vif
 from . import constants as c
 
@@ -324,7 +326,7 @@ class G3DModel():
 
     def import_g3d(self, model_cache):
         self.clear()
-        if isinstance(model_cache, VifModelCache):
+        if isinstance(model_cache, Ps2ModelCache):
             for geom in model_cache.geoms:
                 idx_key  = (geom["tex_name"].upper(),
                             geom["lm_name"].upper())
@@ -353,11 +355,8 @@ class G3DModel():
         for tex_name, lm_name in self.stripifier.all_strips:
             texture_names.update((tex_name.upper(), lm_name.upper()))
 
-        if cache_type in (c.MODEL_CACHE_EXTENSION_PS2,
-                          c.MODEL_CACHE_EXTENSION_NGC,
-                          c.MODEL_CACHE_EXTENSION_XBOX):
-            model_cache = VifModelCache()
-
+        model_cache = get_model_cache_class_from_cache_type(cache_type)
+        if isinstance(model_cache, Ps2ModelCache):
             self.make_strips()
 
             # loop over each subobject
@@ -369,16 +368,13 @@ class G3DModel():
                 model_cache.geoms.append(vif_data)
 
             model_cache.is_fifo2 = False
-        elif cache_type == c.MODEL_CACHE_EXTENSION_DC:
-            model_cache = DreamcastModelCache()
+        elif isinstance(model_cache, DreamcastModelCache):
             raise NotImplementedError()
-        elif cache_type == c.MODEL_CACHE_EXTENSION_ARC:
-            model_cache = ArcadeModelCache()
+        elif isinstance(model_cache, ArcadeModelCache):
             raise NotImplementedError()
         else:
             raise ValueError(f"Unexpected cache type '{cache_type}'")
 
-        model_cache.cache_type      = cache_type
         model_cache.bounding_radius = self.bounding_radius
         model_cache.texture_names   = list(sorted(texture_names))
         

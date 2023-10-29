@@ -8,19 +8,9 @@ from .. import util
 from . import arbytmap_ext as arbytmap
 from . import constants as c
 from . import texture_conversions as tex_conv
-from . import texture_util
-from . import ncc
-
-ROMTEX_HEADER_STRUCT = struct.Struct('<HH 4x bBbB 4x 16s')
-#   width
-#   height
-#   4_padding_bytes
-#   mipmap_count
-#   flags
-#   lod_k
-#   format
-#   4_padding_bytes
-#   md5_of_source_asset
+from .texture_cache import Ps2TextureCache, XboxTextureCache,\
+     GamecubeTextureCache, DreamcastTextureCache, ArcadeTextureCache,\
+     get_texture_cache_class_from_cache_type
 
 
 class G3DTexture:
@@ -30,13 +20,12 @@ class G3DTexture:
     height = 0
     format_name = c.DEFAULT_FORMAT_NAME
     lod_k = 0
-    flags = 0
 
-    ncc_table   = ncc.NccTable()
-
+    ncc_table   = None
     twiddled    = False
     large_vq    = False
     small_vq    = False
+    has_alpha   = False
 
     source_file_hash = b'\x00'*16
     channel_map = ()
@@ -44,10 +33,6 @@ class G3DTexture:
     mono_channel_map = (-1, 0, 0, 0)
     dual_channel_map = (0, 1, 1, 1)
     argb_channel_map = (0, 1, 2, 3)
-
-    @property
-    def has_alpha(self):
-        return self.flags & c.GTX_FLAG_HAS_ALPHA
 
     @property
     def arbytmap_format(self):
@@ -74,8 +59,7 @@ class G3DTexture:
         conv_settings = dict(
             target_format=arbytmap.FORMAT_L8,
             # need bitmaps unpacked and depalettized to work with
-            palettize=False,
-            repack=False,
+            palettize=False, repack=False,
             )
 
         source_channels = arbytmap.format_defs.CHANNEL_COUNTS[arby.format]
@@ -167,7 +151,7 @@ class G3DTexture:
         # load the results into this G3DTexture
         self.width  = arby.width
         self.height = arby.height
-        self.flags  = c.GTX_FLAG_ALL & ("A" in arby.format)
+        self.has_alpha   = ("A" in arby.format)
         self.channel_map = tuple(arby.channel_mapping)
         self.format_name = target_format_name
         self.lod_k = c.DEFAULT_TEX_LOD_K
@@ -194,233 +178,35 @@ class G3DTexture:
             keep_alpha=self.has_alpha
             )
 
-    def import_g3d(self, input_buffer, headerless=False, flags=0, source_md5=b'\x00'*16,
-                   width=0, height=0, mipmaps=0, format_name="ABGR_8888", lod_k=0,
-                   is_ngc=False, is_dreamcast=False, is_arcade=False,
-                   buffer_end=-1, ncc_table=None, twiddled=False, large_vq=False, small_vq=False
-                   ):
-        if not headerless:
-            header = ROMTEX_HEADER_STRUCT.unpack(
-                input_buffer.read(ROMTEX_HEADER_STRUCT.size)
-                )
-            width, height, mipmaps, flags, lod_k, format_id, source_md5 = header
+    def import_g3d(self, texture_cache):
+        self.width  = texture_cache.width
+        self.height = texture_cache.height
+        self.format_name = texture_cache.format_name
+        self.lod_k = texture_cache.lod_k
 
-            format_name = (
-                c.ARC_FORMAT_ID_TO_NAME if is_arcade else
-                c.DC_FORMAT_ID_TO_NAME if is_dreamcast else
-                c.FORMAT_ID_TO_NAME
-                ).get(format_id, "")
-            if not format_name:
-                raise TypeError("Invalid format id: '%s'" % format_id)
-
-        # MIDWAY HACK
-        if is_ngc:
-            if format_name == c.PIX_FMT_ABGR_1555:
-                format_name = c.PIX_FMT_ABGR_3555_NGC
-            elif format_name == c.PIX_FMT_XBGR_1555:
-                format_name = c.PIX_FMT_XBGR_3555_NGC
-        elif is_dreamcast:
-            raise NotImplementedError()
-
-        if format_name not in c.PIXEL_SIZES:
-            raise TypeError("Invalid format name: '%s'" % format_name)
-        elif width not in c.VALID_DIMS or height not in c.VALID_DIMS:
-            raise ValueError("Invalid dimensions: %sx%s" % (width, height))
-
-        if headerless and "A" in format_name.split("_")[0]:
-            flags |= c.GTX_FLAG_HAS_ALPHA
-
-        is_monochrome = format_name in c.MONOCHROME_FORMATS
-        palette_stride = c.PALETTE_SIZES.get(format_name, 0)
-        pixel_stride   = c.PIXEL_SIZES.get(format_name, 0)
-        if buffer_end < 0:
-            buffer_end = 1<<63  # big buffah
-
-        palette = None
-        textures = []
-        if palette_stride:
-            # must be bytearray to be byteswapped(if needed)
-            palette_size = (2**pixel_stride)*palette_stride
-            remaining_data = buffer_end - input_buffer.tell()
-            palette = bytearray(input_buffer.read(palette_size))
-            if palette_size > remaining_data or len(palette) < palette_size:
-                raise ValueError("Error: Detected truncated palette data. Cannot import texture.")
-
-        mip_width  = width
-        mip_height = height
-        for i in range(mipmaps + 1):
-            mipmap_size = (mip_width*mip_height*pixel_stride)//8
-            remaining_data = buffer_end - input_buffer.tell()
-                
-            mipmap_data = bytearray(input_buffer.read(mipmap_size))
-            if mipmap_size > remaining_data or len(mipmap_data) < mipmap_size:
-                if i == 0:
-                    raise ValueError("Error: Detected truncated bitmap data. Cannot import texture.")
-                print("Warning: Detected truncated bitmap data. Cannot load mip %s or higher." % i)
-                break
-
-            # must be bytearray to be byteswapped(if needed)
-            textures.append(mipmap_data)
-            mip_width  = (mip_width + 1)//2
-            mip_height = (mip_height + 1)//2
-
-        self.width  = width
-        self.height = height
-        self.format_name = format_name
-        self.flags = flags & c.GTX_FLAG_ALL
-        self.lod_k = lod_k
-
-        # if necessary, unshuffle the palette
-        if palette:
-            palette_block = []
-            arbytmap.bitmap_io.bitmap_bytes_to_array(
-                palette, 0, palette_block, self.arbytmap_format,
-                1, 1, 1, bitmap_size=len(palette)
-                )
-            # convert back to bytearray to ensure everything works with it
-            palette = palette_block[0] = bytearray(palette_block[0])
-            if not is_ngc and not is_monochrome:
-                texture_util.gauntlet_ps2_palette_shuffle(palette, palette_stride)
-            rescaler_4bpp = tex_conv.INDEXING_4BPP_TO_8BPP
-        else:
-            rescaler_4bpp = tex_conv.MONOCHROME_4BPP_TO_8BPP
-
-        # hack for 4bpp palettized to pad it up to 8bpp
-        if pixel_stride < 8:
-            textures = [
-                tex_conv.rescale_4bit_array_to_8bit(texture, rescaler_4bpp)
-                for texture in textures
-                ]
-
-        # if necessary, deswizzle the textures and byteswap colors
-        itemsize = palette_stride if palette else (pixel_stride//8)
-        if is_ngc:
-            textures = texture_util.swizzle_ngc_gauntlet_textures(
-                textures, width=self.width, height=self.height,
-                bits_per_pixel=pixel_stride, unswizzle=True
-                )
-
-            if itemsize > 1:
-                swap_map = tuple(range(itemsize))[::-1]
-
-                # swap from big to little endian
-                for pixels in ([palette] if palette else textures):
-                    arbytmap.bitmap_io.swap_array_items(pixels, swap_map)
-
-        elif not is_monochrome and itemsize > 1 and not is_arcade:
-            # swap from BGRA to RGBA for ps2/xbox
-            if palette:
-                tex_conv.channel_swap_bgra_rgba_array([palette], itemsize)
-            else:
-                tex_conv.channel_swap_bgra_rgba_array(textures, itemsize)
+        self.has_alpha = texture_cache.has_alpha
+        self.twiddled = texture_cache.twiddled
+        self.large_vq = texture_cache.large_vq
+        self.small_vq = texture_cache.small_vq
 
         self.channel_map = (
-            self.dual_channel_map if format_name in (c.PIX_FMT_IA_8_IDX_88, c.PIX_FMT_AI_88) else
-            self.mono_channel_map if is_monochrome else
+            self.dual_channel_map if self.format_name in (c.PIX_FMT_IA_8_IDX_88, c.PIX_FMT_AI_88) else
+            self.mono_channel_map if texture_cache.monochrome else
             self.argb_channel_map
             )
 
-        self.palette = palette
-        self.textures = textures
-        self.ncc_table = ncc_table
+        self.palette   = texture_cache.palette
+        self.textures  = texture_cache.textures
+        self.ncc_table = texture_cache.ncc_table
 
-        self.twiddled = twiddled
-        self.large_vq = large_vq
-        self.small_vq = small_vq
-
-    def export_g3d(self, output_buffer, headerless=False,
-                   target_ps2=False, target_ngc=False,
-                   target_dreamcast=False, target_arcade=False
-                   ):
-        is_monochrome = self.format_name in c.MONOCHROME_FORMATS
-        name_to_id_map = (
-            c.ARC_FORMAT_ID_TO_NAME if target_arcade else
-            c.DC_FORMAT_ID_TO_NAME if target_dreamcast else
-            c.FORMAT_ID_TO_NAME
-            )
-
-        if not self.textures:
-            return
-        elif self.format_name not in name_to_id_map:
-            raise TypeError("INVALID FORMAT: '%s'" % self.format_name)
-
-        if not headerless:
-            output_buffer.write(ROMTEX_HEADER_STRUCT.pack(
-                self.width, self.height, len(self.textures) - 1,
-                self.flags & c.GTX_FLAG_ALL, self.lod_k,
-                name_to_id_map[self.format_name],
-                self.source_file_hash
-                ))
-
-        palette  = deepcopy(self.palette)
-        textures = deepcopy(self.textures)
-
-        palette_stride = c.PALETTE_SIZES.get(self.format_name, 0)
-        pixel_stride   = c.PIXEL_SIZES.get(self.format_name, 0)
-
-        if palette:
-            palette = deepcopy(self.palette)
-            # if necessary, unshuffle the palette
-            if not target_ngc and self.format_name not in c.MONOCHROME_FORMATS:
-                texture_util.gauntlet_ps2_palette_shuffle(palette, palette_stride)
-
-        itemsize = palette_stride if palette else (pixel_stride//8)
-        if target_ngc:
-            # swizzle the textures and byteswap colors for gamecube
-            textures = texture_util.swizzle_ngc_gauntlet_textures(
-                textures, width=self.width, height=self.height,
-                bits_per_pixel=pixel_stride, unswizzle=False
-                )
-
-            if itemsize > 1:
-                swap_map = tuple(range(itemsize))[::-1]
-
-                # swap from little to big endian
-                for pixels in ([palette] if palette else textures):
-                    arbytmap.bitmap_io.swap_array_items(pixels, swap_map)
-
-        elif not is_monochrome and itemsize > 1:
-            # swap from BGRA to RGBA for ps2 and xbox
-            if palette:
-                tex_conv.channel_swap_bgra_rgba_array([palette], itemsize)
-            else:
-                tex_conv.channel_swap_bgra_rgba_array(textures, itemsize)
-
-        # hack for 4bpp palettized to unpad from 8bpp to 4bpp
-        if pixel_stride < 8:
-            rescaler_4bpp = (
-                tex_conv.INDEXING_8BPP_TO_4BPP if palette else
-                tex_conv.MONOCHROME_8BPP_TO_4BPP
-                )
-            textures = [
-                tex_conv.rescale_8bit_array_to_4bit(texture, rescaler_4bpp)
-                for texture in textures
-                ]
-
-        if palette:
-            output_buffer.write(palette)
-
-        for texture in textures:
-            output_buffer.write(texture)
-
-        if target_dreamcast:
-            # dreamcast textures always end with 8 bytes of 0xFF for some reason
-            output_buffer.write(b"\x00" * 8)
-
-        chunk_size = (
-            c.DC_TEXTURE_BUFFER_CHUNK_SIZE if target_dreamcast else
-            c.PS2_TEXTURE_BUFFER_CHUNK_SIZE if target_ps2 else
-            0
-            )
-        if chunk_size:
-            output_buffer.write(b"\x00" * util.calculate_padding(
-                output_buffer.tell(), chunk_size
-                ))
+    def compile_g3d(self, cache_type):
+        cache_type = get_texture_cache_class_from_cache_type
+        raise NotImplementedError()
 
     def to_arbytmap_instance(self, include_mipmaps=False):
         if not self.textures:
             return arbytmap.Arbytmap()
-        if self.format_name not in c.PIXEL_SIZES:
+        elif self.format_name not in c.PIXEL_SIZES:
             raise ValueError("INVALID FORMAT: '%s'" % self.format_name)
 
         # make copies to keep originals unaffected

@@ -5,7 +5,8 @@ from ..metadata import objects as objects_metadata
 from .serialization.model import G3DModel
 from .serialization.asset_cache import get_asset_checksum, verify_source_file_asset_checksum
 from .serialization.model_cache import get_model_cache_class,\
-     VifModelCache, DreamcastModelCache, ArcadeModelCache
+     get_model_cache_class_from_cache_type,\
+     Ps2ModelCache, DreamcastModelCache, ArcadeModelCache
 from . import constants as c
 from . import util
 
@@ -172,7 +173,7 @@ def import_models(
             lmap       = model_cache.has_lmap,
             )
 
-        if isinstance(model_cache, VifModelCache):
+        if isinstance(model_cache, Ps2ModelCache):
             objects.append()
             obj = objects[-1]
             obj_flags       = obj.flags
@@ -321,16 +322,14 @@ def decompile_models(
                     continue
 
                 if is_vif:
-                    model_cache = VifModelCache()
-                    model_cache.cache_type  = c.MODEL_CACHE_EXTENSION_PS2
-                    if asset_type in c.MODEL_CACHE_EXTENSIONS:
-                        model_cache.cache_type = asset_type
+                    model_cache = (
+                        get_model_cache_class_from_cache_type(asset_type)
+                        if asset_type in c.MODEL_CACHE_EXTENSIONS else
+                        Ps2ModelCache
+                        )
 
-                    if model_cache.cache_type not in (
-                            c.MODEL_CACHE_EXTENSION_NGC,
-                            c.MODEL_CACHE_EXTENSION_PS2,
-                            c.MODEL_CACHE_EXTENSION_XBOX
-                            ):
+                    model_cache = model_cache_class()
+                    if not isinstance(model_cache, Ps2ModelCache):
                         print("Cannot export PS2/XBOX/NGC model to non-PS2/XBOX/NGC cache file.")
                         continue
                         
