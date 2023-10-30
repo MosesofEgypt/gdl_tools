@@ -5,7 +5,7 @@ from panda3d.core import ModelNode, GeomNode, Geom,\
 from ..assets.shader import GeometryShader
 from ..assets.model import Model, ObjectAnimModel, Geometry
 from ...compilation.g3d.serialization.model import G3DModel
-from ...compilation.g3d.model import object_to_model_cache
+from ...compilation.g3d.model import object_to_model_cache, Ps2ModelCache
 
 
 def _register_g3d_vertex_format():
@@ -24,7 +24,9 @@ def _register_g3d_vertex_format():
     return GeomVertexFormat.registerFormat(vformat)
 
 
-def load_geom_from_g3d_model(g3d_model, geom_shader, billboard_fixup=False):
+def load_geometries_from_g3d_model(
+        g3d_model, textures, billboard_fixup=False, shader_flags=()
+        ):
     vdata = GeomVertexData('', G3DVertexFormat, Geom.UHDynamic)
     vdata.setNumRows(len(g3d_model.verts))
 
@@ -33,9 +35,6 @@ def load_geom_from_g3d_model(g3d_model, geom_shader, billboard_fixup=False):
     uvsAddData    = GeomVertexWriter(vdata, 'texcoord').addData2f
     lmuvsAddData  = GeomVertexWriter(vdata, 'texcoord.lm').addData2f
     colorsAddData = GeomVertexWriter(vdata, 'color').addData4f
-
-    tris = GeomTriangles(Geom.UHDynamic)
-    addVertices   = tris.addVertices
 
     # rotate y and z coordinates. for the billboard fixup, we're
     # doing a bit of a hack. panda3d's billboard effect wants to
@@ -64,18 +63,31 @@ def load_geom_from_g3d_model(g3d_model, geom_shader, billboard_fixup=False):
     for s, t in g3d_model.lm_uvs:
         lmuvsAddData(s, 1.0 - t)
 
-    for tri_list in g3d_model.tri_lists.values():
-        for tri in tri_list:
+    geometries = {}
+    for idx_key in g3d_model.tri_lists:
+        tex_name, lm_name = idx_key
+        p3d_geometry = GeomNode("")
+        geom         = Geom(vdata)
+
+        tris        = GeomTriangles(Geom.UHDynamic)
+        addVertices = tris.addVertices
+        geom_shader = GeometryShader(
+            diff_texture=textures.get(tex_name),
+            lm_texture=textures.get(lm_name)
+            )
+        for name in shader_flags:
+            setattr(geom_shader, name, shader_flags[name])
+
+        for tri in g3d_model.tri_lists[idx_key]:
             addVertices(tri[0], tri[3], tri[6])
 
-    p3d_geometry = GeomNode("")
-    geom = Geom(vdata)
-    geom.addPrimitive(tris)
-    p3d_geometry.addGeom(geom)
+        geom.addPrimitive(tris)
 
-    return Geometry(
-        p3d_geometry=p3d_geometry, shader=geom_shader,
-        )
+        p3d_geometry.addGeom(geom)
+        geometries[idx_key] = Geometry(
+            p3d_geometry=p3d_geometry, shader=geom_shader,
+            )
+    return geometries
 
 
 def load_model_from_objects_tag(
@@ -88,57 +100,40 @@ def load_model_from_objects_tag(
         textures = {}
 
     model_name = model_name.upper().strip()
-    _, bitmap_name_by_index = objects_tag.get_cache_names()
+    _, bitmap_name_by_index   = objects_tag.get_cache_names()
     object_indices_by_name, _ = objects_tag.get_cache_names(by_name=True)
     obj_index = object_indices_by_name.get(model_name, {}).get("index", -1)
 
-    flags = None
-    if is_obj_anim or obj_index < 0:
-        bnd_rad = 0
-        datas = tex_names = lm_names = ()
-    else:
-        obj = objects_tag.data.objects[obj_index]
-
-        flags    = getattr(obj, "flags", None)
-        subobjs  = (obj.sub_object_0, *getattr(obj.data, "sub_objects", ()))
-        has_lmap = getattr(flags, "lmap", False)
-        bnd_rad  = obj.bnd_rad
-
-        datas = [ m.data for m in obj.data.sub_object_models ]
-        tex_names = [
-            bitmap_name_by_index.get(h.tex_index, {}).get('name')
-            for h in subobjs
-            ]
-        lm_names = [
-            bitmap_name_by_index.get(h.lm_index, {}).get('name') if has_lmap else ""
-            for h in subobjs
-            ]
-
-    model_class = ObjectAnimModel if is_obj_anim else Model
-    model = model_class(
-        name=model_name, p3d_model=p3d_model, bounding_radius=bnd_rad
-        )
-    for data, tex_name, lm_name in zip(datas, tex_names, lm_names):
-        data.seek(0)  # reset in case data was read previously
-
-        g3d_model = G3DModel()
+    g3d_model = G3DModel()
+    shader_flags = {}
+    if obj_index >= 0 and not is_obj_anim:
+        obj     = objects_tag.data.objects[obj_index]
+        flags   = getattr(obj, "flags", None)
         g3d_model.import_g3d(
-            data, tex_name=tex_name, lm_name=lm_name, headerless=True,
+            object_to_model_cache(obj, bitmap_assets=bitmap_name_by_index)
             )
-        geom_shader = GeometryShader(
-            diff_texture=textures.get(tex_name),
-            lm_texture=textures.get(lm_name)
+        shader_flags.update(
+            sharp      = getattr(flags, "sharp",  False),
+            blur       = getattr(flags, "blur",   False),
+            chrome     = getattr(flags, "chrome", False),
+            alpha      = getattr(flags, "alpha",  False),
+            sort       = getattr(flags, "sort",   False),
+            sort_alpha = getattr(flags, "sort_a", False)
             )
-        geom_shader.sharp      = getattr(flags, "sharp", False)
-        geom_shader.blur       = getattr(flags, "blur", False)
-        geom_shader.chrome     = getattr(flags, "chrome", False)
-        geom_shader.alpha      = getattr(flags, "alpha", False)
-        geom_shader.sort       = getattr(flags, "sort", False)
-        geom_shader.sort_alpha = getattr(flags, "sort_a", False)
 
-        geometry = load_geom_from_g3d_model(
-            g3d_model, geom_shader, billboard_fixup
-            )
+    model = (ObjectAnimModel if is_obj_anim else Model)(
+        name=model_name, p3d_model=p3d_model,
+        bounding_radius=g3d_model.bounding_radius
+        )
+    geometries = load_geometries_from_g3d_model(
+        g3d_model, textures, billboard_fixup=billboard_fixup,
+        shader_flags=shader_flags
+        )
+
+    for idx_key, geometry in geometries.items():
+        tex_name, lm_name = idx_key
+        geometry.apply_shader()
+
         model.add_geometry(geometry)
         if tex_name in global_tex_anims:
             global_tex_anims[tex_name].bind(geometry)

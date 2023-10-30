@@ -9,7 +9,8 @@ from arbytmap import arby, format_defs as fd
 from .systems.realm import load_realm_from_wdata_tag
 from ...util import *
 from ...compilation.g3d import constants as g3d_const
-from ...compilation.g3d.serialization import arbytmap_ext, texture_conversions
+from ...compilation.g3d.serialization import arbytmap_ext,\
+     texture_conversions, texture_util
 from ...defs.anim import anim_def
 
 from ...defs.objects import objects_def
@@ -161,7 +162,7 @@ def g3d_texture_to_dds(g3d_texture):
 
     monochrome = g3d_texture.format_name in g3d_const.MONOCHROME_FORMATS
     pfmt_head.flags.rgb_space = not pfmt_head.flags.alpha_only
-    pfmt_head.flags.has_alpha = g3d_texture.flags & g3d_const.GTX_FLAG_HAS_ALPHA
+    pfmt_head.flags.has_alpha = g3d_texture.has_alpha
 
     if monochrome:
         # making monochrome into 24bpp color
@@ -196,7 +197,7 @@ def g3d_texture_to_dds(g3d_texture):
 
         if arby.fast_arbytmap:
             arby.arbytmap_ext.depalettize_bitmap(
-                depal_texture, texture, palette, bpp)
+                depal_texture, bytearray(texture), palette, bpp)
         else:
             for i, index in enumerate(texture):
                 depal_texture[i*bpp:(i+1)*bpp] = palette[index*bpp:(index+1)*bpp]
@@ -204,8 +205,11 @@ def g3d_texture_to_dds(g3d_texture):
         texture = depal_texture
 
     pfmt_head.flags.four_cc = False
-    masks   = fd.CHANNEL_MASKS[g3d_texture.arbytmap_format]
-    offsets = fd.CHANNEL_OFFSETS[g3d_texture.arbytmap_format]
+    arby_format = texture_util.g3d_format_to_arby_format(
+        g3d_texture.format_name, g3d_texture.has_alpha
+        )
+    masks   = fd.CHANNEL_MASKS[arby_format]
+    offsets = fd.CHANNEL_OFFSETS[arby_format]
 
     if monochrome:
         pfmt_head.a_bitmask = 0

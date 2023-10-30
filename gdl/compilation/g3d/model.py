@@ -1,6 +1,7 @@
 import os
 
 from traceback import format_exc
+from ...supyr_struct_ext import FixedBytearrayBuffer
 from ..metadata import objects as objects_metadata
 from .serialization.model import G3DModel
 from .serialization.asset_cache import get_asset_checksum, verify_source_file_asset_checksum
@@ -344,6 +345,7 @@ def object_to_model_cache(obj, cache_type=None, bitmap_assets=()):
 
     texture_names = []
     geoms         = []
+
     if is_vif:
         default_lod_k  = getattr(obj.sub_object_0, "lod_k", c.DEFAULT_MOD_LOD_K)
         subobjs        = getattr(obj.data, "sub_objects", ())
@@ -352,7 +354,7 @@ def object_to_model_cache(obj, cache_type=None, bitmap_assets=()):
         for model, head in zip(obj.data.sub_object_models,
                                (obj.sub_object_0, *subobjs)):
             geoms.append(dict(
-                vif_rawdata = model.data,
+                vif_rawdata = FixedBytearrayBuffer(model.data),
                 lod_k       = getattr(head, 'lod_k', default_lod_k),
                 tex_name    = bitmap_assets.get(
                     head.tex_index, def_name)['name'],
@@ -360,12 +362,6 @@ def object_to_model_cache(obj, cache_type=None, bitmap_assets=()):
                     head.lm_index, def_name)['name'] if has_lmap else "",
                 ))
 
-    elif is_arc or is_dc:
-        obj_lod = obj.lods[0]
-    else:
-        raise TypeError("Unknown object platform.")
-
-    if is_vif:
         model_cache = (
             get_model_cache_class_from_cache_type(cache_type)
             if cache_type in c.MODEL_CACHE_EXTENSIONS else
@@ -377,6 +373,7 @@ def object_to_model_cache(obj, cache_type=None, bitmap_assets=()):
         model_cache.has_colors  = bool(getattr(obj.flags, "v_colors",  True))
         model_cache.geoms       = geoms
     elif is_arc or is_dc:
+        obj_lod = obj.lods[0]
         model_cache = DreamcastModelCache() if is_dc else ArcadeModelCache()
 
         model_cache.has_lmap    = bool(obj_lod.flags.lmap)
