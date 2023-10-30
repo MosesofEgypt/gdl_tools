@@ -5,6 +5,7 @@ from ..assets.texture import Texture
 from ...compilation.g3d import constants as g3d_const
 from ...compilation.g3d.serialization.texture import G3DTexture
 from ...compilation.g3d.serialization import texture_util
+from ...compilation.g3d.texture import bitmap_to_texture_cache
 
 
 def load_textures_from_objects_tag(
@@ -30,15 +31,10 @@ def load_textures_from_objects_tag(
                 # empty placeholder texture
                 p3d_texture = panda3d.core.Texture()
             else:
-                f.seek(bitm.tex_pointer)
                 g3d_texture = G3DTexture()
                 try:
-                    g3d_texture.import_gtx(
-                        input_buffer=f, headerless=True, is_ngc=is_ngc, 
-                        format_name=bitm.format.enum_name, flags=bitm.flags.data,
-                        width=bitm.width, height=bitm.height,
-                        )
-                except ValueError:
+                    g3d_texture.import_g3d(bitmap_to_texture_cache(bitm, f, is_ngc))
+                except (ValueError, AttributeError):
                     # invalid bitmap
                     continue
 

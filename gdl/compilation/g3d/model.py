@@ -271,40 +271,12 @@ def decompile_models(
     objects = objects_tag.data.objects
     object_assets, bitmap_assets = objects_tag.get_cache_names()
 
-    def_name = dict(name=c.MISSING_ASSET_NAME)
-
     all_job_args = []
 
     # loop over each object
     for i in range(len(object_assets)):
         asset = object_assets[i]
         obj   = objects[i]
-
-        is_vif = hasattr(obj, "sub_object_0")
-        is_arc = hasattr(getattr(obj, "data", None), "fifo_data")
-        is_dc  = hasattr(obj, "lods") and not is_arc
-
-        texture_names = []
-        geoms         = []
-        if is_vif:
-            default_lod_k  = getattr(obj.sub_object_0, "lod_k", c.DEFAULT_MOD_LOD_K)
-            subobjs        = getattr(obj.data, "sub_objects", ())
-            has_lmap       = getattr(obj.flags, "lmap",      False)
-            for model, head in zip(obj.data.sub_object_models,
-                                   (obj.sub_object_0, *subobjs)):
-                geoms.append(dict(
-                    vif_rawdata = model.data,
-                    lod_k       = getattr(head, 'lod_k', default_lod_k),
-                    tex_name    = bitmap_assets.get(
-                        head.tex_index, def_name)['name'],
-                    lm_name     = bitmap_assets.get(
-                        head.lm_index, def_name)['name'] if has_lmap else "",
-                    ))
-
-        elif is_arc or is_dc:
-            obj_lod = obj.lods[0]
-        else:
-            raise TypeError("Unknown object platform.")
 
         try:
             j = None  # initialize in case exception occurs before loop starts
@@ -320,56 +292,25 @@ def decompile_models(
                 if os.path.isfile(filepath) and not overwrite:
                     continue
 
-                if is_vif:
-                    model_cache = (
-                        get_model_cache_class_from_cache_type(asset_type)
-                        if asset_type in c.MODEL_CACHE_EXTENSIONS else
-                        Ps2ModelCache
-                        )()
+                model_cache = object_to_model_cache(
+                    obj, cache_type=asset_type, bitmap_assets=bitmap_assets
+                    )
 
-                    if not isinstance(model_cache, Ps2ModelCache):
+                if asset_type in c.MODEL_CACHE_EXTENSIONS:
+                    if isinstance(model_cache, Ps2ModelCache) and asset_type not in (
+                            c.MODEL_CACHE_EXTENSION_PS2, c.MODEL_CACHE_EXTENSION_XBOX,
+                            c.MODEL_CACHE_EXTENSION_NGC
+                            ):
                         print("Cannot export PS2/XBOX/NGC model to non-PS2/XBOX/NGC cache file.")
                         continue
-                        
-                    model_cache.has_lmap    = bool(getattr(obj.flags, "lmap",      False))
-                    model_cache.has_normals = bool(getattr(obj.flags, "v_normals", True))
-                    model_cache.has_colors  = bool(getattr(obj.flags, "v_colors",  True))
-                    model_cache.geoms       = geoms
-                elif is_arc or is_dc:
-                    model_cache = DreamcastModelCache() if is_dc else ArcadeModelCache()
-
-                    if (asset_type in c.MODEL_CACHE_EXTENSIONS and
-                        asset_type not in (
-                            c.MODEL_CACHE_EXTENSION_ARC,
-                            c.MODEL_CACHE_EXTENSION_DC)
-                        ):
-                        print("Cannot export Arcade/Dreamcast model to non-Arcade/Dreamcast cache file.")
+                    elif (isinstance(model_cache, DreamcastModelCache) and
+                          asset_type != c.MODEL_CACHE_EXTENSION_DC):
+                        print("Cannot export Dreamcast model to non-Dreamcast cache file.")
                         continue
-
-                    model_cache.has_lmap    = bool(obj_lod.flags.lmap)
-                    model_cache.has_normals = bool(obj_lod.flags.v_normals)
-                    model_cache.is_fifo2    = bool(obj_lod.flags.fifo_cmds_2)
-
-                    if obj_lod.flags.fifo_cmds or model_cache.is_fifo2:
-                        raise NotImplementedError("hecken")
-                        model_cache.fifo_rawdata = obj.data.fifo_rawdata
-                    else:
-                        raise NotImplementedError("hecken")
-                        if model_cache.has_lmap:
-                            model_cache.verts_rawdata = obj.data.vert_data
-                            model_cache.tris_rawdata  = obj.data.tri_data
-                        else:
-                            model_cache.verts_rawdata = obj.data.vert_data
-                            model_cache.tris_rawdata  = obj.data.tri_data
-                            model_cache.norms_rawdata = obj.data.norm_data
-                else:
-                    raise TypeError("Unknown object platform.")
-
-                model_cache.bounding_radius = obj.bnd_rad
-                model_cache.vert_count      = obj.vert_count
-                model_cache.tri_count       = obj.tri_count
-                model_cache.texture_names   = texture_names
-                model_cache.is_extracted    = True
+                    elif (isinstance(model_cache, ArcadeModelCache) and
+                          asset_type != c.MODEL_CACHE_EXTENSION_ARC):
+                        print("Cannot export Arcade model to non-Arcade cache file.")
+                        continue
 
                 all_job_args.append(dict(
                     texture_assets=texture_assets, model_cache=model_cache,
@@ -391,3 +332,76 @@ def decompile_models(
         _decompile_model, all_job_args,
         process_count=None if parallel_processing else 1
         )
+
+
+def object_to_model_cache(obj, cache_type=None, bitmap_assets=()):
+    if not bitmap_assets:
+        bitmap_assets = {}
+
+    is_vif = hasattr(obj, "sub_object_0")
+    is_arc = hasattr(getattr(obj, "data", None), "fifo_data")
+    is_dc  = hasattr(obj, "lods") and not is_arc
+
+    texture_names = []
+    geoms         = []
+    if is_vif:
+        default_lod_k  = getattr(obj.sub_object_0, "lod_k", c.DEFAULT_MOD_LOD_K)
+        subobjs        = getattr(obj.data, "sub_objects", ())
+        has_lmap       = getattr(obj.flags, "lmap",      False)
+        def_name       = dict(name=c.MISSING_ASSET_NAME)
+        for model, head in zip(obj.data.sub_object_models,
+                               (obj.sub_object_0, *subobjs)):
+            geoms.append(dict(
+                vif_rawdata = model.data,
+                lod_k       = getattr(head, 'lod_k', default_lod_k),
+                tex_name    = bitmap_assets.get(
+                    head.tex_index, def_name)['name'],
+                lm_name     = bitmap_assets.get(
+                    head.lm_index, def_name)['name'] if has_lmap else "",
+                ))
+
+    elif is_arc or is_dc:
+        obj_lod = obj.lods[0]
+    else:
+        raise TypeError("Unknown object platform.")
+
+    if is_vif:
+        model_cache = (
+            get_model_cache_class_from_cache_type(cache_type)
+            if cache_type in c.MODEL_CACHE_EXTENSIONS else
+            Ps2ModelCache
+            )()
+            
+        model_cache.has_lmap    = bool(getattr(obj.flags, "lmap",      False))
+        model_cache.has_normals = bool(getattr(obj.flags, "v_normals", True))
+        model_cache.has_colors  = bool(getattr(obj.flags, "v_colors",  True))
+        model_cache.geoms       = geoms
+    elif is_arc or is_dc:
+        model_cache = DreamcastModelCache() if is_dc else ArcadeModelCache()
+
+        model_cache.has_lmap    = bool(obj_lod.flags.lmap)
+        model_cache.has_normals = bool(obj_lod.flags.v_normals)
+        model_cache.is_fifo2    = bool(obj_lod.flags.fifo_cmds_2)
+
+        if obj_lod.flags.fifo_cmds or model_cache.is_fifo2:
+            raise NotImplementedError("hecken")
+            model_cache.fifo_rawdata = obj.data.fifo_rawdata
+        else:
+            raise NotImplementedError("hecken")
+            if model_cache.has_lmap:
+                model_cache.verts_rawdata = obj.data.vert_data
+                model_cache.tris_rawdata  = obj.data.tri_data
+            else:
+                model_cache.verts_rawdata = obj.data.vert_data
+                model_cache.tris_rawdata  = obj.data.tri_data
+                model_cache.norms_rawdata = obj.data.norm_data
+    else:
+        raise TypeError("Unknown object platform.")
+
+    model_cache.bounding_radius = obj.bnd_rad
+    model_cache.vert_count      = obj.vert_count
+    model_cache.tri_count       = obj.tri_count
+    model_cache.texture_names   = texture_names
+    model_cache.is_extracted    = True
+
+    return model_cache

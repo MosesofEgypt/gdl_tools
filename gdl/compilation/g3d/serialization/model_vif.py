@@ -30,7 +30,6 @@ STREAM_HEADER_STRUCT = struct.Struct('<BBBB')
 #   count
 #   storage_type
 
-COLL_SCALE  = 0x40
 POS_SCALE   = 0x80
 UV_SCALE    = 0x80
 LM_UV_SCALE = 0x8000

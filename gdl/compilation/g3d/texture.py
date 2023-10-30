@@ -422,6 +422,7 @@ def decompile_textures(
     else:
         textures_ext = tag_dir = ""
 
+    is_ngc = (textures_ext.lower() == c.NGC_EXTENSION.lower())
     textures_filepath = os.path.join(
         tag_dir, "%s.%s" % (c.TEXTURES_FILENAME, textures_ext)
         )
@@ -429,12 +430,6 @@ def decompile_textures(
     if not os.path.isfile(textures_filepath):
         print("No textures cache to extract from.")
         return
-
-    is_ngc = (textures_ext.lower() == c.NGC_EXTENSION.lower())
-    is_arc = is_dc = False
-    if textures_ext.lower() == c.ARC_EXTENSION.lower():
-        is_dc  = util.is_dreamcast_bitmaps(bitmaps)
-        is_arc = not is_dc
 
     all_job_args = []
     textures_file = open(textures_filepath, "rb")
@@ -465,41 +460,9 @@ def decompile_textures(
                         continue
 
                     # create and populate texture cache
-                    if is_arc:
-                        texture_cache           = ArcadeTextureCache()
-                        texture_cache.mipmaps   = bitm.small_lod_log2_inv - bitm.large_lod_log2_inv
-                        if "YIQ" in bitm.format.enum_name:
-                            texture_cache.ncc_table = ncc.NccTable()
-                            texture_cache.ncc_table.import_from_rawdata(bitm.ncc_table_data)
-                    elif is_dc:
-                        texture_cache           = DreamcastTextureCache()
-                        texture_cache.large_vq  = "large_vq" in bitm.image_type
-                        texture_cache.small_vq  = "small_vq" in bitm.image_type
-                        texture_cache.twiddled  = "twiddled" in bitm.image_type
-                        texture_cache.mipmaps   = "mipmap" in bitm.image_type
-                    elif is_ngc:
-                        texture_cache           = GamecubeTextureCache()
-                        texture_cache.lod_k     = bitm.lod_k
-                        # regardless of what the objects says, gamecube doesnt contain mipmaps
-                        texture_cache.mipmaps   = 0
-                    else:
-                        texture_cache = (
-                            get_texture_cache_class_from_cache_type(asset_type)
-                            if asset_type in c.TEXTURE_CACHE_EXTENSIONS else
-                            Ps2TextureCache
-                            )()
-                        texture_cache.lod_k     = bitm.lod_k
-                        texture_cache.mipmaps   = bitm.mipmap_count
-
-                    texture_cache.has_alpha     = bool(getattr(bitm.flags, "has_alpha", False))
-                    texture_cache.format_id     = bitm.format.data
-                    texture_cache.width         = bitm.width
-                    texture_cache.height        = bitm.height
-
-                    # read texture data
-                    textures_file.seek(bitm.tex_pointer)
-                    texture_cache.parse_palette(textures_file)
-                    texture_cache.parse_textures(textures_file)
+                    texture_cache = bitmap_to_texture_cache(
+                        bitm, textures_file, is_ngc=is_ngc, cache_type=asset_type
+                        )
 
                     all_job_args.append(dict(
                         name=asset["name"], asset_type=asset_type,
@@ -522,3 +485,53 @@ def decompile_textures(
         _decompile_texture, all_job_args,
         process_count=None if parallel_processing else 1
         )
+
+
+def bitmap_to_texture_cache(bitmap_block, textures_file, is_ngc=False, cache_type=None):
+    is_arcade   = is_dreamcast = False
+    is_ps2_xbox = hasattr(bitmap_block, "lod_k")
+    if not is_ps2_xbox and not is_ngc:
+        is_dreamcast = hasattr(bitmap_block, "dc_sig")
+        is_arcade    = not is_dreamcast
+
+    # create and populate texture cache
+    if is_arcade:
+        texture_cache           = ArcadeTextureCache()
+        texture_cache.mipmaps   = bitmap_block.small_lod_log2_inv - bitmap_block.large_lod_log2_inv
+        if "YIQ" in bitmap_block.format.enum_name:
+            texture_cache.ncc_table = ncc.NccTable()
+            texture_cache.ncc_table.import_from_rawdata(bitmap_block.ncc_table_data)
+    elif is_dreamcast:
+        texture_cache           = DreamcastTextureCache()
+        texture_cache.large_vq  = "large_vq" in bitmap_block.image_type
+        texture_cache.small_vq  = "small_vq" in bitmap_block.image_type
+        texture_cache.twiddled  = "twiddled" in bitmap_block.image_type
+        texture_cache.mipmaps   = "mipmap" in bitmap_block.image_type
+    elif is_ngc:
+        texture_cache           = GamecubeTextureCache()
+        texture_cache.lod_k     = bitmap_block.lod_k
+        # regardless of what the objects says, gamecube doesnt contain mipmaps
+        texture_cache.mipmaps   = 0
+    elif is_ps2_xbox:
+        texture_cache = (
+            get_texture_cache_class_from_cache_type(cache_type)
+            if cache_type in c.TEXTURE_CACHE_EXTENSIONS else
+            Ps2TextureCache
+            )()
+        texture_cache.lod_k     = bitmap_block.lod_k
+        texture_cache.mipmaps   = bitmap_block.mipmap_count
+    else:
+        raise ValueError("Cannot determine bitmap block type.")
+
+    texture_cache.has_alpha     = bool(getattr(bitmap_block.flags, "has_alpha", False))
+    texture_cache.format_id     = bitmap_block.format.data
+    texture_cache.width         = bitmap_block.width
+    texture_cache.height        = bitmap_block.height
+    texture_cache.is_extracted  = True
+
+    # read texture data
+    textures_file.seek(bitmap_block.tex_pointer)
+    texture_cache.parse_palette(textures_file)
+    texture_cache.parse_textures(textures_file)
+
+    return texture_cache

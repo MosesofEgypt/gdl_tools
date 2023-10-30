@@ -5,6 +5,7 @@ from panda3d.core import ModelNode, GeomNode, Geom,\
 from ..assets.shader import GeometryShader
 from ..assets.model import Model, ObjectAnimModel, Geometry
 from ...compilation.g3d.serialization.model import G3DModel
+from ...compilation.g3d.model import object_to_model_cache
 
 
 def _register_g3d_vertex_format():
