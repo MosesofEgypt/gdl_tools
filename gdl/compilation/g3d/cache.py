@@ -51,7 +51,7 @@ def compile_cache_files(
         os.path.join(objects_dir, "").replace("\\", "/")[-32:]
         )
 
-    gtx_textures = texture.import_textures(
+    texture_datas = texture.import_textures(
         objects_tag, data_dir, target_ngc=target_ngc,
         target_ps2=target_ps2, target_xbox=target_xbox,
         target_dreamcast=target_dreamcast, target_arcade=target_arcade,
@@ -80,8 +80,8 @@ def compile_cache_files(
 
         if gtx_textures:
             serialize_textures_cache(
-                objects_tag, gtx_textures,
-                target_ngc=target_ngc, target_ps2=target_ps2,
+                objects_tag, texture_datas, target_ngc=target_ngc,
+                target_ps2=target_ps2, target_xbox=target_xbox,
                 target_dreamcast=target_dreamcast, target_arcade=target_arcade
                 )
 
@@ -176,37 +176,38 @@ def decompile_cache_files(
 
 
 def serialize_textures_cache(
-        objects_tag, gtx_textures, output_filepath=None,
-        target_ngc=False, target_ps2=False,
+        objects_tag, texture_datas, output_filepath=None,
+        target_ngc=False, target_ps2=False, target_xbox=False,
         target_dreamcast=False, target_arcade=False
         ):
     if not output_filepath:
-        objects_dir     = os.path.dirname(objects_tag.filepath)
-        textures_filename = "%s.%s" % (
-            c.TEXTURES_FILENAME,
-            (c.NGC_EXTENSION if target_ngc else
-             c.ARC_EXTENSION if target_arcade else
-             c.DC_EXTENSION if target_dreamcast else
-             c.PS2_EXTENSION
-             )
+        objects_dir = os.path.dirname(objects_tag.filepath)
+        extension   = (
+            c.PS2_EXTENSION if target_ps2 else
+            c.XBOX_EXTENSION if target_xbox else
+            c.NGC_EXTENSION if target_ngc else
+            c.ARC_EXTENSION if target_arcade else
+            c.DC_EXTENSION if target_dreamcast else
+            None
             )
-        output_filepath = os.path.join(objects_dir, textures_filename)
+        if extension is None:
+            raise ValueError("No target platform specified")
+
+        output_filepath = os.path.join(
+            objects_dir, f"{c.TEXTURES_FILENAME}.{extension}"
+            )
 
     temppath = output_filepath + ".temp"
     # open the textures.ps2 file and serialize the texture data into it
     with open(temppath, 'w+b') as f:
-        for g3d_texture, bitmap in zip(gtx_textures, objects_tag.data.bitmaps):
+        for texture_data, bitmap in zip(texture_datas, objects_tag.data.bitmaps):
             if bitmap.frame_count or getattr(bitmap.flags, "external", False):
                 continue
-            elif g3d_texture is None:
+            elif texture_data is None:
                 continue
 
             f.seek(bitmap.tex_pointer)
-            g3d_texture.export_gtx(
-                f, headerless=True,
-                target_ngc=target_ngc, target_ps2=target_ps2,
-                target_dreamcast=target_dreamcast, target_arcade=target_arcade
-                )
+            f.write(texture_data)
 
     backup_and_rename_temp(output_filepath, temppath)
 

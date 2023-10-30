@@ -119,13 +119,13 @@ class ModelCache(AssetCache):
 
 
 class Ps2ModelCache(ModelCache):
-    geoms = ()
-
     cache_type = constants.MODEL_CACHE_EXTENSION_PS2
     cache_type_version = MODEL_CACHE_VER
     expected_cache_type_versions = frozenset(
         (constants.MODEL_CACHE_EXTENSION_PS2,  MODEL_CACHE_VER),
         )
+
+    geoms = ()
 
     def __init__(self):
         super().__init__()
@@ -299,7 +299,7 @@ def get_model_cache_class_from_cache_type(cache_type):
         constants.MODEL_CACHE_EXTENSION_NGC:  GamecubeModelCache,
         constants.MODEL_CACHE_EXTENSION_DC:   DreamcastModelCache,
         constants.MODEL_CACHE_EXTENSION_ARC:  ArcadeModelCache
-        }.get(asset_cache.cache_type)
+        }.get(cache_type)
     if cache_class:
         return cache_class
 

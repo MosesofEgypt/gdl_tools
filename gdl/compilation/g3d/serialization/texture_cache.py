@@ -1,4 +1,5 @@
 import os
+import math
 import struct
 
 from . import constants
@@ -66,10 +67,10 @@ class TextureCache(AssetCache):
 
     @property
     def monochrome(self):
-        return self.format in constants.MONOCHROME_FORMATS
+        return self.format_name in constants.MONOCHROME_FORMATS
     @property
     def palettized(self):
-        return self.format in constants.PALETTE_SIZES
+        return self.format_name in constants.PALETTE_SIZES
 
     @property
     def format_name(self):
@@ -94,7 +95,7 @@ class TextureCache(AssetCache):
     def palette_size(self):
         return self.palette_count*self.palette_stride
 
-    def parse(self, rawdata):
+    def parse(self, rawdata, *, pixel_interop_edits=True):
         super().parse(rawdata)
 
         tex_flags, format_id, mipmaps, width, height = \
@@ -112,20 +113,20 @@ class TextureCache(AssetCache):
         self.small_vq   = bool(tex_flags & TEXTURE_CACHE_FLAG_LARGE_VQ)
 
         start = rawdata.tell()
-        self.parse_palette(rawdata)
-        self.parse_textures(rawdata)
+        self.parse_palette(rawdata, pixel_interop_edits=pixel_interop_edits)
+        self.parse_textures(rawdata, pixel_interop_edits=pixel_interop_edits)
         texture_size = rawdata.tell() - start
 
         # seek past the padding
         pad_size = util.calculate_padding(texture_size, self.texture_chunk_size)
         rawdata.seek(pad_size, os.SEEK_CUR)
 
-    def serialize(self):
+    def serialize(self, *, pixel_interop_edits=True):
         self.cache_type_version = TEXTURE_CACHE_VER
         tex_flags = (
-            (TEXTURE_CACHE_FLAG_HAS_ALPHA * bool(self.has_normals)) |
-            (TEXTURE_CACHE_FLAG_TWIDDLED  * bool(self.has_colors))  |
-            (TEXTURE_CACHE_FLAG_SMALL_VQ  * bool(self.small_vq))    |
+            (TEXTURE_CACHE_FLAG_HAS_ALPHA * bool(self.has_alpha)) |
+            (TEXTURE_CACHE_FLAG_TWIDDLED  * bool(self.twiddled))  |
+            (TEXTURE_CACHE_FLAG_SMALL_VQ  * bool(self.small_vq))  |
             (TEXTURE_CACHE_FLAG_LARGE_VQ  * bool(self.large_vq))
             )
 
@@ -135,8 +136,8 @@ class TextureCache(AssetCache):
             )
 
         cache_header_rawdata = super().serialize()
-        palette_data = self.serialize_palette()
-        texture_data = self.serialize_textures()
+        palette_data = self.serialize_palette(pixel_interop_edits=pixel_interop_edits)
+        texture_data = self.serialize_textures(pixel_interop_edits=pixel_interop_edits)
 
         # pad to buffer chunk size
         padding = b'\x00' * util.calculate_padding(
@@ -145,21 +146,20 @@ class TextureCache(AssetCache):
         return (cache_header_rawdata + tex_header_rawdata +
                 palette_data + texture_data + padding)
 
-    def parse_palette(self, rawdata):
+    def parse_palette(self, rawdata, *, pixel_interop_edits=True):
         palette = rawdata.read(self.palette_size)
         if len(palette) != self.palette_size:
             raise ValueError("Palette data is truncated. Unable to parse texture cache.")
 
         self.palette = palette
 
-    def parse_textures(self, rawdata):
-        mip_width       = self.width
-        mip_height      = self.height
-        pixel_stride    = constants.PIXEL_SIZES[self.format_name]
+    def parse_textures(self, rawdata, *, pixel_interop_edits=True):
+        mip_width  = self.width
+        mip_height = self.height
 
         textures = []
         for i in range(self.mipmaps + 1):
-            mipmap_size = (mip_width*mip_height*pixel_stride)//8
+            mipmap_size = (mip_width*mip_height*self.pixel_stride)//8
             mipmap_data = rawdata.read(mipmap_size)
 
             if len(mipmap_data) < mipmap_size:
@@ -173,40 +173,40 @@ class TextureCache(AssetCache):
             mip_height = (mip_height + 1)//2
 
         # make 4-bit indexing/monochrome into 8-bit for easy manipulation
-        if constants.PIXEL_SIZES.get(self.format_name, 0) < 8:
-            rescaler_4bpp = (
-                tex_conv.INDEXING_8BPP_TO_4BPP if self.palettized else
-                tex_conv.MONOCHROME_8BPP_TO_4BPP
+        if pixel_interop_edits and self.pixel_stride < 8:
+            rescaler = (
+                tex_conv.INDEXING_4BPP_TO_8BPP if self.palettized else
+                tex_conv.MONOCHROME_4BPP_TO_8BPP
                 )
             textures = [
-                tex_conv.rescale_4bit_array_to_8bit(texture, rescaler_4bpp)
+                tex_conv.rescale_4bit_array_to_8bit(texture, rescaler)
                 for texture in textures
                 ]
 
         self.textures = textures
 
-    def serialize_palette(self):
+    def serialize_palette(self, *, pixel_interop_edits=True):
         palette_data = bytearray(self.palette)
         if len(palette_data) != self.palette_size:
             raise ValueError("Palette data is incorrect size. Unable to serialize texture cache.")
 
         return palette_data
 
-    def serialize_textures(self):
+    def serialize_textures(self, *, pixel_interop_edits=True):
         max_mipmaps = max(0, len(self.textures) - 1)
         if self.mipmaps > max_mipmaps:
             print(f"Warning: Reducing mipmaps from {self.mipmaps} to {max_mipmaps}")
             self.mipmaps = max_mipmaps
 
-        texture_data = bytearray(b''.join(self.textures[i] for i in range(self.mipmaps + 1)))
+        texture_data = bytearray().join(self.textures[i] for i in range(self.mipmaps + 1))
 
         # pack 8-bit indexing/monochrome back to 4-bit
-        if constants.PIXEL_SIZES.get(self.format_name, 0) < 8:
-            rescaler_4bpp = (
+        if pixel_interop_edits and self.pixel_stride < 8:
+            rescaler = (
                 tex_conv.INDEXING_8BPP_TO_4BPP if self.palettized else
                 tex_conv.MONOCHROME_8BPP_TO_4BPP
                 )
-            texture_data = tex_conv.rescale_8bit_array_to_4bit(texture_data, rescaler_4bpp)
+            texture_data = tex_conv.rescale_8bit_array_to_4bit(texture_data, rescaler)
 
         return texture_data
 
@@ -244,41 +244,39 @@ class Ps2TextureCache(TextureCache):
         # gauntlet textures have every OTHER pair of 8 palette entries
         # swapped with each other for some reason. The exceptions to
         # to this pattern are the first and last set of 8. undo that
-        w = 8 * self.pixel_stride
+        stride = 8 * self.palette_stride
 
         # multiply by 4 instead of 2 to skip every other pair
-        for i in range(w, len(palette)-w, w*4):
-            temp_pixels         = palette[i: i+w]
-            palette[i: i+w]     = palette[i+w: i+w*2]
-            palette[i+w: i+w*2] = temp_pixels
+        for i in range(stride, len(palette)-stride, stride*4):
+            temp_pixels                   = palette[i:        i+stride]
+            palette[i:        i+stride]   = palette[i+stride: i+stride*2]
+            palette[i+stride: i+stride*2] = temp_pixels
 
-    def parse_palette(self, rawdata):
-        super().parse_palette(rawdata)
-        pixel_stride = self.pixel_stride // 8
-        if self.palettized:
+    def parse_palette(self, rawdata, *, pixel_interop_edits=True):
+        super().parse_palette(rawdata, pixel_interop_edits=pixel_interop_edits)
+        if pixel_interop_edits and self.palettized:
             self.palette = bytearray(self.palette)
             self._ps2_palette_shuffle(self.palette)
-            tex_conv.channel_swap_bgra_rgba_array([self.palette], pixel_stride)
+            tex_conv.channel_swap_bgra_rgba_array([self.palette], self.palette_stride)
 
-    def serialize_palette(self):
-        palette = super().serialize_palette()
-        if self.palettized:
+    def parse_textures(self, rawdata, *, pixel_interop_edits=True):
+        super().parse_textures(rawdata, pixel_interop_edits=pixel_interop_edits)
+        if pixel_interop_edits and not(self.monochrome or self.palettized):
+            self.textures = [bytearray(t) for t in self.textures]
+            tex_conv.channel_swap_bgra_rgba_array(self.textures, self.pixel_stride // 8)
+
+    def serialize_palette(self, *, pixel_interop_edits=True):
+        palette = super().serialize_palette(pixel_interop_edits=pixel_interop_edits)
+        if pixel_interop_edits and self.palettized:
             self._ps2_palette_shuffle(palette)
-            tex_conv.channel_swap_bgra_rgba_array([palette], pixel_stride)
+            tex_conv.channel_swap_bgra_rgba_array([palette], self.palette_stride)
 
         return palette
 
-    def parse_textures(self, rawdata):
-        super().parse_textures(rawdata)
-        pixel_stride = self.pixel_stride // 8
-        if not self.monochrome and pixel_stride > 1:
-            tex_conv.channel_swap_bgra_rgba_array(self.textures, pixel_stride)
-
-    def serialize_textures(self):
-        texture_data = super().serialize_textures()
-        pixel_stride = self.pixel_stride // 8
-        if not self.monochrome and pixel_stride > 1:
-            tex_conv.channel_swap_bgra_rgba_array([texture_data], pixel_stride)
+    def serialize_textures(self, *, pixel_interop_edits=True):
+        texture_data = super().serialize_textures(pixel_interop_edits=pixel_interop_edits)
+        if pixel_interop_edits and not(self.monochrome or self.palettized):
+            tex_conv.channel_swap_bgra_rgba_array([texture_data], self.pixel_stride // 8)
 
         return texture_data
 
@@ -314,7 +312,10 @@ class GamecubeTextureCache(TextureCache):
     def __init__(self):
         super().__init__()
         # gamecube exclusive fuckery(they're the same format)
-        self.format_name_to_id[constants.PIX_FMT_XBGR_3555_NGC] = 0
+        for fmt in (constants.PIX_FMT_XBGR_1555,
+                    constants.PIX_FMT_ABGR_1555,
+                    constants.PIX_FMT_XBGR_3555_NGC):
+            self.format_name_to_id[fmt] = 0
 
     @property
     def format_name(self):
@@ -349,54 +350,58 @@ class GamecubeTextureCache(TextureCache):
 
     def _ngc_swizzle(self, textures, unswizzle):
         # (un)swizzle the textures from gamecube
-        pixel_stride = constants.PIXEL_SIZES.get(self.format_name, 0)
-
-        texture_util.swizzle_ngc_gauntlet_textures(
+        return texture_util.swizzle_ngc_gauntlet_textures(
             textures, width=self.width, height=self.height,
-            bits_per_pixel=pixel_stride, unswizzle=unswizzle
+            bits_per_pixel=self.pixel_stride, unswizzle=unswizzle
             )
 
-    def parse_palette(self, rawdata):
-        super().parse_palette(rawdata)
+    def parse_palette(self, rawdata, *, pixel_interop_edits=True):
+        super().parse_palette(rawdata, pixel_interop_edits=pixel_interop_edits)
 
-        if self.palettized:
+        if pixel_interop_edits and self.palettized:
             palette = bytearray(self.palette)
             self._ngc_byteswap([palette])
-            self.palette = bytes(palette)
+            self.palette = palette
 
-    def serialize_palette(self):
-        palette_bytes = super().serialize_palette()
+    def parse_textures(self, rawdata, *, pixel_interop_edits=True):
+        super().parse_textures(rawdata, pixel_interop_edits=pixel_interop_edits)
+        textures = [bytearray(b) for b in self.textures]
 
-        if self.palettized:
+        if pixel_interop_edits:
+            textures = self._ngc_swizzle(textures, unswizzle=True)
+            if not self.palettized:
+                self._ngc_byteswap(textures)
+
+        self.textures = textures
+
+    def serialize_palette(self, *, pixel_interop_edits=True):
+        palette_bytes = super().serialize_palette(pixel_interop_edits=pixel_interop_edits)
+
+        if pixel_interop_edits and self.palettized:
             self._ngc_byteswap([palette_bytes])
 
         return palette_bytes
 
-    def parse_textures(self, rawdata):
-        super().parse_textures(rawdata)
-        textures = [bytearray(b) for b in self.textures]
-
-        self._ngc_swizzle(textures, unswizzle=True)
-
-        if not self.palettized:
-            self._ngc_byteswap(textures)
-
-        self.textures = textures
-
-    def serialize_textures(self):
+    def serialize_textures(self, *, pixel_interop_edits=True):
         max_mipmaps = max(0, len(self.textures) - 1)
         if self.mipmaps > max_mipmaps:
             print(f"Warning: Reducing mipmaps from {self.mipmaps} to {max_mipmaps}")
             self.mipmaps = max_mipmaps
 
-        textures = [bytearray(self.textures[i]) for i in range(self.mipmaps + 1)]
+        orig_textures = self.textures
+        try:
+            self.textures = [bytearray(t) for t in self.textures[:self.mipmaps + 1]]
 
-        self._ngc_swizzle(textures, unswizzle=False)
+            if pixel_interop_edits:
+                self.textures = self._ngc_swizzle(self.textures, unswizzle=False)
+                if not self.palettized:
+                    self._ngc_byteswap(self.textures)
 
-        if not self.palettized:
-            self._ngc_byteswap(textures)
+            texture_data = super().serialize_textures(pixel_interop_edits=pixel_interop_edits)
+        finally:
+            self.textures = orig_textures
 
-        return bytearray.join(textures)
+        return texture_data
 
 
 class DreamcastTextureCache(TextureCache):
@@ -442,7 +447,7 @@ class DreamcastTextureCache(TextureCache):
         # always 8-bit indexing for palettized
         return 8 if self.palettized else constants.PIXEL_SIZES.get(self.format_name, 0)
 
-    def parse_textures(self, rawdata):
+    def parse_textures(self, rawdata, *, pixel_interop_edits=True):
         is_square = (self.width == self.height)
         if (self.large_vq or self.small_vq) and not is_square:
             raise ValueError("Vector-quantized textures must be square.")
@@ -450,11 +455,12 @@ class DreamcastTextureCache(TextureCache):
         if self.mipmaps:
             if not is_square:
                 raise ValueError("Mipmap count non-zero in rectangular Dreamcast texture.")
-            elif self.width != 2**(self.mipmaps + 1):
-                raise ValueError(f"Mipmap count({self.mipmaps}) does not match expected value.")
 
+            # don't bother using the mipmaps count. for dreamcast, there are always
+            # mipmaps starting from 1 x 1 all the way up to width x height
+            mipmaps = int(math.ceil(math.log(self.width, 2)))
             # mips stored in reverse
-            mip_dims = [(2**d, 2**d) for d in range(self.mipmaps, -1, -1)]
+            mip_dims = [(2**d, 2**d) for d in range(mipmaps, -1, -1)]
         else:
             mip_dims = [(self.width, self.height)]
 
@@ -464,10 +470,9 @@ class DreamcastTextureCache(TextureCache):
             if self.large_vq or self.small_vq:
                 mipmap_size = (w*h)//4
             else:
-                pixel_stride = constants.PIXEL_SIZES[self.format_name]//8
-                mipmap_size = w*h*pixel_stride
+                mipmap_size = w*h*self.pixel_stride
 
-                if pixel_stride > 1 and mipmap_size < 4:
+                if self.pixel_stride > 1 and mipmap_size < 4:
                     # non-palettized textures each take up at least 4 bytes
                     mipmap_size = 4
 
@@ -485,12 +490,12 @@ class DreamcastTextureCache(TextureCache):
         rawdata.seek(8, os.SEEK_CUR)
         self.textures = textures
 
-    def serialize_textures(self):
+    def serialize_textures(self, *, pixel_interop_edits=True):
         if (self.width == self.height and self.mipmaps and
             self.width != 2**(self.mipmaps + 1)):
             raise ValueError(f"Mipmap count({self.mipmaps}) does not match expected value.")
         elif not self.textures:
-            return b''
+            return bytearray()
 
         textures = list(self.textures)
         if not self.mipmaps or self.width != self.height:
@@ -506,7 +511,7 @@ class DreamcastTextureCache(TextureCache):
             textures.append(minsize_mipmap)
 
         # mips stored in reverse
-        texture_data = b''.join(self.textures[::-1])
+        texture_data = bytearray().join(self.textures[::-1])
         # for some reason the texture data always stores an extra 8 bytes of 0xFF
         texture_data += b'\xFF' * 8
         return texture_data
@@ -557,7 +562,7 @@ class ArcadeTextureCache(TextureCache):
                                 constants.PIX_FMT_AYIQ_8422):
             ncc_table_rawdata = self.ncc_table.export_to_rawdata()
         else:
-            ncc_table_rawdata = b''
+            ncc_table_rawdata = bytearray()
 
         return texture_cache_rawdata + ncc_table_rawdata
 
@@ -569,7 +574,7 @@ def get_texture_cache_class_from_cache_type(cache_type):
         constants.TEXTURE_CACHE_EXTENSION_NGC:  GamecubeTextureCache,
         constants.TEXTURE_CACHE_EXTENSION_DC:   DreamcastTextureCache,
         constants.TEXTURE_CACHE_EXTENSION_ARC:  ArcadeTextureCache
-        }.get(asset_cache.cache_type)
+        }.get(cache_type)
     if cache_class:
         return cache_class
 

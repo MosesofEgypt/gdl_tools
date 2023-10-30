@@ -7,12 +7,13 @@ import png
 from array import array
 from traceback import format_exc
 
-from arbytmap import bitmap_io, constants, format_defs
+from arbytmap import arby, bitmap_io, constants, format_defs
 from arbytmap.arby import *
 from . import texture_conversions
 
-format_defs.FORMAT_X1R5G5B5 = FORMAT_X1R5G5B5 = "X1R5G5B5"
-format_defs.FORMAT_A8R3G3B2 = FORMAT_A8R3G3B2 = "A8R3G3B2"
+FORMAT_X1R5G5B5 = format_defs.FORMAT_X1R5G5B5 = "X1R5G5B5"
+FORMAT_A8R3G3B2 = format_defs.FORMAT_A8R3G3B2 = "A8R3G3B2"
+
 
 
 def load_from_png_file(arby, input_path, ext, **kwargs):

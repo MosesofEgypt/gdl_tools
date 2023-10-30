@@ -31,7 +31,7 @@ def _compile_model(kwargs):
     else:
         raise NotImplementedError(f"Unknown asset type '{asset_type}'")
 
-    model_cache   = g3d_model.compile_g3d(cache_type)
+    model_cache = g3d_model.compile_g3d(cache_type)
     model_cache.source_asset_checksum = get_asset_checksum(
         filepath=asset_filepath, algorithm=model_cache.checksum_algorithm
         )
@@ -92,12 +92,11 @@ def compile_models(
     for name in sorted(all_assets):
         try:
             asset_filepath = all_assets[name]
-            asset_type = os.path.splitext(asset_filepath)[-1].strip(".").lower()
 
             rel_filepath = os.path.relpath(asset_filepath, asset_folder)
-            cache_filepath = os.path.join(cache_path_base, "%s.%s" % (
-                os.path.splitext(rel_filepath)[0], cache_type
-                ))
+            filename, asset_type = os.path.splitext(rel_filepath)[0]
+            cache_filepath = os.path.join(cache_path_base, "%s.%s" % (filename, cache_type))
+
             if not force_recompile and os.path.isfile(cache_filepath):
                 if verify_source_file_asset_checksum(asset_filepath, cache_filepath):
                     # original asset file; don't recompile
@@ -310,7 +309,7 @@ def decompile_models(
         try:
             j = None  # initialize in case exception occurs before loop starts
             for asset_type in asset_types:
-                filename = "%s.%s" % (asset['name'], asset_type)
+                filename = f"{asset['name']}.{asset_type}"
                 if asset['name'] != asset["asset_name"]:
                     filename = os.path.join(asset["asset_name"], filename)
 
@@ -326,9 +325,8 @@ def decompile_models(
                         get_model_cache_class_from_cache_type(asset_type)
                         if asset_type in c.MODEL_CACHE_EXTENSIONS else
                         Ps2ModelCache
-                        )
+                        )()
 
-                    model_cache = model_cache_class()
                     if not isinstance(model_cache, Ps2ModelCache):
                         print("Cannot export PS2/XBOX/NGC model to non-PS2/XBOX/NGC cache file.")
                         continue
