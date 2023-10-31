@@ -71,20 +71,29 @@ class AssetCache:
 
         sig, ver, flags, cache_type, cache_type_ver, algo, checksum = \
              CACHE_HEADER_STRUCT.unpack(rawdata.read(CACHE_HEADER_STRUCT.size))
+        cache_type          = cache_type.strip(b'\x00').decode("latin-1")
+        checksum_algorithm  = algo.strip(b'\x00').decode("latin-1")
+
         if sig != CACHE_HEADER_SIG:
             raise ValueError("File does not appear to be a G3DCache file.")
         elif ver != CACHE_HEADER_VER:
             raise ValueError(f"Unknown G3DCache file version: {ver}")
 
         cache_key = (cache_type, cache_type_ver)
-        if cache_key not in self.expected_cache_type_versions:
-            raise ValueError(f"Unexpected cache type or version '{cache_key}'")
+        if (self.expected_cache_type_versions and
+            cache_key not in self.expected_cache_type_versions):
+            raise ValueError(
+                f"Unexpected cache type or version {cache_key} for {type(self)}."
+                "Must be one of: " + (", ".join(sorted(
+                    str(self.expected_cache_type_versions)
+                    )))
+                )
 
         self.version               = ver
         self.is_extracted          = bool(flags & CACHE_FLAG_EXTRACTED)
-        self.cache_type            = cache_type.strip(b'\x00').decode("latin-1")
+        self.cache_type            = cache_type
         self.cache_type_version    = cache_type_ver
-        self.checksum_algorithm    = algo.strip(b'\x00').decode("latin-1")
+        self.checksum_algorithm    = checksum_algorithm
         self.source_asset_checksum = checksum
 
     def serialize(self):

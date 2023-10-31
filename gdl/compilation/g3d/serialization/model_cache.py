@@ -121,9 +121,9 @@ class ModelCache(AssetCache):
 class Ps2ModelCache(ModelCache):
     cache_type = constants.MODEL_CACHE_EXTENSION_PS2
     cache_type_version = MODEL_CACHE_VER
-    expected_cache_type_versions = frozenset(
+    expected_cache_type_versions = frozenset((
         (constants.MODEL_CACHE_EXTENSION_PS2,  MODEL_CACHE_VER),
-        )
+        ))
 
     geoms = ()
 
@@ -207,17 +207,17 @@ class Ps2ModelCache(ModelCache):
 class XboxModelCache(Ps2ModelCache):
     cache_type = constants.MODEL_CACHE_EXTENSION_XBOX
     cache_type_version = MODEL_CACHE_VER
-    expected_cache_type_versions = frozenset(
+    expected_cache_type_versions = frozenset((
         (constants.MODEL_CACHE_EXTENSION_XBOX, MODEL_CACHE_VER),
-        )
+        ))
 
 
 class GamecubeModelCache(Ps2ModelCache):
     cache_type = constants.MODEL_CACHE_EXTENSION_NGC
     cache_type_version = MODEL_CACHE_VER
-    expected_cache_type_versions = frozenset(
+    expected_cache_type_versions = frozenset((
         (constants.MODEL_CACHE_EXTENSION_NGC, MODEL_CACHE_VER),
-        )
+        ))
 
 
 class DreamcastModelCache(ModelCache):
@@ -227,9 +227,9 @@ class DreamcastModelCache(ModelCache):
 
     cache_type = constants.MODEL_CACHE_EXTENSION_DC
     cache_type_version = MODEL_CACHE_VER
-    expected_cache_type_versions = frozenset(
+    expected_cache_type_versions = frozenset((
         (constants.MODEL_CACHE_EXTENSION_DC,  MODEL_CACHE_VER),
-        )
+        ))
 
     def parse(self, rawdata):
         super().parse(rawdata)
@@ -258,9 +258,9 @@ class ArcadeModelCache(ModelCache):
 
     cache_type = constants.MODEL_CACHE_EXTENSION_ARC
     cache_type_version = MODEL_CACHE_VER
-    expected_cache_type_versions = frozenset(
+    expected_cache_type_versions = frozenset((
         (constants.MODEL_CACHE_EXTENSION_ARC,  MODEL_CACHE_VER),
-        )
+        ))
 
     def parse(self, rawdata):
         super().parse(rawdata)

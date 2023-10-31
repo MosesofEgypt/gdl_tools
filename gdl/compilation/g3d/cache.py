@@ -51,12 +51,14 @@ def compile_cache_files(
         os.path.join(objects_dir, "").replace("\\", "/")[-32:]
         )
 
+    print("Importing textures...")
     texture_datas = texture.import_textures(
         objects_tag, data_dir, target_ngc=target_ngc,
         target_ps2=target_ps2, target_xbox=target_xbox,
         target_dreamcast=target_dreamcast, target_arcade=target_arcade,
         use_force_index_hack=use_force_index_hack
         )
+    print("Importing models...")
     model.import_models(
         objects_tag, data_dir, target_ngc=target_ngc,
         target_ps2=target_ps2, target_xbox=target_xbox,
@@ -70,6 +72,7 @@ def compile_cache_files(
         texdef_tag = compile_texdef_cache_from_objects(objects_tag)
 
     if serialize_cache_files:
+        print("Serializing...")
         objects_tag.serialize(temp=False)
 
         if anim_tag:
@@ -78,7 +81,7 @@ def compile_cache_files(
         if texdef_tag:
             texdef_tag.serialize(temp=False)
 
-        if gtx_textures:
+        if texture_datas:
             serialize_textures_cache(
                 objects_tag, texture_datas, target_ngc=target_ngc,
                 target_ps2=target_ps2, target_xbox=target_xbox,
@@ -87,7 +90,7 @@ def compile_cache_files(
 
     return dict(
         objects_tag = objects_tag,
-        gtx_textures = gtx_textures,
+        texture_datas = texture_datas,
         texdefs_tag = texdef_tag,
         animations_tag = anim_tag
         )
@@ -234,11 +237,10 @@ def compile_texdef_cache_from_objects(objects_tag):
     texdef_bitmaps     = texdef_tag.data.bitmaps
     texdef_bitmap_defs = texdef_tag.data.bitmap_defs
 
-    is_dreamcast = util.is_dreamcast_bitmaps(object_bitmaps)
-
     texdef_index = 0
     for bitm_index in range(len(object_bitmaps)):
-        object_bitmap     = object_bitmaps[bitm_index]
+        object_bitmap   = object_bitmaps[bitm_index]
+        is_dreamcast    = hasattr(object_bitmap, "dc_sig")
         if object_bitmap.frame_count:
             # don't save the start frame of the sequence to the texdef
             continue

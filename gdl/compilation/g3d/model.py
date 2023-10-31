@@ -16,7 +16,6 @@ def _compile_model(kwargs):
     name             = kwargs.pop("name")
     optimize         = kwargs.pop("optimize_strips")
     cache_type       = kwargs.pop("cache_type")
-    asset_type       = kwargs.pop("asset_type")
     cache_filepath   = kwargs.pop("cache_filepath")
     asset_filepath   = kwargs.pop("asset_filepath")
 
@@ -26,6 +25,8 @@ def _compile_model(kwargs):
         optimize_for_ngc=(cache_type == c.MODEL_CACHE_EXTENSION_NGC and optimize),
         optimize_for_xbox=(cache_type == c.MODEL_CACHE_EXTENSION_XBOX and optimize),
         )
+    asset_type = os.path.splitext(asset_filepath)[-1].strip(".")
+
     if asset_type == "obj":
         with open(asset_filepath, "r") as f:
             g3d_model.import_obj(f)
@@ -95,7 +96,7 @@ def compile_models(
             asset_filepath = all_assets[name]
 
             rel_filepath = os.path.relpath(asset_filepath, asset_folder)
-            filename, asset_type = os.path.splitext(rel_filepath)[0]
+            filename, _ = os.path.splitext(rel_filepath)
             cache_filepath = os.path.join(cache_path_base, "%s.%s" % (filename, cache_type))
 
             if not force_recompile and os.path.isfile(cache_filepath):
@@ -105,8 +106,7 @@ def compile_models(
 
             all_job_args.append(dict(
                 name=name, asset_filepath=asset_filepath, cache_filepath=cache_filepath,
-                cache_type=cache_type, asset_type=asset_type,
-                optimize_strips=optimize_strips,
+                cache_type=cache_type, optimize_strips=optimize_strips,
                 ))
         except Exception:
             print(format_exc())
@@ -127,7 +127,7 @@ def import_models(
         ):
     _, inv_bitmap_names = objects_tag.get_cache_names(by_name=True)
     # we uppercase everything for uniformity. do it here
-    inv_bitmap_names = {n.upper(): inv_bitmap_names[n] for n in inv_bitmap_names}
+    inv_bitmap_names = {n.upper(): i for n, i in inv_bitmap_names.items()}
 
     model_caches_by_name = {}
     all_asset_filepaths = util.locate_models(
@@ -162,7 +162,7 @@ def import_models(
         meta        = objects_metadata_by_name[name]
         model_cache = model_caches_by_name.get(name)
         if not model_cache:
-            print("Warning: Could not locate model file for '%s'" % name)
+            print(f"Warning: Could not locate model file for '{name}'")
             continue
 
         meta_flags = dict(meta.setdefault("flags", {}))
@@ -197,11 +197,11 @@ def import_models(
                 tex_meta   = inv_bitmap_names.get(geom["tex_name"], {})
                 lm_meta    = inv_bitmap_names.get(geom["lm_name"], {})
                 if not tex_meta:
-                    print(f"Warning: Texture '{geom['tex_name']}'  used in "
+                    print(f"Warning: Texture '{geom['tex_name']}' used in "
                           f"subobject {i} of '{name}' does not exist.")
 
                 if model_cache.has_lmap and not lm_meta:
-                    print(f"Warning: Lightmap '{geom['lm_name']}'  used in "
+                    print(f"Warning: Lightmap '{geom['lm_name']}' used in "
                           f"subobject {i} of '{name}' does not exist.")
 
                 # update the header and model data
@@ -221,10 +221,10 @@ def import_models(
                 case=("fifo" if is_fifo else "uncomp_lm" if is_uncomp_lm else "uncomp")
                 )
 
-            obj = objects[-1]
-            obj_flags           = obj.lods[0].flags
             # copy data over
-            obj.bnd_rad         = model_cache.bounding_radius
+            obj         = objects[-1]
+            obj_flags   = obj.lods[0].flags
+            obj.bnd_rad = model_cache.bounding_radius
             for lod in obj.lods:
                 lod.tri_count   = model_cache.tri_count
                 lod.vert_count  = model_cache.vert_count

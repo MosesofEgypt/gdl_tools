@@ -22,10 +22,7 @@ def _compile_texture(kwargs):
 
     print("Compiling texture: %s" % name)
     g3d_texture = G3DTexture()
-    g3d_texture.import_asset(
-        asset_filepath, min_dimension=(1 if target_dreamcast else 8),
-        **kwargs
-        )
+    g3d_texture.import_asset(asset_filepath, **kwargs)
 
     texture_cache = g3d_texture.compile_g3d(cache_type)
     texture_cache.source_asset_checksum = get_asset_checksum(
@@ -104,7 +101,7 @@ def compile_textures(
             asset_filepath = all_assets[name]
 
             rel_filepath = os.path.relpath(asset_filepath, asset_folder)
-            filename, asset_type = os.path.splitext(rel_filepath)[0]
+            filename, _ = os.path.splitext(rel_filepath)
             cache_filepath = os.path.join(cache_path_base, "%s.%s" % (filename, cache_type))
 
             if not force_recompile and os.path.isfile(cache_filepath):
@@ -113,7 +110,11 @@ def compile_textures(
                     continue
 
             target_format = meta.get("format", c.DEFAULT_FORMAT_NAME)
-            has_alpha     = meta.get("flags", {}).get("has_alpha")
+            flags         = meta.get("flags", {})
+            has_alpha     = flags.get("has_alpha")
+            twiddled      = flags.get("twiddled") and target_dreamcast
+            large_vq      = flags.get("large_vq") and target_dreamcast
+            small_vq      = flags.get("small_vq") and target_dreamcast
             new_format    = texture_util.retarget_format_to_platform(
                 target_format, cache_type, has_alpha
                 )
@@ -124,9 +125,11 @@ def compile_textures(
 
             all_job_args.append(dict(
                 asset_filepath=asset_filepath, cache_filepath=cache_filepath,
-                optimize_format=optimize_format, name=name, target_format_name=target_format,
-                mipmap_count=meta.get("mipmap_count", 0),
+                optimize_format=optimize_format, name=name, target_format=target_format,
+                mipmap_count=meta.get("mipmap_count", 0), cache_type=cache_type,
                 keep_alpha=(has_alpha or "A" in target_format),
+                twiddled=twiddled, large_vq=large_vq, small_vq=small_vq,
+                min_dimension=(1 if target_dreamcast else 8),
                 ))
         except Exception:
             print(format_exc())
@@ -150,8 +153,9 @@ def import_textures(
     texture_caches_by_name = {}
     all_asset_filepaths = util.locate_textures(
         os.path.join(data_dir, c.IMPORT_FOLDERNAME, c.TEX_FOLDERNAME),
-        cache_files=True, target_ngc=target_ngc,
-        target_xbox=target_xbox, target_arcade=target_arcade
+        target_ngc=target_ngc, target_xbox=target_xbox, target_ps2=target_ps2,
+        target_dreamcast=target_dreamcast, target_arcade=target_arcade,
+        cache_files=True,
         )
 
     for name in sorted(all_asset_filepaths):
@@ -196,8 +200,8 @@ def import_textures(
         all_metadata = dict(combined=all_metadata)
 
     # for inserting the metadata into the objects tag in the correct order
-    sorted_bitm_meta = [None] * len(bitmaps)
-    texture_caches   = [None] * len(bitmaps)
+    sorted_bitm_meta = [{}   for i in range(len(bitmaps))]
+    texture_caches   = [None for i in range(len(bitmaps))]
 
     for type_asset_name in sorted(all_metadata):
         # type_asset_name will look like 'bitmaps_AAAWHITE', and we
@@ -230,167 +234,179 @@ def import_textures(
     # into the cache file, set the pointers for the texture data,
     # and import the rest of the bitmap metadata(w/h, mips, etc).
     for i in range(len(sorted_bitm_meta)):
-        bitm          = bitmaps[i]
-        meta          = sorted_bitm_meta[i]
-        texture_cache = texture_caches[i]
-        texture_data  = b''
-        if texture_cache:
-            texture_data = texture_cache.serialize(pixel_interop_edits=False)
+        bitm    = bitmaps[i]
+        meta    = sorted_bitm_meta[i]
+        name    = meta.get("name", "<UNNAMED>")[:30]
+        try:
+            flags = bitm.flags
+            is_invalid  = bool(getattr(flags, "invalid"))
+            is_external = bool(getattr(flags, "external"))
 
-        texture_datas.append(texture_data)
-        if not meta:
-            continue
+            texture_cache = texture_caches[i]
+            texture_data  = b''
+            if not(texture_cache and texture_cache.width and texture_cache.height):
+                # texture size is zero(missing bitmap?).
+                # set invalid flag and be done with it.
+                is_invalid = True
+                meta.get("flags", {}).update(invalid=True)
+            elif texture_cache:
+                texture_data = texture_cache.serialize(pixel_interop_edits=False)
 
-        bitm.frame_count = meta.get("frame_count", 0)
-        bitm.tex_pointer = tex_pointer
+            texture_datas.append(texture_data)
+            if not meta:
+                continue
 
-        if not bitm.frame_count:
-            # the only names stored to the texdef names are the non-sequence bitmaps
-            objects_tag.texdef_names[tex_pointer] = meta["name"]
+            bitm.frame_count = meta.get("frame_count", 0)
+            bitm.tex_pointer = tex_pointer
 
-        flags = bitm.flags
-        is_invalid  = bool(getattr(flags, "invalid"))
-        is_external = bool(getattr(flags, "external"))
+            if not bitm.frame_count:
+                # the only names stored to the texdef names are the non-sequence bitmaps
+                objects_tag.texdef_names[tex_pointer] = name
 
-        if target_ngc:
-            mipmap_count = meta.get("mipmap_count", 0)
-        else:
-            mipmap_count = max(0, len(texture_cache.textures) - 1) if texture_cache else 0
-
-        if bitm.frame_count or is_external or is_invalid:
-            # no bitmap to import; only import metadata
-            try:
-                bitm.format.set_to(meta["format"])
-            except Exception:
-                print(format_exc())
-                print("Warning: Could not set bitmap format.")
-
-            if hasattr(bitm, "lod_k"): # v4 and higher
-                bitm.mipmap_count = meta.get("mipmap_count", 0)
-                bitm.lod_k        = meta.get("lod_k", c.DEFAULT_TEX_LOD_K)
-
-            if hasattr(bitm, "tex_palette_index"): # v12 and higher
-                bitm.tex_palette_index = meta.get("tex_palette_index", 0)
-                bitm.tex_palette_count = meta.get("tex_palette_count", 0)
-                bitm.tex_shift_index   = meta.get("tex_shift_index", 0)
-
-            flags.data       = 0
-            bitm.width       = meta.get("width", 0)
-            bitm.height      = meta.get("height", 0)
-            bitm.frame_count = meta.get("frame_count", bitm.frame_count)
-
-        elif texture_cache:
-            # there is actually a texture to import
-            tex_pointer += len(texture_data)
-
-            bitm.format.set_to(texture_cache.format_id)
-            bitm.width  = texture_cache.width
-            bitm.height = texture_cache.height
-
-            if target_dreamcast:
-                bitm.size = len(texture_data)
-            elif target_arcade:
-                bitm.ncc_table_data = texture_cache.ncc_table.export_to_rawdata()
-            elif hasattr(bitm, "lod_k"): # v4 and higher
-                bitm.mipmap_count = mipmap_count
-                bitm.lod_k        = meta.get("lod_k", texture_cache.lod_k)
-                flags.has_alpha   = texture_cache.has_alpha or "A" in texture_cache.format_name
-
-        else:
-            print("Warning: Could not locate bitmap file for '%s'" % asset_name)
-
-        # copy flags from metadata
-        for flag_name in meta.get("flags", {}):
-            if hasattr(flags, flag_name):
-                setattr(flags, flag_name, meta["flags"][flag_name])
-
-        if target_arcade:
-            # values range from 0 to 8, and they are tied to the log2 of the width or height(whichever
-            # is largest). for 256, the log is 8, and for 1 the log is 0. so do 8 - log2(w_or_h)
-            bitm.large_lod_log2_inv = 8 - int(math.log(max(bitm.width, bitm.height, 1), 2))
-            bitm.small_lod_log2_inv = bitm.large_lod_log2_inv + mipmap_count
-        elif target_dreamcast:
-            if texture_cache.large_vq:
-                image_type = "large_vq"
-            elif texture_cache.small_vq:
-                image_type = "small_vq"
-            elif bitm.width == bitm.height:
-                image_type = "square"
+            if target_ngc:
+                mipmap_count = meta.get("mipmap_count", 0)
             else:
-                image_type = "rectangle"
+                mipmap_count = max(0, len(texture_cache.textures) - 1) if texture_cache else 0
 
-            if texture_cache.twiddled:
-                image_type += "_twiddled"
+            if bitm.frame_count or is_external or is_invalid:
+                # no bitmap to import; only import metadata
+                try:
+                    bitm.format.set_to(meta["format"])
+                except Exception:
+                    print(format_exc())
+                    print("Warning: Could not set bitmap format.")
 
-            if texture_cache.mipmaps and bitm.width == bitm.height:
-                # only square textures can be mipmapped
-                image_type += "_mipmap"
+                if hasattr(bitm, "lod_k"): # v4 and higher
+                    bitm.mipmap_count = meta.get("mipmap_count", 0)
+                    bitm.lod_k        = meta.get("lod_k", c.DEFAULT_TEX_LOD_K)
 
-            bitm.image_type.set_to(image_type)
-            bitm.dc_unknown = meta.get("dc_unknown", 0)
-        else:
-            # do max with 1 to make sure we dont try to do log(0, 2)
-            bitm.log2_of_width  = int(math.log(max(bitm.width, 1), 2))
-            bitm.log2_of_height = int(math.log(max(bitm.height, 1), 2))
-            bitm.width_64       = max(1, (bitm.width + 63) // 64)
+                if hasattr(bitm, "tex_palette_index"): # v12 and higher
+                    bitm.tex_palette_index = meta.get("tex_palette_index", 0)
+                    bitm.tex_palette_count = meta.get("tex_palette_count", 0)
+                    bitm.tex_shift_index   = meta.get("tex_shift_index", 0)
 
-        if is_external or meta.get("cache_name"):
-            # create a bitmap def
-            bitmap_defs.append()
-            bitmap_defs[-1].name = meta["name"][:30]
-            bitmap_defs[-1].width = bitm.width
-            bitmap_defs[-1].height = bitm.height
-            bitmap_defs[-1].tex_index = i
+                flags.data       = 0
+                bitm.width       = meta.get("width", 0)
+                bitm.height      = meta.get("height", 0)
+                bitm.frame_count = meta.get("frame_count", bitm.frame_count)
 
-        if is_external or is_invalid or target_arcade or target_dreamcast:
+            elif texture_cache:
+                # there is actually a texture to import
+                tex_pointer += len(texture_data)
+
+                bitm.format.set_to(texture_cache.format_id)
+                bitm.width  = texture_cache.width
+                bitm.height = texture_cache.height
+
+                if target_dreamcast:
+                    bitm.size = len(texture_data)
+                elif target_arcade:
+                    bitm.ncc_table_data = texture_cache.ncc_table.export_to_rawdata()
+                elif hasattr(bitm, "lod_k"): # v4 and higher
+                    bitm.mipmap_count = mipmap_count
+                    bitm.lod_k        = meta.get("lod_k", texture_cache.lod_k)
+                    flags.has_alpha   = texture_cache.has_alpha or "A" in texture_cache.format_name
+
+            else:
+                print(f"Warning: Could not locate bitmap file for '{name}'")
+
+            # copy flags from metadata
+            for flag_name in meta.get("flags", {}):
+                if hasattr(flags, flag_name):
+                    setattr(flags, flag_name, meta["flags"][flag_name])
+
+            if target_arcade:
+                # values range from 0 to 8, and they are tied to the log2 of the width or height(whichever
+                # is largest). for 256, the log is 8, and for 1 the log is 0. so do 8 - log2(w_or_h)
+                bitm.large_lod_log2_inv = 8 - int(math.log(max(bitm.width, bitm.height, 1), 2))
+                bitm.small_lod_log2_inv = bitm.large_lod_log2_inv + mipmap_count
+            elif target_dreamcast:
+                if texture_cache.large_vq:
+                    image_type = "large_vq"
+                elif texture_cache.small_vq:
+                    image_type = "small_vq"
+                elif bitm.width == bitm.height:
+                    image_type = "square"
+                else:
+                    image_type = "rectangle"
+
+                if texture_cache.twiddled:
+                    image_type += "_twiddled"
+
+                if texture_cache.mipmaps and bitm.width == bitm.height:
+                    # only square textures can be mipmapped
+                    image_type += "_mipmap"
+
+                bitm.image_type.set_to(image_type)
+                bitm.dc_unknown = meta.get("dc_unknown", 0)
+            else:
+                # do max with 1 to make sure we dont try to do log(0, 2)
+                bitm.log2_of_width  = int(math.log(max(bitm.width, 1), 2))
+                bitm.log2_of_height = int(math.log(max(bitm.height, 1), 2))
+                bitm.width_64       = max(1, (bitm.width + 63) // 64)
+
+            if is_external or meta.get("cache_name"):
+                # create a bitmap def
+                bitmap_defs.append()
+                bitmap_defs[-1].name   = name
+                bitmap_defs[-1].width  = bitm.width
+                bitmap_defs[-1].height = bitm.height
+                bitmap_defs[-1].tex_index = i
+
+            if is_external or is_invalid or target_arcade or target_dreamcast:
+                continue
+
+            # populate tex0 and miptbp
+            format_name             = bitm.format.enum_name
+            bitm.tex0.tex_width     = bitm.log2_of_width
+            bitm.tex0.tex_height    = bitm.log2_of_height
+            bitm.tex0.psm.set_to(
+                c.PSM_T8   if "IDX_8" in format_name else
+                c.PSM_T4   if "IDX_4" in format_name else
+                c.PSM_CT16 if "1555"  in format_name else
+                c.PSM_CT32 if "8888"  in format_name else
+                c.PSM_CT32 # should never hit this
+                )
+            bitm.tex0.tex_cc.set_to(
+                meta.get("tex_cc", "rgba")
+                )
+            bitm.tex0.clut_pixmode.set_to(
+                c.PSM_CT16 if "1555_IDX" in format_name else c.PSM_CT32
+                )
+            bitm.tex0.tex_function.set_to(
+                meta.get("tex_function", "decal")
+                )
+            bitm.tex0.clut_smode.set_to(
+                meta.get("clut_smode", "csm1")
+                )
+            bitm.tex0.clut_loadmode.set_to(
+                meta.get("clut_loadmode", "recache")
+                )
+
+            buffer_calc = texture_buffer_packer.TextureBufferPacker(
+                width=bitm.width, height=bitm.height,
+                mipmaps=bitm.mipmap_count,
+                pixel_format=bitm.tex0.psm.enum_name,
+                palette_format=(
+                    None if format_name in c.MONOCHROME_FORMATS else
+                    bitm.tex0.clut_pixmode.enum_name
+                    ),
+                )
+            buffer_calc.pack()
+
+            bitm.size         = buffer_calc.block_count
+            bitm.tex0.cb_addr = buffer_calc.palette_address
+
+            bitm.tex0.tb_addr, bitm.tex0.tb_width = buffer_calc.get_address_and_width(0)
+            for m in range(1, 7):
+                tb_addr, tb_width = buffer_calc.get_address_and_width(m)
+                bitm.mip_tbp["tb_addr%s"  % m] = tb_addr
+                bitm.mip_tbp["tb_width%s" % m] = tb_width
+
+        except Exception:
+            print(format_exc())
+            print(f"Error occurred while processing bitmap '{name}' at index {i}.")
             continue
-
-        # populate tex0 and miptbp
-        format_name = bitm.format.enum_name
-        bitm.tex0.tex_width  = bitm.log2_of_width
-        bitm.tex0.tex_height = bitm.log2_of_height
-        bitm.tex0.psm.set_to(
-            c.PSM_T8   if "IDX_8" in format_name else
-            c.PSM_T4   if "IDX_4" in format_name else
-            c.PSM_CT16 if "1555"  in format_name else
-            c.PSM_CT32 if "8888"  in format_name else
-            c.PSM_CT32 # should never hit this
-            )
-        bitm.tex0.tex_cc.set_to(
-            meta.get("tex_cc", "rgba")
-            )
-        bitm.tex0.clut_pixmode.set_to(
-            c.PSM_CT16 if "1555_IDX" in format_name else c.PSM_CT32
-            )
-        bitm.tex0.tex_function.set_to(
-            meta.get("tex_function", "decal")
-            )
-        bitm.tex0.clut_smode.set_to(
-            meta.get("clut_smode", "csm1")
-            )
-        bitm.tex0.clut_loadmode.set_to(
-            meta.get("clut_loadmode", "recache")
-            )
-
-        buffer_calc = texture_buffer_packer.TextureBufferPacker(
-            width=bitm.width, height=bitm.height,
-            mipmaps=bitm.mipmap_count,
-            pixel_format=bitm.tex0.psm.enum_name,
-            palette_format=(
-                None if format_name in c.MONOCHROME_FORMATS else
-                bitm.tex0.clut_pixmode.enum_name
-                ),
-            )
-        buffer_calc.pack()
-
-        bitm.size         = buffer_calc.block_count
-        bitm.tex0.cb_addr = buffer_calc.palette_address
-
-        bitm.tex0.tb_addr, bitm.tex0.tb_width = buffer_calc.get_address_and_width(0)
-        for m in range(1, 7):
-            tb_addr, tb_width = buffer_calc.get_address_and_width(m)
-            bitm.mip_tbp["tb_addr%s"  % m] = tb_addr
-            bitm.mip_tbp["tb_width%s" % m] = tb_width
 
     return texture_datas
 
@@ -476,7 +492,7 @@ def decompile_textures(
                       (i, asset_type, asset.get("name"), asset.get("asset_name"))
                       )
     finally:
-        textures_file.close()        
+        textures_file.close()
 
     print("Decompiling %s textures in %s" % (
         len(all_job_args), "parallel" if parallel_processing else "series"

@@ -236,9 +236,9 @@ class Ps2TextureCache(TextureCache):
 
     cache_type = constants.TEXTURE_CACHE_EXTENSION_PS2
     cache_type_version = TEXTURE_CACHE_VER
-    expected_cache_type_versions = frozenset(
+    expected_cache_type_versions = frozenset((
         (constants.TEXTURE_CACHE_EXTENSION_PS2, TEXTURE_CACHE_VER),
-        )
+        ))
 
     def _ps2_palette_shuffle(self, palette):
         # gauntlet textures have every OTHER pair of 8 palette entries
@@ -285,9 +285,9 @@ class XboxTextureCache(Ps2TextureCache):
     # same in every way
     cache_type = constants.TEXTURE_CACHE_EXTENSION_XBOX
     cache_type_version = TEXTURE_CACHE_VER
-    expected_cache_type_versions = frozenset(
+    expected_cache_type_versions = frozenset((
         (constants.TEXTURE_CACHE_EXTENSION_XBOX, TEXTURE_CACHE_VER),
-        )
+        ))
 
 
 class GamecubeTextureCache(TextureCache):
@@ -305,9 +305,9 @@ class GamecubeTextureCache(TextureCache):
         }
     cache_type = constants.TEXTURE_CACHE_EXTENSION_NGC
     cache_type_version = TEXTURE_CACHE_VER
-    expected_cache_type_versions = frozenset(
+    expected_cache_type_versions = frozenset((
         (constants.TEXTURE_CACHE_EXTENSION_NGC, TEXTURE_CACHE_VER),
-        )
+        ))
 
     def __init__(self):
         super().__init__()
@@ -413,9 +413,9 @@ class DreamcastTextureCache(TextureCache):
         }
     cache_type = constants.TEXTURE_CACHE_EXTENSION_DC
     cache_type_version = TEXTURE_CACHE_VER
-    expected_cache_type_versions = frozenset(
+    expected_cache_type_versions = frozenset((
         (constants.TEXTURE_CACHE_EXTENSION_DC, TEXTURE_CACHE_VER),
-        )
+        ))
 
     @property
     def palettized(self):
@@ -537,9 +537,9 @@ class ArcadeTextureCache(TextureCache):
     ncc_table = None
     cache_type = constants.TEXTURE_CACHE_EXTENSION_ARC
     cache_type_version = TEXTURE_CACHE_VER
-    expected_cache_type_versions = frozenset(
+    expected_cache_type_versions = frozenset((
         (constants.TEXTURE_CACHE_EXTENSION_ARC, TEXTURE_CACHE_VER),
-        )
+        ))
 
     def parse(self, rawdata):
         super().parse(rawdata)

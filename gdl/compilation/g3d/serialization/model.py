@@ -355,7 +355,7 @@ class G3DModel():
         for tex_name, lm_name in self.stripifier.all_strips:
             texture_names.update((tex_name.upper(), lm_name.upper()))
 
-        model_cache = get_model_cache_class_from_cache_type(cache_type)
+        model_cache = get_model_cache_class_from_cache_type(cache_type)()
         if isinstance(model_cache, Ps2ModelCache):
             self.make_strips()
 

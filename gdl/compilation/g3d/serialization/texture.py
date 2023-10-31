@@ -35,13 +35,13 @@ class G3DTexture:
     dual_channel_map = (0, 1, 1, 1)
     argb_channel_map = (0, 1, 2, 3)
 
-    def import_asset(self, input_filepath,
-                     target_format=c.DEFAULT_FORMAT_NAME, **kwargs):
+    def import_asset(self, input_filepath, target_format=None, **kwargs):
+        if target_format is None:
+            target_format = self.target_format
+
         arby = arbytmap.Arbytmap()
         arby.load_from_file(input_path=input_filepath)
-        self.from_arbytmap_instance(
-            input_filepath, target_format=target_format, **kwargs
-            )
+        self.from_arbytmap_instance(arby, target_format, **kwargs)
 
     def export_asset(self, output_filepath, include_mipmaps=False, **kwargs):
         arbytmap_instance = self.to_arbytmap_instance(
@@ -81,10 +81,31 @@ class G3DTexture:
         self.ncc_table = getattr(texture_cache, "ncc_table", None)
 
     def compile_g3d(self, cache_type):
-        cache_type = get_texture_cache_class_from_cache_type()
-        # gamecube only stores the largest mipmap
+        texture_cache = get_texture_cache_class_from_cache_type(cache_type)()
 
-        raise NotImplementedError()
+        textures = self.textures
+        # gamecube only stores the fullsize texture
+        if isinstance(texture_cache, GamecubeTextureCache):
+            textures = tuple(textures[:1])
+
+        # copy the textures to the cache
+        texture_cache.textures      = tuple(bytes(t) for t in textures)
+        texture_cache.height        = self.width
+        texture_cache.height        = self.height
+        texture_cache.format_name   = self.format_name
+        texture_cache.has_alpha     = self.has_alpha
+
+        if isinstance(texture_cache, DreamcastTextureCache):
+            texture_cache.twiddled  = self.twiddled
+            texture_cache.large_vq  = self.large_vq
+            texture_cache.small_vq  = self.small_vq
+        elif isinstance(texture_cache, Ps2TextureCache):
+            texture_cache.lod_k     = self.lod_k
+
+        if texture_cache.palettized:
+            texture_cache.palette   = bytes(self.palette)
+
+        return texture_cache
 
     def to_arbytmap_instance(self, include_mipmaps=False):
         if not self.textures:
@@ -102,7 +123,10 @@ class G3DTexture:
 
         texture_block = []
         palette_block = []
-        if indexing_size:
+        if self.twiddled or self.large_vq or self.small_vq:
+            # undo twiddling/vector-quantization
+            raise NotImplementedError()
+        elif indexing_size:
             # convert the palette to an array of the correct typecode for processing
             if self.format_name in (c.PIX_FMT_ABGR_3555_IDX_4_NGC,
                                     c.PIX_FMT_ABGR_3555_IDX_8_NGC):
@@ -160,9 +184,12 @@ class G3DTexture:
         elif arby.width not in c.VALID_DIMS or arby.height not in c.VALID_DIMS:
             raise ValueError(f"Invalid dimensions: {arby.width}x{arby.height}")
 
-        keep_alpha      = kwargs.pop("keep_alpha", "A" in target_format)
+        keep_alpha  = kwargs.pop("keep_alpha", "A" in target_format)
+        twiddled    = kwargs.pop("twiddled", False)
+        large_vq    = kwargs.pop("large_vq", False)
+        small_vq    = kwargs.pop("small_vq", False)
         optimize_format = kwargs.pop("optimize_format", True)
-        max_mip_count = int(math.ceil(max(0, min(
+        max_mip_count   = int(math.ceil(max(0, min(
             c.MAX_MIP_COUNT,
             kwargs.get("mipmap_count", c.MAX_MIP_COUNT),
             math.log(max(1, min(arby.width, arby.height)), 2)
@@ -220,7 +247,14 @@ class G3DTexture:
 
         # NOTE: need to determine if gamecube can handle 32bit color,
         #       and if so, does the alpha need to be halved or not.
-        if indexing_size:
+        
+        if twiddled or large_vq or small_vq:
+            # apply dreamcast twiddling/vector-quantization
+            if c.PIXEL_SIZES[target_format] != 16:
+                raise NotImplementedError("Dreamcast does not support non-16bit textures.")
+
+            raise NotImplementedError()
+        elif indexing_size:
             # palettize
             palette, textures, palette_size = texture_util.palettize_textures(
                 textures, 1 << indexing_size, 16 if optimize_format else None
@@ -228,7 +262,7 @@ class G3DTexture:
             # replace the indexing size in the format name with the recalculated
             # size determined from how many colors are in the palette. Do this
             # by cutting the name off at the indexing size and replacing it
-            size_str = "IDX_4" if palette_size == 16 else "IDX_8"
+            size_str      = "IDX_4" if palette_size == 16 else "IDX_8"
             target_format = target_format.split("IDX_")[0] + size_str
 
             # pack the palette
@@ -263,11 +297,15 @@ class G3DTexture:
         # load the results into this G3DTexture
         self.width  = arby.width
         self.height = arby.height
+        self.lod_k  = c.DEFAULT_TEX_LOD_K
+
         self.has_alpha   = ("A" in arby.format)
+        self.twiddled    = twiddled
+        self.large_vq    = large_vq
+        self.small_vq    = small_vq
         self.channel_map = tuple(arby.channel_mapping)
         self.format_name = target_format
-        self.lod_k = c.DEFAULT_TEX_LOD_K
 
-        self.palette   = palette
-        self.textures  = textures
-        self.ncc_table = ncc_table
+        self.palette    = palette
+        self.textures   = textures
+        self.ncc_table  = ncc_table

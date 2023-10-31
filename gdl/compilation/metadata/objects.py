@@ -95,7 +95,7 @@ def decompile_objects_metadata(
             metadata_bitm["dc_unknown"] = bitm.dc_unknown
             for name in ("twiddled", "mipmap", "small_vq", "large_vq"):
                 if name in bitm.image_type.enum_name:
-                    metadata_bitm["name"] = True
+                    metadata_bitm[name] = True
         else:
             metadata_bitm.update(mipmap_count=abs(bitm.small_lod_log2_inv - bitm.large_lod_log2_inv))
 

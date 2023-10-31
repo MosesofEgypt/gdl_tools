@@ -232,7 +232,7 @@ class ObjectsTag(GdlTag):
             header.sub_objects_end = offset  #not 16 byte aligned
             offset += calculate_padding(offset, 16) # 16byte align 
 
-        #loop over all objects and set the pointers of their geometry data
+        # loop over all objects and set the pointers of their geometry data
         for obj in self.data.objects:
             obj.sub_object_models_pointer = offset
             if version in ("v12", "v13") and obj.sub_objects_count < 2:
