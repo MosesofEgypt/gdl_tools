@@ -33,116 +33,160 @@ class ObjectsTag(GdlTag):
             if bitmap_defs[i].name
             }
 
-    def generate_cache_names(self):
-        bitmaps     = self.data.bitmaps
-        objects     = self.data.objects
-        object_defs = self.data.object_defs
-        bitmap_defs = self.data.bitmap_defs
-        texdef_names = self.texdef_names
+    def get_object_names(self):
+        object_names = {}
 
-        object_names = {
-            b.obj_index: dict(name=b.name, asset_name=b.name, index=b.obj_index)
-            for b in object_defs if b.name
-            }
+        for bitm_def in self.data.object_defs:
+            obj_index = bitm_def.obj_index
+            name      = bitm_def.name.strip().upper()
+
+            for i in range(obj_index, obj_index + max(0, bitm_def.frames) + 1):
+                object_names[i] = dict(
+                    name        = (name if i == obj_index else f"{name}.{i:04}"),
+                    asset_name  = name,
+                    index       = i
+                    )
+
+        # fill in object names that couldn't be determined
+        unnamed_count = 0
+        for i, obj in enumerate(self.data.objects):
+            if i in object_names:
+                continue
+
+            name = f"{c.UNNAMED_ASSET_NAME}.{unnamed_count:04}"
+            object_names[i] = dict(name=name, asset_name=c.UNNAMED_ASSET_NAME, index=i)
+            unnamed_count += 1
+
+        return object_names
+
+    def get_bitmap_def_names(self):
         bitmap_names = {
             b.tex_index: dict(name=b.name, asset_name=b.name, index=b.tex_index)
-            for b in bitmap_defs if b.name
+            for b in self.data.bitmap_defs if b.name
             }
-        if texdef_names:
-            # grab additional names from texdefs
-            bitm_i = 0
-            texdef_names = dict(texdef_names)
-            while bitm_i < len(bitmaps):
-                bitm = bitmaps[bitm_i]
-                if bitm.tex_pointer in texdef_names and not bitmap_names.get(bitm_i):
-                    # bitmaps with frame counts are sequences
+        return bitmap_names
+
+    def get_texdef_names(self):
+        bitmap_names = {}
+
+        if not self.texdef_names:
+            texdef_names = dict(self.texdef_names)
+            for i, bitm in enumerate(self.data.bitmaps):
+                if i not in bitmap_names and bitm.tex_pointer in texdef_names:
                     name = texdef_names.pop(bitm.tex_pointer)
-                    bitmap_names[bitm_i] = dict(name=name, asset_name=name, index=bitm_i)
+                    bitmap_names[i] = dict(name=name, asset_name=name, index=i)
 
-                bitm_i += 1
+        return bitmap_names
 
-        object_frame_counts = {b.obj_index: b.frames + 1 for b in object_defs if b.name}
+    def get_lightmap_names(self):
+        lightmap_names = {}
 
-        lm_start = getattr(self.data.header, "lm_tex_first", 0)
-        lm_num   = getattr(self.data.header, "lm_tex_num", 0)
-        lightmap_indices = set(range(lm_start, lm_start + lm_num))
-        texture_model_indices = {}
+        version = self.data.version_header.version.enum_name
+        is_vif  = version in ("v4", "v12", "v13")
 
-        # track how many times each name is used
-        name_counts = {d['name']: 0 for d in object_names.values()}
+        if is_vif and version != "v4":
+            header = self.data.header
+            lightmap_names.update({
+                i: dict(index=i) for i in range(
+                    header.lm_tex_first,
+                    header.lm_tex_first + header.lm_tex_num
+                    )
+                })
 
-        frame_count, asset_name = 0, c.UNNAMED_ASSET_NAME
-        # make best guess at model names
-        for i in range(len(objects)):
-            if i in object_names or frame_count == 0:
-                # object has a name or is completely untied to anything named
-                asset_name = object_names.get(i, dict(name=c.UNNAMED_ASSET_NAME))['name']
+        for i, obj in enumerate(self.data.objects):
+            flags  = obj.flags if is_vif else obj.lods[0].flags
+            if not getattr(flags, "lmap", False):
+                continue
 
-            name_count = name_counts.setdefault(asset_name, 0)
-            name_counts[asset_name] += 1
-            frame_count = max(0, object_frame_counts.get(i, frame_count) - 1)
-
-            object_name = f"{asset_name}.{name_count:05}" if name_count else asset_name
-            object_names[i] = dict(name=object_name, asset_name=asset_name, index=i)
-
-            # populate maps to help name bitmaps
-            # TODO: update to handle dreamcast and arcade textures and lightmaps
-            if self.data.version_header.version.enum_name not in ("v0", "v1"):
-                obj            = objects[i]
-                obj_flags      = getattr(obj, "flags", None)
-                subobj_headers = tuple(getattr(obj.data, "sub_objects", ())) + (obj.sub_object_0, )
+            if is_vif:
+                subobj_headers = (obj.sub_object_0, )
+                if hasattr(obj.data, "sub_objects"):
+                    subobj_headers += tuple(obj.data.sub_objects)
 
                 for subobj_header in subobj_headers:
-                    texture_model_indices.setdefault(subobj_header.tex_index, set()).add(i)
-                    if getattr(obj_flags, "lmap", False):
-                        lightmap_indices.add(subobj_header.lm_index)
+                    lightmap_names[subobj_header.lm_index] = dict(
+                        index = subobj_header.lm_index
+                        )
 
-
-        lightmap_indices = list(sorted(lightmap_indices))
-        texture_model_indices = {k: list(sorted(v)) for k, v in texture_model_indices.items()}
-
-
-        # reset for tracking bitmaps
-        name_counts = {d['name']: 0 for d in object_names.values()}
-        name_counts[c.LIGHTMAP_NAME] = 0
+            elif flags.fifo_cmds or flags.fifo_cmds_2:
+                # figure out what to do for arcade fifo lightmaps
+                raise NotImplementedError()
+            else:
+                # figure out what to do for dreamcast/arcade lightmaps
+                raise NotImplementedError()
 
         # name the lightmaps
         # TODO: update to handle dreamcast and arcade lightmaps
-        for i in lightmap_indices:
-            if i not in bitmap_names:
-                asset_name = "%s.%s" % (c.LIGHTMAP_NAME, name_counts[c.LIGHTMAP_NAME])
-                bitmap_names.setdefault(i, dict(index=i, name=asset_name))
-                bitmap_names[i]["asset_name"] = asset_name
-                name_counts[c.LIGHTMAP_NAME] += 1
+        for i, tex_index in enumerate(sorted(lightmap_names)):
+            asset_name = "{c.LIGHTMAP_NAME}.{i}"
+            lightmap_names[tex_index] = dict(
+                name        = asset_name,
+                asset_name  = c.LIGHTMAP_NAME,
+                )
 
-        # make best guess at bitmap names
-        frame_count, asset_name = 0, c.UNNAMED_ASSET_NAME
-        for i in range(len(bitmaps)):
-            bitm = bitmaps[i]
-            if frame_count == 0:
-                # either get the bitmaps actual name, the name of the model
-                # that uses this texture, or __UNNAMED if all else fails
-                obj_index  = texture_model_indices.get(i, [0xFFffFFff])[0]
-                asset_name = bitmap_names.get(
-                    i, object_names.get(obj_index, dict(name=c.UNNAMED_ASSET_NAME))
-                    )['name']
+        return lightmap_names
 
-            name_count = name_counts.setdefault(asset_name, 0)
-            name_counts[asset_name] += 1
-            frame_count = max(0, frame_count - 1 if frame_count else bitm.frame_count)
+    def generate_cache_names(self):
+        version = self.data.version_header.version.enum_name
+        is_vif  = version in ("v4", "v12", "v13")
 
-            if name_count or i not in bitmap_names:
-                bitmap_name = f"{asset_name}.{name_count:05}"
+        bitmap_names = {}
+        object_names = self.get_object_names()
+
+        # use model names to help name bitmaps
+        if is_vif:
+            name_counts = {}
+            for i, obj in enumerate(self.data.objects):
+                asset_name = object_names[i]["asset_name"]
+                name_counts.setdefault(asset_name, 0)
+
+                # populate maps to help name bitmaps
+                subobj_headers = (obj.sub_object_0, )
+                if hasattr(obj.data, "sub_objects"):
+                    subobj_headers += tuple(obj.data.sub_objects)
+
+                for header in subobj_headers:
+                    if header.tex_index in bitmap_names:
+                        continue
+
+                    name = f"{asset_name}.{name_counts[asset_name]:04}"
+                    name_counts[asset_name] += 1
+                    bitmap_names[header.tex_index] = dict(
+                        name=name, asset_name=asset_name, index=header.tex_index
+                        )
+
+        # generate names of lightmaps
+        bitmap_names.update(self.get_lightmap_names())
+
+        # grab names from texdefs and bitmap_defs
+        bitmap_names.update(self.get_texdef_names())
+        bitmap_names.update(self.get_bitmap_def_names())
+
+        # fill in bitmap names that couldn't be determined
+        asset_name, basename, unnamed_ct, name_index, frames = "", "", 0, 0, 0
+        
+        # NOTE: remove hack when extracting frame counts form anim tag is done
+        hack = True
+        for i, bitm in enumerate(self.data.bitmaps):
+            if (hack or bitm.frame_count) and i in bitmap_names:
+                asset_name  = bitmap_names[i]["asset_name"]
+                basename    = bitmap_names[i]["name"]
+                frames      = max(0, bitm.frame_count)
+                name_index  = 0
+
+            if i in bitmap_names:
+                continue
+            elif hack or frames > 0:
+                frames  -= 1
             else:
-                bitmap_name = asset_name
+                basename    = c.UNNAMED_ASSET_NAME
+                asset_name  = c.UNNAMED_ASSET_NAME
+                name_index  = unnamed_ct
+                unnamed_ct  += 1
 
-            bitmap_names.setdefault(i, dict(index=i, name=bitmap_name))
-            bitmap_names[i]["asset_name"] = asset_name
-
-        for names, blocks in ([object_names, objects], [bitmap_names, bitmaps]):
-            for i in range(len(blocks)):
-                name = f"{c.UNNAMED_ASSET_NAME}.{len(names)}"
-                names.setdefault(i, dict(name=name, asset_name=name, index=i))
+            name = f"{basename}.{name_index:04}"
+            bitmap_names[i] = dict(name=name, asset_name=asset_name, index=i)
+            name_index += 1
 
         self._object_assets_by_index = object_names
         self._bitmap_assets_by_index = bitmap_names
