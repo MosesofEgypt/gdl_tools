@@ -3,6 +3,7 @@ import os
 from traceback import format_exc
 
 from .tag import GdlTag
+from ..anim import anim_def
 from ..texdef import texdef_def
 from ...compilation.util import calculate_padding
 from ...compilation.g3d import constants as c
@@ -10,23 +11,44 @@ from ...compilation.g3d import constants as c
 
 class ObjectsTag(GdlTag):
     texdef_names  = None
+    texdef_tag    = None
+    texmod_seqs   = None
 
     _object_assets_by_name  = None
     _bitmap_assets_by_name  = None
     _object_assets_by_index = None
     _bitmap_assets_by_index = None
 
-    def load_texdef_names(self, filepath=None):
-        if filepath is None:
-            filepath = os.path.join(
-                os.path.dirname(self.filepath), "%s.%s" % (
-                    c.TEXDEF_FILENAME, c.PS2_EXTENSION
+    def load_texmod_sequences(self, filepath=None, recache=False):
+        if self.anim_tag is None or recache:
+            if filepath is None:
+                filepath = os.path.join(
+                    os.path.dirname(self.filepath), f"{c.ANIM_FILENAME}.{ext}"
                     )
-                )
 
-        texdef_tag = texdef_def.build(filepath=filepath)
-        bitmap_defs = texdef_tag.data.bitmap_defs
-        bitmaps     = texdef_tag.data.bitmaps
+            self.anim_tag = anim_def.build(filepath=filepath)
+
+        self.texmod_seqs = {
+            texmod.tex_index: dict(
+                start = texmod.source_index.idx,
+                count = abs(texmod.frame_count),
+                )
+            for texmod in self.anim_tag.data.texmods
+            if texmod.type.source_index.idx >= 0
+            }
+
+    def load_texdef_names(self, filepath=None, recache=False):
+        if self.texdef_tag is None or recache:
+            if filepath is None:
+                ext = os.path.splitext(self.filepath)[-1]
+                filepath = os.path.join(
+                    os.path.dirname(self.filepath), f"{c.TEXDEF_FILENAME}.{ext}"
+                    )
+
+            self.texdef_tag  = texdef_def.build(filepath=filepath)
+
+        bitmap_defs = self.texdef_tag.data.bitmap_defs
+        bitmaps     = self.texdef_tag.data.bitmaps
         self.texdef_names = {
             bitmaps[i].tex_pointer: bitmap_defs[i].name
             for i in range(min(len(bitmap_defs), len(bitmaps)))
@@ -64,12 +86,13 @@ class ObjectsTag(GdlTag):
             b.tex_index: dict(name=b.name, asset_name=b.name, index=b.tex_index)
             for b in self.data.bitmap_defs if b.name
             }
+
         return bitmap_names
 
     def get_texdef_names(self):
         bitmap_names = {}
 
-        if not self.texdef_names:
+        if self.texdef_names:
             texdef_names = dict(self.texdef_names)
             for i, bitm in enumerate(self.data.bitmaps):
                 if i not in bitmap_names and bitm.tex_pointer in texdef_names:
@@ -87,7 +110,8 @@ class ObjectsTag(GdlTag):
         if is_vif and version != "v4":
             header = self.data.header
             lightmap_names.update({
-                i: dict(index=i) for i in range(
+                i: dict(index=i)
+                for i in range(
                     header.lm_tex_first,
                     header.lm_tex_first + header.lm_tex_num
                     )
@@ -122,6 +146,7 @@ class ObjectsTag(GdlTag):
             lightmap_names[tex_index] = dict(
                 name        = asset_name,
                 asset_name  = c.LIGHTMAP_NAME,
+                index       = tex_index
                 )
 
         return lightmap_names
@@ -164,11 +189,9 @@ class ObjectsTag(GdlTag):
 
         # fill in bitmap names that couldn't be determined
         asset_name, basename, unnamed_ct, name_index, frames = "", "", 0, 0, 0
-        
-        # NOTE: remove hack when extracting frame counts form anim tag is done
-        hack = True
+
         for i, bitm in enumerate(self.data.bitmaps):
-            if (hack or bitm.frame_count) and i in bitmap_names:
+            if bitm.frame_count and i in bitmap_names:
                 asset_name  = bitmap_names[i]["asset_name"]
                 basename    = bitmap_names[i]["name"]
                 frames      = max(0, bitm.frame_count)
@@ -176,7 +199,7 @@ class ObjectsTag(GdlTag):
 
             if i in bitmap_names:
                 continue
-            elif hack or frames > 0:
+            elif frames > 0:
                 frames  -= 1
             else:
                 basename    = c.UNNAMED_ASSET_NAME

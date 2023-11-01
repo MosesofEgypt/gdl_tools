@@ -181,7 +181,7 @@ def import_textures(
 
     # get the metadata for all bitmaps to import
     all_metadata = objects_metadata.compile_objects_metadata(
-        data_dir, by_asset_name=not use_force_index_hack
+        data_dir, by_asset_name=False
         )
 
     # for returning to the caller for easy iteration
@@ -192,16 +192,9 @@ def import_textures(
     # if the names aren't saved to the tag itself.
     objects_tag.texdef_names = {}
 
-    if use_force_index_hack and all_metadata:  # hack
-        max_forced_bitmap_index = max(
-            meta.get("force_index", -1) for meta in all_metadata["bitmaps"]
-            )
-        bitmaps.extend(1 + max_forced_bitmap_index, case=bitmap_parse_case)
-        all_metadata = dict(combined=all_metadata)
-
     # for inserting the metadata into the objects tag in the correct order
-    sorted_bitm_meta = [{}   for i in range(len(bitmaps))]
-    texture_caches   = [None for i in range(len(bitmaps))]
+    sorted_bitm_meta = []
+    texture_caches   = []
 
     for type_asset_name in sorted(all_metadata):
         # type_asset_name will look like 'bitmaps_AAAWHITE', and we
@@ -209,24 +202,16 @@ def import_textures(
         frames_metadata = all_metadata[type_asset_name].get("bitmaps", ())
 
         asset_name = type_asset_name.split('_', 1)[-1].upper()
-        initial_frame = not use_force_index_hack
+        initial_frame = True
 
         for i, meta in enumerate(frames_metadata):
-            texture_cache = texture_caches_by_name.get(meta["name"])
+            bitmaps.append(case=bitmap_parse_case)
 
-            # NOTE: force_index is a hack until animation decomp is a thing
-            bitm_index = meta.get("force_index", -1) if use_force_index_hack else -1
-            if bitm_index not in range(len(bitmaps)):
-                bitmaps.append(case=bitmap_parse_case)
-                texture_caches.append(None)
-                sorted_bitm_meta.append(None)
-                bitm_index = len(bitmaps) - 1
+            texture_caches.append(texture_caches_by_name.get(meta["name"]))
+            sorted_bitm_meta.append(meta)
 
             if i == 0:
                 meta["frame_count"] = max(0, len(frames_metadata) - 1)
-
-            sorted_bitm_meta[bitm_index] = meta
-            texture_caches[bitm_index]   = texture_cache
 
     tex_pointer = 0
 
@@ -244,12 +229,7 @@ def import_textures(
 
             texture_cache = texture_caches[i]
             texture_data  = b''
-            if not(texture_cache and texture_cache.width and texture_cache.height):
-                # texture size is zero(missing bitmap?).
-                # set invalid flag and be done with it.
-                is_invalid = True
-                meta.get("flags", {}).update(invalid=True)
-            elif texture_cache:
+            if texture_cache:
                 texture_data = texture_cache.serialize(pixel_interop_edits=False)
 
             texture_datas.append(texture_data)
@@ -294,7 +274,7 @@ def import_textures(
                 # there is actually a texture to import
                 tex_pointer += len(texture_data)
 
-                bitm.format.set_to(texture_cache.format_id)
+                bitm.format.data = texture_cache.format_id
                 bitm.width  = texture_cache.width
                 bitm.height = texture_cache.height
 
@@ -352,6 +332,14 @@ def import_textures(
                 bitmap_defs[-1].width  = bitm.width
                 bitmap_defs[-1].height = bitm.height
                 bitmap_defs[-1].tex_index = i
+
+            if not(bitm.width and bitm.height):
+                # texture size is zero(missing bitmap?).
+                # set invalid flag and be done with it.
+                if hasattr(flags, "invalid"):
+                    flags.invalid = True
+
+                continue
 
             if is_external or is_invalid or target_arcade or target_dreamcast:
                 continue

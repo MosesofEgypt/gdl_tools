@@ -124,11 +124,6 @@ def decompile_cache_files(
 
     if os.path.isfile(ps2_objects_filepath):
         objects_tag = objects_def.build(filepath=ps2_objects_filepath)
-        try:
-            objects_tag.load_texdef_names()
-        except Exception:
-            print('Could not load texdefs. Names generated will be best guesses.')
-
     elif os.path.isfile(ngc_objects_filepath):
         objects_tag = objects_def.build(filepath=ngc_objects_filepath)
     elif os.path.isfile(arcade_objects_filepath):
@@ -139,6 +134,17 @@ def decompile_cache_files(
             texdef_tag = texdef_def.build(filepath=ps2_texdef_filepath)
         elif os.path.isfile(dc_objects_filepath):
             texdef_tag = texdef_def.build(filepath=dc_objects_filepath)
+
+    if objects_tag:
+        try:
+            objects_tag.load_texdef_names()
+        except Exception:
+            print('Could not load texdefs. Names generated will be best guesses.')
+
+        try:
+            objects_tag.load_texmod_sequences()
+        except Exception:
+            print('Could not load texmod sequences. Texture animations may be broken.')
 
     if os.path.isfile(ps2_worlds_filepath):
         worlds_tag = worlds_def.build(filepath=ps2_worlds_filepath)

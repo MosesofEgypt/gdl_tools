@@ -119,9 +119,6 @@ def decompile_objects_metadata(
                 if bitm.tex0[name].enum_name != default:
                     metadata_bitm[name] = bitm.tex0[name].enum_name
 
-        # temporary hack 
-        metadata_bitm["force_index"] = i
-
         bitmaps_metadata.append(metadata_bitm)
 
         attrs_to_write = ()

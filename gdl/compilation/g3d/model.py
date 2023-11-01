@@ -125,7 +125,8 @@ def import_models(
         objects_tag, data_dir, target_ps2=False, target_ngc=False,
         target_xbox=False, target_dreamcast=False, target_arcade=False,
         ):
-    _, inv_bitmap_names = objects_tag.get_cache_names(by_name=True)
+    _, inv_bitmap_names = objects_tag.get_cache_names(by_name=True, recache=True)
+
     # we uppercase everything for uniformity. do it here
     inv_bitmap_names = {n.upper(): i for n, i in inv_bitmap_names.items()}
 
@@ -321,9 +322,9 @@ def decompile_models(
 
         except:
             print(format_exc())
-            print(('The above error occurred while trying to export subobj %s of object %s as %s. '
-                   "name: '%s', asset_name: '%s'") %
-                  (j, i, asset_type, asset.get("name"), asset.get("asset_name"))
+            print(f"The above error occurred while trying to export subobj {j} "
+                  f"of object {i} as {asset_type}. name: '{asset.get('name')}', "
+                  f"asset_name: '{asset.get('asset_name')}'"
                   )
 
     print("Decompiling %s models in %s" % (

@@ -264,7 +264,7 @@ class G3DModel():
                     continue
                 elif not bitmap_filepath:
                     # TODO: write a shared function to handle this naming
-                    for suffix in ("00", ".00001", ".00002"):
+                    for suffix in ("00", ".0001", ".0002"):
                         temp_name = bitmap_name + suffix
                         if temp_name in texture_assets:
                             bitmap_filepath = texture_assets[temp_name]
