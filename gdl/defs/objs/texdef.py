@@ -15,15 +15,14 @@ class TexdefPs2Tag(GdlTag):
 
         for bitm, bitm_def in zip(self.data.bitmaps, self.data.bitmap_defs):
             asset_name = bitm_def.name if bitm_def.name else c.UNNAMED_ASSET_NAME
-            name_count = name_counts.setdefault(asset_name, 0)
+            count = name_counts.setdefault(asset_name, 0)
             name_counts[asset_name] += 1
 
-            bitmap_name = (
-                f"{asset_name}.{name_count:05}" if name_count else asset_name
-                )
-
-            bitmap_names.append(dict(index=len(bitmap_names), name=bitmap_name))
-            bitmap_names[-1]["asset_name"] = asset_name
+            bitmap_names.append(dict(
+                index       = len(bitmap_names),
+                name        = f"{asset_name}.{count:04}" if count else asset_name,
+                asset_name  = asset_name
+                ))
 
         if by_name:
             return {d['name']: d for d in bitmap_names}

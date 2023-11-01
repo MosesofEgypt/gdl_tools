@@ -5,7 +5,7 @@ from traceback import format_exc
 from .tag import GdlTag
 from ..anim import anim_def
 from ..texdef import texdef_def
-from ...compilation.util import calculate_padding
+from ...compilation.util import calculate_padding, locate_objects_dir_files
 from ...compilation.g3d import constants as c
 
 
@@ -20,40 +20,44 @@ class ObjectsTag(GdlTag):
     _bitmap_assets_by_index = None
 
     def load_texmod_sequences(self, filepath=None, recache=False):
-        if self.anim_tag is None or recache:
-            if filepath is None:
-                filepath = os.path.join(
-                    os.path.dirname(self.filepath), f"{c.ANIM_FILENAME}.{ext}"
-                    )
+        if (self.anim_tag is None or recache) and filepath is None:
+            filepath = locate_objects_dir_files(
+                os.path.dirname(self.filepath)
+                )['anim_filepath']
 
+        if self.anim_tag is None and filepath:
             self.anim_tag = anim_def.build(filepath=filepath)
 
-        self.texmod_seqs = {
-            texmod.tex_index: dict(
-                start = texmod.source_index.idx,
-                count = abs(texmod.frame_count),
-                )
-            for texmod in self.anim_tag.data.texmods
-            if texmod.type.source_index.idx >= 0
-            }
+        self.texmod_seqs = {}
+        if self.anim_tag:
+            self.texmod_seqs.update({
+                texmod.tex_index: dict(
+                    start = texmod.source_index.idx,
+                    count = abs(texmod.frame_count),
+                    )
+                for texmod in self.anim_tag.data.texmods
+                if texmod.type.source_index.idx >= 0
+                })
 
     def load_texdef_names(self, filepath=None, recache=False):
-        if self.texdef_tag is None or recache:
-            if filepath is None:
-                ext = os.path.splitext(self.filepath)[-1]
-                filepath = os.path.join(
-                    os.path.dirname(self.filepath), f"{c.TEXDEF_FILENAME}.{ext}"
+        if (self.texdef_tag is None or recache) and filepath is None:
+            filepath = locate_objects_dir_files(
+                os.path.dirname(self.filepath)
+                )['texdef_filepath']
+
+        if self.texdef_tag is None and filepath:
+            self.texdef_tag = texdef_def.build(filepath=filepath)
+
+        self.texdef_names = {}
+        if self.texdef_tag:
+            self.texdef_names.update({
+                bitmap.tex_pointer: bitmap_def.name
+                for bitmap, bitmap_def in zip(
+                    self.texdef_tag.data.bitmaps,
+                    self.texdef_tag.data.bitmap_defs
                     )
-
-            self.texdef_tag  = texdef_def.build(filepath=filepath)
-
-        bitmap_defs = self.texdef_tag.data.bitmap_defs
-        bitmaps     = self.texdef_tag.data.bitmaps
-        self.texdef_names = {
-            bitmaps[i].tex_pointer: bitmap_defs[i].name
-            for i in range(min(len(bitmap_defs), len(bitmaps)))
-            if bitmap_defs[i].name
-            }
+                if bitmap_def.name
+                })
 
     def get_object_names(self):
         object_names = {}

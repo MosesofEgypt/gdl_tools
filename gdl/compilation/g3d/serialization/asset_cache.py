@@ -1,4 +1,5 @@
 import hashlib
+import os
 import struct
 
 CACHE_HEADER_SIG = b"G3DCache"
@@ -64,6 +65,12 @@ class AssetCache:
     expected_cache_type_versions = frozenset()
 
     is_extracted          = False
+
+    def serialize_to_file(self, filepath):
+        rawdata = self.serialize()
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        with open(filepath, "wb") as f:
+            f.write(rawdata)
 
     def parse(self, rawdata):
         if not rawdata:

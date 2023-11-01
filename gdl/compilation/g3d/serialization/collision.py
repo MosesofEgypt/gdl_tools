@@ -108,7 +108,7 @@ class G3DCollision:
         self.verts  = []
         self.meshes = {}
 
-    def import_g3c(self, coll_tris, mesh_indices):
+    def import_g3d(self, coll_tris, mesh_indices):
         self.clear()
 
         for mesh_name, indices in mesh_indices.items():
@@ -128,38 +128,5 @@ class G3DCollision:
                 for i in range(v0*3, (v0 + tri_count)*3, 3)
                 ]
 
-    def import_obj(self, output_filepath):
-        raise NotImplementedError("TODO")
-
-    def export_obj(self, output_filepath):
-        obj_str = '\n'.join((
-            '# Gauntlet Dark Legacy collision model',
-            '#     Extracted by Moses',
-            ))
-        obj_str += '\n\n'
-        obj_str += '\n'.join((
-            'v %.7f %.7f %.7f' % (-v[0], v[1], v[2]) for v in self.verts
-            ))
-        obj_str += '\n'
-
-        # collect all all tris, verts, uvw, normals, and texture indexes
-        for mesh_name in sorted(self.meshes):
-            if not self.meshes[mesh_name]:
-                continue
-
-            obj_str += 'g %s\n' % urllib.parse.quote(mesh_name)
-
-            # write the triangles
-            for tri in self.meshes[mesh_name]:
-                # obj indices are ones based
-                obj_str += 'f %s %s %s\n' % (tri[0]+1, tri[1]+1, tri[2]+1)
-
-        obj_bytes = obj_str.encode()
-        os.makedirs(os.path.dirname(output_filepath), exist_ok=True)
-        with open(output_filepath, 'wb+') as f:
-            f.write(obj_bytes)
-
-        self.source_file_hash = hashlib.md5(obj_bytes).digest()
-
-    def export_g3c(self, output_filepath):
+    def export_g3d(self, output_filepath):
         raise NotImplementedError("TODO")

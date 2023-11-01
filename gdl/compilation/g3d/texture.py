@@ -28,11 +28,7 @@ def _compile_texture(kwargs):
     texture_cache.source_asset_checksum = get_asset_checksum(
         filepath=asset_filepath, algorithm=texture_cache.checksum_algorithm
         )
-    texture_rawdata = texture_cache.serialize()
-
-    os.makedirs(os.path.dirname(cache_filepath), exist_ok=True)
-    with open(cache_filepath, "wb") as f:
-        f.write(texture_rawdata)
+    texture_cache.serialize_to_file(cache_filepath)
 
 
 def _decompile_texture(kwargs):
@@ -46,11 +42,7 @@ def _decompile_texture(kwargs):
     print("Decompiling texture: %s" % name)
 
     if asset_type in c.TEXTURE_CACHE_EXTENSIONS:
-        if overwrite or not os.path.isfile(filepath):
-            texture_rawdata = texture_cache.serialize()
-            os.makedirs(os.path.dirname(filepath), exist_ok=True)
-            with open(filepath, 'wb+') as f:
-                f.write(texture_rawdata)
+        texture_cache.serialize_to_file(filepath)
     else:
         g3d_texture = G3DTexture()
         g3d_texture.import_g3d(texture_cache)
@@ -401,7 +393,7 @@ def import_textures(
 
 def decompile_textures(
         data_dir, objects_tag=None, texdef_tag=None,
-        asset_types=c.TEXTURE_CACHE_EXTENSIONS,
+        asset_types=c.TEXTURE_CACHE_EXTENSIONS, textures_filepath="",
         parallel_processing=False, overwrite=False, mipmaps=False
         ):
     if isinstance(asset_types, str):
@@ -415,22 +407,19 @@ def decompile_textures(
     cache_dir  = os.path.join(data_dir, c.IMPORT_FOLDERNAME, c.TEX_FOLDERNAME)
     if objects_tag:
         tag_dir          = os.path.dirname(objects_tag.filepath)
-        textures_ext     = os.path.splitext(objects_tag.filepath)[-1].strip(".")
         bitmaps          = objects_tag.data.bitmaps
         _, bitmap_assets = objects_tag.get_cache_names()
     elif texdef_tag:
         tag_dir       = os.path.dirname(texdef_tag.filepath)
-        textures_ext  = os.path.splitext(texdef_tag.filepath)[-1].strip(".")
         bitmaps       = texdef_tag.data.bitmaps
         bitmap_assets = texdef_tag.get_bitmap_names()
     else:
-        textures_ext = tag_dir = ""
+        tag_dir = ""
 
-    is_ngc = (textures_ext.lower() == c.NGC_EXTENSION.lower())
-    textures_filepath = os.path.join(
-        tag_dir, "%s.%s" % (c.TEXTURES_FILENAME, textures_ext)
-        )
+    if not textures_filepath:
+        textures_filepath = util.locate_objects_dir_files(tag_dir)['textures_filepath']
 
+    is_ngc = textures_filepath.lower().endswith(c.NGC_EXTENSION.lower())
     if not os.path.isfile(textures_filepath):
         print("No textures cache to extract from.")
         return

@@ -37,11 +37,7 @@ def _compile_model(kwargs):
     model_cache.source_asset_checksum = get_asset_checksum(
         filepath=asset_filepath, algorithm=model_cache.checksum_algorithm
         )
-    model_rawdata = model_cache.serialize()
-
-    os.makedirs(os.path.dirname(cache_filepath), exist_ok=True)
-    with open(cache_filepath, "wb") as f:
-        f.write(model_rawdata)
+    model_cache.serialize_to_file(cache_filepath)
 
 
 def _decompile_model(kwargs):
@@ -60,10 +56,7 @@ def _decompile_model(kwargs):
             swap_lightmap_and_diffuse=kwargs["swap_lightmap_and_diffuse"]
             )
     elif asset_type in c.MODEL_CACHE_EXTENSIONS:
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        model_rawdata = model_cache.serialize()
-        with open(filepath, 'wb+') as f:
-            f.write(model_rawdata)
+        model_cache.serialize_to_file(filepath)
     else:
         raise NotImplementedError(f"Unknown asset type '{asset_type}'")
 
@@ -162,6 +155,20 @@ def import_models(
     for name in sorted(objects_metadata_by_name):
         meta        = objects_metadata_by_name[name]
         model_cache = model_caches_by_name.get(name)
+
+        # append object and object_def in case model is missing. this should
+        # keep the number of objects intact, and thus animation frame counts
+        is_fifo      = bool(getattr(model_cache, "fifo_rawdata", None))
+        is_uncomp_lm = model_cache.has_lmap and not is_fifo
+
+        objects.append(
+            case=("fifo" if is_fifo else "uncomp_lm" if is_uncomp_lm else "uncomp")
+            )
+
+        object_defs.append()
+        obj     = objects[-1]
+        obj_def = object_defs[-1]
+
         if not model_cache:
             print(f"Warning: Could not locate model file for '{name}'")
             continue
@@ -175,8 +182,6 @@ def import_models(
             )
 
         if isinstance(model_cache, Ps2ModelCache):
-            objects.append()
-            obj = objects[-1]
             obj_flags       = obj.flags
             # copy data over
             obj.bnd_rad     = model_cache.bounding_radius
@@ -186,7 +191,6 @@ def import_models(
 
             # loop over all the subobjects and update the headers and models
             for i, geom in enumerate(model_cache.geoms):
-                obj.data.sub_object_models.append()
                 subobj_model = obj.data.sub_object_models[-1]
 
                 if i == 0:
@@ -215,13 +219,6 @@ def import_models(
         elif isinstance(model_cache, (DreamcastModelCache, ArcadeModelCache)):
             raise NotImplementedError("hecken")
 
-            is_fifo      = bool(getattr(model_cache, "fifo_rawdata", None))
-            is_uncomp_lm = model_cache.has_lmap and not is_fifo
-
-            objects.append(
-                case=("fifo" if is_fifo else "uncomp_lm" if is_uncomp_lm else "uncomp")
-                )
-
             # copy data over
             obj         = objects[-1]
             obj_flags   = obj.lods[0].flags
@@ -238,8 +235,6 @@ def import_models(
             raise ValueError(f"Unknown model type '{type(model_cache)}'")
 
         # populate the object def
-        object_defs.append()
-        obj_def           = object_defs[-1]
         obj_def.bnd_rad   = model_cache.bounding_radius
         obj_def.name      = meta.get("asset_name", name)[-16:]
         obj_def.obj_index = len(objects) - 1

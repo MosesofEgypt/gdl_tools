@@ -7,7 +7,7 @@ from supyr_struct.defs.bitmaps.dds import dds_def
 
 from arbytmap import arby, format_defs as fd
 from .systems.realm import load_realm_from_wdata_tag
-from ...util import *
+from ...compilation.util import *
 from ...compilation.g3d import constants as g3d_const
 from ...compilation.g3d.serialization import arbytmap_ext,\
      texture_conversions, texture_util
@@ -63,50 +63,6 @@ def load_realm_data(wdata_dir, realm_name=""):
         break
 
     return realms
-
-
-def locate_objects_dir_files(objects_dir):
-    anim_filename         = ""
-    worlds_filename       = ""
-    objects_filename_ps2  = ""
-    textures_filename_ps2 = ""
-    objects_filename_ngc  = ""
-    textures_filename_ngc = ""
-
-    for _, __, files in os.walk(objects_dir):
-        for filename in files:
-            filetype, ext = os.path.splitext(filename.lower())
-            if ext not in (".ps2", ".ngc"):
-                continue
-
-            if filetype == "anim":
-                anim_filename = filename
-            elif filetype == "worlds":
-                worlds_filename = filename
-            elif filetype == "objects":
-                if ext == ".ngc":
-                    objects_filename_ngc = filename
-                else:
-                    objects_filename_ps2 = filename
-            elif filetype == "textures":
-                if ext == ".ngc":
-                    textures_filename_ngc = filename
-                else:
-                    textures_filename_ps2 = filename
-
-        break
-
-    is_ngc = bool(textures_filename_ngc and objects_filename_ngc)
-    objects_filename  = objects_filename_ngc  if is_ngc else objects_filename_ps2
-    textures_filename = textures_filename_ngc if is_ngc else textures_filename_ps2
-
-    return dict(
-        anim_filepath     = os.path.join(objects_dir, anim_filename)     if anim_filename     else None,
-        objects_filepath  = os.path.join(objects_dir, objects_filename)  if objects_filename  else None,
-        textures_filepath = os.path.join(objects_dir, textures_filename) if textures_filename else None,
-        worlds_filepath   = os.path.join(objects_dir, worlds_filename)   if worlds_filename   else None,
-        is_ngc            = is_ngc
-        )
 
 
 def load_objects_dir_files(objects_dir):

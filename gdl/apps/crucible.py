@@ -20,7 +20,6 @@ MOD_EXTRACT_FORMATS = {
     "Wavefront OBJ": "obj",
     #"Collada DAE":   "dae",
     }
-COLL_EXTRACT_FORMATS = dict(MOD_EXTRACT_FORMATS)
 TEX_EXTRACT_FORMATS = {
     "PNG": "png",
     "Targa TGA": "tga",
@@ -48,7 +47,6 @@ class CrucibleApp(Tk):
 
         self.build_target        = StringVar(self, "PlayStation2")
         self.mod_extract_format  = StringVar(self, "Wavefront OBJ")
-        self.coll_extract_format = StringVar(self, "Wavefront OBJ")
         self.tex_extract_format  = StringVar(self, "PNG")
         self.meta_extract_format = StringVar(self, "YAML")
         self.use_parallel_processing = BooleanVar(self, True)
@@ -90,7 +88,7 @@ class CrucibleApp(Tk):
         self.btn_compile_worlds_all = Button(
             self.worlds_frame, text="Compile worlds", width=20,
             command=lambda *a, **kw: self._compile_objects(
-                cache=True, models=True, textures=True, collision=True, world=True),
+                cache=True, models=True, textures=True, world=True),
             state=DISABLED  # temporary
             )
         self.btn_decompile_worlds_all = Button(
@@ -135,16 +133,12 @@ class CrucibleApp(Tk):
         # DEBUG
 
         self.build_target_label = Label(self.settings_frame, text="Platform target")
-        self.coll_format_label  = Label(self.settings_frame, text="Collision format")
         self.mod_format_label   = Label(self.settings_frame, text="Model format")
         self.tex_format_label   = Label(self.settings_frame, text="Texture format")
         self.meta_format_label  = Label(self.settings_frame, text="Metadata format")
 
         self.build_target_menu = OptionMenu(
             self.settings_frame, self.build_target, *sorted(BUILD_TARGETS.keys())
-            )
-        self.coll_format_menu   = OptionMenu(
-            self.settings_frame, self.coll_extract_format, *sorted(COLL_EXTRACT_FORMATS.keys())
             )
         self.mod_format_menu   = OptionMenu(
             self.settings_frame, self.mod_extract_format, *sorted(MOD_EXTRACT_FORMATS.keys())
@@ -214,7 +208,6 @@ class CrucibleApp(Tk):
         y = 0
         for lbl, menu, radio in (
                 (self.build_target_label, self.build_target_menu, self.parallel_processing_button),
-                (self.coll_format_label, self.coll_format_menu, self.optimize_button),
                 (self.mod_format_label, self.mod_format_menu, self.force_recompile_button),
                 (self.tex_format_label, self.tex_format_menu, self.overwrite_button),
                 (self.meta_format_label, self.meta_format_menu, None),
@@ -309,7 +302,7 @@ class CrucibleApp(Tk):
         print('Finished. Took %s seconds.\n' % (time.time() - start))
 
     def _compile_objects(self, models=False, textures=False, cache=False,
-                         collision=False, world=False):
+                         world=False, animations=False):
         target_dir = self.target_worlds_dir.get() if world else self.target_objects_dir.get()
         build_target = BUILD_TARGETS.get(self.build_target.get(), "ps2")
         if not target_dir:
@@ -328,13 +321,13 @@ class CrucibleApp(Tk):
                 print('Compiling textures...')
                 compiler.compile_textures()
 
+            if animations:
+                print('Compiling animations...')
+                compiler.compile_animations()
+
             if models:
                 print('Compiling models...')
                 compiler.compile_models()
-
-            if collision and world:
-                print('Compiling collision...')
-                compiler.compile_collision()
 
             if cache:
                 print('Compiling cache files...')
@@ -355,13 +348,12 @@ class CrucibleApp(Tk):
             print('Decompiling...')
 
             build_target = BUILD_TARGETS.get(self.build_target.get(), "ps2")
-            coll_asset_types = []
+            anim_asset_types = []
             mod_asset_types  = []
             tex_asset_types  = []
 
             if cache:
-                #if world:
-                #    coll_asset_types.append("g3c")
+                anim_asset_types.append(c.ANIMATION_CACHE_EXTENSIOn)
 
                 if build_target == "ngc":
                     mod_asset_types.append(c.MODEL_CACHE_EXTENSION_NGC)
@@ -380,9 +372,6 @@ class CrucibleApp(Tk):
                     tex_asset_types.append(c.TEXTURE_CACHE_EXTENSION_PS2)
 
             if source:
-                if world:
-                    coll_asset_types.append(COLL_EXTRACT_FORMATS.get(self.coll_extract_format.get(), "obj"))
-
                 mod_asset_types.append(MOD_EXTRACT_FORMATS.get(self.mod_extract_format.get(), "obj"))
                 tex_asset_types.append(TEX_EXTRACT_FORMATS.get(self.tex_extract_format.get(), "png"))
 
@@ -393,10 +382,10 @@ class CrucibleApp(Tk):
                 want_world_compiler=world, target_dir=target_dir,
             )
             decompiler.decompile(
-                coll_asset_types = coll_asset_types,
+                anim_asset_types = anim_asset_types,
                 mod_asset_types = mod_asset_types,
                 tex_asset_types = tex_asset_types,
-                meta_asset_types = [meta_asset_type],
+                meta_asset_types = [meta_asset_type]
                 )
         except Exception:
             print(format_exc())

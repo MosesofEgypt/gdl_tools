@@ -3,11 +3,12 @@ import os
 from math import log
 from supyr_struct.util import backup_and_rename_temp
 from traceback import format_exc
+from ...defs.anim import anim_def
 from ...defs.objects import objects_def
 from ...defs.texdef import texdef_def
 from ...defs.worlds import worlds_def
 from ..metadata import objects as objects_metadata
-from . import animation, collision, model, texture
+from . import animation, model, texture
 from . import constants as c
 from . import util
 
@@ -17,22 +18,23 @@ def compile_cache_files(
         target_ngc=False, target_ps2=False, target_xbox=False,
         target_dreamcast=False, target_arcade=False,
         serialize_cache_files=False, use_force_index_hack=False,
-        build_anim_cache=True, build_texdef_cache=False,
+        build_texdef_cache=False,
         ):
-    extension = (
+    ext = (
         c.NGC_EXTENSION if target_ngc else
         c.ARC_EXTENSION if target_arcade else
         c.DC_EXTENSION  if target_dreamcast else
-        c.PS2_EXTENSION if target_ps2 else
+        c.PS2_EXTENSION if target_ps2 or target_xbox else
         ""
         )
-    if not extension:
+    anim_worlds_ext = c.PS2_EXTENSION if target_ngc else ext
+    if not ext:
         raise ValueError("No build target specified")
 
     # TODO: add support for compiling worlds
     data_dir    = os.path.join(objects_dir, c.DATA_FOLDERNAME)
     objects_tag = objects_def.build()
-    anim_tag    = None
+    anim_tag    = anim_def.build()
     texdef_tag  = None
 
     if target_dreamcast or target_arcade:
@@ -44,8 +46,11 @@ def compile_cache_files(
         objects_tag.data.parse(attr_index="objects")
         objects_tag.data.parse(attr_index="bitmaps")
 
+    anim_tag.filepath = os.path.join(
+        objects_dir, "%s.%s" % (c.ANIM_FILENAME, anim_worlds_ext)
+        )
     objects_tag.filepath = os.path.join(
-        objects_dir, "%s.%s" % (c.OBJECTS_FILENAME, extension)
+        objects_dir, "%s.%s" % (c.OBJECTS_FILENAME, ext)
         )
     objects_tag.data.version_header.dir_name = (
         os.path.join(objects_dir, "").replace("\\", "/")[-32:]
@@ -64,9 +69,8 @@ def compile_cache_files(
         target_ps2=target_ps2, target_xbox=target_xbox,
         target_dreamcast=target_dreamcast, target_arcade=target_arcade
         )
-
-    if build_anim_cache:
-        anim_tag = animation.import_animations(objects_tag, data_dir)
+    print("Importing animations...")
+    animation.import_animations(anim_tag, data_dir)
 
     if build_texdef_cache:
         texdef_tag = compile_texdef_cache_from_objects(objects_tag)
@@ -74,9 +78,7 @@ def compile_cache_files(
     if serialize_cache_files:
         print("Serializing...")
         objects_tag.serialize(temp=False)
-
-        if anim_tag:
-            anim_tag.serialize(temp=False)
+        anim_tag.serialize(temp=False)
 
         if texdef_tag:
             texdef_tag.serialize(temp=False)
@@ -99,43 +101,35 @@ def compile_cache_files(
 def decompile_cache_files(
         target_dir, data_dir=None, overwrite=False, individual_meta=True,
         meta_asset_types=c.METADATA_ASSET_EXTENSIONS[0],
+        anim_asset_types=(c.ANIMATION_CACHE_EXTENSION,),
         tex_asset_types=c.TEXTURE_CACHE_EXTENSIONS,
-        mod_asset_types=c.MODEL_CACHE_EXTENSIONS,
-        coll_asset_types=c.COLLISION_CACHE_EXTENSION,
+        mod_asset_types=c.MODEL_CACHE_EXTENSIONS,\
         parallel_processing=False, swap_lightmap_and_diffuse=False, **kwargs
         ):
 
-    ps2_objects_filepath    = os.path.join(target_dir, "objects.%s" % c.PS2_EXTENSION)
-    ngc_objects_filepath    = os.path.join(target_dir, "objects.%s" % c.NGC_EXTENSION)
-    arcade_objects_filepath = os.path.join(target_dir, "objects.%s" % c.ARC_EXTENSION)
-    dc_objects_filepath     = os.path.join(target_dir, "objects.%s" % c.DC_EXTENSION)
+    filepaths = util.locate_objects_dir_files(target_dir)
 
-    ps2_texdef_filepath     = os.path.join(target_dir, "texdef.%s" % c.PS2_EXTENSION)
-    dc_texdef_filepath      = os.path.join(target_dir, "texdef.%s" % c.DC_EXTENSION)
-
-    ps2_worlds_filepath     = os.path.join(target_dir, "worlds.%s" % c.PS2_EXTENSION)
-    ngc_worlds_filepath     = os.path.join(target_dir, "worlds.%s" % c.NGC_EXTENSION)
-    arcade_worlds_filepath  = os.path.join(target_dir, "worlds.%s" % c.ARC_EXTENSION)
-    dc_worlds_filepath      = os.path.join(target_dir, "worlds.%s" % c.DC_EXTENSION)
-
-    objects_tag = None
-    texdef_tag  = None
-    worlds_tag  = None
-
-    if os.path.isfile(ps2_objects_filepath):
-        objects_tag = objects_def.build(filepath=ps2_objects_filepath)
-    elif os.path.isfile(ngc_objects_filepath):
-        objects_tag = objects_def.build(filepath=ngc_objects_filepath)
-    elif os.path.isfile(arcade_objects_filepath):
-        objects_tag = objects_def.build(filepath=arcade_objects_filepath)
-    else:
-        # no objects. default to texdef for trying to get texture headers
-        if os.path.isfile(ps2_texdef_filepath):
-            texdef_tag = texdef_def.build(filepath=ps2_texdef_filepath)
-        elif os.path.isfile(dc_objects_filepath):
-            texdef_tag = texdef_def.build(filepath=dc_objects_filepath)
+    # load objects, texdefs, worlds, and animations
+    objects_tag = (
+        objects_def.build(filepath=filepaths['objects_filepath'])
+        if os.path.isfile(filepaths['objects_filepath']) else None
+        )
+    texdef_tag = (
+        texdef_def.build(filepath=filepaths['texdef_filepath'])
+        if os.path.isfile(filepaths['texdef_filepath']) else None
+        )
+    anim_tag = (
+        anim_def.build(filepath=filepaths['anim_filepath'])
+        if os.path.isfile(filepaths['anim_filepath']) else None
+        )
+    worlds_tag = (
+        worlds_def.build(filepath=filepaths['worlds_filepath'])
+        if os.path.isfile(filepaths['worlds_filepath']) else None
+        )
 
     if objects_tag:
+        objects_tag.anim_tag   = anim_tag
+        objects_tag.texdef_tag = texdef_tag
         try:
             objects_tag.load_texdef_names()
         except Exception:
@@ -146,41 +140,41 @@ def decompile_cache_files(
         except Exception:
             print('Could not load texmod sequences. Texture animations may be broken.')
 
-    if os.path.isfile(ps2_worlds_filepath):
-        worlds_tag = worlds_def.build(filepath=ps2_worlds_filepath)
-    elif os.path.isfile(ngc_worlds_filepath):
-        worlds_tag = worlds_def.build(filepath=ngc_worlds_filepath)
-    elif os.path.isfile(arcade_worlds_filepath):
-        worlds_tag = worlds_def.build(filepath=arcade_worlds_filepath)
-
     if data_dir is None:
         data_dir = os.path.join(target_dir, c.DATA_FOLDERNAME)
 
-    if meta_asset_types and objects_tag:
-        objects_metadata.decompile_objects_metadata(
-            objects_tag, data_dir, overwrite=overwrite,
-            asset_types=meta_asset_types, individual_meta=individual_meta,
-            )
+    if meta_asset_types:
+        if objects_tag:
+            objects_metadata.decompile_objects_metadata(
+                objects_tag, data_dir, overwrite=overwrite,
+                asset_types=meta_asset_types, individual_meta=individual_meta,
+                )
+
+        if anim_tag:
+            anim_metadata.decompile_anim_metadata(
+                anim_tag, data_dir, overwrite=overwrite,
+                asset_types=meta_asset_types, individual_meta=individual_meta,
+                )
 
     if tex_asset_types and (objects_tag or texdef_tag):
         texture.decompile_textures(
             data_dir, objects_tag=objects_tag, texdef_tag=texdef_tag,
             overwrite=overwrite, parallel_processing=parallel_processing,
-            asset_types=tex_asset_types, mipmaps=kwargs.get("mipmaps", False)
+            asset_types=tex_asset_types, mipmaps=kwargs.get("mipmaps", False),
+            textures_filepath=filepaths['textures_filepath']
             )
 
     if mod_asset_types and objects_tag:
         model.decompile_models(
-            objects_tag, data_dir,
-            overwrite=overwrite, parallel_processing=parallel_processing,
-            asset_types=mod_asset_types,
+            objects_tag, data_dir, overwrite=overwrite,
+            parallel_processing=parallel_processing, asset_types=mod_asset_types,
             swap_lightmap_and_diffuse=swap_lightmap_and_diffuse
             )
 
-    if coll_asset_types and worlds_tag:
-        collision.decompile_collision(
-            worlds_tag, data_dir,
-            overwrite=overwrite, asset_types=coll_asset_types,
+    if anim_asset_types and anim_tag:
+        animation.decompile_animations(
+            anim_tag, data_dir, overwrite=overwrite,
+            parallel_processing=parallel_processing, asset_types=anim_asset_types,
             )
 
 

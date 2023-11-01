@@ -1,6 +1,7 @@
 import os
 
 from .g3d import cache as cache_comp
+from .g3d import animation as animation_comp
 from .g3d import model as model_comp
 from .g3d import texture as texture_comp
 from .g3d import constants as c
@@ -26,7 +27,6 @@ class ObjectsCompiler:
     individual_meta = True
 
     serialize_cache_files = True
-    build_anim_cache = True
     build_texdef_cache = True
     
     def __init__(self, **kwargs):
@@ -34,6 +34,21 @@ class ObjectsCompiler:
         # copied into the attributes of this new class
         for k, v in kwargs.items():
             setattr(self, k, v)
+
+    def compile_animations(self):
+        asset_dir = os.path.join(self.target_dir, c.DATA_FOLDERNAME)
+        if not os.path.isdir(asset_dir):
+            return
+        elif not(self.build_ngc_files or self.build_ps2_files or
+                 self.build_xbox_files or self.build_arcade_files or
+                 self.build_dreamcast_files):
+            return
+
+        animation_comp.compile_animations(
+            asset_dir,
+            parallel_processing=self.parallel_processing,
+            force_recompile=self.force_recompile,
+            )
 
     def compile_textures(self):
         asset_dir = os.path.join(self.target_dir, c.DATA_FOLDERNAME)
@@ -122,7 +137,6 @@ class ObjectsCompiler:
             compilation_outputs[name] = cache_comp.compile_cache_files(
                 self.target_dir, **kwargs,
                 serialize_cache_files=self.serialize_cache_files,
-                build_anim_cache=self.build_anim_cache,
                 build_texdef_cache=(self.build_texdef_cache and name == "PS2"),
                 use_force_index_hack=self.use_force_index_hack
                 )
