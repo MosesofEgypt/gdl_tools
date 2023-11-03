@@ -15,7 +15,7 @@ def load_collision_from_worlds_tag(
         p3d_collision=CollisionNode(collision_name),
         )
     g3d_collision = G3DCollision()
-    g3d_collision.import_g3c(
+    g3d_collision.import_g3d(
         worlds_tag.get_collision_tris(),
         {collision_name: dict(index=tri_index, count=tri_count)}
         )
