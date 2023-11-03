@@ -353,23 +353,26 @@ class CrucibleApp(Tk):
             tex_asset_types  = []
 
             if cache:
-                anim_asset_types.append(c.ANIMATION_CACHE_EXTENSIOn)
-
                 if build_target == "ngc":
                     mod_asset_types.append(c.MODEL_CACHE_EXTENSION_NGC)
                     tex_asset_types.append(c.TEXTURE_CACHE_EXTENSION_NGC)
+                    anim_asset_types.append(c.ANIMATION_CACHE_EXTENSION_NGC)
                 elif build_target == "xbox":
                     mod_asset_types.append(c.MODEL_CACHE_EXTENSION_XBOX)
                     tex_asset_types.append(c.TEXTURE_CACHE_EXTENSION_XBOX)
+                    anim_asset_types.append(c.ANIMATION_CACHE_EXTENSION_XBOX)
                 elif build_target == "arcade":
                     mod_asset_types.append(c.MODEL_CACHE_EXTENSION_ARC)
                     tex_asset_types.append(c.TEXTURE_CACHE_EXTENSION_ARC)
+                    anim_asset_types.append(c.ANIMATION_CACHE_EXTENSION_ARC)
                 elif build_target == "dreamcast":
                     mod_asset_types.append(c.MODEL_CACHE_EXTENSION_DC)
                     tex_asset_types.append(c.TEXTURE_CACHE_EXTENSION_DC)
+                    anim_asset_types.append(c.ANIMATION_CACHE_EXTENSION_DC)
                 else:
                     mod_asset_types.append(c.MODEL_CACHE_EXTENSION_PS2)
                     tex_asset_types.append(c.TEXTURE_CACHE_EXTENSION_PS2)
+                    anim_asset_types.append(c.ANIMATION_CACHE_EXTENSION_PS2)
 
             if source:
                 mod_asset_types.append(MOD_EXTRACT_FORMATS.get(self.mod_extract_format.get(), "obj"))

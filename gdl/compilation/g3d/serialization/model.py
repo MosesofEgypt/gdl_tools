@@ -5,9 +5,8 @@ import urllib
 from math import sqrt
 
 from .stripify import Stripifier
-from .model_cache import Ps2ModelCache, XboxModelCache,\
-     GamecubeModelCache, DreamcastModelCache, ArcadeModelCache,\
-     get_model_cache_class_from_cache_type
+from .model_cache import ModelCache, Ps2ModelCache, XboxModelCache,\
+     GamecubeModelCache, DreamcastModelCache, ArcadeModelCache
 from . import model_vif
 from . import constants as c
 
@@ -355,7 +354,7 @@ class G3DModel():
         for tex_name, lm_name in self.stripifier.all_strips:
             texture_names.update((tex_name.upper(), lm_name.upper()))
 
-        model_cache = get_model_cache_class_from_cache_type(cache_type)()
+        model_cache = ModelCache.get_cache_class_from_cache_type(cache_type)()
         if isinstance(model_cache, Ps2ModelCache):
             self.make_strips()
 

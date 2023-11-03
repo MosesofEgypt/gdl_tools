@@ -57,20 +57,40 @@ def verify_source_file_asset_checksum(asset_filepath, cache_filepath):
 
 
 class AssetCache:
-    version               = CACHE_HEADER_VER
-    cache_type            = ''
-    cache_type_version    = 0
-    checksum_algorithm    = CACHE_CHECKSUM_ALGORITHM
-    source_asset_checksum = b''
+    version                 = CACHE_HEADER_VER
+    cache_type              = ''
+    cache_type_version      = 0
+    checksum_algorithm      = CACHE_CHECKSUM_ALGORITHM
+    source_asset_checksum   = b''
     expected_cache_type_versions = frozenset()
 
-    is_extracted          = False
+    is_extracted            = False
+
+    _sub_classes            = {}
 
     def serialize_to_file(self, filepath):
         rawdata = self.serialize()
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
         with open(filepath, "wb") as f:
             f.write(rawdata)
+
+    @classmethod
+    def get_cache_class_from_cache_type(cls, cache_type):
+        cache_class = cls._sub_classes.get(cache_type)
+        if cache_class:
+            return cache_class
+
+        raise ValueError(f"Unknown asset type '{cache_type}'")
+
+    @classmethod
+    def get_cache_class(cls, rawdata):
+        asset_cache = AssetCache()
+        start = rawdata.tell()
+        try:
+            asset_cache.parse(rawdata)
+            return cls.get_cache_class_from_cache_type(asset_cache.cache_type)
+        finally:
+            rawdata.seek(start)
 
     def parse(self, rawdata):
         if not rawdata:
@@ -87,13 +107,12 @@ class AssetCache:
             raise ValueError(f"Unknown G3DCache file version: {ver}")
 
         cache_key = (cache_type, cache_type_ver)
-        if (self.expected_cache_type_versions and
-            cache_key not in self.expected_cache_type_versions):
+        allowed = set(self.expected_cache_type_versions)
+        allowed.add((self.cache_type, self.cache_type_version))
+        if cache_key not in allowed:
             raise ValueError(
                 f"Unexpected cache type or version {cache_key} for {type(self)}."
-                "Must be one of: " + (", ".join(sorted(
-                    str(self.expected_cache_type_versions)
-                    )))
+                "Must be one of: " + (", ".join(sorted(str(allowed))))
                 )
 
         self.version               = ver

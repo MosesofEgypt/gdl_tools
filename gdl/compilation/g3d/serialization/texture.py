@@ -9,9 +9,8 @@ from . import arbytmap_ext as arbytmap
 from . import constants as c
 from . import texture_util
 from . import texture_conversions as tex_conv
-from .texture_cache import Ps2TextureCache, XboxTextureCache,\
-     GamecubeTextureCache, DreamcastTextureCache, ArcadeTextureCache,\
-     get_texture_cache_class_from_cache_type
+from .texture_cache import TextureCache, Ps2TextureCache, XboxTextureCache,\
+     GamecubeTextureCache, DreamcastTextureCache, ArcadeTextureCache
 
 
 class G3DTexture:
@@ -81,7 +80,7 @@ class G3DTexture:
         self.ncc_table = getattr(texture_cache, "ncc_table", None)
 
     def compile_g3d(self, cache_type):
-        texture_cache = get_texture_cache_class_from_cache_type(cache_type)()
+        texture_cache = TextureCache.get_cache_class_from_cache_type(cache_type)()
 
         textures = self.textures
         # gamecube only stores the fullsize texture

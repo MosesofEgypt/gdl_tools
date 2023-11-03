@@ -5,9 +5,8 @@ from ...supyr_struct_ext import FixedBytearrayBuffer
 from ..metadata import objects as objects_metadata
 from .serialization.model import G3DModel
 from .serialization.asset_cache import get_asset_checksum, verify_source_file_asset_checksum
-from .serialization.model_cache import get_model_cache_class,\
-     get_model_cache_class_from_cache_type,\
-     Ps2ModelCache, DreamcastModelCache, ArcadeModelCache
+from .serialization.model_cache import ModelCache, Ps2ModelCache,\
+     DreamcastModelCache, ArcadeModelCache
 from . import constants as c
 from . import util
 
@@ -134,7 +133,7 @@ def import_models(
     for name in sorted(all_asset_filepaths):
         try:
             with open(all_asset_filepaths[name], "rb") as f:
-                model_cache = get_model_cache_class(f)()
+                model_cache = ModelCache.get_cache_class(f)()
                 model_cache.parse(f)
                 model_caches_by_name[name] = model_cache
         except Exception:
@@ -359,7 +358,7 @@ def object_to_model_cache(obj, cache_type=None, bitmap_assets=()):
                 ))
 
         model_cache = (
-            get_model_cache_class_from_cache_type(cache_type)
+            ModelCache.get_cache_class_from_cache_type(cache_type)
             if cache_type in c.MODEL_CACHE_EXTENSIONS else
             Ps2ModelCache
             )()

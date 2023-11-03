@@ -17,10 +17,10 @@ class G3DAnimation():
 
     def import_g3d(self, animation_cache):
         self.clear()
-        raise NotImplementedError()
+        #raise NotImplementedError()
 
-    def compile_g3d(self):
+    def compile_g3d(self, cache_type):
         animation_cache = AnimationCache()
-        raise NotImplementedError()
+        #raise NotImplementedError()
 
         return animation_cache

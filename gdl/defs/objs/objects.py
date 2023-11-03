@@ -32,7 +32,7 @@ class ObjectsTag(GdlTag):
         if self.anim_tag:
             self.texmod_seqs.update({
                 texmod.tex_index: dict(
-                    start = texmod.source_index.idx,
+                    start = texmod.type.source_index.idx,
                     count = abs(texmod.frame_count),
                     )
                 for texmod in self.anim_tag.data.texmods

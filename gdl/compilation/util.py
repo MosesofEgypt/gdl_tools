@@ -62,7 +62,7 @@ def locate_target_platform_files(
 
 def locate_objects_dir_files(objects_dir):
     filepaths = {
-        f"{filetype}_filepath": None
+        f"{filetype}_filepath": ""
         for filetype in ("anim", "objects", "texdef", "textures", "worlds")
         }
     ngc_objects_filepath    = False

@@ -7,7 +7,7 @@ from ...defs.anim import anim_def
 from ...defs.objects import objects_def
 from ...defs.texdef import texdef_def
 from ...defs.worlds import worlds_def
-from ..metadata import objects as objects_metadata
+from ..metadata import anim as anim_metadata, objects as objects_metadata
 from . import animation, model, texture
 from . import constants as c
 from . import util
@@ -101,7 +101,7 @@ def compile_cache_files(
 def decompile_cache_files(
         target_dir, data_dir=None, overwrite=False, individual_meta=True,
         meta_asset_types=c.METADATA_ASSET_EXTENSIONS[0],
-        anim_asset_types=(c.ANIMATION_CACHE_EXTENSION,),
+        anim_asset_types=c.ANIMATION_CACHE_EXTENSIONS,
         tex_asset_types=c.TEXTURE_CACHE_EXTENSIONS,
         mod_asset_types=c.MODEL_CACHE_EXTENSIONS,\
         parallel_processing=False, swap_lightmap_and_diffuse=False, **kwargs

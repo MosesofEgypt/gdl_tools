@@ -3,10 +3,10 @@ import os
 
 from traceback import format_exc
 from ..metadata import objects as objects_metadata
-from .serialization.asset_cache import get_asset_checksum, verify_source_file_asset_checksum
+from .serialization.asset_cache import get_asset_checksum,\
+     verify_source_file_asset_checksum
 from .serialization.texture import G3DTexture
-from .serialization.texture_cache import get_texture_cache_class,\
-     get_texture_cache_class_from_cache_type, Ps2TextureCache,\
+from .serialization.texture_cache import TextureCache, Ps2TextureCache,\
      GamecubeTextureCache, DreamcastTextureCache, ArcadeTextureCache
 from .serialization import texture_util, ncc
 from . import constants as c
@@ -153,7 +153,7 @@ def import_textures(
     for name in sorted(all_asset_filepaths):
         try:
             with open(all_asset_filepaths[name], "rb") as f:
-                texture_cache = get_texture_cache_class(f)()
+                texture_cache = TextureCache.get_cache_class(f)()
                 texture_cache.parse(f, pixel_interop_edits=False)
                 texture_caches_by_name[name] = texture_cache
         except Exception:
@@ -507,7 +507,7 @@ def bitmap_to_texture_cache(bitmap_block, textures_file, is_ngc=False, cache_typ
         texture_cache.mipmaps   = 0
     elif is_ps2_xbox:
         texture_cache = (
-            get_texture_cache_class_from_cache_type(cache_type)
+            TextureCache.get_cache_class_from_cache_type(cache_type)
             if cache_type in c.TEXTURE_CACHE_EXTENSIONS else
             Ps2TextureCache
             )()

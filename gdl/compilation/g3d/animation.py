@@ -36,7 +36,7 @@ def _decompile_animation(kwargs):
     filepath        = kwargs["filepath"]
 
     print("Decompiling animation: %s" % name)
-    if asset_type == c.ANIMATION_CACHE_EXTENSION:
+    if asset_type in c.ANIMATION_CACHE_EXTENSIONS:
         animation_cache.serialize_to_file(filepath)
     else:
         raise NotImplementedError(f"Unknown asset type '{asset_type}'")
@@ -53,8 +53,8 @@ def import_animations(anim_tag, data_dir):
 
 
 def decompile_animations(
-        anim_tag, data_dir, asset_type=c.ANIMATION_CACHE_EXTENSION,
-        overwrite=False
+        anim_tag, data_dir, asset_types=c.ANIMATION_CACHE_EXTENSIONS,
+        overwrite=False, parallel_processing=True
         ):
     # TODO: implement this
     pass

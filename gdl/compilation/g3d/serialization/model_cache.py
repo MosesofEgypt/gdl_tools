@@ -120,11 +120,6 @@ class ModelCache(AssetCache):
 
 class Ps2ModelCache(ModelCache):
     cache_type = constants.MODEL_CACHE_EXTENSION_PS2
-    cache_type_version = MODEL_CACHE_VER
-    expected_cache_type_versions = frozenset((
-        (constants.MODEL_CACHE_EXTENSION_PS2,  MODEL_CACHE_VER),
-        ))
-
     geoms = ()
 
     def __init__(self):
@@ -206,30 +201,18 @@ class Ps2ModelCache(ModelCache):
 
 class XboxModelCache(Ps2ModelCache):
     cache_type = constants.MODEL_CACHE_EXTENSION_XBOX
-    cache_type_version = MODEL_CACHE_VER
-    expected_cache_type_versions = frozenset((
-        (constants.MODEL_CACHE_EXTENSION_XBOX, MODEL_CACHE_VER),
-        ))
 
 
 class GamecubeModelCache(Ps2ModelCache):
     cache_type = constants.MODEL_CACHE_EXTENSION_NGC
-    cache_type_version = MODEL_CACHE_VER
-    expected_cache_type_versions = frozenset((
-        (constants.MODEL_CACHE_EXTENSION_NGC, MODEL_CACHE_VER),
-        ))
 
 
 class DreamcastModelCache(ModelCache):
+    cache_type = constants.MODEL_CACHE_EXTENSION_DC
+
     verts_rawdata = b''
     tris_rawdata  = b''
     norms_rawdata = b''
-
-    cache_type = constants.MODEL_CACHE_EXTENSION_DC
-    cache_type_version = MODEL_CACHE_VER
-    expected_cache_type_versions = frozenset((
-        (constants.MODEL_CACHE_EXTENSION_DC,  MODEL_CACHE_VER),
-        ))
 
     def parse(self, rawdata):
         super().parse(rawdata)
@@ -251,16 +234,12 @@ class DreamcastModelCache(ModelCache):
 
 
 class ArcadeModelCache(ModelCache):
+    cache_type = constants.MODEL_CACHE_EXTENSION_ARC
+
     fifo_rawdata  = b''
     verts_rawdata = b''
     tris_rawdata  = b''
     norms_rawdata = b''
-
-    cache_type = constants.MODEL_CACHE_EXTENSION_ARC
-    cache_type_version = MODEL_CACHE_VER
-    expected_cache_type_versions = frozenset((
-        (constants.MODEL_CACHE_EXTENSION_ARC,  MODEL_CACHE_VER),
-        ))
 
     def parse(self, rawdata):
         super().parse(rawdata)
@@ -292,25 +271,9 @@ class ArcadeModelCache(ModelCache):
         return header_rawdata + object_header_rawdata + object_rawdata
 
 
-def get_model_cache_class_from_cache_type(cache_type):
-    cache_class = {
-        constants.MODEL_CACHE_EXTENSION_PS2:  Ps2ModelCache,
-        constants.MODEL_CACHE_EXTENSION_XBOX: XboxModelCache,
-        constants.MODEL_CACHE_EXTENSION_NGC:  GamecubeModelCache,
-        constants.MODEL_CACHE_EXTENSION_DC:   DreamcastModelCache,
-        constants.MODEL_CACHE_EXTENSION_ARC:  ArcadeModelCache
-        }.get(cache_type)
-    if cache_class:
-        return cache_class
-
-    raise ValueError(f"Unknown asset type '{cache_type}'")
-
-
-def get_model_cache_class(rawdata):
-    asset_cache = AssetCache()
-    start = rawdata.tell()
-    try:
-        asset_cache.parse(rawdata)
-        return get_model_cache_class_from_cache_type(asset_cache.cache_type)
-    finally:
-        rawdata.seek(start)
+ModelCache._sub_classes = {
+    cls.cache_type: cls for cls in (
+        Ps2ModelCache, XboxModelCache, GamecubeModelCache,
+        DreamcastModelCache, ArcadeModelCache
+        )
+    }

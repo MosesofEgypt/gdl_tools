@@ -235,10 +235,6 @@ class Ps2TextureCache(TextureCache):
     texture_chunk_size = constants.PS2_TEXTURE_BUFFER_CHUNK_SIZE
 
     cache_type = constants.TEXTURE_CACHE_EXTENSION_PS2
-    cache_type_version = TEXTURE_CACHE_VER
-    expected_cache_type_versions = frozenset((
-        (constants.TEXTURE_CACHE_EXTENSION_PS2, TEXTURE_CACHE_VER),
-        ))
 
     def _ps2_palette_shuffle(self, palette):
         # gauntlet textures have every OTHER pair of 8 palette entries
@@ -284,10 +280,6 @@ class Ps2TextureCache(TextureCache):
 class XboxTextureCache(Ps2TextureCache):
     # same in every way
     cache_type = constants.TEXTURE_CACHE_EXTENSION_XBOX
-    cache_type_version = TEXTURE_CACHE_VER
-    expected_cache_type_versions = frozenset((
-        (constants.TEXTURE_CACHE_EXTENSION_XBOX, TEXTURE_CACHE_VER),
-        ))
 
 
 class GamecubeTextureCache(TextureCache):
@@ -304,10 +296,6 @@ class GamecubeTextureCache(TextureCache):
         146: constants.PIX_FMT_A_4_IDX_4,  # not really palettized
         }
     cache_type = constants.TEXTURE_CACHE_EXTENSION_NGC
-    cache_type_version = TEXTURE_CACHE_VER
-    expected_cache_type_versions = frozenset((
-        (constants.TEXTURE_CACHE_EXTENSION_NGC, TEXTURE_CACHE_VER),
-        ))
 
     def __init__(self):
         super().__init__()
@@ -412,10 +400,6 @@ class DreamcastTextureCache(TextureCache):
         2: constants.PIX_FMT_BGR_565,
         }
     cache_type = constants.TEXTURE_CACHE_EXTENSION_DC
-    cache_type_version = TEXTURE_CACHE_VER
-    expected_cache_type_versions = frozenset((
-        (constants.TEXTURE_CACHE_EXTENSION_DC, TEXTURE_CACHE_VER),
-        ))
 
     @property
     def palettized(self):
@@ -536,10 +520,6 @@ class ArcadeTextureCache(TextureCache):
         }
     ncc_table = None
     cache_type = constants.TEXTURE_CACHE_EXTENSION_ARC
-    cache_type_version = TEXTURE_CACHE_VER
-    expected_cache_type_versions = frozenset((
-        (constants.TEXTURE_CACHE_EXTENSION_ARC, TEXTURE_CACHE_VER),
-        ))
 
     def parse(self, rawdata):
         super().parse(rawdata)
@@ -567,25 +547,9 @@ class ArcadeTextureCache(TextureCache):
         return texture_cache_rawdata + ncc_table_rawdata
 
 
-def get_texture_cache_class_from_cache_type(cache_type):
-    cache_class = {
-        constants.TEXTURE_CACHE_EXTENSION_PS2:  Ps2TextureCache,
-        constants.TEXTURE_CACHE_EXTENSION_XBOX: XboxTextureCache,
-        constants.TEXTURE_CACHE_EXTENSION_NGC:  GamecubeTextureCache,
-        constants.TEXTURE_CACHE_EXTENSION_DC:   DreamcastTextureCache,
-        constants.TEXTURE_CACHE_EXTENSION_ARC:  ArcadeTextureCache
-        }.get(cache_type)
-    if cache_class:
-        return cache_class
-
-    raise ValueError(f"Unknown asset type '{cache_type}'")
-
-
-def get_texture_cache_class(rawdata):
-    asset_cache = AssetCache()
-    start = rawdata.tell()
-    try:
-        asset_cache.parse(rawdata)
-        return get_texture_cache_class_from_cache_type(asset_cache.cache_type)
-    finally:
-        rawdata.seek(start)
+TextureCache._sub_classes = {
+    cls.cache_type: cls for cls in (
+        Ps2TextureCache, XboxTextureCache, GamecubeTextureCache,
+        DreamcastTextureCache, ArcadeTextureCache
+        )
+    }
