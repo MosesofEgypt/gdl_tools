@@ -7,7 +7,7 @@ from .serialization.animation_cache import AnimationCache
 from . import constants as c
 from . import util
 
-def _compile_animation(kwargs):
+def compile_animation(kwargs):
     name             = kwargs.pop("name")
     cache_type       = kwargs.pop("cache_type")
     cache_filepath   = kwargs.pop("cache_filepath")
@@ -29,7 +29,7 @@ def _compile_animation(kwargs):
     animation_cache.serialize_to_file(cache_filepath)
 
 
-def _decompile_animation(kwargs):
+def decompile_animation(kwargs):
     name            = kwargs["name"]
     animation_cache = kwargs["animation_cache"]
     asset_type      = kwargs["asset_type"]
@@ -42,19 +42,15 @@ def _decompile_animation(kwargs):
         raise NotImplementedError(f"Unknown asset type '{asset_type}'")
 
 
-def compile_animations(data_dir, force_recompile=False):
+def import_animations(anim_tag, objects_tag, data_dir):
     # TODO: implement this
     pass
 
 
-def import_animations(anim_tag, data_dir):
-    # TODO: implement this
-    pass
-
-
-def decompile_animations(
-        anim_tag, data_dir, asset_types=c.ANIMATION_CACHE_EXTENSIONS,
-        overwrite=False, parallel_processing=True
+def export_animations(
+        anim_tag, objects_tag, data_dir,
+        asset_types=c.ANIMATION_CACHE_EXTENSIONS, overwrite=False,
+        parallel_processing=True
         ):
     # TODO: implement this
     pass

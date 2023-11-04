@@ -108,12 +108,13 @@ class AssetCache:
 
         cache_key = (cache_type, cache_type_ver)
         allowed = set(self.expected_cache_type_versions)
-        allowed.add((self.cache_type, self.cache_type_version))
-        if cache_key not in allowed:
-            raise ValueError(
-                f"Unexpected cache type or version {cache_key} for {type(self)}."
-                "Must be one of: " + (", ".join(sorted(str(allowed))))
-                )
+        if allowed:
+            allowed.add((self.cache_type, self.cache_type_version))
+            if cache_key not in allowed:
+                raise ValueError(
+                    f"Unexpected cache type or version {cache_key} for {type(self)}."
+                    "Must be one of: " + (", ".join(str(v) for v in sorted(allowed)))
+                    )
 
         self.version               = ver
         self.is_extracted          = bool(flags & CACHE_FLAG_EXTRACTED)

@@ -3,8 +3,7 @@ import os
 
 from traceback import format_exc
 from ..metadata import objects as objects_metadata
-from .serialization.asset_cache import get_asset_checksum,\
-     verify_source_file_asset_checksum
+from .serialization.asset_cache import get_asset_checksum
 from .serialization.texture import G3DTexture
 from .serialization.texture_cache import TextureCache, Ps2TextureCache,\
      GamecubeTextureCache, DreamcastTextureCache, ArcadeTextureCache
@@ -14,15 +13,39 @@ from . import texture_buffer_packer
 from . import util
 
 
-def _compile_texture(kwargs):
+def compile_texture(kwargs):
     name            = kwargs.pop("name")
+    metadata        = kwargs.pop("metadata")
     cache_type      = kwargs.pop("cache_type")
     cache_filepath  = kwargs.pop("cache_filepath")
     asset_filepath  = kwargs.pop("asset_filepath")
 
     print("Compiling texture: %s" % name)
+
+    flags           = metadata.get("flags", {})
+    target_format   = metadata.get("format", c.DEFAULT_FORMAT_NAME)
+    is_dreamcast    = (cache_type == c.TEXTURE_CACHE_EXTENSION_DC)
+    has_alpha       = flags.get("has_alpha", False)
+    new_format      = texture_util.retarget_format_to_platform(
+        target_format, cache_type, has_alpha
+        )
+    if new_format != target_format:
+        print(f"Retargeting {asset_filepath} from '{target_format}' to '{new_format}' to match platform.")
+        target_format = new_format
+
+    import_kwargs = dict(
+        target_format   = target_format,
+        mipmap_count    = metadata.get("mipmap_count", 0), 
+        has_alpha       = has_alpha,
+        keep_alpha      = (has_alpha or "A" in target_format),
+        twiddled        = flags.get("twiddled") and is_dreamcast,
+        large_vq        = flags.get("large_vq") and is_dreamcast,
+        small_vq        = flags.get("small_vq") and is_dreamcast,
+        min_dimension   = (1 if is_dreamcast else 8),
+        )
+
     g3d_texture = G3DTexture()
-    g3d_texture.import_asset(asset_filepath, **kwargs)
+    g3d_texture.import_asset(asset_filepath, **import_kwargs)
 
     texture_cache = g3d_texture.compile_g3d(cache_type)
     texture_cache.source_asset_checksum = get_asset_checksum(
@@ -31,7 +54,7 @@ def _compile_texture(kwargs):
     texture_cache.serialize_to_file(cache_filepath)
 
 
-def _decompile_texture(kwargs):
+def decompile_texture(kwargs):
     name            = kwargs["name"]
     texture_cache   = kwargs["texture_cache"]
     asset_type      = kwargs["asset_type"]
@@ -49,91 +72,6 @@ def _decompile_texture(kwargs):
         g3d_texture.export_asset(
             filepath, overwrite=overwrite, include_mipmaps=include_mipmaps,
             )
-
-
-def compile_textures(
-        data_dir,
-        force_recompile=False, optimize_format=False, parallel_processing=False,
-        target_ps2=False, target_ngc=False, target_xbox=False,
-        target_dreamcast=False, target_arcade=False
-        ):
-    asset_folder    = os.path.join(data_dir, c.EXPORT_FOLDERNAME, c.TEX_FOLDERNAME)
-    cache_path_base = os.path.join(data_dir, c.IMPORT_FOLDERNAME, c.TEX_FOLDERNAME)
-
-    # get the metadata for all bitmaps to import and
-    # key it by name to allow matching to asset files
-    all_metadata = objects_metadata.compile_objects_metadata(data_dir)
-    bitmap_metadata = {
-        m.get("name"): m
-        for m in all_metadata.get("bitmaps", ())
-        if isinstance(m, dict) and m.get("name")
-        }
-
-    all_job_args = []
-    all_assets = util.locate_textures(os.path.join(asset_folder), cache_files=False)
-
-    cache_type = (
-        c.TEXTURE_CACHE_EXTENSION_PS2  if target_ps2 else
-        c.TEXTURE_CACHE_EXTENSION_NGC  if target_ngc else
-        c.TEXTURE_CACHE_EXTENSION_DC   if target_dreamcast else
-        c.TEXTURE_CACHE_EXTENSION_ARC  if target_arcade else
-        c.TEXTURE_CACHE_EXTENSION_XBOX if target_xbox else
-        None
-        )
-    if cache_type is None:
-        raise ValueError("No target platform specified")
-
-    for name in sorted(all_assets):
-        meta = bitmap_metadata.get(name)
-        if not meta:
-            # texture isn't listed in metadata. don't compile it
-            continue
-
-        try:
-            asset_filepath = all_assets[name]
-
-            rel_filepath = os.path.relpath(asset_filepath, asset_folder)
-            filename, _ = os.path.splitext(rel_filepath)
-            cache_filepath = os.path.join(cache_path_base, "%s.%s" % (filename, cache_type))
-
-            if not force_recompile and os.path.isfile(cache_filepath):
-                if verify_source_file_asset_checksum(asset_filepath, cache_filepath):
-                    # original asset file; don't recompile
-                    continue
-
-            target_format = meta.get("format", c.DEFAULT_FORMAT_NAME)
-            flags         = meta.get("flags", {})
-            has_alpha     = flags.get("has_alpha")
-            twiddled      = flags.get("twiddled") and target_dreamcast
-            large_vq      = flags.get("large_vq") and target_dreamcast
-            small_vq      = flags.get("small_vq") and target_dreamcast
-            new_format    = texture_util.retarget_format_to_platform(
-                target_format, cache_type, has_alpha
-                )
-
-            if new_format != target_format:
-                print(f"Retargeting {filename} from '{target_format}' to '{new_format}' to match platform.")
-                target_format = new_format
-
-            all_job_args.append(dict(
-                asset_filepath=asset_filepath, cache_filepath=cache_filepath,
-                optimize_format=optimize_format, name=name, target_format=target_format,
-                mipmap_count=meta.get("mipmap_count", 0), cache_type=cache_type,
-                keep_alpha=(has_alpha or "A" in target_format),
-                twiddled=twiddled, large_vq=large_vq, small_vq=small_vq,
-                min_dimension=(1 if target_dreamcast else 8),
-                ))
-        except Exception:
-            print(format_exc())
-            print("Error: Could not create texture compilation job: '%s'" % asset_filepath)
-
-    print("Compiling %s textures in %s" % (
-        len(all_job_args), "parallel" if parallel_processing else "series"
-        ))
-    util.process_jobs(
-        _compile_texture, all_job_args,
-        process_count=None if parallel_processing else 1
-        )
 
 
 def import_textures(
@@ -391,7 +329,7 @@ def import_textures(
     return texture_datas
 
 
-def decompile_textures(
+def export_textures(
         data_dir, objects_tag=None, texdef_tag=None,
         asset_types=c.TEXTURE_CACHE_EXTENSIONS, textures_filepath="",
         parallel_processing=False, overwrite=False, mipmaps=False
@@ -428,8 +366,8 @@ def decompile_textures(
     textures_file = open(textures_filepath, "rb")
     try:
         for i in range(len(bitmaps)):
-            bitm  = bitmaps[i]
             asset = bitmap_assets.get(i)
+            bitm  = bitmaps[i]
 
             try:
                 if (getattr(bitm, "frame_count", 0) or asset is None or
@@ -437,7 +375,7 @@ def decompile_textures(
                     getattr(bitm.flags, "invalid", False)):
                     continue
                 elif bitm.format.enum_name == "<INVALID>":
-                    print("Invalid bitmap format detected in bitmap %s at index %s" % (asset, i))
+                    print(f"Invalid bitmap format detected in bitmap {asset} at index {i}")
                     continue
 
                 for asset_type in asset_types:
@@ -464,9 +402,8 @@ def decompile_textures(
                         ))
             except:
                 print(format_exc())
-                print(('The above error occurred while trying to export bitmap %s as %s. '
-                       "name: '%s', asset_name: '%s'") %
-                      (i, asset_type, asset.get("name"), asset.get("asset_name"))
+                print("The above error occurred while trying to export bitmap {i} as {asset_type}. "
+                      "name: '%s', asset_name: '%s'" % (asset.get("name"), asset.get("asset_name"))
                       )
     finally:
         textures_file.close()
@@ -475,7 +412,7 @@ def decompile_textures(
         len(all_job_args), "parallel" if parallel_processing else "series"
         ))
     util.process_jobs(
-        _decompile_texture, all_job_args,
+        decompile_texture, all_job_args,
         process_count=None if parallel_processing else 1
         )
 

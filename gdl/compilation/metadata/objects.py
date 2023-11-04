@@ -44,7 +44,7 @@ def compile_objects_metadata(data_dir, by_asset_name=False):
 
 
 def decompile_objects_metadata(
-        objects_tag, data_dir,
+        objects_tag, anim_tag, data_dir,
         asset_types=c.METADATA_ASSET_EXTENSIONS[0],
         overwrite=False, individual_meta=True
         ):

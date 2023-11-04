@@ -1,9 +1,6 @@
 import os
 
 from .g3d import cache as cache_comp
-from .g3d import animation as animation_comp
-from .g3d import model as model_comp
-from .g3d import texture as texture_comp
 from .g3d import constants as c
 
 class ObjectsCompiler:
@@ -17,7 +14,6 @@ class ObjectsCompiler:
 
     parallel_processing = False
 
-    use_force_index_hack = True
     optimize_models      = True
     optimize_textures    = True
     force_recompile      = False
@@ -44,11 +40,24 @@ class ObjectsCompiler:
                  self.build_dreamcast_files):
             return
 
-        animation_comp.compile_animations(
-            asset_dir,
+        kwargs = dict(
             parallel_processing=self.parallel_processing,
             force_recompile=self.force_recompile,
             )
+        if self.build_ps2_files:
+            cache_comp.compile_animations(asset_dir, target_ps2=True, **kwargs)
+
+        if self.build_ngc_files:
+            cache_comp.compile_animations(asset_dir, target_ngc=True, **kwargs)
+
+        if self.build_xbox_files:
+            cache_comp.compile_animations(asset_dir, target_xbox=True, **kwargs)
+
+        if self.build_arcade_files:
+            cache_comp.compile_animations(asset_dir, target_arcade=True, **kwargs)
+
+        if self.build_dreamcast_files:
+            cache_comp.compile_animations(asset_dir, target_dreamcast=True, **kwargs)
 
     def compile_textures(self):
         asset_dir = os.path.join(self.target_dir, c.DATA_FOLDERNAME)
@@ -65,19 +74,19 @@ class ObjectsCompiler:
             optimize_format=self.optimize_textures,
             )
         if self.build_ps2_files:
-            texture_comp.compile_textures(asset_dir, target_ps2=True, **kwargs)
+            cache_comp.compile_textures(asset_dir, target_ps2=True, **kwargs)
 
         if self.build_ngc_files:
-            texture_comp.compile_textures(asset_dir, target_ngc=True, **kwargs)
+            cache_comp.compile_textures(asset_dir, target_ngc=True, **kwargs)
 
         if self.build_xbox_files:
-            texture_comp.compile_textures(asset_dir, target_xbox=True, **kwargs)
+            cache_comp.compile_textures(asset_dir, target_xbox=True, **kwargs)
 
         if self.build_arcade_files:
-            texture_comp.compile_textures(asset_dir, target_arcade=True, **kwargs)
+            cache_comp.compile_textures(asset_dir, target_arcade=True, **kwargs)
 
         if self.build_dreamcast_files:
-            texture_comp.compile_textures(asset_dir, target_dreamcast=True, **kwargs)
+            cache_comp.compile_textures(asset_dir, target_dreamcast=True, **kwargs)
 
     def compile_models(self):
         asset_dir = os.path.join(self.target_dir, c.DATA_FOLDERNAME)
@@ -94,19 +103,19 @@ class ObjectsCompiler:
             optimize_strips=self.optimize_models,
             )
         if self.build_ps2_files:
-            model_comp.compile_models(asset_dir, target_ps2=True, **kwargs)
+            cache_comp.compile_models(asset_dir, target_ps2=True, **kwargs)
 
         if self.build_ngc_files:
-            model_comp.compile_models(asset_dir, target_ngc=True, **kwargs)
+            cache_comp.compile_models(asset_dir, target_ngc=True, **kwargs)
 
         if self.build_xbox_files:
-            model_comp.compile_models(asset_dir, target_xbox=True, **kwargs)
+            cache_comp.compile_models(asset_dir, target_xbox=True, **kwargs)
 
         if self.build_arcade_files:
-            model_comp.compile_models(asset_dir, target_arcade=True, **kwargs)
+            cache_comp.compile_models(asset_dir, target_arcade=True, **kwargs)
 
         if self.build_dreamcast_files:
-            model_comp.compile_models(asset_dir, target_dreamcast=True, **kwargs)
+            cache_comp.compile_models(asset_dir, target_dreamcast=True, **kwargs)
 
     def compile(self):
         if not os.path.isdir(self.target_dir):
@@ -137,8 +146,7 @@ class ObjectsCompiler:
             compilation_outputs[name] = cache_comp.compile_cache_files(
                 self.target_dir, **kwargs,
                 serialize_cache_files=self.serialize_cache_files,
-                build_texdef_cache=(self.build_texdef_cache and name == "PS2"),
-                use_force_index_hack=self.use_force_index_hack
+                build_texdef_cache=(self.build_texdef_cache and name == "PS2")
                 )
 
         return compilation_outputs

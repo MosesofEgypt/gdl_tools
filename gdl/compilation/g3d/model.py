@@ -4,14 +4,14 @@ from traceback import format_exc
 from ...supyr_struct_ext import FixedBytearrayBuffer
 from ..metadata import objects as objects_metadata
 from .serialization.model import G3DModel
-from .serialization.asset_cache import get_asset_checksum, verify_source_file_asset_checksum
+from .serialization.asset_cache import get_asset_checksum
 from .serialization.model_cache import ModelCache, Ps2ModelCache,\
      DreamcastModelCache, ArcadeModelCache
 from . import constants as c
 from . import util
 
 
-def _compile_model(kwargs):
+def compile_model(kwargs):
     name             = kwargs.pop("name")
     optimize         = kwargs.pop("optimize_strips")
     cache_type       = kwargs.pop("cache_type")
@@ -39,7 +39,7 @@ def _compile_model(kwargs):
     model_cache.serialize_to_file(cache_filepath)
 
 
-def _decompile_model(kwargs):
+def decompile_model(kwargs):
     name           = kwargs["name"]
     texture_assets = kwargs["texture_assets"]
     model_cache    = kwargs["model_cache"]
@@ -58,59 +58,6 @@ def _decompile_model(kwargs):
         model_cache.serialize_to_file(filepath)
     else:
         raise NotImplementedError(f"Unknown asset type '{asset_type}'")
-
-
-def compile_models(
-        data_dir, force_recompile=False,  parallel_processing=False,
-        target_ps2=False, target_ngc=False, target_xbox=False,
-        target_dreamcast=False, target_arcade=False, optimize_strips=True
-        ):
-    asset_folder    = os.path.join(data_dir, c.EXPORT_FOLDERNAME, c.MOD_FOLDERNAME)
-    cache_path_base = os.path.join(data_dir, c.IMPORT_FOLDERNAME, c.MOD_FOLDERNAME)
-
-    all_job_args = []
-    all_assets = util.locate_models(os.path.join(asset_folder))
-
-    cache_type = (
-        c.MODEL_CACHE_EXTENSION_ARC  if target_arcade else
-        c.MODEL_CACHE_EXTENSION_DC   if target_dreamcast else
-        c.MODEL_CACHE_EXTENSION_XBOX if target_xbox else
-        c.MODEL_CACHE_EXTENSION_NGC  if target_ngc else
-        c.MODEL_CACHE_EXTENSION_PS2  if target_ps2 else
-        None
-        )
-    if cache_type is None:
-        raise ValueError("No target platform specified")
-
-    # loop over all objs, load them, convert them, and write the g3d
-    for name in sorted(all_assets):
-        try:
-            asset_filepath = all_assets[name]
-
-            rel_filepath = os.path.relpath(asset_filepath, asset_folder)
-            filename, _ = os.path.splitext(rel_filepath)
-            cache_filepath = os.path.join(cache_path_base, "%s.%s" % (filename, cache_type))
-
-            if not force_recompile and os.path.isfile(cache_filepath):
-                if verify_source_file_asset_checksum(asset_filepath, cache_filepath):
-                    # original asset file; don't recompile
-                    continue
-
-            all_job_args.append(dict(
-                name=name, asset_filepath=asset_filepath, cache_filepath=cache_filepath,
-                cache_type=cache_type, optimize_strips=optimize_strips,
-                ))
-        except Exception:
-            print(format_exc())
-            print("Error: Could not compile model: '%s'" % asset_filepath)
-
-    print("Compiling %s models in %s" % (
-        len(all_job_args), "parallel" if parallel_processing else "series"
-        ))
-    util.process_jobs(
-        _compile_model, all_job_args,
-        process_count=None if parallel_processing else 1
-        )
 
 
 def import_models(
@@ -245,7 +192,7 @@ def import_models(
                 setattr(obj_flags, name, bool(val))
 
 
-def decompile_models(
+def export_models(
         objects_tag, data_dir,
         asset_types=c.MODEL_CACHE_EXTENSIONS,
         parallel_processing=False, overwrite=False,
@@ -325,7 +272,7 @@ def decompile_models(
         len(all_job_args), "parallel" if parallel_processing else "series"
         ))
     util.process_jobs(
-        _decompile_model, all_job_args,
+        decompile_model, all_job_args,
         process_count=None if parallel_processing else 1
         )
 

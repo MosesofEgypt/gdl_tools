@@ -43,7 +43,7 @@ MOD_FOLDERNAME    = 'models'
 COLL_FOLDERNAME   = 'collision'
 TEX_FOLDERNAME    = 'bitmaps'
 
-ANIMATIONS_FILENAME = 'anim'
+ANIM_FILENAME       = 'anim'
 OBJECTS_FILENAME    = 'objects'
 TEXTURES_FILENAME   = 'textures'
 WORLDS_FILENAME     = 'worlds'
