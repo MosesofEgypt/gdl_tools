@@ -207,7 +207,7 @@ def parse_directory_tree(*, file_headers=None, filepath=None, rawdata=None, disc
 def _flatten_directory_tree(dir_tree, seen, root_dir):
     curr_dir_files = {}
     for name, block in dir_tree.items():
-        curr_path = "%s/%s" % (root_dir, name)
+        curr_path = pathlib.Path(root_dir, name)
         if id(block) in seen:
             continue
 
@@ -224,14 +224,15 @@ def _flatten_directory_tree(dir_tree, seen, root_dir):
 
 
 def flatten_directory_tree(dir_tree):
-    return _flatten_directory_tree(dir_tree, set(), "")
+    return _flatten_directory_tree(dir_tree, set(), pathlib.Path())
 
 
 def _dump_hdd(dir_tree, output_path, rawdata, disc, skip_empty):
     for name, block in dir_tree.items():
+        filepath = pathlib.Path(output_path, name)
         if isinstance(block, dict):
             # directory. append name to output path and call recursive
-            _dump_hdd(block, f"{output_path}/{name}", rawdata, disc, skip_empty)
+            _dump_hdd(block, filepath, rawdata, disc, skip_empty)
             continue
 
         file_data = read_file_fragments(
@@ -240,8 +241,8 @@ def _dump_hdd(dir_tree, output_path, rawdata, disc, skip_empty):
         if skip_empty and not file_data:
             continue
 
-        os.makedirs(output_path, exist_ok=True)
-        with open(f"{output_path}/{name}", "wb") as fout:
+        filepath.mkdir(parents=True, exist_ok=True)
+        with filepath.open("wb") as fout:
             fout.write(file_data)
 
 

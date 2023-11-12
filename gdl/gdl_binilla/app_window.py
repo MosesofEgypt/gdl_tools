@@ -1,6 +1,3 @@
-from traceback import format_exc
-from os.path import dirname
-
 # import Binilla first to make sure the constants are injected
 from binilla.app_window import Binilla
 from supyr_struct.defs.constants import *

@@ -1,4 +1,4 @@
-import os
+import pathlib
 
 from traceback import format_exc
 from ...supyr_struct_ext import FixedBytearrayBuffer
@@ -15,8 +15,8 @@ def compile_model(kwargs):
     name             = kwargs.pop("name")
     optimize         = kwargs.pop("optimize_strips")
     cache_type       = kwargs.pop("cache_type")
-    cache_filepath   = kwargs.pop("cache_filepath")
-    asset_filepath   = kwargs.pop("asset_filepath")
+    cache_filepath   = pathlib.Path(kwargs.pop("cache_filepath"))
+    asset_filepath   = pathlib.Path(kwargs.pop("asset_filepath"))
 
     print("Compiling model: %s" % name)
     g3d_model = G3DModel(
@@ -24,7 +24,7 @@ def compile_model(kwargs):
         optimize_for_ngc=(cache_type == c.MODEL_CACHE_EXTENSION_NGC and optimize),
         optimize_for_xbox=(cache_type == c.MODEL_CACHE_EXTENSION_XBOX and optimize),
         )
-    asset_type = os.path.splitext(asset_filepath)[-1].strip(".")
+    asset_type = asset_filepath.suffix.strip(".")
 
     if asset_type == "obj":
         with open(asset_filepath, "r") as f:
@@ -64,6 +64,8 @@ def import_models(
         objects_tag, data_dir, target_ps2=False, target_ngc=False,
         target_xbox=False, target_dreamcast=False, target_arcade=False,
         ):
+    data_dir = pathlib.Path(data_dir)
+
     _, inv_bitmap_names = objects_tag.get_cache_names(by_name=True, recache=True)
 
     # we uppercase everything for uniformity. do it here
@@ -71,7 +73,7 @@ def import_models(
 
     model_caches_by_name = {}
     all_asset_filepaths = util.locate_models(
-        os.path.join(data_dir, c.IMPORT_FOLDERNAME, c.MOD_FOLDERNAME),
+        data_dir.joinpath(c.IMPORT_FOLDERNAME, c.MOD_FOLDERNAME),
         cache_files=True, target_ps2=target_ps2,
         target_ngc=target_ngc, target_xbox=target_xbox,
         target_dreamcast=target_dreamcast, target_arcade=target_arcade
@@ -198,6 +200,7 @@ def export_models(
         parallel_processing=False, overwrite=False,
         swap_lightmap_and_diffuse=False
         ):
+    data_dir = pathlib.Path(data_dir)
     if isinstance(asset_types, str):
         asset_types = (asset_types, )
 
@@ -205,9 +208,9 @@ def export_models(
         if asset_type not in (*c.MODEL_CACHE_EXTENSIONS, *c.MODEL_ASSET_EXTENSIONS):
             raise ValueError("Unknown model type '%s'" % asset_type)
 
-    assets_dir     = os.path.join(data_dir, c.EXPORT_FOLDERNAME, c.MOD_FOLDERNAME)
-    cache_dir      = os.path.join(data_dir, c.IMPORT_FOLDERNAME, c.MOD_FOLDERNAME)
-    tex_assets_dir = os.path.join(data_dir, c.EXPORT_FOLDERNAME, c.TEX_FOLDERNAME)
+    assets_dir     = data_dir.joinpath(c.EXPORT_FOLDERNAME, c.MOD_FOLDERNAME)
+    cache_dir      = data_dir.joinpath(c.IMPORT_FOLDERNAME, c.MOD_FOLDERNAME)
+    tex_assets_dir = data_dir.joinpath(c.EXPORT_FOLDERNAME, c.TEX_FOLDERNAME)
 
     texture_assets = util.locate_textures(tex_assets_dir)
 
@@ -226,13 +229,13 @@ def export_models(
             for asset_type in asset_types:
                 filename = f"{asset['name']}.{asset_type}"
                 if asset['name'] != asset["asset_name"]:
-                    filename = os.path.join(asset["asset_name"], filename)
+                    filename = pathlib.PurePath(asset["asset_name"], filename)
 
-                filepath = os.path.join(
+                filepath = pathlib.Path(
                     cache_dir if asset_type in c.MODEL_CACHE_EXTENSIONS else assets_dir,
                     filename
                     )
-                if os.path.isfile(filepath) and not overwrite:
+                if filepath.is_file() and not overwrite:
                     continue
 
                 model_cache = object_to_model_cache(

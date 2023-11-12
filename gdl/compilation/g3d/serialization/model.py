@@ -1,5 +1,5 @@
 import hashlib
-import os
+import pathlib
 import urllib
 
 from math import sqrt
@@ -206,11 +206,13 @@ class G3DModel():
             del self.tri_lists[c.DEFAULT_INDEX_KEY]
 
     def export_obj(self, output_filepath, texture_assets={}, swap_lightmap_and_diffuse=False):
-        obj_dirname = os.path.dirname(output_filepath)
-        mtl_filename = urllib.parse.quote(os.path.basename(output_filepath))
+        output_filepath = pathlib.Path(output_filepath)
+        obj_dirname     = output_filepath.parent
+        mtl_filename    = pathlib.PurePosixPath(
+            "mtl", urllib.parse.quote(output_filepath.stem) + ".mtl"
+            )
 
-        mtl_filename = "mtl/%s.mtl" % os.path.splitext(mtl_filename)[0]
-        mtl_filepath = os.path.join(obj_dirname, mtl_filename)
+        mtl_filepath  = obj_dirname.joinpath(mtl_filename)
 
         uv_template   = "vt %.7f %.7f"
         lmuv_template = "#lmvt %.7f %.7f"
@@ -275,7 +277,7 @@ class G3DModel():
                 mtl_str += '\n'.join((
                     '',
                     'newmtl %s' % urllib.parse.quote(bitmap_name),
-                    'map_Kd %s' % bitmap_filepath.replace("\\", "/"),
+                    'map_Kd %s' % bitmap_filepath.as_posix(),
                     ))
                 seen_bitmaps.add(bitmap_name)
 
@@ -316,11 +318,12 @@ class G3DModel():
         mtl_bytes = mtl_str.encode()
         obj_bytes = obj_str.encode()
 
-        os.makedirs(os.path.dirname(mtl_filepath), exist_ok=True)
-        with open(mtl_filepath, 'wb+') as out_file:
+        mtl_filepath.parent.mkdir(parents=True, exist_ok=True)
+        with mtl_filepath.open('wb+') as out_file:
             out_file.write(mtl_bytes)
 
-        with open(output_filepath, 'wb+') as out_file:
+        output_filepath.parent.mkdir(parents=True, exist_ok=True)
+        with output_filepath.open('wb+') as out_file:
             out_file.write(obj_bytes)
 
     def import_g3d(self, model_cache):

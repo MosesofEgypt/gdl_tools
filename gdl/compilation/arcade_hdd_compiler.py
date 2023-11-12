@@ -1,4 +1,5 @@
 import os
+import pathlib
 import tempfile
 
 from traceback import format_exc
@@ -9,10 +10,13 @@ from .arcade_hdd import util
 def _extract_files(kwargs):
     file_buffers = {}
     file_headers = kwargs["file_headers"]
-    with open(kwargs["hdd_filepath"], "rb") as fin:
+    hdd_filepath = pathlib.Path(kwargs["hdd_filepath"])
+    hdd_dirpath  = pathlib.Path(kwargs["hdd_dirpath"])
+
+    with hdd_filepath.open("rb") as fin:
         for filename in sorted(file_headers):
-            filepath = os.path.join(kwargs["hdd_dirpath"], filename.lstrip('/'))
-            if not kwargs["overwrite"] and os.path.isfile(filepath):
+            filepath = hdd_dirpath.joinpath(filename.lstrip('/'))
+            if not kwargs["overwrite"] and filepath.is_file():
                 continue
 
             if kwargs["to_disk"]:
@@ -29,8 +33,8 @@ def _extract_files(kwargs):
                     continue
 
                 if kwargs["to_disk"]:
-                    os.makedirs(os.path.dirname(filepath), exist_ok=True)
-                    with open(filepath, "wb") as fout:
+                    filepath.parent.mkdir(parents=True, exist_ok=True)
+                    with filepath.open("wb") as fout:
                         fout.write(file_data)
                 else:
                     file_buffers[filename] = file_data

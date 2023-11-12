@@ -1,4 +1,4 @@
-import os
+import pathlib
 
 from traceback import format_exc
 from . import constants as c
@@ -74,10 +74,11 @@ def decompile_messages_metadata(
         asset_types=c.METADATA_ASSET_EXTENSIONS[0],
         overwrite=False, individual_meta=True
         ):
+    data_dir = pathlib.Path(data_dir)
     if isinstance(asset_types, str):
         asset_types = (asset_types, )
 
-    os.makedirs(data_dir, exist_ok=True)
+    data_dir.mkdir(parents=True, exist_ok=True)
     metadata = dict(
         fonts=dict(),
         messages=messages_tag.get_messages(),
@@ -124,5 +125,5 @@ def decompile_messages_metadata(
     for group_name in metadata_groups:
         metadata = metadata_groups[group_name]
         for asset_type in asset_types:
-            filepath = os.path.join(data_dir, "%s.%s" % (group_name, asset_type))
+            filepath = data_dir.joinpath(f"{group_name}.{asset_type}")
             util.dump_metadata(metadata, filepath, overwrite)

@@ -1,4 +1,4 @@
-import os
+import pathlib
 
 from .g3d import cache as cache_comp
 from .g3d import constants as c
@@ -32,8 +32,8 @@ class ObjectsCompiler:
             setattr(self, k, v)
 
     def compile_animations(self):
-        asset_dir = os.path.join(self.target_dir, c.DATA_FOLDERNAME)
-        if not os.path.isdir(asset_dir):
+        asset_dir = pathlib.Path(self.target_dir, c.DATA_FOLDERNAME)
+        if not asset_dir.is_dir():
             return
         elif not(self.build_ngc_files or self.build_ps2_files or
                  self.build_xbox_files or self.build_arcade_files or
@@ -60,8 +60,8 @@ class ObjectsCompiler:
             cache_comp.compile_animations(asset_dir, target_dreamcast=True, **kwargs)
 
     def compile_textures(self):
-        asset_dir = os.path.join(self.target_dir, c.DATA_FOLDERNAME)
-        if not os.path.isdir(asset_dir):
+        asset_dir = pathlib.Path(self.target_dir, c.DATA_FOLDERNAME)
+        if not asset_dir.is_dir():
             return
         elif not(self.build_ngc_files or self.build_ps2_files or
                  self.build_xbox_files or self.build_arcade_files or
@@ -89,8 +89,8 @@ class ObjectsCompiler:
             cache_comp.compile_textures(asset_dir, target_dreamcast=True, **kwargs)
 
     def compile_models(self):
-        asset_dir = os.path.join(self.target_dir, c.DATA_FOLDERNAME)
-        if not os.path.isdir(asset_dir):
+        asset_dir = pathlib.Path(self.target_dir, c.DATA_FOLDERNAME)
+        if not asset_dir.is_dir():
             return
         elif not(self.build_ngc_files or self.build_ps2_files or
                  self.build_xbox_files or self.build_arcade_files or
@@ -118,7 +118,7 @@ class ObjectsCompiler:
             cache_comp.compile_models(asset_dir, target_dreamcast=True, **kwargs)
 
     def compile(self):
-        if not os.path.isdir(self.target_dir):
+        if not pathlib.Path(self.target_dir).is_dir():
             return
         elif not(self.build_ngc_files or self.build_ps2_files or
                  self.build_xbox_files or self.build_arcade_files):

@@ -1,4 +1,4 @@
-import os
+import pathlib
 
 from traceback import format_exc
 
@@ -22,7 +22,7 @@ class ObjectsTag(GdlTag):
     def load_texmod_sequences(self, filepath=None, recache=False):
         if (self.anim_tag is None or recache) and filepath is None:
             filepath = locate_objects_dir_files(
-                os.path.dirname(self.filepath)
+                pathlib.Path(self.filepath).parent
                 )['anim_filepath']
 
         if self.anim_tag is None and filepath:
@@ -42,7 +42,7 @@ class ObjectsTag(GdlTag):
     def load_texdef_names(self, filepath=None, recache=False):
         if (self.texdef_tag is None or recache) and filepath is None:
             filepath = locate_objects_dir_files(
-                os.path.dirname(self.filepath)
+                pathlib.Path(self.filepath).parent
                 )['texdef_filepath']
 
         if self.texdef_tag is None and filepath:

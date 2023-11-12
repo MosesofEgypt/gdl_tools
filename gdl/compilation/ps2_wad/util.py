@@ -1,4 +1,4 @@
-import os
+import pathlib
 import struct
 
 from ..util import *
@@ -50,16 +50,16 @@ def is_ps2_wadbin(filepath, header_check_max=20):
     return False
 
 
-def sanitize_filename(filename):
-    return filename.strip().upper().replace("/", "\\")
+def to_wad_filepath(filepath):
+    return str(pathlib.PureWindowsPath(filepath)).upper().strip()
 
 
 def is_compressible(filename):
-    filename = sanitize_filename(filename)
-    ext = os.path.splitext(filename)[-1].strip(".")
+    name    = to_wad_filepath(filename)
+    ext     = pathlib.Path(filename).suffix.strip(".")
     if ext in c.PS2_WAD_UNCOMPRESSIBLE_EXTENSIONS:
         return False
-    elif filename in c.PS2_WAD_UNCOMPRESSIBLE_FILEPATHS:
+    elif name in c.PS2_WAD_UNCOMPRESSIBLE_FILEPATHS:
         return False
     return True
 
@@ -73,17 +73,17 @@ def read_names_list(input_data):
         input_data = input_data.splitlines()
 
     return [
-        sanitize_filename(filename)
+        to_wad_filepath(filename)
         for filename in input_data
-        if sanitize_filename(filename)
+        if to_wad_filepath(filename)
         ]
 
 
 def write_names_list(filenames, output_file):
     output_file.writelines(
-        sanitize_filename(filename) + "\n"
+        to_wad_filepath(filename) + "\n"
         for filename in filenames
-        if sanitize_filename(filename)
+        if to_wad_filepath(filename)
         )
 
 
@@ -104,6 +104,23 @@ def read_file_headers(input_buffer):
             ))
 
     return file_headers
+
+
+def write_file_headers(file_headers, output_buffer):
+    output_buffer.write(struct.pack('<I', len(file_headers)))
+    for header in file_headers:
+        output_buffer.write(INDEX_HEADER_STRUCT.pack(
+            header["uncomp_size"],
+            header["data_pointer"],
+            header["path_hash"],
+            header["comp_size"],
+            ))
+
+    output_buffer.write(
+        b'\x00' * calculate_padding(
+            output_buffer.tell(), c.PS2_WAD_FILE_CHUNK_SIZE
+            )
+        )
 
 
 def concat_wad_files(wad_filepath, temp_wad_filepaths):
@@ -165,23 +182,6 @@ def concat_wad_files(wad_filepath, temp_wad_filepaths):
                     fout.write(data)
 
 
-def write_file_headers(file_headers, output_buffer):
-    output_buffer.write(struct.pack('<I', len(file_headers)))
-    for header in file_headers:
-        output_buffer.write(INDEX_HEADER_STRUCT.pack(
-            header["uncomp_size"],
-            header["data_pointer"],
-            header["path_hash"],
-            header["comp_size"],
-            ))
-
-    output_buffer.write(
-        b'\x00' * calculate_padding(
-            output_buffer.tell(), c.PS2_WAD_FILE_CHUNK_SIZE
-            )
-        )
-
-
 def _mix_filepath_hash_values(x, y, z):
     x, y, z = (v & 0xFFffFFff for v in (x, y, z))
 
@@ -204,7 +204,7 @@ def _mix_filepath_hash_values(x, y, z):
 
 
 def hash_filepath(filepath):
-    filepath = sanitize_filename(filepath)
+    filepath = to_wad_filepath(filepath)
     str_len = len(filepath)
 
     x = c.PS2_WAD_PATHHASH_SEED

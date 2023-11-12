@@ -10,61 +10,55 @@ class GdlHandler(Handler):
     default_defs_path = "gdl.defs"
 
     def get_def_id(self, filepath):
-        filepath = str(filepath).replace('/', '\\')
-        try:
-            filename = filepath.split('\\')[-1].lower()
-        except:
-            filename = ''
-
-        filename, ext = os.path.splitext(filename)
-        filename, ext = filename.lower(), ext.lower()
-        filename = filename.split(".")[-1]
+        filepath = pathlib.Path(filepath)
+        name    = filepath.stem.lower()
+        ext     = filepath.suffix.lower()
 
         # I know this is hacky, shutup. midway didnt play "nice"
-        if ext in ('.ps2', '.ngc', ".rom") and filename in (
+        if ext in ('.ps2', '.ngc', ".rom") and name in (
                 "anim", "objects", "texdef", "worlds"
                 ):
-            return filename
+            return name
         elif ext in ('.xbe', '.dol', '.fnt'):
             return ext[1:]
-        elif filename + ext == "slus_200.47":
+        elif name + ext == "slus_200.47":
             return "slus"
         elif ext in ('.wad', '.rom'):
             if ext == '.wad':
-                if filename in ('arc','dwf','fal','hye',
-                                'jac','jes','kni','med',
-                                'min','ogr','sor','tig',
-                                'uni','val','war','wiz'):
+                if name in ('arc','dwf','fal','hye',
+                            'jac','jes','kni','med',
+                            'min','ogr','sor','tig',
+                            'uni','val','war','wiz'):
                     def_id = 'pdata'
-                elif filename in ('battle','castle','desert','dream',
-                                  'forest','hell','ice','mount','secret',
-                                  'sky','temple','test','tower','town'):
+                elif name in ('battle','castle','desert','dream',
+                              'forest','hell','ice','mount','secret',
+                              'sky','temple','test','tower','town'):
                     def_id = 'wdata'
-                elif filename in ('lich','dragon','pboss', 'chimera',
-                                  'gar_eagl','gar_lion','gar_serp',
-                                  'drider','djinn','yeti','wraith',
-                                  'skorne1','skorne2','garm',
-                                  'general','golem','golemf', 'golemi',
-                                  'critter' # dreamcast has some weird files
-                                  ):
+                elif name in ('lich','dragon','pboss', 'chimera',
+                              'gar_eagl','gar_lion','gar_serp',
+                              'drider','djinn','yeti','wraith',
+                              'skorne1','skorne2','garm',
+                              'general','golem','golemf', 'golemi',
+                              'critter' # dreamcast has some weird files
+                              ):
                     def_id = 'critter'
-                elif filename == 'shop':
+                elif name == 'shop':
                     def_id = 'shop'
                 else:
                     def_id = "wad"
-            elif filename.startswith("index") and len(filename) == 6:
+            elif name.startswith("index") and len(name) == 6:
                 def_id = "arcade_save_index"
-            elif filename.startswith("passport") and len(filename) == 9:
+            elif name.startswith("passport") and len(name) == 9:
                 # NOTE: can't tell the difference between gdl and gleg
                 #       passport save files, so just default to gdl here
                 def_id = "arcade_gdl_save_file"
-            elif filename.startswith("hstable_") and len(filename) == 9:
+            elif name.startswith("hstable_") and len(name) == 9:
                 # NOTE: not implemented
                 def_id = "high_score_table"
-            elif filename in ("aud_data", "audatps2"):
+            elif name in ("aud_data", "audatps2"):
                 # NOTE: not implemented
                 def_id = "audio_data"
-            elif filename in ("colworlds", "dummy"):
+            elif name in ("colworlds", "dummy"):
                 def_id = None
             else:
                 def_id = 'messages'
@@ -85,7 +79,7 @@ class GdlHandler(Handler):
         count = 0
         for root, _, files in os.walk(directory):
             for filename in files:
-                filepath = pathlib.Path(os.path.join(root, filename))
+                filepath = pathlib.Path(root, filename)
                 def_id = self.get_def_id(filepath)
                 if def_id is None:
                     continue

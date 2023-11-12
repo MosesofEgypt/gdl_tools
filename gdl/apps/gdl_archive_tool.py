@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os
+import pathlib
 import tkinter.filedialog
 import tkinter as tk
 import time
@@ -190,7 +190,7 @@ class GdlArchiveTool(Tk):
             return
 
         self.target_dirpath.set(target_dirpath)
-        self.curr_dir = os.path.dirname(self.target_dirpath.get())
+        self.curr_dir = str(pathlib.Path(target_dirpath).parent)
 
         target_filepath = self.target_filepath.get()
         if not target_filepath:
@@ -208,7 +208,7 @@ class GdlArchiveTool(Tk):
             return
 
         self.target_filepath.set(target_filepath)
-        self.curr_dir = os.path.dirname(self.target_filepath.get())
+        self.curr_dir = str(pathlib.Path(target_filepath).parent)
 
         start = time.time()
         try:
@@ -247,7 +247,7 @@ class GdlArchiveTool(Tk):
             return
 
         self.target_filepath.set(target_filepath)
-        self.curr_dir = os.path.dirname(self.target_filepath.get())
+        self.curr_dir = str(pathlib.Path(target_filepath).parent)
 
         target_dirpath = self.target_dirpath.get()
         if not target_dirpath:
@@ -260,7 +260,7 @@ class GdlArchiveTool(Tk):
             return
 
         self.target_dirpath.set(target_dirpath)
-        self.curr_dir = os.path.dirname(self.target_dirpath.get())
+        self.curr_dir = str(pathlib.Path(target_dirpath).parent)
 
         start = time.time()
         try:
