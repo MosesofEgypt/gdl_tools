@@ -146,7 +146,7 @@ class ObjectsTag(GdlTag):
         # name the lightmaps
         # TODO: update to handle dreamcast and arcade lightmaps
         for i, tex_index in enumerate(sorted(lightmap_names)):
-            asset_name = "{c.LIGHTMAP_NAME}.{i}"
+            asset_name = f"{c.LIGHTMAP_NAME}.{i}"
             lightmap_names[tex_index] = dict(
                 name        = asset_name,
                 asset_name  = c.LIGHTMAP_NAME,
