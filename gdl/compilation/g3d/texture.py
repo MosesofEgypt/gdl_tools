@@ -25,7 +25,7 @@ def compile_texture(kwargs):
     flags           = metadata.get("flags", {})
     target_format   = metadata.get("format", c.DEFAULT_FORMAT_NAME)
     is_dreamcast    = (cache_type == c.TEXTURE_CACHE_EXTENSION_DC)
-    has_alpha       = flags.get("has_alpha", False)
+    has_alpha       = flags.get("has_alpha", False) or "A" in target_format
     new_format      = texture_util.retarget_format_to_platform(
         target_format, cache_type, has_alpha
         )
@@ -37,7 +37,7 @@ def compile_texture(kwargs):
         target_format   = target_format,
         mipmap_count    = metadata.get("mipmap_count", 0), 
         has_alpha       = has_alpha,
-        keep_alpha      = (has_alpha or "A" in target_format),
+        keep_alpha      = has_alpha,
         twiddled        = flags.get("twiddled") and is_dreamcast,
         large_vq        = flags.get("large_vq") and is_dreamcast,
         small_vq        = flags.get("small_vq") and is_dreamcast,
@@ -455,8 +455,9 @@ def bitmap_to_texture_cache(bitmap_block, textures_file, is_ngc=False, cache_typ
     else:
         raise ValueError("Cannot determine bitmap block type.")
 
-    texture_cache.has_alpha     = bool(getattr(bitmap_block.flags, "has_alpha", False))
     texture_cache.format_id     = bitmap_block.format.data
+    texture_cache.has_alpha     = (bool(getattr(bitmap_block.flags, "has_alpha", False)) or
+                                   "A" in texture_cache.format_name)
     texture_cache.width         = bitmap_block.width
     texture_cache.height        = bitmap_block.height
     texture_cache.is_extracted  = True
