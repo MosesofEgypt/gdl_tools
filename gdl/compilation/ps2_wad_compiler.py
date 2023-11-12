@@ -68,7 +68,7 @@ def _compile_wad(kwargs):
                 ext = ext.lower().strip(".")
                 if ext == c.PS2_WAD_UNKNOWN_EXTENSION:
                     # unknown files store the path hash in the filename
-                    header["path_hash"] = int(filename_no_ext)
+                    header["path_hash"] = int(filename_no_ext.split("\\")[-1])
 
                 # compress the data if needed, and write to file
                 data_to_write = data

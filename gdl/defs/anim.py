@@ -390,12 +390,12 @@ texmod = Struct("texmod",
     Union("type",
         CASES=dict(
             transform=SEnum32("transform",
-                ("mip_blend",   -6),
+                ("mip_blend",   -6),  # NOTE: not implemented in engine
                 ("fade_out",    -5),
                 ("fade_in",     -4),
                 ("scroll_v",    -3),
                 ("scroll_u",    -2),  # also "special"
-                #("special",    -2),
+                #("special",     -2),
                 ("external",    -1),
                 ),
             source_index=QStruct("source_index",
