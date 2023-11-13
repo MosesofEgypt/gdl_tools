@@ -67,8 +67,8 @@ def _compile_assets(
     if cache_type is None:
         raise ValueError("No target platform specified")
 
-    asset_folder    = pathlib.Path(data_dir, c.EXPORT_FOLDERNAME, folder)
-    cache_path_base = pathlib.Path(data_dir, c.IMPORT_FOLDERNAME, folder)
+    asset_folder = pathlib.Path(data_dir, c.EXPORT_FOLDERNAME, folder)
+    cache_folder = pathlib.Path(data_dir, c.IMPORT_FOLDERNAME, folder)
 
     # get the metadata for all assets to import and
     # key it by name to allow matching to asset files
@@ -96,7 +96,7 @@ def _compile_assets(
             asset_filepath = all_assets[name]
             rel_filepath   = asset_filepath.relative_to(asset_folder)
             filename       = rel_filepath.stem
-            cache_filepath = cache_path_base.joinpath(f"{filename}.{cache_type}")
+            cache_filepath = cache_folder.joinpath(f"{filename}.{cache_type}")
 
             if not force_recompile and cache_filepath.is_file():
                 if verify_source_file_asset_checksum(asset_filepath, cache_filepath):
@@ -164,11 +164,11 @@ def compile_cache_files(
         objects_tag.data.parse(attr_index="bitmaps")
 
     anim_tag.filepath = objects_dir.joinpath(
-        "%s.%s" % (c.ANIM_FILENAME, anim_worlds_ext)
+        f"{c.ANIM_FILENAME}.{anim_worlds_ext}"
         )
     if objects_tag:
         objects_tag.filepath = objects_dir.joinpath(
-            "%s.%s" % (c.OBJECTS_FILENAME, ext)
+            f"{c.OBJECTS_FILENAME}.{ext}"
             )
         objects_tag.data.version_header.dir_name = (
             str(objects_dir).replace("\\", "/")[-32:]

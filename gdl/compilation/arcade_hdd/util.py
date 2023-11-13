@@ -27,9 +27,9 @@ class BlockHeader:
         self.data_size      = int(kwargs.get("data_size", self.data_size))
         self.sectors_used   = int(kwargs.get("sectors_used", self.sectors_used))
         self.checksum       = str(kwargs.get("checksum", self.checksum))
-        self.fragments_pri = tuple(kwargs.get("fragments_pri", self.fragments_pri))
-        self.fragments_sec = tuple(kwargs.get("fragments_sec", self.fragments_sec))
-        self.fragments_ter = tuple(kwargs.get("fragments_ter", self.fragments_ter))
+        self.fragments_pri  = tuple(kwargs.get("fragments_pri", self.fragments_pri))
+        self.fragments_sec  = tuple(kwargs.get("fragments_sec", self.fragments_sec))
+        self.fragments_ter  = tuple(kwargs.get("fragments_ter", self.fragments_ter))
 
 
 def is_arcade_hdd(filepath):
@@ -218,7 +218,7 @@ def _flatten_directory_tree(dir_tree, seen, root_dir):
                 block, seen, curr_path
                 ))
         else:
-            curr_dir_files[curr_path] = block
+            curr_dir_files[curr_path.as_posix()] = block
 
     return curr_dir_files
 
@@ -241,7 +241,7 @@ def _dump_hdd(dir_tree, output_path, rawdata, disc, skip_empty):
         if skip_empty and not file_data:
             continue
 
-        filepath.mkdir(parents=True, exist_ok=True)
+        filepath.parent.mkdir(parents=True, exist_ok=True)
         with filepath.open("wb") as fout:
             fout.write(file_data)
 
