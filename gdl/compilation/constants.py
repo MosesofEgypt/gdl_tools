@@ -61,3 +61,12 @@ PS2_WAD_FILE_EXTENSIONS = (
     PS2_WAD_UNKNOWN_EXTENSION,
     PS2_WAD_INTERNAL_NAMES_EXTENSION,
     )
+
+WAD_LUMP_TYPES = frozenset((
+    'ITEM',
+    'SFXX', 'DAMG', 'PDAT',
+    'DESC', 'ADDA', 'NODE', 'MOVE', 'PTRN', 'TYPE',
+    'ANIM', 'PROP', 'TEXM',
+    'FONT', 'TEXT', 'TOFF', 'STRS', 'LOFF', 'LIST', 'DEFS', 'SDEF', 'LDEF',
+    'ENMY', 'BCAM', 'CAMS', 'SNDS', 'AUDS', 'MAPS', 'LEVL', 'WRLD'
+    ))

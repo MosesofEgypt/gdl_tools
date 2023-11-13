@@ -2,8 +2,10 @@ import tkinter as tk
 import tkinter.filedialog
 import sys
 
+from ...gdl_binilla import binilla_fixes
 from binilla.widgets.scroll_menu import ScrollMenu
 from .hotkey_menu_binder import HotkeyMenuBinder
+
 
 class SceneControlsWindow(tk.Toplevel, HotkeyMenuBinder):
     scene = None

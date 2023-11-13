@@ -338,8 +338,8 @@ class Scene(ShowBase):
                     external_anim.external_anim = global_anim
 
     def get_resource_set_textures(self, filepath, is_ngc=False, recache=False):
-        resource_dir = os.path.dirname(filepath)
-        set_name = self.get_resource_set_name(resource_dir)
+        resource_dir = pathlib.Path(filepath).parent
+        set_name     = self.get_resource_set_name(resource_dir)
         objects_data = self.get_resource_set_tags(resource_dir)
         objects_tag  = objects_data.get("objects_tag")
 
@@ -351,9 +351,9 @@ class Scene(ShowBase):
         return dict(self._cached_resource_textures.get(set_name, {}))
 
     def get_resource_set_texture_anims(self, dirpath, recache=False):
-        set_name = self.get_resource_set_name(dirpath)
+        set_name     = self.get_resource_set_name(dirpath)
         objects_data = self.get_resource_set_tags(dirpath)
-        anim_tag = objects_data.get("anim_tag")
+        anim_tag     = objects_data.get("anim_tag")
 
         if ((set_name not in self._cached_resource_texture_anims or recache) and
             objects_data["textures_filepath"] is not None):
@@ -371,7 +371,7 @@ class Scene(ShowBase):
     def get_realm_level(self, dirpath, level_name, recache=False):
         level_name = level_name.upper().strip()
         realm_name = level_name.rstrip("0123456789") # HAAAAAACK
-        realm = self.get_realm(dirpath, realm_name, recache=recache)
+        realm      = self.get_realm(dirpath, realm_name, recache=recache)
         if not realm:
             return None
 
@@ -516,9 +516,10 @@ class Scene(ShowBase):
             )
 
     def _load_world(self, levels_dir, switch_display):
-        objects_data = self.get_resource_set_tags(levels_dir)
-        set_name = self.get_resource_set_name(levels_dir)
-        texture_anims = self.get_resource_set_texture_anims(levels_dir)
+        levels_dir      = pathlib.Path(levels_dir)
+        objects_data    = self.get_resource_set_tags(levels_dir)
+        set_name        = self.get_resource_set_name(levels_dir)
+        texture_anims   = self.get_resource_set_texture_anims(levels_dir)
 
         is_ngc            = objects_data.get("is_ngc")
         anim_tag          = objects_data.get("anim_tag")
@@ -528,9 +529,9 @@ class Scene(ShowBase):
         if not worlds_tag:
             return None
 
-        game_root_dir = pathlib.Path(levels_dir).parent.parent
-        level_name = os.path.basename(levels_dir).lower()
-        realm_name = level_name.rstrip("0123456789")
+        game_root_dir   = levels_dir.parent.parent
+        level_name      = levels_dir.name.lower()
+        realm_name      = level_name.rstrip("0123456789")
 
         level_data = self.get_realm_level(
             locate_dir(game_root_dir, "WDATA"), level_name
@@ -588,7 +589,7 @@ class Scene(ShowBase):
                 objects_data
                 ):
             fp, is_ngc = resource_info["textures_filepath"], resource_info["is_ngc"]
-            if fp:
+            if fp.is_file():
                 textures.update(self.get_resource_set_textures(fp, is_ngc))
 
         # TODO: clean this up to treat different item classes differently

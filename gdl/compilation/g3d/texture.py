@@ -1,5 +1,5 @@
 import math
-import os
+import pathlib
 
 from traceback import format_exc
 from ..metadata import objects as objects_metadata
@@ -25,7 +25,7 @@ def compile_texture(kwargs):
     flags           = metadata.get("flags", {})
     target_format   = metadata.get("format", c.DEFAULT_FORMAT_NAME)
     is_dreamcast    = (cache_type == c.TEXTURE_CACHE_EXTENSION_DC)
-    has_alpha       = flags.get("has_alpha", False)
+    has_alpha       = flags.get("has_alpha", False) or "A" in target_format
     new_format      = texture_util.retarget_format_to_platform(
         target_format, cache_type, has_alpha
         )
@@ -37,7 +37,7 @@ def compile_texture(kwargs):
         target_format   = target_format,
         mipmap_count    = metadata.get("mipmap_count", 0), 
         has_alpha       = has_alpha,
-        keep_alpha      = (has_alpha or "A" in target_format),
+        keep_alpha      = has_alpha,
         twiddled        = flags.get("twiddled") and is_dreamcast,
         large_vq        = flags.get("large_vq") and is_dreamcast,
         small_vq        = flags.get("small_vq") and is_dreamcast,
@@ -82,7 +82,7 @@ def import_textures(
     # locate and load all assets
     texture_caches_by_name = {}
     all_asset_filepaths = util.locate_textures(
-        os.path.join(data_dir, c.IMPORT_FOLDERNAME, c.TEX_FOLDERNAME),
+        pathlib.Path(data_dir, c.IMPORT_FOLDERNAME, c.TEX_FOLDERNAME),
         target_ngc=target_ngc, target_xbox=target_xbox, target_ps2=target_ps2,
         target_dreamcast=target_dreamcast, target_arcade=target_arcade,
         cache_files=True,
@@ -341,24 +341,26 @@ def export_textures(
         if asset_type not in (*c.TEXTURE_CACHE_EXTENSIONS, *c.TEXTURE_ASSET_EXTENSIONS):
             raise ValueError(f"Unknown texture type '{asset_type}'")
 
-    assets_dir = os.path.join(data_dir, c.EXPORT_FOLDERNAME, c.TEX_FOLDERNAME)
-    cache_dir  = os.path.join(data_dir, c.IMPORT_FOLDERNAME, c.TEX_FOLDERNAME)
+    assets_dir = pathlib.Path(data_dir, c.EXPORT_FOLDERNAME, c.TEX_FOLDERNAME)
+    cache_dir  = pathlib.Path(data_dir, c.IMPORT_FOLDERNAME, c.TEX_FOLDERNAME)
     if objects_tag:
-        tag_dir          = os.path.dirname(objects_tag.filepath)
+        tag_dir          = pathlib.Path(objects_tag.filepath).parent
         bitmaps          = objects_tag.data.bitmaps
         _, bitmap_assets = objects_tag.get_cache_names()
     elif texdef_tag:
-        tag_dir       = os.path.dirname(texdef_tag.filepath)
+        tag_dir       = pathlib.Path(texdef_tag.filepath).parent
         bitmaps       = texdef_tag.data.bitmaps
         bitmap_assets = texdef_tag.get_bitmap_names()
     else:
         tag_dir = ""
 
-    if not textures_filepath:
-        textures_filepath = util.locate_objects_dir_files(tag_dir)['textures_filepath']
+    textures_filepath = pathlib.Path(
+        textures_filepath if textures_filepath else
+        util.locate_objects_dir_files(tag_dir)['textures_filepath']
+        )
 
-    is_ngc = textures_filepath.lower().endswith(c.NGC_EXTENSION.lower())
-    if not os.path.isfile(textures_filepath):
+    is_ngc = textures_filepath.name.lower().endswith(c.NGC_EXTENSION)
+    if not textures_filepath.is_file():
         print("No textures cache to extract from.")
         return
 
@@ -381,13 +383,13 @@ def export_textures(
                 for asset_type in asset_types:
                     filename = f"{asset['name']}.{asset_type}"
                     if asset['name'] != asset["asset_name"]:
-                        filename = os.path.join(asset["asset_name"], filename)
+                        filename = pathlib.PurePath(asset["asset_name"], filename)
 
-                    filepath = os.path.join(
+                    filepath = pathlib.Path(
                         cache_dir if asset_type in c.TEXTURE_CACHE_EXTENSIONS else assets_dir,
                         filename
                         )
-                    if os.path.isfile(filepath) and not overwrite:
+                    if filepath.is_file() and not overwrite:
                         continue
 
                     # create and populate texture cache
@@ -453,8 +455,9 @@ def bitmap_to_texture_cache(bitmap_block, textures_file, is_ngc=False, cache_typ
     else:
         raise ValueError("Cannot determine bitmap block type.")
 
-    texture_cache.has_alpha     = bool(getattr(bitmap_block.flags, "has_alpha", False))
     texture_cache.format_id     = bitmap_block.format.data
+    texture_cache.has_alpha     = (bool(getattr(bitmap_block.flags, "has_alpha", False)) or
+                                   "A" in texture_cache.format_name)
     texture_cache.width         = bitmap_block.width
     texture_cache.height        = bitmap_block.height
     texture_cache.is_extracted  = True

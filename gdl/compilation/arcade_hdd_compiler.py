@@ -1,4 +1,5 @@
 import os
+import pathlib
 import tempfile
 
 from traceback import format_exc
@@ -9,10 +10,13 @@ from .arcade_hdd import util
 def _extract_files(kwargs):
     file_buffers = {}
     file_headers = kwargs["file_headers"]
-    with open(kwargs["hdd_filepath"], "rb") as fin:
+    hdd_filepath = pathlib.Path(kwargs["hdd_filepath"])
+    hdd_dirpath  = pathlib.Path(kwargs["hdd_dirpath"])
+
+    with hdd_filepath.open("rb") as fin:
         for filename in sorted(file_headers):
-            filepath = os.path.join(kwargs["hdd_dirpath"], filename.lstrip('/'))
-            if not kwargs["overwrite"] and os.path.isfile(filepath):
+            filepath = hdd_dirpath.joinpath(filename)
+            if not kwargs["overwrite"] and filepath.is_file():
                 continue
 
             if kwargs["to_disk"]:
@@ -29,8 +33,8 @@ def _extract_files(kwargs):
                     continue
 
                 if kwargs["to_disk"]:
-                    os.makedirs(os.path.dirname(filepath), exist_ok=True)
-                    with open(filepath, "wb") as fout:
+                    filepath.parent.mkdir(parents=True, exist_ok=True)
+                    with filepath.open("wb") as fout:
                         fout.write(file_data)
                 else:
                     file_buffers[filename] = file_data
@@ -62,7 +66,7 @@ class ArcadeHddCompiler:
 
     def __init__(self, **kwargs):
         # simple initialization setup where kwargs are
-        # copied into the attributes of this new class
+        # copied into the attributes of this new instance
         self.dir_tree = {}
         self.flat_file_map = {}
         self.file_headers = []
@@ -71,26 +75,28 @@ class ArcadeHddCompiler:
 
     def _get_file_headers_for_filenames(self, filenames=None, ignore_case=False):
         if filenames is None:
-            filenames = self.flat_file_map.keys()
-
-        file_map = self.flat_file_map
-        if ignore_case:
-            file_map = {k.lower(): v for k, v in file_map}
-            file_headers = {
-                filename: file_map[filename.lower()]
-                for filename in filenames
-                if filename.lower() in file_map
-                }
+            file_headers = dict(self.flat_file_map)
         else:
+            filenames = [
+                pathlib.PureWindowsPath(filename).as_posix()
+                for filename in (
+                    (f.lower() if ignore_case else f)
+                    for f in filenames
+                    )
+                ]
+            file_map = {
+                (k.lower() if ignore_case else k): v
+                for k, v in self.flat_file_map
+                }
             file_headers = {
                 filename: file_map[filename]
                 for filename in filenames
                 if filename in file_map
                 }
+
         return file_headers
 
     def load_hdd(self):
-        print(self.hdd_dirpath)
         self.file_headers = util.read_file_headers(
             filepath=self.hdd_filepath, disc=self.disc
             )

@@ -1,4 +1,5 @@
 import os
+import pathlib
 from traceback import format_exc
 
 from ..defs.messages import messages_def, messages_arcade_def
@@ -23,16 +24,17 @@ class MessagesCompiler:
 
     def compile(self):
         target_filenames = list(self.target_filenames)
-        if not os.path.isdir(self.target_dir):
+        target_dir = pathlib.Path(self.target_dir)
+        if not target_dir.is_dir():
             return
         elif not target_filenames:
-            for root, dirnames, _ in os.walk(self.target_dir):
+            for root, dirnames, _ in os.walk(str(target_dir)):
                 target_filenames.extend(dirnames)
                 break
 
         messages_tags = []
         for dirname in target_filenames:
-            dirpath = os.path.join(self.target_dir, dirname)
+            dirpath = target_dir.joinpath(dirname)
             try:
                 metadata = metadata_comp.compile_messages_metadata(dirpath)
 
@@ -41,7 +43,7 @@ class MessagesCompiler:
                 else:
                     messages_tag = messages_def.build()
 
-                messages_tag.filepath = dirpath + ".ROM"
+                messages_tag.filepath = dirpath.with_suffix(".ROM")
                 messages_tag.add_fonts(metadata["fonts"])
                 messages_tag.add_messages(metadata["messages"])
                 messages_tag.add_message_lists(metadata["message_lists"])
@@ -56,17 +58,18 @@ class MessagesCompiler:
 
     def decompile(self, **kwargs):
         target_filenames = list(self.target_filenames)
-        if not os.path.isdir(self.target_dir):
+        target_dir = pathlib.Path(self.target_dir)
+        if not target_dir.is_dir():
             return
         elif not target_filenames:
-            for root, _, filenames in os.walk(self.target_dir):
+            for root, _, filenames in os.walk(str(target_dir)):
                 for filename in filenames:
-                    if os.path.splitext(filename)[-1].upper() == ".ROM":
+                    if filename.upper().endswith(".ROM"):
                         target_filenames.append(filename)
                 break
 
         for filename in target_filenames:
-            filepath = os.path.join(self.target_dir, filename)
+            filepath = target_dir.joinpath(filename)
             try:
                 if get_is_arcade_wad(filepath):
                     messages_tag = messages_arcade_def.build(filepath=filepath)
@@ -79,7 +82,8 @@ class MessagesCompiler:
                     )
                 decompile_kwargs.update(kwargs)
                 metadata_comp.decompile_messages_metadata(
-                    messages_tag, os.path.splitext(filepath)[0], **decompile_kwargs
+                    messages_tag, filepath.parent.joinpath(filepath.stem),
+                    **decompile_kwargs
                     )
             except Exception:
                 print(format_exc())

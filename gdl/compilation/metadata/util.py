@@ -1,4 +1,4 @@
-import os
+import pathlib
 import json
 import yaml
 
@@ -11,12 +11,13 @@ def locate_metadata(data_dir):
 
 
 def load_metadata(filepath):
-    asset_type = os.path.splitext(filepath)[-1].strip(".").lower()
+    filepath    = pathlib.Path(filepath)
+    asset_type  = filepath.suffix.strip(".").lower()
     if asset_type in ("yaml", "yml"):
-        with open(filepath) as f:
+        with filepath.open() as f:
             metadata = yaml.safe_load(f)
     elif asset_type == "json":
-        with open(filepath) as f:
+        with filepath.open() as f:
             metadata = json.load(f)
     else:
         raise ValueError("Unknown metadata asset type '%s'" % asset_type)
@@ -25,14 +26,15 @@ def load_metadata(filepath):
 
 
 def dump_metadata(metadata, filepath, overwrite=False):
-    asset_type = os.path.splitext(filepath)[-1].strip(".").lower()
-    if os.path.isfile(filepath) and not overwrite:
+    filepath    = pathlib.Path(filepath)
+    asset_type  = filepath.suffix.strip(".").lower()
+    if filepath.is_file() and not overwrite:
         return
     elif asset_type in ("yaml", "yml"):
-        with open(filepath, 'w') as f:
+        with filepath.open('w') as f:
             yaml.safe_dump(metadata, f)
     elif asset_type in ("json", ):
-        with open(filepath, 'w') as f:
+        with filepath.open('w') as f:
             json.dump(metadata, f, sort_keys=True, indent=2)
 
 

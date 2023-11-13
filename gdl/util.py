@@ -1,7 +1,8 @@
 import concurrent.futures
-import os
 import traceback
+import pathlib
 
+from .compilation.constants import WAD_LUMP_TYPES
 from .supyr_struct_ext import FixedBytearrayBuffer,\
      BytearrayBuffer, BytesBuffer
 
@@ -27,9 +28,10 @@ def process_jobs(job_function, all_job_args=(), process_count=None):
 
 def get_is_arcade_wad(filepath):
     is_arcade = False
+    filepath = pathlib.Path(filepath)
     try:
         # do a little peek to see if the file is arcade or not
-        with open(filepath, "rb") as f:
+        with filepath.open("rb") as f:
             wad_header_start = int.from_bytes(f.read(4), 'little')
             wad_header_count = int.from_bytes(f.read(4), 'little')
             # safety check in case file isn't a wad
@@ -37,9 +39,9 @@ def get_is_arcade_wad(filepath):
                 return False
 
             for i in range(wad_header_count):
-                f.seek(wad_header_start + (16 * i) + 8)
-                # if the size value is NOT present twice, its arcade
-                if f.read(4) != f.read(4):
+                f.seek(wad_header_start + (16 * i))
+                lump_type = f.read(4).decode("latin-1")[::-1]
+                if lump_type not in WAD_LUMP_TYPES:
                     is_arcade = True
 
     except Exception:
@@ -49,13 +51,12 @@ def get_is_arcade_wad(filepath):
 
 
 def get_is_arcade_rom(filepath):
-    basename, _ = os.path.splitext(filepath)
-    basename = basename.lower()
-    if basename in ("anim", "objects", "textures", "worlds",
-                    "dummy", "aud_data", "hstable_e", "hstable_j"):
+    name = pathlib.Path(filepath).stem.lower()
+    if name in ("anim", "objects", "textures", "worlds",
+                "dummy", "aud_data", "hstable_e", "hstable_j"):
         return True
-    elif len(basename) == 9 and basename.startswith("passport"):
+    elif len(name) == 9 and name.startswith("passport"):
         return True
-    elif len(basename) == 6 and basename.startswith("index"):
+    elif len(name) == 6 and name.startswith("index"):
         return True
     return False

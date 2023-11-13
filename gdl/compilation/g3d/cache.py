@@ -1,4 +1,4 @@
-import os
+import pathlib
 
 from math import log
 from supyr_struct.util import backup_and_rename_temp
@@ -67,8 +67,8 @@ def _compile_assets(
     if cache_type is None:
         raise ValueError("No target platform specified")
 
-    asset_folder    = os.path.join(data_dir, c.EXPORT_FOLDERNAME, folder)
-    cache_path_base = os.path.join(data_dir, c.IMPORT_FOLDERNAME, folder)
+    asset_folder = pathlib.Path(data_dir, c.EXPORT_FOLDERNAME, folder)
+    cache_folder = pathlib.Path(data_dir, c.IMPORT_FOLDERNAME, folder)
 
     # get the metadata for all assets to import and
     # key it by name to allow matching to asset files
@@ -94,11 +94,11 @@ def _compile_assets(
 
         try:
             asset_filepath = all_assets[name]
-            rel_filepath = os.path.relpath(asset_filepath, asset_folder)
-            filename, _ = os.path.splitext(rel_filepath)
-            cache_filepath = os.path.join(cache_path_base, f"{filename}.{cache_type}")
+            rel_filepath   = asset_filepath.relative_to(asset_folder)
+            filename       = rel_filepath.stem
+            cache_filepath = cache_folder.joinpath(f"{filename}.{cache_type}")
 
-            if not force_recompile and os.path.isfile(cache_filepath):
+            if not force_recompile and cache_filepath.is_file():
                 if verify_source_file_asset_checksum(asset_filepath, cache_filepath):
                     # original asset file; don't recompile
                     continue
@@ -134,6 +134,7 @@ def compile_cache_files(
         serialize_cache_files=False, build_texdef_cache=False,
         build_objects_cache=True, build_anim_cache=True
         ):
+    objects_dir = pathlib.Path(objects_dir)
     ext = (
         c.NGC_EXTENSION if target_ngc else
         c.ARC_EXTENSION if target_arcade else
@@ -148,7 +149,7 @@ def compile_cache_files(
     build_texdef_cache &= build_objects_cache
 
     # TODO: add support for compiling worlds
-    data_dir    = os.path.join(objects_dir, c.DATA_FOLDERNAME)
+    data_dir    = objects_dir.joinpath(c.DATA_FOLDERNAME)
     objects_tag = objects_def.build() if build_objects_cache else None
     anim_tag    = anim_def.build()    if build_anim_cache else None
     texdef_tag  = None
@@ -162,15 +163,15 @@ def compile_cache_files(
         objects_tag.data.parse(attr_index="objects")
         objects_tag.data.parse(attr_index="bitmaps")
 
-    anim_tag.filepath = os.path.join(
-        objects_dir, "%s.%s" % (c.ANIM_FILENAME, anim_worlds_ext)
+    anim_tag.filepath = objects_dir.joinpath(
+        f"{c.ANIM_FILENAME}.{anim_worlds_ext}"
         )
     if objects_tag:
-        objects_tag.filepath = os.path.join(
-            objects_dir, "%s.%s" % (c.OBJECTS_FILENAME, ext)
+        objects_tag.filepath = objects_dir.joinpath(
+            f"{c.OBJECTS_FILENAME}.{ext}"
             )
         objects_tag.data.version_header.dir_name = (
-            os.path.join(objects_dir, "").replace("\\", "/")[-32:]
+            str(objects_dir).replace("\\", "/")[-32:]
             )
 
         print("Importing textures...")
@@ -233,19 +234,19 @@ def decompile_cache_files(
     # load objects, texdefs, worlds, and animations
     objects_tag = (
         objects_def.build(filepath=filepaths['objects_filepath'])
-        if os.path.isfile(filepaths['objects_filepath']) else None
+        if filepaths['objects_filepath'].is_file() else None
         )
     texdef_tag = (
         texdef_def.build(filepath=filepaths['texdef_filepath'])
-        if os.path.isfile(filepaths['texdef_filepath']) else None
+        if filepaths['texdef_filepath'].is_file() else None
         )
     anim_tag = (
         anim_def.build(filepath=filepaths['anim_filepath'])
-        if os.path.isfile(filepaths['anim_filepath']) else None
+        if filepaths['anim_filepath'].is_file() else None
         )
     worlds_tag = (
         worlds_def.build(filepath=filepaths['worlds_filepath'])
-        if os.path.isfile(filepaths['worlds_filepath']) else None
+        if filepaths['worlds_filepath'].is_file() else None
         )
 
     if objects_tag:
@@ -262,7 +263,7 @@ def decompile_cache_files(
             print('Could not load texmod sequences. Texture animations may be broken.')
 
     if data_dir is None:
-        data_dir = os.path.join(target_dir, c.DATA_FOLDERNAME)
+        data_dir = pathlib.Path(target_dir, c.DATA_FOLDERNAME)
 
     if meta_asset_types and (objects_tag or anim_tag):
         objects_metadata.decompile_objects_metadata(
@@ -298,7 +299,7 @@ def serialize_textures_cache(
         target_dreamcast=False, target_arcade=False
         ):
     if not output_filepath:
-        objects_dir = os.path.dirname(objects_tag.filepath)
+        objects_dir = pathlib.Path(objects_tag.filepath).parent
         extension   = (
             c.PS2_EXTENSION if target_ps2 else
             c.XBOX_EXTENSION if target_xbox else
@@ -310,9 +311,7 @@ def serialize_textures_cache(
         if extension is None:
             raise ValueError("No target platform specified")
 
-        output_filepath = os.path.join(
-            objects_dir, f"{c.TEXTURES_FILENAME}.{extension}"
-            )
+        output_filepath = objects_dir.joinpath(f"{c.TEXTURES_FILENAME}.{extension}")
 
     temppath = output_filepath + ".temp"
     # open the textures.ps2 file and serialize the texture data into it
@@ -342,10 +341,11 @@ def compile_texdef_cache_from_objects(objects_tag):
         }
 
     texdef_tag = texdef_def.build()
-    objects_dir = os.path.dirname(objects_tag.filepath)
-    objects_ext = os.path.splitext(objects_tag.filepath)[-1].strip(".")
+    objects_filepath = pathlib.Path(objects_tag.filepath)
+    objects_dir = objects_filepath.parent
+    objects_ext = objects_filepath.suffix.strip(".")
 
-    texdef_tag.filepath = os.path.join(objects_dir, "%s.%s" % (c.TEXDEF_FILENAME, objects_ext))
+    texdef_tag.filepath = objects_dir.joinpath("%s.%s" % (c.TEXDEF_FILENAME, objects_ext))
 
     object_bitmaps     = objects_tag.data.bitmaps
     texdef_bitmaps     = texdef_tag.data.bitmaps
