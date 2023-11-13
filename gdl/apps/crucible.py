@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import pathlib
 import tkinter.filedialog
 import tkinter as tk
 import time
@@ -254,21 +255,21 @@ class CrucibleApp(Tk):
         folderpath = tkinter.filedialog.askdirectory(
             initialdir=self.curr_dir, title="Select the folder containing OBJECTS.PS2/NGC/ROM")
         if folderpath:
-            self.curr_dir = folderpath.replace('/','\\')
+            self.curr_dir = pathlib.Path(folderpath).as_posix()
             self.target_objects_dir.set(self.curr_dir)
 
     def select_worlds_folder(self):
         folderpath = tkinter.filedialog.askdirectory(
             initialdir=self.curr_dir, title="Select the folder containing WORLDS.PS2/NGC/ROM")
         if folderpath:
-            self.curr_dir = folderpath.replace('/','\\')
+            self.curr_dir = pathlib.Path(folderpath).as_posix()
             self.target_worlds_dir.set(self.curr_dir)
 
     def select_messages_folder(self):
         folderpath = tkinter.filedialog.askdirectory(
             initialdir=self.curr_dir, title="Select the folder containing the *.ROM messages")
         if folderpath:
-            self.curr_dir = folderpath.replace('/','\\')
+            self.curr_dir = pathlib.Path(folderpath).as_posix()
             self.target_messages_dir.set(self.curr_dir)
 
     def _compile_messages(self):

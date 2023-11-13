@@ -3,7 +3,7 @@ from binilla.app_window import Binilla
 from supyr_struct.defs.constants import *
 from ..handler import GdlHandler
 from .widget_picker import *
-from . import binilla_ext
+from . import binilla_fixes
 
 
 class GdlBinilla(Binilla):
