@@ -1,3 +1,4 @@
+import array
 import hashlib
 import math
 import struct
@@ -112,20 +113,33 @@ class G3DTexture:
         elif self.format_name not in c.PIXEL_SIZES:
             raise ValueError("INVALID FORMAT: '%s'" % self.format_name)
 
-        # make copies to keep originals unaffected
-        palette, textures = deepcopy(self.palette), deepcopy(self.textures)
+        # make copies to keep original unaffected
+        palette, textures = self.palette, self.textures
         mipmap_count = len(textures) - 1 if include_mipmaps else 0
-        indexing_size = 8 if palette else None
         arby_format = texture_util.g3d_format_to_arby_format(
             self.format_name, self.has_alpha
             )
 
         texture_block = []
-        palette_block = []
+        palette_block = None
+        indexing_size = None
         if self.twiddled or self.large_vq or self.small_vq:
-            # undo twiddling/vector-quantization
-            raise NotImplementedError()
-        elif indexing_size:
+            # undo vector-quantization
+            if self.large_vq or self.small_vq:
+                palette     = array.array("Q", bytes(palette))
+                textures    = [
+                    bytearray(array.array("Q", map(palette.__getitem__, texture)))
+                    for texture in textures
+                    ]
+                textures    = texture_util.swizzle_dc_vq_gauntlet_textures(
+                    textures, self.width, self.height,
+                    c.PIXEL_SIZES[self.format_name], unswizzle=True
+                    )
+            texture_block = [array.array("H", texture) for texture in textures]
+
+        elif palette:
+            palette_block = []
+            indexing_size = 8
             # convert the palette to an array of the correct typecode for processing
             if self.format_name in (c.PIX_FMT_ABGR_3555_IDX_4_NGC,
                                     c.PIX_FMT_ABGR_3555_IDX_8_NGC):
@@ -142,13 +156,12 @@ class G3DTexture:
                     )
 
             palette_block *= mipmap_count + 1
-            texture_block[:] = textures[: mipmap_count + 1]
+            texture_block[:] = [bytearray(t) for t in textures[: mipmap_count + 1]]
 
             if "IDX_4" in self.format_name:
                 if len(palette_block[0]) < 256:
                     tex_conv.pad_pal16_to_pal256(palette_block[0])
         else:
-            palette_block = None
             # convert gamecube-exclusive format to standard A8R8G8B8
             for i in range(mipmap_count + 1):
                 if self.format_name in (c.PIX_FMT_ABGR_3555_NGC,
@@ -167,7 +180,7 @@ class G3DTexture:
         texture_info = dict(
             width=self.width, height=self.height, format=arby_format,
             palette=palette_block, indexing_size=indexing_size,
-            target_indexing_size=8, mipmap_count=len(texture_block) - 1,
+            target_indexing_size=8, mipmap_count=mipmap_count,
             )
 
         arbytmap_instance = arbytmap.Arbytmap(

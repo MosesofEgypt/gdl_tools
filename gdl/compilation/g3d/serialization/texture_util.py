@@ -200,11 +200,23 @@ def palettize_textures(textures, max_palette_size=256, min_palette_size=None):
     return palette, indexings, palette_count
 
 
-def swizzle_dc_gauntlet_textures(
+def swizzle_dc_vq_gauntlet_textures(
         textures, width, height, bits_per_pixel, unswizzle=True
         ):
     return _swizzle_gauntlet_textures(
-        textures, width, height, bits_per_pixel, "dc", unswizzle
+        textures, width, height, bits_per_pixel, "dc_vq",
+        unswizzle, min_width=2, min_height=2
+        )
+
+def twiddle_gauntlet_textures(
+        textures, width, height, bits_per_pixel, unswizzle=True, is_vq=False
+        ):
+    if is_vq:
+        width   = width // 2
+        height  = height // 2
+
+    return _swizzle_gauntlet_textures(
+        textures, width, height, bits_per_pixel, "twiddled", unswizzle
         )
 
 def swizzle_ngc_gauntlet_textures(
@@ -215,21 +227,24 @@ def swizzle_ngc_gauntlet_textures(
         )
     
 def _swizzle_gauntlet_textures(
-        textures, width, height, bits_per_pixel, platform, unswizzle
+        textures, width, height, bits_per_pixel, platform, unswizzle,
+        min_width=1, min_height=1
         ):
     '''
     Swizzles or unswizzles Gamecube/Dreamcast Gauntlet textures.
     Swizzle pattern used depends on the bits-per-pixel.
     '''
-    is_ngc = platform == "ngc"
-    is_dc  = platform == "dc"
-    assert is_ngc or is_dc
+    is_ngc      = platform == "ngc"
+    is_dc_vq    = platform == "dc_vq"
+    is_twiddled = platform == "twiddled"
+    assert is_ngc or is_dc_vq or is_twiddled
 
     mask_type = (
-        "DC_GAUNTLET"        if is_dc  else
-        "NGC_GAUNTLET_4BPP"  if bits_per_pixel == 4  else
-        "NGC_GAUNTLET_8BPP"  if bits_per_pixel == 8  else
-        "NGC_GAUNTLET_16BPP" if bits_per_pixel == 16 else
+        "DC_GAUNTLET_TWIDDLED"  if is_twiddled          else
+        "DC_GAUNTLET_VQ"        if is_dc_vq             else
+        "NGC_GAUNTLET_4BPP"     if bits_per_pixel == 4  else
+        "NGC_GAUNTLET_8BPP"     if bits_per_pixel == 8  else
+        "NGC_GAUNTLET_16BPP"    if bits_per_pixel == 16 else
         "NGC_GAUNTLET_32BPP"
         )
     swizz = swizzler.Swizzler(mask_type = mask_type)
@@ -244,7 +259,9 @@ def _swizzle_gauntlet_textures(
     swizzled = [
         swizz.swizzle_single_array(
             texture, not unswizzle, channel_count,
-            max(width >> i, 1), max(height >> i, 1), 1,
+            max(width  >> i, min_width),
+            max(height >> i, min_height),
+            1,
             )
         for i, texture in enumerate(textures)
         ]

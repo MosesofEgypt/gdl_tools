@@ -231,21 +231,20 @@ def import_textures(
                 bitm.large_lod_log2_inv = 8 - int(math.log(max(bitm.width, bitm.height, 1), 2))
                 bitm.small_lod_log2_inv = bitm.large_lod_log2_inv + mipmap_count
             elif target_dreamcast:
-                if texture_cache.large_vq:
-                    image_type = "large_vq"
-                elif texture_cache.small_vq:
-                    image_type = "small_vq"
-                elif bitm.width == bitm.height:
-                    image_type = "square"
+                if bitm.width == bitm.height:
+                    # only square textures can be twiddled/vector-compressed/mipmapped
+                    image_type = (
+                        "large_vq" if texture_cache.large_vq else
+                        "small_vq" if texture_cache.small_vq else
+                        "square"
+                        )
+                    image_type += (
+                        ""                     if not texture_cache.twiddled else
+                        "_twiddled_and_mipmap" if texture_cache.mipmaps else
+                        "_twiddled"
+                        )
                 else:
                     image_type = "rectangle"
-
-                if texture_cache.twiddled:
-                    image_type += "_twiddled"
-
-                if texture_cache.mipmaps and bitm.width == bitm.height:
-                    # only square textures can be mipmapped
-                    image_type += "_mipmap"
 
                 bitm.image_type.set_to(image_type)
                 bitm.dc_unknown = meta.get("dc_unknown", 0)
@@ -435,10 +434,11 @@ def bitmap_to_texture_cache(bitmap_block, textures_file, is_ngc=False, cache_typ
             texture_cache.ncc_table.import_from_rawdata(bitmap_block.ncc_table_data)
     elif is_dreamcast:
         texture_cache           = DreamcastTextureCache()
-        texture_cache.large_vq  = "large_vq" in bitmap_block.image_type
-        texture_cache.small_vq  = "small_vq" in bitmap_block.image_type
-        texture_cache.twiddled  = "twiddled" in bitmap_block.image_type
-        texture_cache.mipmaps   = "mipmap" in bitmap_block.image_type
+        image_type              = bitmap_block.image_type.enum_name
+        texture_cache.large_vq  = "large_vq" in image_type
+        texture_cache.small_vq  = "small_vq" in image_type
+        texture_cache.twiddled  = "twiddled" in image_type
+        texture_cache.mipmaps   = "mipmap" in image_type
     elif is_ngc:
         texture_cache           = GamecubeTextureCache()
         texture_cache.lod_k     = bitmap_block.lod_k

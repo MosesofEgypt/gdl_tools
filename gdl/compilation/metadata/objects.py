@@ -93,8 +93,9 @@ def decompile_objects_metadata(
             metadata_bitm.update(mipmap_count=bitm.mipmap_count, lod_k=bitm.lod_k)
         elif hasattr(bitm, "dc_sig"): # dreamcast
             metadata_bitm["dc_unknown"] = bitm.dc_unknown
+            image_type                  = bitm.image_type.enum_name
             for name in ("twiddled", "mipmap", "small_vq", "large_vq"):
-                if name in bitm.image_type.enum_name:
+                if name in image_type:
                     metadata_bitm[name] = True
         else:
             metadata_bitm.update(mipmap_count=abs(bitm.small_lod_log2_inv - bitm.large_lod_log2_inv))

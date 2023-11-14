@@ -64,6 +64,10 @@ def _compile_assets(
     else:
         raise ValueError(f"Unknown job compile type '{compile_job_type}'")
 
+    if target_dreamcast:
+        print("Warning: Unable to compile Dreamcast assets at this time.")
+        return
+
     if cache_type is None:
         raise ValueError("No target platform specified")
 

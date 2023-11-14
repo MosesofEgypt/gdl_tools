@@ -69,16 +69,16 @@ def _fixed_unpack_indexing(self, packed_indexing):
 
 # just a guess on the 32bpp one
 def _ngc_gauntlet_swizzle_32bpp_mask_set(*args, **kwargs):
-    return _ngc_gauntlet_swizzle_mask_set(*args, **kwargs, ngc_mask_start="xxy")
+    return _ngc_gauntlet_swizzle_mask_set(*args, **kwargs, mask_start="xxy")
 
 def _ngc_gauntlet_swizzle_16bpp_mask_set(*args, **kwargs):
-    return _ngc_gauntlet_swizzle_mask_set(*args, **kwargs, ngc_mask_start="xxyy")
+    return _ngc_gauntlet_swizzle_mask_set(*args, **kwargs, mask_start="xxyy")
 
 def _ngc_gauntlet_swizzle_8bpp_mask_set(*args, **kwargs):
-    return _ngc_gauntlet_swizzle_mask_set(*args, **kwargs, ngc_mask_start="xxxyy")
+    return _ngc_gauntlet_swizzle_mask_set(*args, **kwargs, mask_start="xxxyy")
 
 def _ngc_gauntlet_swizzle_4bpp_mask_set(*args, **kwargs):
-    return _ngc_gauntlet_swizzle_mask_set(*args, **kwargs, ngc_mask_start="xxxyyy")
+    return _ngc_gauntlet_swizzle_mask_set(*args, **kwargs, mask_start="xxxyyy")
 
 def _swizzle_axis_bits(axis_bits, masks, log_sizes):
     '''
@@ -97,21 +97,21 @@ def _ngc_gauntlet_swizzle_mask_set(
         swizzler_mask,
         log_c,  log_x,  log_y,  log_z,
         c_mask, x_mask, y_mask, z_mask,
-        ngc_mask_start=""
+        mask_start=""
         ):
     log_sizes = dict(c=log_c, x=log_x, y=log_y, z=log_z)
     masks = dict(c=c_mask, x=x_mask, y=y_mask, z=z_mask)
 
     axis_bits = (
         "c" * log_c +
-        ngc_mask_start +
-        "x" * max(0, log_x - ngc_mask_start.count("x")) +
-        "y" * max(0, log_y - ngc_mask_start.count("y")) +
+        mask_start +
+        "x" * max(0, log_x - mask_start.count("x")) +
+        "y" * max(0, log_y - mask_start.count("y")) +
         "z" * log_z
         )
     _swizzle_axis_bits(axis_bits, masks, log_sizes)
 
-def _dc_gauntlet_swizzle_mask_set(
+def _dc_gauntlet_twiddled_mask_set(
         swizzler_mask,
         log_c,  log_x,  log_y,  log_z,
         c_mask, x_mask, y_mask, z_mask
@@ -130,12 +130,29 @@ def _dc_gauntlet_swizzle_mask_set(
     axis_bits += "z" * log_z
     _swizzle_axis_bits(axis_bits, masks, log_sizes)
 
+def _dc_gauntlet_vq_mask_set(
+        swizzler_mask,
+        log_c,  log_x,  log_y,  log_z,
+        c_mask, x_mask, y_mask, z_mask
+        ):
+    mask_start = ""
+    if log_y: mask_start += "y"
+    if log_x: mask_start += "x"
+    # same swizzle method as gamecube after the start of the mask
+    return _ngc_gauntlet_swizzle_mask_set(
+        swizzler_mask,
+        log_c,  log_x,  log_y,  log_z,
+        c_mask, x_mask, y_mask, z_mask,
+        mask_start=mask_start
+        )
 
-swizzler.SwizzlerMask.add_mask("NGC_GAUNTLET_32BPP", _ngc_gauntlet_swizzle_32bpp_mask_set)
-swizzler.SwizzlerMask.add_mask("NGC_GAUNTLET_16BPP", _ngc_gauntlet_swizzle_16bpp_mask_set)
-swizzler.SwizzlerMask.add_mask("NGC_GAUNTLET_8BPP",  _ngc_gauntlet_swizzle_8bpp_mask_set)
-swizzler.SwizzlerMask.add_mask("NGC_GAUNTLET_4BPP",  _ngc_gauntlet_swizzle_4bpp_mask_set)
-swizzler.SwizzlerMask.add_mask("DC_GAUNTLET",        _dc_gauntlet_swizzle_mask_set)
+
+swizzler.SwizzlerMask.add_mask("NGC_GAUNTLET_32BPP",    _ngc_gauntlet_swizzle_32bpp_mask_set)
+swizzler.SwizzlerMask.add_mask("NGC_GAUNTLET_16BPP",    _ngc_gauntlet_swizzle_16bpp_mask_set)
+swizzler.SwizzlerMask.add_mask("NGC_GAUNTLET_8BPP",     _ngc_gauntlet_swizzle_8bpp_mask_set)
+swizzler.SwizzlerMask.add_mask("NGC_GAUNTLET_4BPP",     _ngc_gauntlet_swizzle_4bpp_mask_set)
+swizzler.SwizzlerMask.add_mask("DC_GAUNTLET_TWIDDLED",  _dc_gauntlet_twiddled_mask_set)
+swizzler.SwizzlerMask.add_mask("DC_GAUNTLET_VQ",        _dc_gauntlet_vq_mask_set)
 Arbytmap._unpack_indexing   = _fixed_unpack_indexing
 Arbytmap._unpack_palettized = _fixed_unpack_palettized
 

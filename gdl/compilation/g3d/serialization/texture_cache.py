@@ -210,6 +210,21 @@ class TextureCache(AssetCache):
 
         return texture_data
 
+    def _buffer_byteswap(self, pixel_buffers):
+        itemsize = (
+            self.palette_stride
+            if self.palettized else
+            (self.pixel_stride//8)
+            )
+        if itemsize <= 1:
+            return
+
+        swap_map = tuple(range(itemsize))[::-1]
+
+        # swap from little to big endian
+        for pixels in pixel_buffers:
+            arbytmap.bitmap_io.swap_array_items(pixels, swap_map)
+
 
 class Ps2TextureCache(TextureCache):
     format_id_to_name = {
@@ -320,22 +335,6 @@ class GamecubeTextureCache(TextureCache):
 
         self._format_name = val
 
-    def _ngc_byteswap(self, pixel_buffers):
-        # byteswap colors for gamecube
-        itemsize = (
-            self.palette_stride
-            if self.palettized else
-            (self.pixel_stride//8)
-            )
-        if itemsize <= 1:
-            return
-
-        swap_map = tuple(range(itemsize))[::-1]
-
-        # swap from little to big endian
-        for pixels in pixel_buffers:
-            arbytmap.bitmap_io.swap_array_items(pixels, swap_map)
-
     def _ngc_swizzle(self, textures, unswizzle):
         # (un)swizzle the textures from gamecube
         return texture_util.swizzle_ngc_gauntlet_textures(
@@ -348,7 +347,7 @@ class GamecubeTextureCache(TextureCache):
 
         if pixel_interop_edits and self.palettized:
             palette = bytearray(self.palette)
-            self._ngc_byteswap([palette])
+            self._buffer_byteswap([palette]) # byteswap colors
             self.palette = palette
 
     def parse_textures(self, rawdata, *, pixel_interop_edits=True):
@@ -358,7 +357,7 @@ class GamecubeTextureCache(TextureCache):
         if pixel_interop_edits:
             textures = self._ngc_swizzle(textures, unswizzle=True)
             if not self.palettized:
-                self._ngc_byteswap(textures)
+                self._buffer_byteswap(textures) # byteswap colors
 
         self.textures = textures
 
@@ -366,7 +365,7 @@ class GamecubeTextureCache(TextureCache):
         palette_bytes = super().serialize_palette(pixel_interop_edits=pixel_interop_edits)
 
         if pixel_interop_edits and self.palettized:
-            self._ngc_byteswap([palette_bytes])
+            self._buffer_byteswap([palette_bytes]) # byteswap colors
 
         return palette_bytes
 
@@ -383,7 +382,7 @@ class GamecubeTextureCache(TextureCache):
             if pixel_interop_edits:
                 self.textures = self._ngc_swizzle(self.textures, unswizzle=False)
                 if not self.palettized:
-                    self._ngc_byteswap(self.textures)
+                    self._buffer_byteswap(self.textures) # byteswap colors
 
             texture_data = super().serialize_textures(pixel_interop_edits=pixel_interop_edits)
         finally:
@@ -396,8 +395,8 @@ class DreamcastTextureCache(TextureCache):
     # dreamcast exclusive formats
     format_id_to_name = {
         0: constants.PIX_FMT_ABGR_1555,
-        1: constants.PIX_FMT_ABGR_4444,
-        2: constants.PIX_FMT_BGR_565,
+        1: constants.PIX_FMT_BGR_565,
+        2: constants.PIX_FMT_ABGR_4444,
         }
     cache_type = constants.TEXTURE_CACHE_EXTENSION_DC
 
@@ -431,11 +430,20 @@ class DreamcastTextureCache(TextureCache):
         # always 8-bit indexing for palettized
         return 8 if self.palettized else constants.PIXEL_SIZES.get(self.format_name, 0)
 
+    def _dc_twiddle(self, textures, untwiddle):
+        # (un)twiddle the textures from dreamcast
+        return texture_util.twiddle_gauntlet_textures(
+            textures, width=self.width, height=self.height,
+            bits_per_pixel=self.pixel_stride,
+            is_vq=(self.large_vq or self.small_vq), unswizzle=untwiddle,
+            )
+
     def parse_textures(self, rawdata, *, pixel_interop_edits=True):
         is_square = (self.width == self.height)
         if (self.large_vq or self.small_vq) and not is_square:
             raise ValueError("Vector-quantized textures must be square.")
 
+        mip_dims = []
         if self.mipmaps:
             if not is_square:
                 raise ValueError("Mipmap count non-zero in rectangular Dreamcast texture.")
@@ -444,21 +452,21 @@ class DreamcastTextureCache(TextureCache):
             # mipmaps starting from 1 x 1 all the way up to width x height
             mipmaps = int(math.ceil(math.log(self.width, 2)))
             # mips stored in reverse
-            mip_dims = [(2**d, 2**d) for d in range(mipmaps, -1, -1)]
-        else:
-            mip_dims = [(self.width, self.height)]
+            mip_dims = [(2**d, 2**d) for d in range(mipmaps)]
+
+        mip_dims.append((self.width, self.height))
 
         textures = []
-        for w, h in mip_dims:
+        for i in range(len(mip_dims)):
+            w, h = mip_dims[i]
             # vector quantized textures store a palette of 2x2 textures
             if self.large_vq or self.small_vq:
-                mipmap_size = (w*h)//4
+                mipmap_size = max((w*h)//4, 1)
             else:
-                mipmap_size = w*h*self.pixel_stride
-
-                if self.pixel_stride > 1 and mipmap_size < 4:
-                    # non-palettized textures each take up at least 4 bytes
-                    mipmap_size = 4
+                mipmap_size = (w*h*self.pixel_stride)//8
+                if w == 1 and h == 1 and mipmap_size == 2:
+                    # pixels are stored in at least 4 bytes. skip first 2
+                    rawdata.read(2)
 
             mipmap_data = rawdata.read(mipmap_size)
 
@@ -466,18 +474,30 @@ class DreamcastTextureCache(TextureCache):
                 if w == self.width:
                     raise ValueError("Texture data is truncated. Unable to parse texture cache.")
                 print(f"Warning: Detected truncated bitmap data. Cannot load mip {i} or higher.")
+                self.width  = w
+                self.height = h
                 break
 
             textures.append(mipmap_data)
+
+        # since mips are stored in reverse, reverse them to match our standard(big to small)
+        textures = textures[::-1]
+
+        if pixel_interop_edits and self.twiddled:
+            textures = self._dc_twiddle([bytearray(t) for t in textures], untwiddle=True)
 
         # skip past the 8 bytes of 0xFF
         rawdata.seek(8, os.SEEK_CUR)
         self.textures = textures
 
     def serialize_textures(self, *, pixel_interop_edits=True):
+        mip_count = (len(self.textures) - 1)
         if (self.width == self.height and self.mipmaps and
-            self.width != 2**(self.mipmaps + 1)):
-            raise ValueError(f"Mipmap count({self.mipmaps}) does not match expected value.")
+            self.width != 2**mip_count):
+            raise ValueError(
+                f"Mipmap count({mip_count}) does not match expected "
+                f"value({int(math.log2(max(1, self.width)))})."
+                )
         elif not self.textures:
             return bytearray()
 
@@ -486,18 +506,21 @@ class DreamcastTextureCache(TextureCache):
             # no mipmaps, or rectangular texture(can't have mipmaps)
             # use highest resolution texture only
             textures = textures[:1]
-        else:
-            minsize_mipmap = bytes(textures.pop(-1))
-            if len(minsize_mipmap) < 4:
-                # textures must be at least 4 bytes. pad with 0x00
-                minsize_mipmap = b'\x00' * (4 - len(minsize_mipmap)) + minsize_mipmap
 
-            textures.append(minsize_mipmap)
+        if pixel_interop_edits and self.twiddled:
+            textures = self._dc_twiddle([bytearray(t) for t in textures], untwiddle=False)
 
         # mips stored in reverse
-        texture_data = bytearray().join(self.textures[::-1])
+        texture_data = bytearray().join(textures[::-1])
+
+        if self.mipmaps and self.width == self.height:
+            # textures must be at least 4 bytes, but the first will be
+            # a 1x1 which is 2 bytes. pad it on the beginning of the data
+            texture_data = bytearray(2) + texture_data
+
         # for some reason the texture data always stores an extra 8 bytes of 0xFF
         texture_data += b'\xFF' * 8
+
         return texture_data
 
 
