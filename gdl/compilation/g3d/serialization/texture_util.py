@@ -3,8 +3,8 @@ import scipy
 
 from . import constants as c
 from array import array
+from arbytmap import arby, format_defs, bitmap_io
 from arbytmap.arby import swizzler
-from arbytmap import format_defs, bitmap_io
 
 
 def is_alpha_signed(format_name):
@@ -142,6 +142,40 @@ def retarget_format_to_platform(target_format, cache_type, has_alpha=False):
             new_format = c.PIX_FMT_XBGR_1555
 
     return new_format
+
+
+def dequantize_vq_textures(textures, palette, width, height, bpp):
+    # undo vector-quantization
+    palette     = array("Q", bytes(palette))
+    textures    = [
+        bytearray(array("Q", map(palette.__getitem__, bytes(texture))))
+        for texture in textures
+        ]
+    lin_textures = swizzle_dc_vq_gauntlet_textures(
+        textures, width, height, bpp, unswizzle=True
+        )
+    return lin_textures
+
+
+def depalettize_textures(textures, palette, bpp):
+    depal_textures  = []
+    palette         = bytearray(palette)
+    for texture in textures:
+        # create a new array to hold the pixels after we unpack them
+        depal_texture   = bytearray(bpp * len(texture))
+        texture         = bytearray(texture)
+
+        if arby.fast_arbytmap:
+            arby.arbytmap_ext.depalettize_bitmap(
+                depal_texture, texture, palette, bpp
+                )
+        else:
+            for i, index in enumerate(texture):
+                depal_texture[i*bpp:(i+1)*bpp] = palette[index*bpp:(index+1)*bpp]
+
+        depal_textures.append(depal_texture)
+
+    return depal_textures
 
 
 def palettize_textures(textures, max_palette_size=256, min_palette_size=None):

@@ -343,15 +343,19 @@ def export_textures(
     assets_dir = pathlib.Path(data_dir, c.EXPORT_FOLDERNAME, c.TEX_FOLDERNAME)
     cache_dir  = pathlib.Path(data_dir, c.IMPORT_FOLDERNAME, c.TEX_FOLDERNAME)
     if objects_tag:
-        tag_dir          = pathlib.Path(objects_tag.filepath).parent
-        bitmaps          = objects_tag.data.bitmaps
-        _, bitmap_assets = objects_tag.get_cache_names()
+        tag_dir         = pathlib.Path(objects_tag.filepath).parent
+        bitmaps         = objects_tag.data.bitmaps
+        objects         = objects_tag.data.objects
+        bitmap_assets   = objects_tag.get_cache_names()[1]
+        try_lm_headers  = objects_tag.data.version_header.version.enum_name in ("v0", "v1")
     elif texdef_tag:
-        tag_dir       = pathlib.Path(texdef_tag.filepath).parent
-        bitmaps       = texdef_tag.data.bitmaps
-        bitmap_assets = texdef_tag.get_bitmap_names()
+        tag_dir         = pathlib.Path(texdef_tag.filepath).parent
+        bitmaps         = texdef_tag.data.bitmaps
+        objects         = ()
+        bitmap_assets   = texdef_tag.get_bitmap_names()
+        try_lm_headers  = False
     else:
-        tag_dir = ""
+        raise ValueError("Must supply either texdef tag or objects tag.")
 
     textures_filepath = pathlib.Path(
         textures_filepath if textures_filepath else
@@ -366,14 +370,26 @@ def export_textures(
     all_job_args = []
     textures_file = open(textures_filepath, "rb")
     try:
-        for i in range(len(bitmaps)):
+        bitmap_blocks = {i: b for i, b in enumerate(bitmaps)}
+        if try_lm_headers:
+            for i, obj in enumerate(objects):
+                try:
+                    # NOTE: we use negative indices in the bitmap_assets to indicate
+                    #       that the name was taken from a dreamcast lightmap, and
+                    #       doesn't actually have a bitmap block tied to this bitmap.
+                    bitmap_blocks[-(i+1)] = obj.lods[0].data.lightmap_header
+                except Exception:
+                    pass
+
+        for i in sorted(bitmap_blocks.keys()):
             asset = bitmap_assets.get(i)
-            bitm  = bitmaps[i]
+            bitm  = bitmap_blocks[i]
 
             try:
+                flags = getattr(bitm, "flags", None)
                 if (getattr(bitm, "frame_count", 0) or asset is None or
-                    getattr(bitm.flags, "external", False) or
-                    getattr(bitm.flags, "invalid", False)):
+                    getattr(flags, "external", False) or
+                    getattr(flags, "invalid", False)):
                     continue
                 elif bitm.format.enum_name == "<INVALID>":
                     print(f"Invalid bitmap format detected in bitmap {asset} at index {i}")
@@ -403,9 +419,10 @@ def export_textures(
                         ))
             except:
                 print(format_exc())
-                print("The above error occurred while trying to export bitmap {i} as {asset_type}. "
-                      "name: '%s', asset_name: '%s'" % (asset.get("name"), asset.get("asset_name"))
+                print(f"The above error occurred while trying to export bitmap {i} as {asset_type}. "
+                      f"name: '{asset.get('name')}', asset_name: '{asset.get('asset_name')}'"
                       )
+
     finally:
         textures_file.close()
 
@@ -418,30 +435,32 @@ def export_textures(
         )
 
 
-def bitmap_to_texture_cache(bitmap_block, textures_file, is_ngc=False, cache_type=None):
+def bitmap_to_texture_cache(bitmap_or_lm_block, textures_file, is_ngc=False, cache_type=None):
     is_arcade   = is_dreamcast = False
-    is_ps2_xbox = hasattr(bitmap_block, "lod_k")
+    is_ps2_xbox = hasattr(bitmap_or_lm_block, "lod_k")
     if not is_ps2_xbox and not is_ngc:
-        is_dreamcast = hasattr(bitmap_block, "dc_sig")
+        is_dreamcast = hasattr(bitmap_or_lm_block, "image_type")
         is_arcade    = not is_dreamcast
 
+    flags = getattr(bitmap_or_lm_block, "flags", None)
     # create and populate texture cache
     if is_arcade:
         texture_cache           = ArcadeTextureCache()
-        texture_cache.mipmaps   = bitmap_block.small_lod_log2_inv - bitmap_block.large_lod_log2_inv
-        if "YIQ" in bitmap_block.format.enum_name:
+        texture_cache.mipmaps   = (bitmap_or_lm_block.small_lod_log2_inv -
+                                   bitmap_or_lm_block.large_lod_log2_inv)
+        if "YIQ" in bitmap_or_lm_block.format.enum_name:
             texture_cache.ncc_table = ncc.NccTable()
-            texture_cache.ncc_table.import_from_rawdata(bitmap_block.ncc_table_data)
+            texture_cache.ncc_table.import_from_rawdata(bitmap_or_lm_block.ncc_table_data)
     elif is_dreamcast:
         texture_cache           = DreamcastTextureCache()
-        image_type              = bitmap_block.image_type.enum_name
+        image_type              = bitmap_or_lm_block.image_type.enum_name
         texture_cache.large_vq  = "large_vq" in image_type
         texture_cache.small_vq  = "small_vq" in image_type
         texture_cache.twiddled  = "twiddled" in image_type
         texture_cache.mipmaps   = "mipmap" in image_type
     elif is_ngc:
         texture_cache           = GamecubeTextureCache()
-        texture_cache.lod_k     = bitmap_block.lod_k
+        texture_cache.lod_k     = bitmap_or_lm_block.lod_k
         # regardless of what the objects says, gamecube doesnt contain mipmaps
         texture_cache.mipmaps   = 0
     elif is_ps2_xbox:
@@ -450,20 +469,20 @@ def bitmap_to_texture_cache(bitmap_block, textures_file, is_ngc=False, cache_typ
             if cache_type in c.TEXTURE_CACHE_EXTENSIONS else
             Ps2TextureCache
             )()
-        texture_cache.lod_k     = bitmap_block.lod_k
-        texture_cache.mipmaps   = bitmap_block.mipmap_count
+        texture_cache.lod_k     = bitmap_or_lm_block.lod_k
+        texture_cache.mipmaps   = bitmap_or_lm_block.mipmap_count
     else:
         raise ValueError("Cannot determine bitmap block type.")
 
-    texture_cache.format_id     = bitmap_block.format.data
-    texture_cache.has_alpha     = (bool(getattr(bitmap_block.flags, "has_alpha", False)) or
+    texture_cache.format_id     = bitmap_or_lm_block.format.data
+    texture_cache.has_alpha     = (bool(getattr(flags, "has_alpha", False)) or
                                    "A" in texture_cache.format_name)
-    texture_cache.width         = bitmap_block.width
-    texture_cache.height        = bitmap_block.height
+    texture_cache.width         = bitmap_or_lm_block.width
+    texture_cache.height        = bitmap_or_lm_block.height
     texture_cache.is_extracted  = True
 
     # read texture data
-    textures_file.seek(bitmap_block.tex_pointer)
+    textures_file.seek(bitmap_or_lm_block.tex_pointer)
     texture_cache.parse_palette(textures_file)
     texture_cache.parse_textures(textures_file)
 

@@ -22,12 +22,23 @@ def load_textures_from_objects_tag(
     texture_names = {
         asset["index"]: asset["name"] for asset in texture_assets.values()
         }
+    objects = objects_tag.data.objects
+    bitmaps = objects_tag.data.bitmaps
 
     with open(textures_filepath, "rb") as f:
-        for index, name in texture_names.items():
-            bitm = objects_tag.data.bitmaps[index]
+        for i, name in texture_names.items():
+            if i < 0:
+                # NOTE: we use negative indices in the bitmap_assets to indicate
+                #       that the name was taken from a dreamcast lightmap, and
+                #       doesn't actually have a bitmap block tied to this bitmap.
+                bitm = objects[-(i+1)].lods[0].data.lightmap_header
+            else:
+                bitm = bitmaps[i]
+
             format_name = bitm.format.enum_name
-            if getattr(bitm.flags, "external", False) or bitm.frame_count > 0:
+            flags       = getattr(bitm, "flags", None)
+            if (getattr(flags, "external", False) or
+                getattr(bitm, "frame_count", 0) > 0):
                 # empty placeholder texture
                 p3d_texture = panda3d.core.Texture()
             else:
@@ -37,14 +48,13 @@ def load_textures_from_objects_tag(
                 except (ValueError, AttributeError):
                     # invalid bitmap
                     continue
-
                 p3d_texture = util.g3d_texture_to_p3d_texture(g3d_texture)
 
             p3d_texture.setWrapU(
-                panda3d.core.SamplerState.WM_clamp if getattr(bitm.flags, "clamp_u", False) else
+                panda3d.core.SamplerState.WM_clamp if getattr(flags, "clamp_u", False) else
                 panda3d.core.SamplerState.WM_repeat)
             p3d_texture.setWrapV(
-                panda3d.core.SamplerState.WM_clamp if getattr(bitm.flags, "clamp_v", False) else
+                panda3d.core.SamplerState.WM_clamp if getattr(flags, "clamp_v", False) else
                 panda3d.core.SamplerState.WM_repeat)
 
             texture = Texture(
@@ -55,6 +65,6 @@ def load_textures_from_objects_tag(
             # in some instances we need to reference textures by
             # index, while in others we need to reference by name
             textures[name]  = texture
-            textures[index] = texture
+            textures[i]     = texture
 
     return textures

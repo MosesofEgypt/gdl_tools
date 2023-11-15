@@ -123,18 +123,12 @@ class G3DTexture:
         texture_block = []
         palette_block = None
         indexing_size = None
-        if self.twiddled or self.large_vq or self.small_vq:
+        if self.large_vq or self.small_vq:
             # undo vector-quantization
-            if self.large_vq or self.small_vq:
-                palette     = array.array("Q", bytes(palette))
-                textures    = [
-                    bytearray(array.array("Q", map(palette.__getitem__, texture)))
-                    for texture in textures
-                    ]
-                textures    = texture_util.swizzle_dc_vq_gauntlet_textures(
-                    textures, self.width, self.height,
-                    c.PIXEL_SIZES[self.format_name], unswizzle=True
-                    )
+            textures = texture_util.dequantize_vq_textures(
+                textures, palette, self.width, self.height,
+                c.PIXEL_SIZES[self.format_name]
+                )
             texture_block = [array.array("H", texture) for texture in textures]
 
         elif palette:

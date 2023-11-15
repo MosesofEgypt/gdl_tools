@@ -101,8 +101,10 @@ def load_objects_dir_files(objects_dir):
 
 def g3d_texture_to_dds(g3d_texture):
     # only the first one for now
-    palette = g3d_texture.palette
-    texture = g3d_texture.textures[0]
+    arby        = g3d_texture.to_arbytmap_instance(include_mipmaps=True)
+    palette     = g3d_texture.palette
+    texture     = g3d_texture.textures[0]
+    format_name = g3d_texture.format_name
 
     dds_tag = dds_def.build()
 
@@ -116,53 +118,45 @@ def g3d_texture_to_dds(g3d_texture):
     dds_header.flags.linearsize = False
     dds_header.flags.pitch = True
 
-    monochrome = g3d_texture.format_name in g3d_const.MONOCHROME_FORMATS
+    monochrome = format_name in g3d_const.MONOCHROME_FORMATS
     pfmt_head.flags.rgb_space = not pfmt_head.flags.alpha_only
     pfmt_head.flags.has_alpha = g3d_texture.has_alpha
 
-    if monochrome:
+    if g3d_texture.large_vq or g3d_texture.small_vq:
+        # dreamcast texture. remove vector quantization
+        pfmt_head.rgb_bitcount = g3d_const.PIXEL_SIZES[format_name]
+        (texture, ) = texture_util.dequantize_vq_textures(
+            [texture], palette, g3d_texture.width, g3d_texture.height,
+            pfmt_head.rgb_bitcount
+            )
+        palette = None
+    elif monochrome:
         # making monochrome into 24bpp color
         pfmt_head.rgb_bitcount = 8
         pfmt_head.flags.has_alpha = False
-    elif g3d_texture.format_name not in g3d_const.PALETTE_SIZES:
-        # non-palettized texture
-
-        format_name = g3d_texture.format_name
-        if format_name in (g3d_const.PIX_FMT_ABGR_3555_NGC,
-                           g3d_const.PIX_FMT_XBGR_3555_NGC):
-            # gamecube exclusive format. convert to something we can work with
-            format_name = g3d_const.PIX_FMT_ABGR_8888
-            texture = texture_conversions.argb_3555_to_8888(texture)
-
-        pfmt_head.rgb_bitcount = g3d_const.PIXEL_SIZES[format_name]
     else:
-        # palettized texture. need to depalettize
-        format_name = g3d_texture.format_name
-
         # gamecube exclusive format. convert to something we can work with
         if format_name in (g3d_const.PIX_FMT_ABGR_3555_IDX_4_NGC,
                            g3d_const.PIX_FMT_ABGR_3555_IDX_8_NGC):
             format_name = g3d_const.PIX_FMT_ABGR_8888_IDX_8
-            palette = texture_conversions.argb_3555_to_8888(palette)
+            if format_name not in g3d_const.PALETTE_SIZES:
+                texture = texture_conversions.argb_3555_to_8888(texture)
+            else:
+                palette = texture_conversions.argb_3555_to_8888(palette)
 
-        pfmt_head.rgb_bitcount = g3d_const.PALETTE_SIZES[format_name] * 8
-        bpp = pfmt_head.rgb_bitcount // 8  # bytes_per_pixel
-
-        # create a new array to hold the pixels after we unpack them
-        depal_texture = bytearray(bpp * len(texture))
-
-        if arby.fast_arbytmap:
-            arby.arbytmap_ext.depalettize_bitmap(
-                depal_texture, bytearray(texture), palette, bpp)
+        if format_name not in g3d_const.PALETTE_SIZES:
+            # non-palettized texture
+            pfmt_head.rgb_bitcount = g3d_const.PIXEL_SIZES[format_name]
         else:
-            for i, index in enumerate(texture):
-                depal_texture[i*bpp:(i+1)*bpp] = palette[index*bpp:(index+1)*bpp]
-
-        texture = depal_texture
+            # palettized texture. need to depalettize
+            pfmt_head.rgb_bitcount = g3d_const.PALETTE_SIZES[format_name] * 8
+            (texture, ) = texture_util.depalettize_textures(
+                [texture], palette, pfmt_head.rgb_bitcount // 8  # bytes_per_pixel
+                )
 
     pfmt_head.flags.four_cc = False
     arby_format = texture_util.g3d_format_to_arby_format(
-        g3d_texture.format_name, g3d_texture.has_alpha
+        format_name, g3d_texture.has_alpha
         )
     masks   = fd.CHANNEL_MASKS[arby_format]
     offsets = fd.CHANNEL_OFFSETS[arby_format]

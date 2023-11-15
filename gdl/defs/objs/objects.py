@@ -10,27 +10,36 @@ from ...compilation.g3d import constants as c
 
 
 class ObjectsTag(GdlTag):
-    texdef_names  = None
     texdef_tag    = None
-    texmod_seqs   = None
 
     _object_assets_by_name  = None
     _bitmap_assets_by_name  = None
     _object_assets_by_index = None
     _bitmap_assets_by_index = None
 
+    _texmod_seqs  = None
+    _texdef_names_by_pixels_pointer = None
+
+    _lightmap_names = None
+    _object_names   = None
+    _bitmap_names   = None
+    _texdef_names   = None
+
     def load_texmod_sequences(self, filepath=None, recache=False):
-        if (self.anim_tag is None or recache) and filepath is None:
-            filepath = locate_objects_dir_files(
-                pathlib.Path(self.filepath).parent
-                )['anim_filepath']
+        if self._texmod_seqs and not recache:
+            return
+        elif self.anim_tag is None or recache:
+            if filepath is None:
+                filepath = locate_objects_dir_files(
+                    pathlib.Path(self.filepath).parent
+                    )['anim_filepath']
 
-        if self.anim_tag is None and filepath:
-            self.anim_tag = anim_def.build(filepath=filepath)
+            if filepath:
+                self.anim_tag = anim_def.build(filepath=filepath)
 
-        self.texmod_seqs = {}
+        self._texmod_seqs = {}
         if self.anim_tag:
-            self.texmod_seqs.update({
+            self._texmod_seqs.update({
                 texmod.tex_index: dict(
                     start = texmod.type.source_index.idx,
                     count = abs(texmod.frame_count),
@@ -40,17 +49,20 @@ class ObjectsTag(GdlTag):
                 })
 
     def load_texdef_names(self, filepath=None, recache=False):
-        if (self.texdef_tag is None or recache) and filepath is None:
-            filepath = locate_objects_dir_files(
-                pathlib.Path(self.filepath).parent
-                )['texdef_filepath']
+        if self._texdef_names_by_pixels_pointer and not recache:
+            return
+        elif self.texdef_tag is None or recache:
+            if filepath is None:
+                filepath = locate_objects_dir_files(
+                    pathlib.Path(self.filepath).parent
+                    )['texdef_filepath']
 
-        if self.texdef_tag is None and filepath:
-            self.texdef_tag = texdef_def.build(filepath=filepath)
+            if filepath:
+                self.texdef_tag = texdef_def.build(filepath=filepath)
 
-        self.texdef_names = {}
+        self._texdef_names_by_pixels_pointer = {}
         if self.texdef_tag:
-            self.texdef_names.update({
+            self._texdef_names_by_pixels_pointer.update({
                 bitmap.tex_pointer: bitmap_def.name
                 for bitmap, bitmap_def in zip(
                     self.texdef_tag.data.bitmaps,
@@ -59,9 +71,11 @@ class ObjectsTag(GdlTag):
                 if bitmap_def.name
                 })
 
-    def get_object_names(self):
-        object_names = {}
+    def get_object_names(self, recache=False):
+        if not recache and self._object_names is not None:
+            return dict(self._object_names)
 
+        object_names = {}
         for bitm_def in self.data.object_defs:
             obj_index = bitm_def.obj_index
             name      = bitm_def.name.strip().upper()
@@ -80,36 +94,51 @@ class ObjectsTag(GdlTag):
                 continue
 
             name = f"{c.UNNAMED_ASSET_NAME}.{unnamed_count:04}"
-            object_names[i] = dict(name=name, asset_name=c.UNNAMED_ASSET_NAME, index=i)
+            object_names[i] = dict(
+                name=name,
+                asset_name=c.UNNAMED_ASSET_NAME,
+                index=i
+                )
             unnamed_count += 1
 
-        return object_names
+        self._object_names = object_names
+        return dict(self._object_names)
 
-    def get_bitmap_def_names(self):
-        bitmap_names = {
+    def get_bitmap_def_names(self, recache=False):
+        if not recache and self._bitmap_names is not None:
+            return dict(self._bitmap_names)
+
+        self._bitmap_names = {
             b.tex_index: dict(name=b.name, asset_name=b.name, index=b.tex_index)
             for b in self.data.bitmap_defs if b.name
             }
 
-        return bitmap_names
+        return dict(self._bitmap_names)
 
-    def get_texdef_names(self):
-        bitmap_names = {}
+    def get_texdef_names(self, recache=False):
+        if not recache and self._texdef_names is not None:
+            return dict(self._texdef_names)
 
-        if self.texdef_names:
-            texdef_names = dict(self.texdef_names)
-            for i, bitm in enumerate(self.data.bitmaps):
-                if i not in bitmap_names and bitm.tex_pointer in texdef_names:
-                    name = texdef_names.pop(bitm.tex_pointer)
-                    bitmap_names[i] = dict(name=name, asset_name=name, index=i)
+        texdef_names     = {}
+        names_by_pointer = dict(self._texdef_names_by_pixels_pointer or {})
 
-        return bitmap_names
+        for i, bitm in enumerate(self.data.bitmaps):
+            if i not in texdef_names and bitm.tex_pointer in names_by_pointer:
+                name = names_by_pointer.pop(bitm.tex_pointer)
+                texdef_names[i] = dict(name=name, asset_name=name, index=i)
 
-    def get_lightmap_names(self):
-        lightmap_names = {}
+        self._texdef_names = texdef_names
 
-        version = self.data.version_header.version.enum_name
-        is_vif  = version in ("v4", "v12", "v13")
+        return dict(self._texdef_names)
+
+    def get_lightmap_names(self, recache=False):
+        if not recache and self._lightmap_names is not None:
+            return dict(self._lightmap_names)
+
+        version         = self.data.version_header.version.enum_name
+        is_vif          = version in ("v4", "v12", "v13")
+        object_names    = {} if is_vif else self.get_object_names()
+        lightmap_names  = {}
 
         if is_vif and version != "v4":
             header = self.data.header
@@ -140,20 +169,29 @@ class ObjectsTag(GdlTag):
                 # figure out what to do for arcade fifo lightmaps
                 raise NotImplementedError()
             else:
-                # figure out what to do for dreamcast/arcade lightmaps
-                raise NotImplementedError()
+                # for dreamcast/arcade lightmaps, we use the name
+                # of the object when naming the lightmap
+                object_asset = object_names.get(i, {})
+                name        = f"{c.LIGHTMAP_NAME}_{object_asset['name']}"
+                fake_index  = -(i+1) # to identify which object its from, we'll negate it
+                lightmap_names[fake_index] = dict(
+                    index       = fake_index,
+                    name        = name,
+                    asset_name  = c.LIGHTMAP_NAME,
+                    )
 
         # name the lightmaps
-        # TODO: update to handle dreamcast and arcade lightmaps
         for i, tex_index in enumerate(sorted(lightmap_names)):
-            asset_name = f"{c.LIGHTMAP_NAME}.{i}"
-            lightmap_names[tex_index] = dict(
-                name        = asset_name,
-                asset_name  = c.LIGHTMAP_NAME,
-                index       = tex_index
-                )
+            lightmap_asset = lightmap_names[tex_index]
+            if "name" not in lightmap_asset:
+                name = f"{c.LIGHTMAP_NAME}.{i}"
+                lightmap_asset.update(
+                    name        = name,
+                    asset_name  = c.LIGHTMAP_NAME,
+                    )
 
-        return lightmap_names
+        self._lightmap_names = lightmap_names
+        return dict(self._lightmap_names)
 
     def generate_cache_names(self):
         version = self.data.version_header.version.enum_name
