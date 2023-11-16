@@ -357,49 +357,67 @@ class G3DModel():
             tdata_int16 = array.array("H", model_cache.tris_rawdata)
             ndata_float = array.array("f", model_cache.norms_rawdata)
 
-            self.tri_lists  = {}
-            self.lod_ks     = {}
-            self.colors     = []
+            if not model_cache.verts_rawdata:
+                # temporary hack till compressed verts are understood
+                del tdata_int16[:]
+
             self.verts      = [
                 tuple(vdata_float[i:i+3])
                 for i in range(0, len(vdata_float), 6)
                 ]
             if model_cache.has_lmap:
                 self.uvs   = [
-                    (vdata_int16[i]/256, vdata_int16[i+1]/256)
+                    (vdata_int16[i]/1024, vdata_int16[i+1]/1024)
                     for i in range(6, len(vdata_int16), 12)
                     ]
                 self.lm_uvs = [
-                    (vdata_int16[i]/256, vdata_int16[i+1]/256)
+                    (vdata_int16[i]/1024, vdata_int16[i+1]/1024)
                     for i in range(8, len(vdata_int16), 12)
                     ]
-                self.norms  = []
                 # TODO: determine if normals are stored in the last 4 bytes of the
                 #       vertex data as a compressed ijk_11_11_10 triple
             else:
                 self.uvs    = [
-                    (vdata_float[i]/256, vdata_float[i+1]/256)
+                    (vdata_float[i]/1024, vdata_float[i+1]/1024)
                     for i in range(0, len(vdata_float), 6)
                     ]
-                self.lm_uvs = []
                 self.norms  = [
                     tuple(ndata_float[i:i+3])
                     for i in range(0, len(ndata_float), 3)
                     ]
 
-            vert_count = len(self.verts) - 1
-            for tex_idx, tex_name in enumerate(model_cache.texture_names):
-                idx_key = (tex_name.upper(), lm_name)
-                tris = self.tri_lists.setdefault(idx_key, [])
+            flip            = False
+            get_tri_list    = self.tri_lists.setdefault
+            get_tex_name    = {
+                i: n.upper() for i, n in
+                enumerate(model_cache.texture_names)
+                }.get
 
-                for i, tri_tex_idx in enumerate(tdata_int16[3::4]):
-                    if (tri_tex_idx & 0x3FFF) == tex_idx:
-                        v0, v1, v2 = tdata_int16[i*4: i*4+3]
-                        # NOTE: tripled because they are the indices of the
-                        #       position, uvs, and normals to use
-                        tris.append((v0, v0, v0,
-                                     v1, v1, v1,
-                                     v2, v2, v2))
+            for i, tri_tex_idx in enumerate(tdata_int16[3::4]):
+                tex_idx = tri_tex_idx & 0x3FFF
+                unk     = tri_tex_idx >> 14
+                idx_key = (get_tex_name(tex_idx, c.DEFAULT_TEX_NAME), lm_name)
+                tris    = get_tri_list(idx_key, [])
+
+                v0, v1, v2 = tdata_int16[i*4: i*4+3]
+
+                #if i%2:
+                #    v1, v2 = v2, v1
+                # NOTE: tripled because they are the indices of
+                #       the position, uvs, and normals to use
+                tris.append((
+                    v0, v0, v0,
+                    v1, v1, v1,
+                    v2, v2, v2
+                    ))
+                #tris.append((v0, v1, v2, tri_tex_idx&0x3FFF, unk))
+                tris.append((v0, v0, v0,
+                             v2, v2, v2,
+                             v1, v1, v1))
+                #from pprint import pprint
+                #pprint(tris)
+                #pprint(self.verts)
+                #input()
         else:
             raise NotImplementedError()
 
