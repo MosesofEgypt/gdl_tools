@@ -73,11 +73,14 @@ def _v0_uncomp_model_data_size(
         ):
     if parent is None:
         return
-    lod_data = parent.parent.lods[0].data
+    lod = parent.parent.lods[0]
+    if field_name == "vert_count" and lod.flags.compressed:
+        return 0
+
     if new_value is not None:
-        lod_data[field_name] = new_value // item_size
+        lod.data[field_name] = new_value // item_size
     else:
-        return lod_data[field_name] * item_size
+        return lod.data[field_name] * item_size
     
 def v0_uncomp_verts_size(*args, **kwargs):
     return _v0_uncomp_model_data_size("vert_count", 24, *args, **kwargs)
@@ -113,7 +116,8 @@ v0_object_flags = Bool32("flags",
     # NOTE: in dreamcast, only alpha and lightmap are ever set
     ("alpha",       0x00000001),
     ("v_normals",   0x00000002),
-    ("unknown2",    0x00000004), # set in ALL levelA item objects
+    ("compressed",  0x00000004), #  indicates vertex data is compressed
+    #                               (TODO: figure out compression)
     ("fifo_cmds",   0x00000008),
     ("lmap",        0x00000010), # contains lightmap data
     ("unknown10",   0x00000400),
@@ -212,27 +216,26 @@ v4_sub_object_block = QStruct("sub_object",
     )
 
 v12_sub_object_block = QStruct("sub-object",
-    #number of 16 byte chunks that the subobject model consists of.
+    # number of 16 byte chunks that the subobject model consists of.
     UInt16("qword_count", GUI_NAME="quadword count"),
 
-    #tex_index is simply the texture index that the subobject uses.
+    # tex_index is simply the texture index that the subobject uses.
     UInt16("tex_index",   GUI_NAME="texture index"),
-
-    #Not sure about lm_index. Might be the texture index of the
-    #greyscale lightmap that the object uses for the luminance.
+    # texture index of the greyscale lightmap texture to use
     UInt16("lm_index",    GUI_NAME="light map index"),
     )
 
-#Multiple sub-objects are for things where you may have multiple
-#textures on one mesh. In that case each subobject would have one texture.
+# Multiple sub-objects are for things where you may have multiple
+# textures on one mesh. In that case each subobject would have one texture.
 v13_sub_object_block = QStruct("sub_object",
     UInt16("qword_count", GUI_NAME="quadword count"),
     UInt16("tex_index",   GUI_NAME="texture index"),
     UInt16("lm_index",    GUI_NAME="light map index"),
 
-    #Not sure how the lod_k works, but it is 0 for empty objects.
-    #Maybe the higher it is, the smaller the model must be to disappear.
-    #Value is definitely signed. Don't know why though
+    # lod_k can be calculated using the following formula:
+    #   K = -log2( Z0 / h )
+    # wherein "h" is the distance between the viewport and screen, and Z0
+    # is the max distance at which the highest mip level is still displayed
     SInt16("lod_k",       GUI_NAME="lod coefficient"),
     )
 
@@ -262,9 +265,24 @@ v0_lod_uncomp_data = QStruct("lod_uncomp_data",
     SInt32("verts_pointer"),
     SInt32("tri_count"),
     # set of 3 uint16 for vert/norm indices, followed by the texture index
-    # packed into the lower 12 bits of a uint16, with the upper 4 serving
-    # another purpose. seems first tri always has upper 4 bits set to 0xC,
-    # while the next ones alternate between 0x8 and 0x0. figure this out...
+    # packed into the lower 14 bits of a uint16, with the upper 2 serving
+    # another purpose. seems first tri usually(always?) has upper 2 bits
+    # set to 3, while the next ones alternate between 2, 1, and 0.
+    # figure this out...
+    # NOTE: the following are how many times each bit is set in the
+    #       uint16 that stores the texture index.
+    #     0: 1928620
+    #     1: 1963020
+    #     2: 1654897
+    #     3: 1592451
+    #     4: 1444535
+    #     5: 1879274
+    #     6: 995950
+    #     7: 239735
+    #     8: 195228
+    #     9: 131264
+    #     14: 56366
+    #     15: 2407190
     SInt32("tris_pointer"),
     SInt32("id_num"),
     # IJK floats (count is equal to vert_count)

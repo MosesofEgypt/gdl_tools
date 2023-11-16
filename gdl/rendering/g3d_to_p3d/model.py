@@ -109,9 +109,10 @@ def load_model_from_objects_tag(
     if obj_index >= 0 and not is_obj_anim:
         obj     = objects_tag.data.objects[obj_index]
         flags   = getattr(obj, "flags", None)
-        g3d_model.import_g3d(
-            object_to_model_cache(obj, bitmap_assets=bitmap_name_by_index)
+        model_cache = object_to_model_cache(
+            obj, obj_index=obj_index, bitmap_assets=bitmap_name_by_index
             )
+        g3d_model.import_g3d(model_cache)
         shader_flags.update(
             sharp      = getattr(flags, "sharp",  False),
             blur       = getattr(flags, "blur",   False),

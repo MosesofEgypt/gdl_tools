@@ -1,4 +1,7 @@
+import array
 import struct
+
+from sys import byteorder
 
 from . import constants
 from .asset_cache import AssetCache
@@ -30,16 +33,14 @@ MODEL_CACHE_HEADER_STRUCT = struct.Struct('<I f IIi')
 TEXTURE_NAME_STRUCT = struct.Struct('<H')
 #   name_length
 
-ARC_OBJECT_HEADER_STRUCT = struct.Struct('<IIII')
-#   fifo_data_size
+UNCOMP_OBJECT_HEADER_STRUCT = struct.Struct('<Hxx III')
+#   lightmap_name_length
 #   vert_data_size
 #   tri_data_size
 #   norm_data_size
 
-DC_OBJECT_HEADER_STRUCT = struct.Struct('<III')
-#   vert_data_size
-#   tri_data_size
-#   norm_data_size
+ARC_OBJECT_HEADER_STRUCT = struct.Struct('<I')
+#   fifo_data_size
 
 VIF_OBJECT_HEADER_STRUCT = struct.Struct('<I')
 #   geom_count
@@ -207,68 +208,90 @@ class GamecubeModelCache(Ps2ModelCache):
     cache_type = constants.MODEL_CACHE_EXTENSION_NGC
 
 
-class DreamcastModelCache(ModelCache):
-    cache_type = constants.MODEL_CACHE_EXTENSION_DC
-
+class UncompModelCache(ModelCache):
     verts_rawdata = b''
     tris_rawdata  = b''
     norms_rawdata = b''
 
+    lightmap_name = ""
+
+    def get_texture_indices(self):
+        tris_array = array.array("H", self.tris_rawdata)
+        if byteorder == ">": # expected to be in little-endian
+            tris_array.byteswap()
+
+        # the triangles are an array of uint16 vert indices, followed by
+        # a texture index in the lower 10-14 bits. The upper 2 bits are
+        # unknown, and alternate between 0, 1, 2, and 3. Since we want just
+        # the texture indices, we grab every 4th item and mask out 14 bits.
+        return set(i & 0x3FFF for i in tris_array[3::4])
+
+    def replace_texture_indices(self, index_map):
+        tris_array = array.array("H", self.tris_rawdata)
+        if byteorder == ">":
+            tris_array.byteswap()
+
+        # mask out the index part, pass it into the
+        # map, and add the upper 2 bits back in
+        tris_array[3::4] = array.array("H", (
+            index_map[i & 0x3FFF] | (i & 0xC000)
+            for i in tris_array[3::4]
+            ))
+
+        if byteorder == ">":
+            tris_array.byteswap()
+
+        self.tris_rawdata = bytes(tris_array)
+
     def parse(self, rawdata):
         super().parse(rawdata)
 
-        vert_size, tri_size, norm_size = DC_OBJECT_HEADER_STRUCT.unpack(
-            rawdata.read(DC_OBJECT_HEADER_STRUCT.size)
+        lm_name_len, vert_size, tri_size, norm_size = UNCOMP_OBJECT_HEADER_STRUCT.unpack(
+            rawdata.read(UNCOMP_OBJECT_HEADER_STRUCT.size)
             )
+        self.lightmap_name = rawdata.read(lm_name_len).decode('latin-1').upper()
         self.verts_rawdata = rawdata.read(vert_size)
         self.tris_rawdata  = rawdata.read(tri_size)
         self.norms_rawdata = rawdata.read(norm_size)
 
     def serialize(self):
-        object_rawdata = self.verts_rawdata + self.tris_rawdata + self.norms_rawdata
-        object_header_rawdata = DC_OBJECT_HEADER_STRUCT.pack(
-            len(self.verts_rawdata), len(self.tris_rawdata), len(self.norms_rawdata)
+        object_rawdata = (
+            self.lightmap_name.upper().encode('latin-1') +
+            self.verts_rawdata + self.tris_rawdata + self.norms_rawdata
+            )
+        object_header_rawdata = UNCOMP_OBJECT_HEADER_STRUCT.pack(
+            len(self.lightmap_name), len(self.verts_rawdata),
+            len(self.tris_rawdata), len(self.norms_rawdata)
             )
         header_rawdata = super().serialize()
         return header_rawdata + object_header_rawdata + object_rawdata
 
 
-class ArcadeModelCache(ModelCache):
+class DreamcastModelCache(UncompModelCache):
+    cache_type = constants.MODEL_CACHE_EXTENSION_DC
+
+
+class ArcadeModelCache(UncompModelCache):
     cache_type = constants.MODEL_CACHE_EXTENSION_ARC
 
     fifo_rawdata  = b''
-    verts_rawdata = b''
-    tris_rawdata  = b''
-    norms_rawdata = b''
-
     def parse(self, rawdata):
         super().parse(rawdata)
 
-        fifo_size, vert_size, tri_size, norm_size = ARC_OBJECT_HEADER_STRUCT.unpack(
+        fifo_size = ARC_OBJECT_HEADER_STRUCT.unpack(
             rawdata.read(ARC_OBJECT_HEADER_STRUCT.size)
             )
+        self.fifo_rawdata = rawdata.read(fifo_size)
         if fifo_size:
-            self.fifo_rawdata  = rawdata.read(fifo_size)
             self.verts_rawdata = self.tris_rawdata = self.norms_rawdata = b''
-        else:
-            self.verts_rawdata = rawdata.read(vert_size)
-            self.tris_rawdata  = rawdata.read(tri_size)
-            self.norms_rawdata = rawdata.read(norm_size)
-            self.fifo_rawdata  = b''
 
     def serialize(self):
-        if self.fifo_rawdata:
-            object_rawdata = self.fifo_rawdata
-        else:
-            object_rawdata = self.verts_rawdata + self.tris_rawdata + self.norms_rawdata
-
-        object_header_rawdata = ARC_OBJECT_HEADER_STRUCT.pack(
-            len(self.fifo_rawdata), len(self.verts_rawdata),
-            len(self.tris_rawdata), len(self.norms_rawdata)
+        arc_header_rawdata = ARC_OBJECT_HEADER_STRUCT.pack(
+            len(self.fifo_rawdata),
             )
 
-        header_rawdata = super().serialize()
-        return header_rawdata + object_header_rawdata + object_rawdata
+        model_rawdata = super().serialize()
+        return model_rawdata + arc_header_rawdata + bytes(self.fifo_rawdata)
 
 
 ModelCache._sub_classes = {

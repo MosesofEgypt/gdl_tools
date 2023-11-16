@@ -239,7 +239,7 @@ def export_models(
                     continue
 
                 model_cache = object_to_model_cache(
-                    obj, cache_type=asset_type, bitmap_assets=bitmap_assets
+                    obj, cache_type=asset_type, obj_index=i, bitmap_assets=bitmap_assets
                     )
 
                 if asset_type in c.MODEL_CACHE_EXTENSIONS:
@@ -280,7 +280,7 @@ def export_models(
         )
 
 
-def object_to_model_cache(obj, cache_type=None, bitmap_assets=()):
+def object_to_model_cache(obj, cache_type=None, obj_index=0, bitmap_assets=()):
     if not bitmap_assets:
         bitmap_assets = {}
 
@@ -288,14 +288,14 @@ def object_to_model_cache(obj, cache_type=None, bitmap_assets=()):
     is_arc = hasattr(getattr(obj, "data", None), "fifo_data")
     is_dc  = hasattr(obj, "lods") and not is_arc
 
-    texture_names = []
-    geoms         = []
+    texture_names   = []
+    geoms           = []
+    def_name        = dict(name=c.MISSING_ASSET_NAME)
 
     if is_vif:
-        default_lod_k  = getattr(obj.sub_object_0, "lod_k", c.DEFAULT_MOD_LOD_K)
-        subobjs        = getattr(obj.data, "sub_objects", ())
-        has_lmap       = getattr(obj.flags, "lmap",      False)
-        def_name       = dict(name=c.MISSING_ASSET_NAME)
+        default_lod_k   = getattr(obj.sub_object_0, "lod_k", c.DEFAULT_MOD_LOD_K)
+        subobjs         = getattr(obj.data, "sub_objects", ())
+        has_lmap        = getattr(obj.flags, "lmap",      False)
         for model, head in zip(obj.data.sub_object_models,
                                (obj.sub_object_0, *subobjs)):
             geoms.append(dict(
@@ -316,6 +316,8 @@ def object_to_model_cache(obj, cache_type=None, bitmap_assets=()):
         model_cache.has_lmap    = bool(getattr(obj.flags, "lmap",      False))
         model_cache.has_normals = bool(getattr(obj.flags, "v_normals", True))
         model_cache.has_colors  = bool(getattr(obj.flags, "v_colors",  True))
+        model_cache.vert_count  = obj.vert_count
+        model_cache.tri_count   = obj.tri_count
         model_cache.geoms       = geoms
     elif is_arc or is_dc:
         obj_lod = obj.lods[0]
@@ -324,25 +326,35 @@ def object_to_model_cache(obj, cache_type=None, bitmap_assets=()):
         model_cache.has_lmap    = bool(obj_lod.flags.lmap)
         model_cache.has_normals = bool(obj_lod.flags.v_normals)
         model_cache.is_fifo2    = bool(obj_lod.flags.fifo_cmds_2)
+        model_cache.vert_count  = obj_lod.data.vert_count
+        model_cache.tri_count   = obj_lod.data.tri_count
 
         if obj_lod.flags.fifo_cmds or model_cache.is_fifo2:
             raise NotImplementedError("hecken")
-            model_cache.fifo_rawdata = obj.data.fifo_rawdata
+            model_cache.fifo_rawdata = obj.model_data.fifo_rawdata
         else:
-            raise NotImplementedError("hecken")
             if model_cache.has_lmap:
-                model_cache.verts_rawdata = obj.data.vert_data
-                model_cache.tris_rawdata  = obj.data.tri_data
+                model_cache.verts_rawdata = obj.model_data.vert_data
+                model_cache.tris_rawdata  = obj.model_data.tri_data
+                model_cache.lightmap_name = bitmap_assets.get(
+                    # NOTE: check gdl.compilation.g3d.texture.export_textures
+                    #       to see why we increment and negate this value. 
+                    -(obj_index+1), {}).get('name', '')
             else:
-                model_cache.verts_rawdata = obj.data.vert_data
-                model_cache.tris_rawdata  = obj.data.tri_data
-                model_cache.norms_rawdata = obj.data.norm_data
+                model_cache.verts_rawdata = obj.model_data.vert_data
+                model_cache.tris_rawdata  = obj.model_data.tri_data
+                model_cache.norms_rawdata = obj.model_data.norm_data
+
+            tex_index_map = {}
+            for i in sorted(model_cache.get_texture_indices()):
+                tex_index_map[i] = len(texture_names)
+                texture_names.append(bitmap_assets.get(i, def_name)['name'])
+
+            model_cache.replace_texture_indices(tex_index_map)
     else:
         raise TypeError("Unknown object platform.")
 
     model_cache.bounding_radius = obj.bnd_rad
-    model_cache.vert_count      = obj.vert_count
-    model_cache.tri_count       = obj.tri_count
     model_cache.texture_names   = texture_names
     model_cache.is_extracted    = True
 

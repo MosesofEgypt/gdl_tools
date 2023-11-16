@@ -1,3 +1,4 @@
+import array
 import hashlib
 import pathlib
 import urllib
@@ -349,6 +350,56 @@ class G3DModel():
                 self.lm_uvs.extend(parsed_data["lm_uvs"])
 
                 self.bounding_radius = max(parsed_data["bounding_radius"], self.bounding_radius)
+        elif isinstance(model_cache, DreamcastModelCache):
+            lm_name = model_cache.lightmap_name.upper()
+            vdata_float = array.array("f", model_cache.verts_rawdata)
+            vdata_int16 = array.array("h", model_cache.verts_rawdata)
+            tdata_int16 = array.array("H", model_cache.tris_rawdata)
+            ndata_float = array.array("f", model_cache.norms_rawdata)
+
+            self.tri_lists  = {}
+            self.lod_ks     = {}
+            self.colors     = []
+            self.verts      = [
+                tuple(vdata_float[i:i+3])
+                for i in range(0, len(vdata_float), 6)
+                ]
+            if model_cache.has_lmap:
+                self.uvs   = [
+                    (vdata_int16[i]/256, vdata_int16[i+1]/256)
+                    for i in range(6, len(vdata_int16), 12)
+                    ]
+                self.lm_uvs = [
+                    (vdata_int16[i]/256, vdata_int16[i+1]/256)
+                    for i in range(8, len(vdata_int16), 12)
+                    ]
+                self.norms  = []
+                # TODO: determine if normals are stored in the last 4 bytes of the
+                #       vertex data as a compressed ijk_11_11_10 triple
+            else:
+                self.uvs    = [
+                    (vdata_float[i]/256, vdata_float[i+1]/256)
+                    for i in range(0, len(vdata_float), 6)
+                    ]
+                self.lm_uvs = []
+                self.norms  = [
+                    tuple(ndata_float[i:i+3])
+                    for i in range(0, len(ndata_float), 3)
+                    ]
+
+            vert_count = len(self.verts) - 1
+            for tex_idx, tex_name in enumerate(model_cache.texture_names):
+                idx_key = (tex_name.upper(), lm_name)
+                tris = self.tri_lists.setdefault(idx_key, [])
+
+                for i, tri_tex_idx in enumerate(tdata_int16[3::4]):
+                    if (tri_tex_idx & 0x3FFF) == tex_idx:
+                        v0, v1, v2 = tdata_int16[i*4: i*4+3]
+                        # NOTE: tripled because they are the indices of the
+                        #       position, uvs, and normals to use
+                        tris.append((v0, v0, v0,
+                                     v1, v1, v1,
+                                     v2, v2, v2))
         else:
             raise NotImplementedError()
 
