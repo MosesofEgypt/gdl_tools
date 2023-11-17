@@ -336,10 +336,12 @@ def object_to_model_cache(obj, cache_type=None, obj_index=0, bitmap_assets=()):
             if model_cache.has_lmap:
                 model_cache.verts_rawdata = obj.model_data.vert_data
                 model_cache.tris_rawdata  = obj.model_data.tri_data
-                model_cache.lightmap_name = bitmap_assets.get(
+                for i in range(obj_index+1, 0, -1):
                     # NOTE: check gdl.compilation.g3d.texture.export_textures
-                    #       to see why we increment and negate this value. 
-                    -(obj_index+1), {}).get('name', '')
+                    #       to see why we increment and negate "i" here. 
+                    if (-i) in bitmap_assets:
+                        model_cache.lightmap_name = bitmap_assets[-i]['name']
+                        break
             else:
                 model_cache.verts_rawdata = obj.model_data.vert_data
                 model_cache.tris_rawdata  = obj.model_data.tri_data

@@ -180,6 +180,16 @@ class ObjectsTag(GdlTag):
             else:
                 # for dreamcast/arcade lightmaps, we use the name
                 # of the object when naming the lightmap
+                try:
+                    lm_header = obj.lods[0].data.lightmap_header
+                    if (version == "v0" and (
+                        lm_header.dc_lm_sig1 != c.DC_LM_HEADER_SIG1 or
+                        lm_header.dc_lm_sig2 != c.DC_LM_HEADER_SIG2
+                        )):
+                        continue
+                except Exception:
+                    continue
+
                 object_asset = object_names.get(i, {})
                 name        = f"{c.LIGHTMAP_NAME}_{object_asset['name']}"
                 fake_index  = -(i+1) # to identify which object its from, we'll negate it

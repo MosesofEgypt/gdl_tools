@@ -347,13 +347,13 @@ def export_textures(
         bitmaps         = objects_tag.data.bitmaps
         objects         = objects_tag.data.objects
         bitmap_assets   = objects_tag.get_cache_names()[1]
-        try_lm_headers  = objects_tag.data.version_header.version.enum_name in ("v0", "v1")
+        obj_ver  = objects_tag.data.version_header.version.enum_name
     elif texdef_tag:
         tag_dir         = pathlib.Path(texdef_tag.filepath).parent
         bitmaps         = texdef_tag.data.bitmaps
         objects         = ()
         bitmap_assets   = texdef_tag.get_bitmap_names()
-        try_lm_headers  = False
+        obj_ver  = ""
     else:
         raise ValueError("Must supply either texdef tag or objects tag.")
 
@@ -371,15 +371,23 @@ def export_textures(
     textures_file = open(textures_filepath, "rb")
     try:
         bitmap_blocks = {i: b for i, b in enumerate(bitmaps)}
-        if try_lm_headers:
-            for i, obj in enumerate(objects):
-                try:
+        for i, obj in enumerate(objects):
+            if obj_ver not in ("v0", "v1"):
+                break
+
+            lod_data = obj.lods[0].data
+            try:
+                lm_header = lod_data.lightmap_header
+                if (obj_ver == "v1" or 
+                    lm_header.dc_lm_sig1 != c.DC_LM_HEADER_SIG1 or
+                    lm_header.dc_lm_sig2 != c.DC_LM_HEADER_SIG2
+                    ):
                     # NOTE: we use negative indices in the bitmap_assets to indicate
                     #       that the name was taken from a dreamcast lightmap, and
                     #       doesn't actually have a bitmap block tied to this bitmap.
-                    bitmap_blocks[-(i+1)] = obj.lods[0].data.lightmap_header
-                except Exception:
-                    pass
+                    bitmap_blocks[-(i+1)] = lm_header
+            except Exception:
+                continue
 
         for i in sorted(bitmap_blocks.keys()):
             asset = bitmap_assets.get(i)
@@ -391,7 +399,7 @@ def export_textures(
                     getattr(flags, "external", False) or
                     getattr(flags, "invalid", False)):
                     continue
-                elif bitm.format.enum_name == "<INVALID>":
+                elif hasattr(bitm, "format") and bitm.format.enum_name == "<INVALID>":
                     print(f"Invalid bitmap format detected in bitmap {asset} at index {i}")
                     continue
 
@@ -436,11 +444,12 @@ def export_textures(
 
 
 def bitmap_to_texture_cache(bitmap_or_lm_block, textures_file, is_ngc=False, cache_type=None):
-    is_arcade   = is_dreamcast = False
+    is_arcade   = is_dreamcast_v0 = is_dreamcast_v1 = False
     is_ps2_xbox = hasattr(bitmap_or_lm_block, "lod_k")
     if not is_ps2_xbox and not is_ngc:
-        is_dreamcast = hasattr(bitmap_or_lm_block, "image_type")
-        is_arcade    = not is_dreamcast
+        is_dreamcast_v0 = hasattr(bitmap_or_lm_block, "dc_lm_sig1")
+        is_dreamcast_v1 = hasattr(bitmap_or_lm_block, "image_type")
+        is_arcade    = not (is_dreamcast_v0 or is_dreamcast_v1)
 
     flags = getattr(bitmap_or_lm_block, "flags", None)
     # create and populate texture cache
@@ -451,7 +460,16 @@ def bitmap_to_texture_cache(bitmap_or_lm_block, textures_file, is_ngc=False, cac
         if "YIQ" in bitmap_or_lm_block.format.enum_name:
             texture_cache.ncc_table = ncc.NccTable()
             texture_cache.ncc_table.import_from_rawdata(bitmap_or_lm_block.ncc_table_data)
-    elif is_dreamcast:
+    elif is_dreamcast_v0:
+        texture_cache           = DreamcastTextureCache()
+        # the dreamcast v0 files have what appear to be broken
+        # lightmap data structures that don't seem to contain
+        # all the data we would expect, OR the expected data
+        # is supposed to be hardcoded like we're doing
+        texture_cache.width     = 256
+        texture_cache.height    = 256
+        texture_cache.format_id = 1 # R5G6B5
+    elif is_dreamcast_v1:
         texture_cache           = DreamcastTextureCache()
         image_type              = bitmap_or_lm_block.image_type.enum_name
         texture_cache.large_vq  = "large_vq" in image_type
@@ -474,11 +492,14 @@ def bitmap_to_texture_cache(bitmap_or_lm_block, textures_file, is_ngc=False, cac
     else:
         raise ValueError("Cannot determine bitmap block type.")
 
-    texture_cache.format_id     = bitmap_or_lm_block.format.data
+    if not is_dreamcast_v0:
+        # read the note above about dreamcast lightmaps
+        texture_cache.format_id     = bitmap_or_lm_block.format.data
+        texture_cache.width         = bitmap_or_lm_block.width
+        texture_cache.height        = bitmap_or_lm_block.height
+
     texture_cache.has_alpha     = (bool(getattr(flags, "has_alpha", False)) or
                                    "A" in texture_cache.format_name)
-    texture_cache.width         = bitmap_or_lm_block.width
-    texture_cache.height        = bitmap_or_lm_block.height
     texture_cache.is_extracted  = True
 
     # read texture data

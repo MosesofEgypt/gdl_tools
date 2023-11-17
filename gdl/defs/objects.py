@@ -285,19 +285,7 @@ v0_lod_uncomp_data = QStruct("lod_uncomp_data",
     SIZE=24,
     )
 
-v0_lod_uncomp_lm_data = QStruct("lod_uncomp_lm_data",
-    SInt32("vert_count"),
-    # XYZ floats, then sint16s UVs, uint16 lm UVs, and unknown sint16 pair
-    SInt32("verts_pointer"),
-    SInt32("tri_count"),
-    # these tris are the same structure as v0_lod_uncomp_data tris
-    SInt32("tris_pointer"),
-    SInt32("id_num"),
-    SInt32("unknown_pointer"),
-    SIZE=24,
-    )
-
-v1_lod_uncomp_lm_data = QStruct("lod_uncomp_lm_data",
+lod_uncomp_lm_data = QStruct("lod_uncomp_lm_data",
     SInt32("vert_count"),
     # XYZ floats, then sint16s UVs, uint16 lm UVs, and unknown sint16 pair
     SInt32("verts_pointer"),
@@ -307,7 +295,23 @@ v1_lod_uncomp_lm_data = QStruct("lod_uncomp_lm_data",
     SInt32("id_num"),
     SInt32("lm_header_pointer", DEFAULT=-1),
     SIZE=24,
+    )
 
+v0_lod_uncomp_lm_data = QStruct("lod_uncomp_lm_data",
+    INCLUDE=lod_uncomp_lm_data,
+    STEPTREE=QStruct("lightmap_header",
+        Pointer32("tex_pointer", EDITABLE=False),
+        # wtf is going on here?
+        # I'm just calling them sigs for now since they're
+        # consistent and seem to be compeltely random
+        UInt32("dc_lm_sig1", DEFAULT=DC_LM_HEADER_SIG1),
+        UInt32("dc_lm_sig2", DEFAULT=DC_LM_HEADER_SIG2),
+        POINTER=".lm_header_pointer"
+        )
+    )
+
+v1_lod_uncomp_lm_data = QStruct("lod_uncomp_lm_data",
+    INCLUDE=lod_uncomp_lm_data,
     STEPTREE=Struct("lightmap_header",
         Pointer32("tex_pointer", EDITABLE=False),
         # lightmaps are always R5G6B5, and this value is set to 1 in

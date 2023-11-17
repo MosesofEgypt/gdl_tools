@@ -24,6 +24,7 @@ def load_textures_from_objects_tag(
         }
     objects = objects_tag.data.objects
     bitmaps = objects_tag.data.bitmaps
+    obj_ver = objects_tag.data.version_header.version.enum_name
 
     with open(textures_filepath, "rb") as f:
         for i, name in texture_names.items():
@@ -34,17 +35,22 @@ def load_textures_from_objects_tag(
                 lod_data = objects[-(i+1)].lods[0].data
                 try:
                     bitm = lod_data.lightmap_header
-                except AttributeError:
+                    if (obj_ver == "v0" and (
+                        bitm.dc_lm_sig1 != g3d_const.DC_LM_HEADER_SIG1 or
+                        bitm.dc_lm_sig2 != g3d_const.DC_LM_HEADER_SIG2
+                        )):
+                        continue
+                except Exception:
                     continue
             else:
                 bitm = bitmaps[i]
 
-            format_name = bitm.format.enum_name
-            flags       = getattr(bitm, "flags", None)
+            flags = getattr(bitm, "flags", None)
             if (getattr(flags, "external", False) or
                 getattr(bitm, "frame_count", 0) > 0):
                 # empty placeholder texture
                 p3d_texture = panda3d.core.Texture()
+                format_name = ""
             else:
                 g3d_texture = G3DTexture()
                 try:
@@ -52,7 +58,7 @@ def load_textures_from_objects_tag(
                 except (ValueError, AttributeError):
                     # invalid bitmap
                     pass
-
+                format_name = g3d_texture.format_name
                 if not g3d_texture.textures:
                     continue
 
