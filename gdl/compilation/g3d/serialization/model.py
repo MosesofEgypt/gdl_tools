@@ -196,9 +196,11 @@ class G3DModel():
                 bounding_radius_square = max(x**2 + y**2 + z**2, bounding_radius_square)
             elif line[0] == 'f':
                 line = [v.strip() for v in line[1:].split(' ') if v]
-                tris.append((tuple(int(i)-1 for i in line[0].split('/')),
-                             tuple(int(i)-1 for i in line[1].split('/')),
-                             tuple(int(i)-1 for i in line[2].split('/'))))
+                v0   = tuple(int(i)-1 for i in line[0].split('/'))
+                v1   = tuple(int(i)-1 for i in line[1].split('/'))
+                v2   = tuple(int(i)-1 for i in line[2].split('/'))
+                # TODO: Update this to handle the indices not being the same
+                tris.append((v0[0], v1[0], v2[0]))
 
         self.bounding_radius = sqrt(bounding_radius_square)
 
@@ -284,6 +286,9 @@ class G3DModel():
 
         # collect all all tris, verts, uvw, normals, and texture indexes
         i = 0
+        uv_and_norm = bool(self.uvs and self.norms)
+        norm_only   = bool(self.norms)
+        uv_only     = bool(self.uvs)
         for idx_key in sorted(self.tri_lists):
             tris = self.tri_lists[idx_key]
             if not tris:
@@ -306,15 +311,17 @@ class G3DModel():
 
             # write the triangles
             for tri in tris:
-                tri = tuple(i+1 for i in tri)  # obj indices are ones based
-                if len(tri) == 3:
-                    obj_str += 'f %s %s %s\n' % tri
-                elif len(tri) == 6:
-                    obj_str += 'f %s/%s %s/%s %s/%s\n' % tri
-                elif len(tri) == 9:
-                    obj_str += 'f %s/%s/%s %s/%s/%s %s/%s/%s\n' % tri
+                v0, v1, v2 = tuple(i+1 for i in tri)  # obj indices are ones based
+                if uv_and_norm:
+                    obj_str += 'f %s/%s/%s %s/%s/%s %s/%s/%s\n' % (
+                        v0,v0,v0, v1,v1,v1, v2,v2,v2
+                        )
+                elif uv_only:
+                    obj_str += 'f %s/%s %s/%s %s/%s\n' % (v0,v0, v1,v1, v2,v2)
+                elif norm_only:
+                    obj_str += 'f %s//%s %s//%s %s//%s\n' % (v0,v0, v1,v1, v2,v2)
                 else:
-                    raise ValueError("Expected either 3, 6, or 9 items in tri, not %s" % len(tri))
+                    obj_str += 'f %s %s %s\n' % (v0, v1, v2)
 
         mtl_bytes = mtl_str.encode()
         obj_bytes = obj_str.encode()
@@ -403,17 +410,9 @@ class G3DModel():
 
                 #if i%2:
                 #    v1, v2 = v2, v1
-                # NOTE: tripled because they are the indices of
-                #       the position, uvs, and normals to use
-                tris.append((
-                    v0, v0, v0,
-                    v1, v1, v1,
-                    v2, v2, v2
-                    ))
+                tris.append((v0, v1, v2))
                 #tris.append((v0, v1, v2, tri_tex_idx&0x3FFF, unk))
-                tris.append((v0, v0, v0,
-                             v2, v2, v2,
-                             v1, v1, v1))
+                tris.append((v0, v2, v1))
                 #from pprint import pprint
                 #pprint(tris)
                 #pprint(self.verts)

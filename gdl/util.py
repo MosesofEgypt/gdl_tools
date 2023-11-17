@@ -1,4 +1,5 @@
 import concurrent.futures
+import os
 import traceback
 import pathlib
 
@@ -58,5 +59,18 @@ def get_is_arcade_rom(filepath):
     elif len(name) == 9 and name.startswith("passport"):
         return True
     elif len(name) == 6 and name.startswith("index"):
+        return True
+    return False
+
+def get_is_big_endian_texdef(filepath):
+    with open(filepath, "rb") as f:
+        bitmaps_count       = int.from_bytes(f.read(4), 'little')
+        bitmap_defs_pointer = int.from_bytes(f.read(4), 'little')
+        bitmaps_pointer     = int.from_bytes(f.read(4), 'little')
+        file_end            = f.seek(0, os.SEEK_END)
+
+    if (bitmaps_pointer > file_end or
+        bitmap_defs_pointer > file_end or
+        bitmaps_count > 0x8000):
         return True
     return False

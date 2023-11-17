@@ -123,7 +123,7 @@ bitmap_flags_v1_dc = Bool8("flags",
     )
 
 # found on dreamcast
-v1_bitmap_block_dc = Struct("bitmap",
+bitmap_block_dc = Struct("bitmap",
     UInt16("dc_sig", EDITABLE=False, DEFAULT=BITMAP_BLOCK_DC_SIG),
     bitmap_flags_v1_dc,
     UInt8("dc_unknown", EDITABLE=False), # set to 0, 1, 3, 4, 5, 8, 12, 13
@@ -144,7 +144,7 @@ v1_bitmap_block_dc = Struct("bitmap",
     SIZE=80
     )
 
-v23_bitmap_block = Struct("bitmap",
+bitmap_block_ps2 = Struct("bitmap",
     UInt32("ps2_sig", EDITABLE=False, DEFAULT=BITMAP_BLOCK_PS2_SIG),
     Bool16("flags",
         # checked every other bit in every texdef in
@@ -204,11 +204,11 @@ texdef_def = TagDef("texdef",
         POINTER='.header.bitmaps_pointer',
         SUB_STRUCT=Switch("bitmap",
             CASES={
-                "dreamcast":  v1_bitmap_block_dc,
-                "ps2":        v23_bitmap_block,
+                "dreamcast":  bitmap_block_dc,
+                "ps2":        bitmap_block_ps2,
                 },
             CASE=get_bitmap_platform,
-            DEFAULT=v23_bitmap_block
+            DEFAULT=bitmap_block_ps2
             ),
         ),
     endian="<", ext=".ps2", tag_cls=TexdefPs2Tag

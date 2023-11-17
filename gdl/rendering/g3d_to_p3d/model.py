@@ -79,7 +79,7 @@ def load_geometries_from_g3d_model(
             setattr(geom_shader, name, shader_flags[name])
 
         for tri in g3d_model.tri_lists[idx_key]:
-            addVertices(tri[0], tri[3], tri[6])
+            addVertices(tri[0], tri[1], tri[2])
 
         geom.addPrimitive(tris)
 

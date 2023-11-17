@@ -1,11 +1,13 @@
 import pathlib
 
 from traceback import format_exc
+from supyr_struct import FieldType
 
 from .tag import GdlTag
 from ..anim import anim_def
 from ..texdef import texdef_def
-from ...compilation.util import calculate_padding, locate_objects_dir_files
+from ...compilation.util import calculate_padding, locate_objects_dir_files,\
+     get_is_big_endian_texdef
 from ...compilation.g3d import constants as c
 
 
@@ -58,7 +60,13 @@ class ObjectsTag(GdlTag):
                     )['texdef_filepath']
 
             if filepath:
-                self.texdef_tag = texdef_def.build(filepath=filepath)
+                try:
+                    # so strangely, some of the dreamcast texdefs are big endian
+                    if get_is_big_endian_texdef(filepath):
+                        FieldType.force_big()
+                    self.texdef_tag = texdef_def.build(filepath=filepath)
+                finally:
+                    FieldType.force_normal()
 
         self._texdef_names_by_pixels_pointer = {}
         if self.texdef_tag:
@@ -167,7 +175,8 @@ class ObjectsTag(GdlTag):
 
             elif flags.fifo_cmds or flags.fifo_cmds_2:
                 # figure out what to do for arcade fifo lightmaps
-                raise NotImplementedError()
+                #raise NotImplementedError()
+                pass
             else:
                 # for dreamcast/arcade lightmaps, we use the name
                 # of the object when naming the lightmap

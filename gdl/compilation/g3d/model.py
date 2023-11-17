@@ -326,13 +326,13 @@ def object_to_model_cache(obj, cache_type=None, obj_index=0, bitmap_assets=()):
         model_cache.has_lmap    = bool(obj_lod.flags.lmap)
         model_cache.has_normals = bool(obj_lod.flags.v_normals)
         model_cache.is_fifo2    = bool(obj_lod.flags.fifo_cmds_2)
-        model_cache.vert_count  = obj_lod.data.vert_count
-        model_cache.tri_count   = obj_lod.data.tri_count
 
         if obj_lod.flags.fifo_cmds or model_cache.is_fifo2:
-            raise NotImplementedError("hecken")
-            model_cache.fifo_rawdata = obj.model_data.fifo_rawdata
+            #raise NotImplementedError("hecken")
+            pass
         else:
+            model_cache.vert_count  = obj_lod.data.vert_count
+            model_cache.tri_count   = obj_lod.data.tri_count
             if model_cache.has_lmap:
                 model_cache.verts_rawdata = obj.model_data.vert_data
                 model_cache.tris_rawdata  = obj.model_data.tri_data

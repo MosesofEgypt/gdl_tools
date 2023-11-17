@@ -1,6 +1,7 @@
 import pathlib
 
 from math import log
+from supyr_struct import FieldType
 from supyr_struct.util import backup_and_rename_temp
 from traceback import format_exc
 from ...defs.anim import anim_def
@@ -240,10 +241,6 @@ def decompile_cache_files(
         objects_def.build(filepath=filepaths['objects_filepath'])
         if filepaths['objects_filepath'].is_file() else None
         )
-    texdef_tag = (
-        texdef_def.build(filepath=filepaths['texdef_filepath'])
-        if filepaths['texdef_filepath'].is_file() else None
-        )
     anim_tag = (
         anim_def.build(filepath=filepaths['anim_filepath'])
         if filepaths['anim_filepath'].is_file() else None
@@ -252,6 +249,15 @@ def decompile_cache_files(
         worlds_def.build(filepath=filepaths['worlds_filepath'])
         if filepaths['worlds_filepath'].is_file() else None
         )
+    texdef_tag = None
+    if filepaths['texdef_filepath'].is_file():
+        try:
+            # so strangely, some of the dreamcast texdefs are big endian
+            if util.get_is_big_endian_texdef(filepaths['texdef_filepath']):
+                FieldType.force_big()
+            texdef_def.build(filepath=filepaths['texdef_filepath'])
+        finally:
+            FieldType.force_normal()
 
     if objects_tag:
         objects_tag.anim_tag   = anim_tag

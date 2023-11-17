@@ -109,7 +109,7 @@ class G3DTexture:
 
     def to_arbytmap_instance(self, include_mipmaps=False):
         if not self.textures:
-            return arbytmap.Arbytmap()
+            raise ValueError("No texture loaded to save.")
         elif self.format_name not in c.PIXEL_SIZES:
             raise ValueError("INVALID FORMAT: '%s'" % self.format_name)
 

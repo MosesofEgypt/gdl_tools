@@ -31,7 +31,11 @@ def load_textures_from_objects_tag(
                 # NOTE: we use negative indices in the bitmap_assets to indicate
                 #       that the name was taken from a dreamcast lightmap, and
                 #       doesn't actually have a bitmap block tied to this bitmap.
-                bitm = objects[-(i+1)].lods[0].data.lightmap_header
+                lod_data = objects[-(i+1)].lods[0].data
+                try:
+                    bitm = lod_data.lightmap_header
+                except AttributeError:
+                    continue
             else:
                 bitm = bitmaps[i]
 
@@ -47,7 +51,11 @@ def load_textures_from_objects_tag(
                     g3d_texture.import_g3d(bitmap_to_texture_cache(bitm, f, is_ngc))
                 except (ValueError, AttributeError):
                     # invalid bitmap
+                    pass
+
+                if not g3d_texture.textures:
                     continue
+
                 p3d_texture = util.g3d_texture_to_p3d_texture(g3d_texture)
 
             p3d_texture.setWrapU(

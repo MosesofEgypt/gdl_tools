@@ -261,9 +261,9 @@ def import_vif_to_g3d(input_buffer, start_vert=0, stream_len=-1):
                 v = start_vert + f
                 # swap the vert order of every other face
                 if (f + face_dir) & 1:
-                    tris.append((v,v,v, v+1,v+1,v+1, v+2,v+2,v+2))
+                    tris.append((v,v+1,v+2))
                 else:
-                    tris.append((v+1,v+1,v+1, v,v,v, v+2,v+2,v+2))
+                    tris.append((v+1,v,v+2))
 
         #increment the start vert by the number of verts used
         start_vert += len(dont_draw_list) + 2
@@ -404,7 +404,7 @@ def export_g3d_to_vif(g3d_model, idx_key):
         ##############################################################
         d_type = DATA_TYPE_UV
         s_type = (
-            STORAGE_TYPE_UINT16_LMUV if lm_uvs       else
+            STORAGE_TYPE_UINT16_LMUV if lm_uvs                else
             STORAGE_TYPE_UINT8_UV    if uv_maxs[geom_i] < 2   else
             STORAGE_TYPE_UINT16_UV   if uv_maxs[geom_i] < 512 else
             STORAGE_TYPE_UINT32_UV

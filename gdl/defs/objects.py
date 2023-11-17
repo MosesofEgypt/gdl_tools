@@ -3,7 +3,7 @@ from ..common_descs import *
 from ..compilation.g3d.constants import *
 from .objs.objects import ObjectsTag
 from .texdef import bitmap_flags_v1_dc, get_bitmap_platform,\
-    bitmap_format_dc, image_type_dc, v1_bitmap_block_dc,\
+    bitmap_format_dc, image_type_dc, bitmap_block_dc,\
     bitmap_format as bitmap_format_v12
 
 def get(): return objects_def
@@ -61,11 +61,6 @@ def get_v0_model_data_type(*args, parent=None, **kwargs):
         return get_lod_type(*args, parent=parent.lods[0], **kwargs)
     except Exception:
         pass
-
-
-def get_arcade_lod_type(*args, parent=None, **kwargs):
-    lod_type = get_lod_type(*args, parent=parent, **kwargs)
-    return "uncomp" if lod_type == "uncomp_lm" else lod_type
 
 
 def _v0_uncomp_model_data_size(
@@ -290,6 +285,18 @@ v0_lod_uncomp_data = QStruct("lod_uncomp_data",
     SIZE=24,
     )
 
+v0_lod_uncomp_lm_data = QStruct("lod_uncomp_lm_data",
+    SInt32("vert_count"),
+    # XYZ floats, then sint16s UVs, uint16 lm UVs, and unknown sint16 pair
+    SInt32("verts_pointer"),
+    SInt32("tri_count"),
+    # these tris are the same structure as v0_lod_uncomp_data tris
+    SInt32("tris_pointer"),
+    SInt32("id_num"),
+    SInt32("unknown_pointer"),
+    SIZE=24,
+    )
+
 v1_lod_uncomp_lm_data = QStruct("lod_uncomp_lm_data",
     SInt32("vert_count"),
     # XYZ floats, then sint16s UVs, uint16 lm UVs, and unknown sint16 pair
@@ -321,10 +328,11 @@ v0_lod_block = Struct("lod",
     v0_object_flags,
     Switch("data",
         CASES={
-            "fifo":   v0_lod_fifo_data,
-            "uncomp": v0_lod_uncomp_data,
+            "fifo":      v0_lod_fifo_data,
+            "uncomp":    v0_lod_uncomp_data,
+            "uncomp_lm": v0_lod_uncomp_lm_data,
             },
-        CASE=get_arcade_lod_type,
+        CASE=get_lod_type,
         SIZE=24
         ),
     SIZE=32
@@ -545,7 +553,7 @@ mip_tbp_struct = BitStruct("mip_tbp",
     SIZE=16, VISIBLE=False
     )
 
-v0_bitmap_block = Struct("bitmap",
+bitmap_block_arc = Struct("bitmap",
     UInt8("large_lod_log2_inv", EDITABLE=False),
     UInt8("small_lod_log2_inv", EDITABLE=False),
     bitmap_format_v0,
@@ -584,13 +592,13 @@ v0_bitmap_block = Struct("bitmap",
     SIZE=80
     )
 
-v1_bitmap_block = Switch("bitmap",
+v0_bitmap_block = Switch("bitmap",
     CASES={
-        "arcade":    v0_bitmap_block,
-        "dreamcast": v1_bitmap_block_dc,
+        "arcade":    bitmap_block_arc,
+        "dreamcast": bitmap_block_dc,
         },
     CASE=get_bitmap_platform,
-    DEFAULT=v1_bitmap_block_dc,
+    DEFAULT=bitmap_block_dc,
     )
 
 v4_bitmap_block = Struct("bitmap",
@@ -763,7 +771,7 @@ v0_bitmaps_array = Array("bitmaps",
     )
 v1_bitmaps_array = Array("bitmaps",
     SIZE='.header.bitmaps_count',
-    SUB_STRUCT=v1_bitmap_block
+    SUB_STRUCT=v0_bitmap_block
     )
 v4_bitmaps_array = Array("bitmaps",
     SIZE='.header.bitmaps_count',
