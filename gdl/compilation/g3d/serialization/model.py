@@ -394,29 +394,35 @@ class G3DModel():
                     ]
 
             flip            = False
+            stripped        = True# False
             get_tri_list    = self.tri_lists.setdefault
             get_tex_name    = {
                 i: n.upper() for i, n in
                 enumerate(model_cache.texture_names)
                 }.get
-
+            # TODO: figure this out the rest of the way(determine purpose of bit14)
             for i, tri_tex_idx in enumerate(tdata_int16[3::4]):
-                tex_idx = tri_tex_idx & 0x3FFF
-                unk     = tri_tex_idx >> 14
-                idx_key = (get_tex_name(tex_idx, c.DEFAULT_TEX_NAME), lm_name)
-                tris    = get_tri_list(idx_key, [])
+                tex_idx         = tri_tex_idx & 0x3FFF
+                strip_bits      = tri_tex_idx >> 14
+                cont_strip      = strip_bits & 2
+                #toggle_stripped = strip_bits & 1
+                idx_key         = (get_tex_name(tex_idx, c.DEFAULT_TEX_NAME), lm_name)
+                tris            = get_tri_list(idx_key, [])
+
+                #if toggle_stripped:
+                #    stripped = not stripped
 
                 v0, v1, v2 = tdata_int16[i*4: i*4+3]
+                if not stripped:
+                    flip = not flip
 
-                #if i%2:
-                #    v1, v2 = v2, v1
-                tris.append((v0, v1, v2))
-                #tris.append((v0, v1, v2, tri_tex_idx&0x3FFF, unk))
-                tris.append((v0, v2, v1))
-                #from pprint import pprint
-                #pprint(tris)
-                #pprint(self.verts)
-                #input()
+                tris.append(
+                    (v0, v2, v1) if flip else
+                    (v0, v1, v2)
+                    )
+
+                if stripped:
+                    flip = (not flip) if cont_strip else False
         else:
             raise NotImplementedError()
 
