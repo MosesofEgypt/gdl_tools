@@ -385,8 +385,8 @@ class G3DModel():
                 #       vertex data as a compressed ijk_11_11_10 triple
             else:
                 self.uvs    = [
-                    (vdata_float[i]/1024, vdata_float[i+1]/1024)
-                    for i in range(0, len(vdata_float), 6)
+                    (vdata_float[i], vdata_float[i+1])
+                    for i in range(3, len(vdata_float), 6)
                     ]
                 self.norms  = [
                     tuple(ndata_float[i:i+3])
