@@ -323,9 +323,10 @@ def object_to_model_cache(obj, cache_type=None, obj_index=0, bitmap_assets=()):
         obj_lod = obj.lods[0]
         model_cache = DreamcastModelCache() if is_dc else ArcadeModelCache()
 
-        model_cache.has_lmap    = bool(obj_lod.flags.lmap)
-        model_cache.has_normals = bool(obj_lod.flags.v_normals)
-        model_cache.is_fifo2    = bool(obj_lod.flags.fifo_cmds_2)
+        model_cache.has_lmap        = bool(obj_lod.flags.lmap)
+        model_cache.has_normals     = bool(obj_lod.flags.v_normals)
+        model_cache.is_fifo2        = bool(obj_lod.flags.fifo_cmds_2)
+        model_cache.is_compressed   = bool(obj_lod.flags.compressed)
 
         if obj_lod.flags.fifo_cmds or model_cache.is_fifo2:
             #raise NotImplementedError("hecken")

@@ -1,4 +1,3 @@
-import array
 import hashlib
 import pathlib
 import urllib
@@ -7,8 +6,9 @@ from math import sqrt
 
 from .stripify import Stripifier
 from .model_cache import ModelCache, Ps2ModelCache, XboxModelCache,\
-     GamecubeModelCache, DreamcastModelCache, ArcadeModelCache
+     GamecubeModelCache, DreamcastModelCache, ArcadeModelCache, RawModelCache
 from . import model_vif
+from . import model_raw
 from . import constants as c
 
 
@@ -357,72 +357,23 @@ class G3DModel():
                 self.lm_uvs.extend(parsed_data["lm_uvs"])
 
                 self.bounding_radius = max(parsed_data["bounding_radius"], self.bounding_radius)
-        elif isinstance(model_cache, DreamcastModelCache):
-            lm_name = model_cache.lightmap_name.upper()
-            vdata_float = array.array("f", model_cache.verts_rawdata)
-            vdata_int16 = array.array("h", model_cache.verts_rawdata)
-            tdata_int16 = array.array("H", model_cache.tris_rawdata)
-            ndata_float = array.array("f", model_cache.norms_rawdata)
-
-            if not model_cache.verts_rawdata:
-                # temporary hack till compressed verts are understood
-                del tdata_int16[:]
-
-            self.verts      = [
-                tuple(vdata_float[i:i+3])
-                for i in range(0, len(vdata_float), 6)
-                ]
-            if model_cache.has_lmap:
-                self.uvs   = [
-                    (vdata_int16[i]/1024, vdata_int16[i+1]/1024)
-                    for i in range(6, len(vdata_int16), 12)
-                    ]
-                self.lm_uvs = [
-                    (vdata_int16[i]/1024, vdata_int16[i+1]/1024)
-                    for i in range(8, len(vdata_int16), 12)
-                    ]
-                # TODO: determine if normals are stored in the last 4 bytes of the
-                #       vertex data as a compressed ijk_11_11_10 triple
+        elif isinstance(model_cache, RawModelCache):
+            if getattr(model_cache, "fifo_rawdata", None):
+                raise NotImplementedError()
             else:
-                self.uvs    = [
-                    (vdata_float[i], vdata_float[i+1])
-                    for i in range(3, len(vdata_float), 6)
-                    ]
-                self.norms  = [
-                    tuple(ndata_float[i:i+3])
-                    for i in range(0, len(ndata_float), 3)
-                    ]
-
-            flip            = False
-            stripped        = True# False
-            get_tri_list    = self.tri_lists.setdefault
-            get_tex_name    = {
-                i: n.upper() for i, n in
-                enumerate(model_cache.texture_names)
-                }.get
-            # TODO: figure this out the rest of the way(determine purpose of bit14)
-            for i, tri_tex_idx in enumerate(tdata_int16[3::4]):
-                tex_idx         = tri_tex_idx & 0x3FFF
-                strip_bits      = tri_tex_idx >> 14
-                cont_strip      = strip_bits & 2
-                #toggle_stripped = strip_bits & 1
-                idx_key         = (get_tex_name(tex_idx, c.DEFAULT_TEX_NAME), lm_name)
-                tris            = get_tri_list(idx_key, [])
-
-                #if toggle_stripped:
-                #    stripped = not stripped
-
-                v0, v1, v2 = tdata_int16[i*4: i*4+3]
-                if not stripped:
-                    flip = not flip
-
-                tris.append(
-                    (v0, v2, v1) if flip else
-                    (v0, v1, v2)
+                parsed_data = model_raw.import_raw_to_g3d(
+                    model_cache, start_vert=len(self.verts)
                     )
 
-                if stripped:
-                    flip = (not flip) if cont_strip else False
+            for idx_key, tris in parsed_data["tri_lists"].items():
+                self.tri_lists.setdefault(idx_key, []).extend(tris)
+
+            self.verts.extend(parsed_data["verts"])
+            self.norms.extend(parsed_data["norms"])
+            self.uvs.extend(parsed_data["uvs"])
+            self.lm_uvs.extend(parsed_data["lm_uvs"])
+
+            self.bounding_radius = max(parsed_data["bounding_radius"], self.bounding_radius)
         else:
             raise NotImplementedError()
 

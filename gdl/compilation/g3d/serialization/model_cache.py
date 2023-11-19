@@ -21,6 +21,7 @@ MODEL_CACHE_FLAG_COLORS  = 1 << 1
 MODEL_CACHE_FLAG_LMAP    = 1 << 2
 # arcade
 MODEL_CACHE_FLAG_FIFO2   = 1 << 8
+MODEL_CACHE_FLAG_COMP    = 1 << 9
 
 
 MODEL_CACHE_HEADER_STRUCT = struct.Struct('<I f IIi')
@@ -57,6 +58,7 @@ class ModelCache(AssetCache):
     has_colors       = False
     has_lmap         = False
     is_fifo2         = False
+    is_compressed    = False
     bounding_radius  = 0.0
     vert_count       = 0
     tri_count        = 0
@@ -88,10 +90,11 @@ class ModelCache(AssetCache):
         self.tri_count       = tri_count
         self.texture_names   = texture_names
 
-        self.has_normals     = bool(model_flags & MODEL_CACHE_FLAG_NORMALS)
-        self.has_colors      = bool(model_flags & MODEL_CACHE_FLAG_COLORS)
-        self.has_lmap        = bool(model_flags & MODEL_CACHE_FLAG_LMAP)
-        self.is_fifo2        = bool(model_flags & MODEL_CACHE_FLAG_FIFO2)
+        self.has_normals        = bool(model_flags & MODEL_CACHE_FLAG_NORMALS)
+        self.has_colors         = bool(model_flags & MODEL_CACHE_FLAG_COLORS)
+        self.has_lmap           = bool(model_flags & MODEL_CACHE_FLAG_LMAP)
+        self.is_fifo2           = bool(model_flags & MODEL_CACHE_FLAG_FIFO2)
+        self.is_compressed      = bool(model_flags & MODEL_CACHE_FLAG_COMP)
 
     def serialize(self):
         self.cache_type_version = MODEL_CACHE_VER
@@ -100,7 +103,8 @@ class ModelCache(AssetCache):
             (MODEL_CACHE_FLAG_NORMALS * bool(self.has_normals)) |
             (MODEL_CACHE_FLAG_COLORS  * bool(self.has_colors))  |
             (MODEL_CACHE_FLAG_LMAP    * bool(self.has_lmap))    |
-            (MODEL_CACHE_FLAG_FIFO2   * bool(self.is_fifo2))
+            (MODEL_CACHE_FLAG_FIFO2   * bool(self.is_fifo2))    |
+            (MODEL_CACHE_FLAG_COMP    * bool(self.is_compressed))
             )
         model_header_rawdata = MODEL_CACHE_HEADER_STRUCT.pack(
             model_flags, self.bounding_radius,
@@ -208,7 +212,7 @@ class GamecubeModelCache(Ps2ModelCache):
     cache_type = constants.MODEL_CACHE_EXTENSION_NGC
 
 
-class UncompModelCache(ModelCache):
+class RawModelCache(ModelCache):
     verts_rawdata = b''
     tris_rawdata  = b''
     norms_rawdata = b''
@@ -267,11 +271,11 @@ class UncompModelCache(ModelCache):
         return header_rawdata + object_header_rawdata + object_rawdata
 
 
-class DreamcastModelCache(UncompModelCache):
+class DreamcastModelCache(RawModelCache):
     cache_type = constants.MODEL_CACHE_EXTENSION_DC
 
 
-class ArcadeModelCache(UncompModelCache):
+class ArcadeModelCache(RawModelCache):
     cache_type = constants.MODEL_CACHE_EXTENSION_ARC
 
     fifo_rawdata  = b''

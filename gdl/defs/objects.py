@@ -48,6 +48,8 @@ def get_lod_type(*args, parent=None, **kwargs):
         flags = parent.flags
         if flags.fifo_cmds or flags.fifo_cmds_2:
             return "fifo"
+        elif flags.compressed:
+            return "comp"
         elif flags.lmap:
             return "uncomp_lm"
     except Exception:
@@ -62,42 +64,51 @@ def get_v0_model_data_type(*args, parent=None, **kwargs):
     except Exception:
         pass
 
+def v0_comp_verts_size(
+        *args, parent=None, new_value=None, **kwargs
+        ):
+    if parent is None:
+        return
 
-def _v0_uncomp_model_data_size(
+    if new_value is None:
+        lod_data = parent.parent.lods[0].data
+        # NOTE: this is jank and broken and needs to go once parsing
+        #       is properly implemented and size can be determined
+        return max(0, lod_data.tris_pointer - lod_data.verts_pointer)
+
+def _v0_raw_model_data_size(
         field_name, item_size, *args, parent=None, new_value=None, **kwargs
         ):
     if parent is None:
         return
-    lod = parent.parent.lods[0]
-    if field_name == "vert_count" and lod.flags.compressed:
-        return 0
 
+    lod = parent.parent.lods[0]
     if new_value is not None:
         lod.data[field_name] = new_value // item_size
     else:
         return lod.data[field_name] * item_size
-    
-def v0_uncomp_verts_size(*args, **kwargs):
-    return _v0_uncomp_model_data_size("vert_count", 24, *args, **kwargs)
 
-def v0_uncomp_tris_size(*args, **kwargs):
-    return _v0_uncomp_model_data_size("tri_count", 8, *args, **kwargs)
+def v0_raw_verts_size(*args, **kwargs):
+    return _v0_raw_model_data_size("vert_count", 24, *args, **kwargs)
 
-v0_uncomp_lm_verts_size = v0_uncomp_verts_size  # coincidentally, same size per vert
+def v0_raw_tris_size(*args, **kwargs):
+    return _v0_raw_model_data_size("tri_count", 8, *args, **kwargs)
 
-def v0_uncomp_lm_tris_size(*args, **kwargs):
-    return _v0_uncomp_model_data_size("tri_count", 10, *args, **kwargs)
+v0_raw_lm_verts_size = v0_raw_verts_size  # coincidentally, same size per vert
 
-def v0_uncomp_norms_size(*args, parent=None, new_value=None, **kwargs):
+def v0_raw_lm_tris_size(*args, **kwargs):
+    return _v0_raw_model_data_size("tri_count", 10, *args, **kwargs)
+
+def v0_raw_norms_size(*args, parent=None, new_value=None, **kwargs):
     # NOTE: do not try to set size. this will overwrite vert count
     if (parent is None or new_value is not None or
         not parent.parent.lods[0].flags.v_normals):
         return 0
-    return _v0_uncomp_model_data_size(
+    return _v0_raw_model_data_size(
         "vert_count", 12, *args, parent=parent, new_value=new_value, **kwargs
         )
 
-def v0_uncomp_norms_pointer(*args, parent=None, new_value=None, **kwargs):
+def v0_raw_norms_pointer(*args, parent=None, new_value=None, **kwargs):
     if parent:
         lod = parent.parent.lods[0]
         if lod.flags.v_normals and new_value is None:
@@ -253,31 +264,15 @@ v0_lod_fifo_data = QStruct("lod_fifo_data",
     SIZE=24
     )
 
-v0_lod_uncomp_data = QStruct("lod_uncomp_data",
+v0_raw_lod_data = QStruct("raw_lod_data",
     SInt32("vert_count"),
     # XYZ floats, followed by UV floats, and unknown sint16 pair
     # uv coords are 0-256 range floats(divide by 256 to get 0-1)
     SInt32("verts_pointer"),
     SInt32("tri_count"),
     # set of 3 uint16 for vert/norm indices, followed by the texture index
-    # packed into the lower 14 bits of a uint16, with the upper 2 serving
-    # another purpose. seems first tri usually(always?) has upper 2 bits
-    # set to 3, while the next ones alternate between 2, 1, and 0.
-    # figure this out...
-    # NOTE: the following are how many times each bit is set in the
-    #       uint16 that stores the texture index.
-    #     0: 1928620
-    #     1: 1963020
-    #     2: 1654897
-    #     3: 1592451
-    #     4: 1444535
-    #     5: 1879274
-    #     6: 995950
-    #     7: 239735
-    #     8: 195228
-    #     9: 131264
-    #     14: 56366
-    #     15: 2407190
+    # index packed into the lower 14 bits of a uint16, with the upper 2
+    # serving to indicate whether the triangle is connected in a strip
     SInt32("tris_pointer"),
     SInt32("id_num"),
     # IJK floats (count is equal to vert_count)
@@ -285,20 +280,20 @@ v0_lod_uncomp_data = QStruct("lod_uncomp_data",
     SIZE=24,
     )
 
-lod_uncomp_lm_data = QStruct("lod_uncomp_lm_data",
+raw_lod_lm_data = QStruct("raw_lod_lm_data",
     SInt32("vert_count"),
     # XYZ floats, then sint16s UVs, uint16 lm UVs, and unknown sint16 pair
     SInt32("verts_pointer"),
     SInt32("tri_count"),
-    # these tris are the same structure as v0_lod_uncomp_data tris
+    # these tris are the same structure as v0_raw_lod_data tris
     SInt32("tris_pointer"),
     SInt32("id_num"),
     SInt32("lm_header_pointer", DEFAULT=-1),
     SIZE=24,
     )
 
-v0_lod_uncomp_lm_data = QStruct("lod_uncomp_lm_data",
-    INCLUDE=lod_uncomp_lm_data,
+v0_raw_lod_lm_data = QStruct("raw_lod_lm_data",
+    INCLUDE=raw_lod_lm_data,
     STEPTREE=QStruct("lightmap_header",
         Pointer32("tex_pointer", EDITABLE=False),
         # wtf is going on here?
@@ -310,8 +305,8 @@ v0_lod_uncomp_lm_data = QStruct("lod_uncomp_lm_data",
         )
     )
 
-v1_lod_uncomp_lm_data = QStruct("lod_uncomp_lm_data",
-    INCLUDE=lod_uncomp_lm_data,
+v1_raw_lod_lm_data = QStruct("raw_lod_lm_data",
+    INCLUDE=raw_lod_lm_data,
     STEPTREE=Struct("lightmap_header",
         Pointer32("tex_pointer", EDITABLE=False),
         # lightmaps are always R5G6B5, and this value is set to 1 in
@@ -333,8 +328,9 @@ v0_lod_block = Struct("lod",
     Switch("data",
         CASES={
             "fifo":      v0_lod_fifo_data,
-            "uncomp":    v0_lod_uncomp_data,
-            "uncomp_lm": v0_lod_uncomp_lm_data,
+            "comp":      v0_raw_lod_data,
+            "uncomp":    v0_raw_lod_data,
+            "uncomp_lm": v0_raw_lod_lm_data,
             },
         CASE=get_lod_type,
         SIZE=24
@@ -348,8 +344,9 @@ v1_lod_block = Struct("lod",
     Switch("data",
         CASES={
             "fifo":      v0_lod_fifo_data,
-            "uncomp":    v0_lod_uncomp_data,
-            "uncomp_lm": v1_lod_uncomp_lm_data,
+            "comp":      v0_raw_lod_data,
+            "uncomp":    v0_raw_lod_data,
+            "uncomp_lm": v1_raw_lod_lm_data,
             },
         CASE=get_lod_type,
         SIZE=24
@@ -358,36 +355,52 @@ v1_lod_block = Struct("lod",
     )
 
 
-v0_uncomp_model_data = Container("model_data",
+v0_comp_raw_model_data = Container("model_data",
     BytesRaw("vert_data",
-        SIZE=v0_uncomp_verts_size,
+        SIZE=v0_comp_verts_size,
         POINTER="..lods.[0].data.verts_pointer"
         ),
     BytesRaw("tri_data",
-        SIZE=v0_uncomp_tris_size,
+        SIZE=v0_raw_tris_size,
         POINTER="..lods.[0].data.tris_pointer"
         ),
     BytesRaw("norm_data",
-        SIZE=v0_uncomp_norms_size,
-        POINTER=v0_uncomp_norms_pointer
+        SIZE=v0_raw_norms_size,
+        POINTER=v0_raw_norms_pointer
         ),
     )
 
-v0_uncomp_lm_model_data = Container("model_data",
+v0_raw_model_data = Container("model_data",
     BytesRaw("vert_data",
-        SIZE=v0_uncomp_verts_size,
+        SIZE=v0_raw_verts_size,
         POINTER="..lods.[0].data.verts_pointer"
         ),
     BytesRaw("tri_data",
-        SIZE=v0_uncomp_tris_size,
+        SIZE=v0_raw_tris_size,
+        POINTER="..lods.[0].data.tris_pointer"
+        ),
+    BytesRaw("norm_data",
+        SIZE=v0_raw_norms_size,
+        POINTER=v0_raw_norms_pointer
+        ),
+    )
+
+v0_raw_lm_model_data = Container("model_data",
+    BytesRaw("vert_data",
+        SIZE=v0_raw_verts_size,
+        POINTER="..lods.[0].data.verts_pointer"
+        ),
+    BytesRaw("tri_data",
+        SIZE=v0_raw_tris_size,
         POINTER="..lods.[0].data.tris_pointer"
         ),
     )
 
 v0_model_data = Switch("model_data",
     CASES={
-        "uncomp":    v0_uncomp_model_data,
-        "uncomp_lm": v0_uncomp_lm_model_data,
+        "comp":      v0_comp_raw_model_data,
+        "uncomp":    v0_raw_model_data,
+        "uncomp_lm": v0_raw_lm_model_data,
         },
     CASE=get_v0_model_data_type
     )
