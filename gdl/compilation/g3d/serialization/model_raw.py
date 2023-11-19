@@ -30,43 +30,46 @@ def import_raw_to_g3d(model_cache, start_vert=0):
     if model_cache.is_compressed:
         i = 0
         expect_pos      = False
-        new_uvs         = {}
-        vert_count      = 0
+        new_uvs         = []
         default_uv      = (0.0, 0.0)
+        default_pos     = (0.0, 0.0, 0.0)
         stream_end      = len(vdata_int16) - 3
         vdata_uint16    = array.array("H", model_cache.verts_rawdata)
+        pos             = default_pos
 
         while len(verts) < model_cache.vert_count:
-            if i >= stream_end:
+            if i > stream_end:
+                verts.extend([pos] * len(new_uvs))
+                uvs.extend(new_uvs)
+
                 remainder = model_cache.vert_count-len(verts)
-                print(f"Error: Vertex data truncated. Padding with null for {remainder} verts.")
-                verts.extend([(0, 0, 0)] * remainder)
+                if remainder:
+                    print(f"Error: Vertex data truncated(expected {model_cache.vert_count} "
+                          f"verts). Padding with null for {remainder} verts.")
+                    verts.extend([(0, 0, 0)] * remainder)
+
                 break
-                
+
             if expect_pos:
-                x, y, z = vdata_int16[i: i+3]
-                pos     = (x*pos_scale, y*pos_scale, z*pos_scale)
-
-                verts.extend([pos] * vert_count)
-                uvs.extend(
-                    new_uvs.get(j, default_uv)
-                    for j in range(vert_count)
-                    )
-
-                new_uvs     = {}
-                vert_count  = 0
                 expect_pos  = False
+                pos         = (
+                    vdata_int16[i]  *pos_scale,
+                    vdata_int16[i+1]*pos_scale,
+                    vdata_int16[i+2]*pos_scale
+                    )
             else:
                 uv_index = vdata_uint16[i] & 0xFF
                 unknown  = vdata_uint16[i] >> 8
-                if uv_index >= vert_count:
-                    vert_count = uv_index + 1
-
-                u, v    = vdata_int16[i+1: i+3]
-                new_uvs[uv_index] = (u*uv_scale, v*uv_scale)
-
                 if uv_index == 0:
-                    expect_pos = True
+                    verts.extend([pos] * len(new_uvs))
+                    uvs.extend(new_uvs)
+                    new_uvs     = []
+                    expect_pos  = True
+
+                new_uvs.append((
+                    vdata_int16[i+1]*uv_scale,
+                    vdata_int16[i+2]*uv_scale
+                    ))
 
             i += 3
 
