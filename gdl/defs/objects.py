@@ -2,7 +2,7 @@ from supyr_struct.defs.tag_def import TagDef
 from ..common_descs import *
 from ..compilation.g3d.constants import *
 from .objs.objects import ObjectsTag
-from .texdef import bitmap_flags_v1_dc, get_bitmap_platform,\
+from .texdef import get_bitmap_platform,\
     bitmap_format_dc, image_type_dc, bitmap_block_dc,\
     bitmap_format as bitmap_format_v12
 
@@ -65,16 +65,38 @@ def get_v0_model_data_type(*args, parent=None, **kwargs):
         pass
 
 def v0_comp_verts_size(
-        *args, parent=None, new_value=None, **kwargs
+        *args, parent=None, new_value=None, rawdata=None, **kwargs
         ):
-    if parent is None:
-        return
+    if parent is None or new_value is not None:
+        return 0
+    elif rawdata is None:
+        return len(parent.vert_data)
 
-    if new_value is None:
-        lod_data = parent.parent.lods[0].data
-        # NOTE: this is jank and broken and needs to go once parsing
-        #       is properly implemented and size can be determined
-        return max(0, lod_data.tris_pointer - lod_data.verts_pointer)
+    lod_data        = parent.parent.lods[0].data
+    verts_to_read   = lod_data.vert_count
+
+    # max data size is 12 bytes per vert. read as much as
+    # we may need to parse all the verts, and find the end
+    rawdata.seek(lod_data.verts_pointer)
+    stream_data     = bytes(rawdata.read(12*verts_to_read))
+    stream_end      = len(stream_data)
+
+    i = 0
+    while verts_to_read and i < stream_end:
+        i += 6 if stream_data[i] else 12
+        verts_to_read -= 1
+
+    if verts_to_read:
+        # while this is actually an error, dying here will make
+        # it hard to debug, so lets just print an error message.
+        # this should never happen in practice though
+        #raise IOError(
+        print(
+            f"Expected to read {lod_data.vert_count} vertices, but "
+            f"could not read last {verts_to_read} vertices"
+            )
+    
+    return i
 
 def _v0_raw_model_data_size(
         field_name, item_size, *args, parent=None, new_value=None, **kwargs

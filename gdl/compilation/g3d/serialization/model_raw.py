@@ -23,9 +23,11 @@ def import_raw_to_g3d(model_cache, start_vert=0):
     lm_name = model_cache.lightmap_name.upper()
     vdata_int16 = array.array("h", model_cache.verts_rawdata)
     tdata_int16 = array.array("H", model_cache.tris_rawdata)
+    ndata_float = array.array("f", model_cache.norms_rawdata)
     if byteorder == ">":
         vdata_int16.byteswap()
         tdata_int16.byteswap()
+        ndata_float.byteswap()
 
     if model_cache.is_compressed:
         i = 0
@@ -34,8 +36,11 @@ def import_raw_to_g3d(model_cache, start_vert=0):
         default_uv      = (0.0, 0.0)
         default_pos     = (0.0, 0.0, 0.0)
         stream_end      = len(vdata_int16) - 3
-        vdata_uint16    = array.array("H", model_cache.verts_rawdata)
         pos             = default_pos
+
+        vdata_uint16    = array.array("H", model_cache.verts_rawdata)
+        if byteorder == ">":
+            vdata_uint16.byteswap()
 
         while len(verts) < model_cache.vert_count:
             if i > stream_end:
@@ -75,10 +80,8 @@ def import_raw_to_g3d(model_cache, start_vert=0):
 
     else:
         vdata_float = array.array("f", model_cache.verts_rawdata)
-        ndata_float = array.array("f", model_cache.norms_rawdata)
         if byteorder == ">":
             vdata_float.byteswap()
-            ndata_float.byteswap()
 
         verts.extend([
             tuple(vdata_float[i:i+3])
@@ -102,10 +105,11 @@ def import_raw_to_g3d(model_cache, start_vert=0):
                 (vdata_float[i], vdata_float[i+1])
                 for i in range(3, len(vdata_float), 6)
                 ])
-            norms.extend([
-                tuple(ndata_float[i:i+3])
-                for i in range(0, len(ndata_float), 3)
-                ])
+
+    norms.extend([
+        tuple(ndata_float[i:i+3])
+        for i in range(0, len(ndata_float), 3)
+        ])
 
     if verts:
         bnd_rad_square = max(x**2 + y**2 + z**2 for x, y, z in verts)

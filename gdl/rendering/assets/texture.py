@@ -6,6 +6,7 @@ class Texture:
 
     # usually signed
     signed_alpha = True
+    force_alpha  = False
 
     def __init__(self, **kwargs):
         self._name        = kwargs.pop("name", self._name).upper().strip()

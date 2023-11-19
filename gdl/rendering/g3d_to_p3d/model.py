@@ -69,12 +69,16 @@ def load_geometries_from_g3d_model(
         p3d_geometry = GeomNode("")
         geom         = Geom(vdata)
 
-        tris        = GeomTriangles(Geom.UHDynamic)
-        addVertices = tris.addVertices
-        geom_shader = GeometryShader(
-            diff_texture=textures.get(tex_name),
+        tris         = GeomTriangles(Geom.UHDynamic)
+        addVertices  = tris.addVertices
+        diff_texture = textures.get(tex_name)
+        geom_shader  = GeometryShader(
+            diff_texture=diff_texture,
             lm_texture=textures.get(lm_name)
             )
+        if diff_texture and diff_texture.force_alpha:
+            shader_flags["alpha"] = True
+
         for name in shader_flags:
             setattr(geom_shader, name, shader_flags[name])
 

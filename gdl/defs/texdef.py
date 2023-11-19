@@ -116,17 +116,20 @@ image_type_dc = UEnum8("image_type",
     EDITABLE=False
     )
 
-bitmap_flags_v1_dc = Bool8("flags",
-    ("clamp_u",   0x01),
-    ("clamp_v",   0x02),
-    ("external",  0x08),
+bitmap_flags_v1_dc = Bool16("flags",
+    ("clamp_u",   0x0001),
+    ("clamp_v",   0x0002),
+    ("external",  0x0008),
+    ("dc_unk0",   0x0100),
+    ("dc_unk1",   0x0200),
+    ("dc_unk2",   0x0400),
+    ("dc_unk3",   0x0800),
     )
 
 # found on dreamcast
 bitmap_block_dc = Struct("bitmap",
     UInt16("dc_sig", EDITABLE=False, DEFAULT=BITMAP_BLOCK_DC_SIG),
     bitmap_flags_v1_dc,
-    UInt8("dc_unknown", EDITABLE=False), # set to 0, 1, 3, 4, 5, 8, 12, 13
 
     UInt16("width", EDITABLE=False),
     UInt16("height", EDITABLE=False),

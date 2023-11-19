@@ -58,6 +58,7 @@ def load_textures_from_objects_tag(
                 except (ValueError, AttributeError):
                     # invalid bitmap
                     pass
+
                 format_name = g3d_texture.format_name
                 if not g3d_texture.textures:
                     continue
@@ -75,6 +76,9 @@ def load_textures_from_objects_tag(
                 name=name, signed_alpha=texture_util.is_alpha_signed(format_name),
                 p3d_texture=p3d_texture
                 )
+            if obj_ver in ("v0", "v1"):
+                # applies to arcade and dreamcast
+                texture.force_alpha = "A" in format_name
 
             # in some instances we need to reference textures by
             # index, while in others we need to reference by name

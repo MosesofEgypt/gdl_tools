@@ -402,11 +402,17 @@ class Scene(ShowBase):
             part = part.upper()
             set_name = part.upper() + "/" + set_name
             if part in (
-                    "GEN", "ITEMS", "LEVELS", "MAPS",
-                    "MONSTERS", "PLAYERS", "POWERUPS", "WEAPONS",
-                    "CREDITS", "GROUP1", "GROUP2", "SONY",
-                    "INVENTORY", "SELECT", "STATIC", "TITLE",
-                    "RETIRE", "LVLADV", "WORLDSEL", "HISCORE", "SHOP", "TEST",
+                    "CREDITS", "GEN", "GROUP1", "GROUP2", "HISCORE",
+                    "INVENTORY", "ITEMS", "LEVELS", "LVLADV", "MAPS",
+                    "MONSTERS", "PLAYERS", "POWERUPS", "RETIRE", "SELECT", "SHOP",
+                    "SONY", "STATIC", "TEST", "TITLE", "WEAPONS", "WORLDSEL",
+                    # arcade
+                    "BIOSCREENS", "BOSSTATS", "CHARBUILD", "CONTEST", "CONTEST2",
+                    "FONT_GOODWIZA", "FONT_GOODWIZE", "FONT_STORY", "GENERATORS",
+                    "POWERUPS2", "RTMOVIES", "SCREEN", "SHOP_LR", "STATIC_LR",
+                    "WARNING",
+                    # dreamcast
+                    "LOAD"
                 ):
                 break
 
