@@ -39,7 +39,7 @@ def load_realm_from_wdata_tag(wdata_tag):
             if enemy is None:
                 continue
 
-            folder_name = c.ENEMY_TYPE_TO_DIRNAME.get(enemy["type"])
+            folder_name = c.ENEMY_TYPE_TO_DIRNAME.get(enemy["type"], "")
             if enemy["type"] == "gargoyle":
                 folder_name = c.MONSTER_NAME_GAR % enemy["name"]
             elif enemy["type"] in ("general", "golem"):

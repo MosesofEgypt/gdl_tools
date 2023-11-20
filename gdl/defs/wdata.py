@@ -3,7 +3,7 @@ from .objs.wad import WadTag
 from ..common_descs import *
 from ..field_types import *
 
-def get(): return wdata_def, wdata_arcade_def
+def get(): return wdata_def, wdata_arcade_def, wdata_dreamcast_def
 
 SUBTYPES = (
     ("none",          0x0),
@@ -34,7 +34,18 @@ enemy_data_lump = Lump('enemy_datas',
 
 enemy_data_arcade_lump = Lump('enemy_datas',
     SUB_STRUCT=Struct('enemy_data',
-        SEnum32("type"),
+        SEnum32("type", *ENEMY_TYPES_DL_ARC),
+        UEnum32("subtype", *SUBTYPES),
+        StrNntLatin1("audname", SIZE=8),
+        StrNntLatin1("name", SIZE=8),
+        SIZE=24
+        ),
+    DYN_NAME_PATH='.type.enum_name', WIDGET=DynamicArrayFrame
+    )
+
+enemy_data_dreamcast_lump = Lump('enemy_datas',
+    SUB_STRUCT=Struct('enemy_data',
+        SEnum32("type", *ENEMY_TYPES_DC),
         UEnum32("subtype", *SUBTYPES),
         StrNntLatin1("audname", SIZE=8),
         StrNntLatin1("name", SIZE=8),
@@ -262,7 +273,7 @@ level_data_arcade_lump = Lump('level_datas',
         StrNntLatin1("prep", SIZE=4),
         StrNntLatin1("title", SIZE=16),
         StrNntLatin1("audbank", SIZE=16),
-        SEnum32("boss_type", *ENEMY_TYPES),
+        SEnum32("boss_type", *ENEMY_TYPES_DL_ARC),
         SInt32("early_enemies"),
         enemy_types,
         SInt16("camera_idx"),
@@ -277,6 +288,45 @@ level_data_arcade_lump = Lump('level_datas',
         SInt16("boss_camera_index"),
         SInt16("max_enemies"),
         SIZE=128
+        ),
+    DYN_NAME_PATH='.name', WIDGET=DynamicArrayFrame
+    )
+
+level_data_dreamcast_lump = Lump('level_datas',
+    SUB_STRUCT=Struct('level_data',
+        Bool32("flags",
+            "stun_wave",
+            "hurt_wave",
+            "time_wave",
+            "player_light",
+            ),
+        SInt16("enabled"),
+        SInt16("setup"),
+        StrNntLatin1("name", SIZE=4),
+        SInt16("wave_time"),
+        SInt16("dummy"),
+        StrNntLatin1("prep", SIZE=4),
+        StrNntLatin1("title", SIZE=16),
+        StrNntLatin1("audbank", SIZE=16),
+        SEnum32("boss_type", *ENEMY_TYPES_DC),
+        SInt32("early_enemies"),
+        enemy_types,
+        SInt16("camera_idx"),
+        SInt16("audio_idx"),
+        SInt16("map_idx"),
+        Pad(2),
+        Pointer32("camera_data"),
+        Pointer32("audio_data"),
+        Pointer32("map_data"),
+        Pointer32("bosscam_data"),
+        fog_data,
+        SInt16("boss_camera_index"),
+        SInt16("max_enemies"),
+        Float("p_level"),
+        Float("unknown_multiplier_0"),
+        Float("unknown_multiplier_1"),
+        Float("unknown_multiplier_2"),
+        SIZE=144
         ),
     DYN_NAME_PATH='.name', WIDGET=DynamicArrayFrame
     )
@@ -334,6 +384,16 @@ wdata_arcade_lumps_array = lumps_array(
     levl = level_data_arcade_lump,
     wrld = world_data_lump,
     )
+wdata_dreamcast_lumps_array = lumps_array(
+    enmy = enemy_data_dreamcast_lump,
+    bcam = bosscam_data_lump,
+    cams = camera_data_lump,
+    snds = sound_data_lump,
+    auds = audio_data_lump,
+    maps = map_data_lump,
+    levl = level_data_dreamcast_lump,
+    wrld = world_data_lump,
+    )
 
 wdata_def = TagDef("wdata",
     wad_header,
@@ -346,5 +406,12 @@ wdata_arcade_def = TagDef("wdata_arcade",
     wad_header,
     wdata_arcade_lump_headers,
     wdata_arcade_lumps_array,
+    ext=".wad", endian="<", tag_cls=WadTag
+    )
+
+wdata_dreamcast_def = TagDef("wdata_dreamcast",
+    wad_header,
+    wdata_arcade_lump_headers,
+    wdata_dreamcast_lumps_array,
     ext=".wad", endian="<", tag_cls=WadTag
     )

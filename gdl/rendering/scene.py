@@ -539,8 +539,13 @@ class Scene(ShowBase):
         level_name      = levels_dir.name.lower()
         realm_name      = level_name.rstrip("0123456789")
 
+        worlddata_dir = locate_dir(game_root_dir, "WDATA")
+        if not worlddata_dir:
+            # arcade and dreamcast folder name
+            worlddata_dir = locate_dir(game_root_dir, "WORLDDATA")
+
         level_data = self.get_realm_level(
-            locate_dir(game_root_dir, "WDATA"), level_name
+            worlddata_dir, level_name
             )
 
         # locate the folder all the level and shared item dirs are in

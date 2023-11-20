@@ -15,7 +15,7 @@ from ...defs.anim import anim_def
 
 from ...defs.objects import objects_def
 from ...defs.worlds import worlds_def
-from ...defs.wdata import wdata_def
+from ...defs.wdata import wdata_def, wdata_arcade_def, wdata_dreamcast_def
 
 
 def locate_dir(search_root, *folder_names):
@@ -48,9 +48,18 @@ def load_realm_data(wdata_dir, realm_name=""):
             if ext != ".wad":
                 continue
 
-            realm = load_realm_from_wdata_tag(wdata_tag=wdata_def.build(
-                filepath=os.path.join(wdata_dir, filename)
-                ))
+            filepath    = os.path.join(wdata_dir, filename)
+            # TODO: figure out a way to distinguish between arcade and dreamcast wdatas
+            is_arcade_wad    = get_is_arcade_wad(filepath)
+            is_dreamcast_wad = is_arcade_wad
+
+            tagdef      = (
+                wdata_dreamcast_def if is_dreamcast_wad else
+                wdata_arcade_def if is_arcade_wad else
+                wdata_def
+                )
+            wdata_tag   = tagdef.build(filepath=filepath)
+            realm = load_realm_from_wdata_tag(wdata_tag=wdata_tag)
             if not realm:
                 continue
             elif realm_name and realm_name != realm.name:

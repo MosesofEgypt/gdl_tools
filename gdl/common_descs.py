@@ -278,6 +278,94 @@ ENEMY_TYPES = (
     ("none", -1),
     )
 
+ENEMY_TYPES_LEG_ARC = (
+    ("none", -1),
+    )
+
+ENEMY_TYPES_DL_ARC = (
+    "scorp",
+    "troll",
+    "demon",
+    "rat",
+    "grunt",
+    "knight",
+    "snake",
+    "sorcerer",
+    "mummy",
+    "spider",
+    "lizardman",
+    "treefolk",
+    "maggot",
+    "zombie",
+    "plague",
+    "wolf",
+    "ice",
+    "worm",
+    "dog",
+    "skeleton",
+    "ghost",
+    "acid",
+    "hand",
+    "imp",
+    "warlock",
+    "sky",    # guess
+    "golem",
+    "death",  # guess
+    "it",     # guess
+    "unused", # guess
+    "dragon",
+    "chimera",
+    "djinn",
+    "drider",
+    "pboss",
+    "yeti",
+    "wraith",
+    "lich",
+    "skorne1",
+    "skorne2",
+    "garm",
+    ("none", -1),
+    )
+
+ENEMY_TYPES_DC = (
+    "scorp",
+    "troll",
+    "demon",
+    "rat",
+    "grunt",
+    "knight",
+    "snake",
+    "sorcerer",
+    "mummy",
+    "spider",
+    "lizardman",
+    "treefolk",
+    "maggot",
+    "zombie",
+    "plague",
+    "wolf",
+    "ice",
+    "worm",
+    "dog",
+    "skeleton",
+    "acid", # guess
+    "hand", # guess
+    "golem",
+    "garm2", # guess
+    "death", # guess
+    "it",
+    "dragon",
+    "chimera",
+    "djinn",
+    "drider",
+    "pboss",
+    "yeti",
+    "skorne1",
+    "skorne2",
+    "garm",
+    ("none", -1),
+    )
+
 WAVE_TYPES = (
     "test",
     "castle",
