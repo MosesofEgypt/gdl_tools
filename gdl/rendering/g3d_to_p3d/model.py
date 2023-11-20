@@ -76,7 +76,7 @@ def load_geometries_from_g3d_model(
             diff_texture=diff_texture,
             lm_texture=textures.get(lm_name)
             )
-        if diff_texture and diff_texture.force_alpha:
+        if diff_texture and diff_texture.force_model_alpha:
             shader_flags["alpha"] = True
 
         for name in shader_flags:

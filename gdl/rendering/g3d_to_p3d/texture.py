@@ -50,7 +50,12 @@ def load_textures_from_objects_tag(
                 getattr(bitm, "frame_count", 0) > 0):
                 # empty placeholder texture
                 p3d_texture = panda3d.core.Texture()
-                format_name = ""
+                force_alpha = False
+                format_name = (
+                    bitm.format.enum_name
+                    if hasattr(bitm, "format") else
+                    ""
+                    )
             else:
                 g3d_texture = G3DTexture()
                 try:
@@ -60,6 +65,9 @@ def load_textures_from_objects_tag(
                     pass
 
                 format_name = g3d_texture.format_name
+                # applies to arcade and dreamcast
+                force_alpha = obj_ver in ("v0", "v1") and g3d_texture.has_alpha
+
                 if not g3d_texture.textures:
                     continue
 
@@ -74,11 +82,8 @@ def load_textures_from_objects_tag(
 
             texture = Texture(
                 name=name, signed_alpha=texture_util.is_alpha_signed(format_name),
-                p3d_texture=p3d_texture
+                p3d_texture=p3d_texture, force_model_alpha=force_alpha
                 )
-            if obj_ver in ("v0", "v1"):
-                # applies to arcade and dreamcast
-                texture.force_alpha = "A" in format_name
 
             # in some instances we need to reference textures by
             # index, while in others we need to reference by name

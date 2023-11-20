@@ -139,10 +139,11 @@ def g3d_texture_to_dds(g3d_texture):
         if format_name in (g3d_const.PIX_FMT_ABGR_3555_IDX_4_NGC,
                            g3d_const.PIX_FMT_ABGR_3555_IDX_8_NGC):
             format_name = g3d_const.PIX_FMT_ABGR_8888_IDX_8
-            if format_name not in g3d_const.PALETTE_SIZES:
-                texture = texture_conversions.argb_3555_to_8888(texture)
-            else:
-                palette = texture_conversions.argb_3555_to_8888(palette)
+            palette = texture_conversions.argb_3555_to_8888(palette)
+        elif format_name in (g3d_const.PIX_FMT_ABGR_3555_NGC,
+                             g3d_const.PIX_FMT_XBGR_3555_NGC):
+            format_name = g3d_const.PIX_FMT_ABGR_8888
+            texture = texture_conversions.argb_3555_to_8888(texture)
 
         if format_name not in g3d_const.PALETTE_SIZES:
             # non-palettized texture
