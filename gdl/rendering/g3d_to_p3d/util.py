@@ -37,8 +37,27 @@ def locate_dir(search_root, *folder_names):
 
     return dir
 
+def locate_file(search_root, *folder_names, filename=None):
+    if folder_names:
+        search_root = locate_dir(search_root, *folder_names)
 
-def load_realm_data(wdata_dir, realm_name=""):
+    filepath = ""
+
+    if search_root:
+        file_to_find = filename.lower()
+        for root, _, files in os.walk(search_root):
+            for filename in files:
+                if filename.lower() != file_to_find:
+                    continue
+
+                filepath = os.path.join(root, file_to_find)
+                break
+            break
+
+    return filepath
+
+
+def load_realm_data(wdata_dir, realm_name="", is_dreamcast=False):
     realms = {}
     realm_name = realm_name.upper().strip()
 
@@ -48,15 +67,13 @@ def load_realm_data(wdata_dir, realm_name=""):
             if ext != ".wad":
                 continue
 
-            filepath    = os.path.join(wdata_dir, filename)
-            # TODO: figure out a way to distinguish between arcade and dreamcast wdatas
-            is_arcade_wad    = get_is_arcade_wad(filepath)
-            is_dreamcast_wad = is_arcade_wad
+            filepath        = os.path.join(wdata_dir, filename)
+            is_arcade_wad   = get_is_arcade_wad(filepath)
 
             tagdef      = (
-                wdata_dreamcast_def if is_dreamcast_wad else
-                wdata_arcade_def if is_arcade_wad else
-                wdata_def
+                wdata_def if not is_arcade_wad else
+                wdata_dreamcast_def if is_dreamcast else
+                wdata_arcade_def
                 )
             wdata_tag   = tagdef.build(filepath=filepath)
             realm = load_realm_from_wdata_tag(wdata_tag=wdata_tag)

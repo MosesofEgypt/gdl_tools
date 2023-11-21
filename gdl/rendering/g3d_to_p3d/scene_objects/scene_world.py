@@ -112,7 +112,7 @@ def generate_collision_grid_model(coll_grid):
 def load_scene_world_from_tags(
         *, worlds_tag, objects_tag, textures, anim_tag=None, level_data=None, 
         world_item_actors=(), world_item_objects=(), global_tex_anims=(),
-        flatten_static=True, flatten_static_tex_anims=True
+        flatten_static=True, flatten_static_tex_anims=True, is_dreamcast=False
         ):
     if world_item_actors is None:
         world_item_actors = {}
@@ -227,7 +227,8 @@ def load_scene_world_from_tags(
                 item_instance = item_instance,
                 scene_item_infos = scene_item_infos,
                 world_item_actors = world_item_actors,
-                world_item_objects = world_item_objects
+                world_item_objects = world_item_objects,
+                is_dreamcast = is_dreamcast,
                 )
             scene_world.attach_scene_item(scene_item)
             if scene_item_infos[item_instance.item_index].snap_to_grid:

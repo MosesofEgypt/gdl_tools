@@ -72,8 +72,8 @@ def load_scene_item_infos_from_worlds_tag(worlds_tag, level_data=None):
 
 def load_scene_item_from_item_instance(
         *, worlds_tag, objects_tag, textures, level_data,
-        item_instance, scene_item_infos,
-        world_item_actors, world_item_objects, global_tex_anims
+        item_instance, scene_item_infos, world_item_actors,
+        world_item_objects, global_tex_anims, is_dreamcast=False
         ):
     instance_name = item_instance.name.upper().strip()
 
@@ -82,6 +82,9 @@ def load_scene_item_from_item_instance(
 
     x, z, y = item_instance.pos
     p, h, r = item_instance.rot
+    if is_dreamcast:
+        h = -h
+
     scene_item = scene_item_info.create_instance(
         name = instance_name,
         min_players = item_instance.min_players,

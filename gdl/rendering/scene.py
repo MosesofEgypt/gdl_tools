@@ -13,7 +13,7 @@ from panda3d.core import AmbientLight, DirectionalLight, PointLight,\
 from . import free_camera
 from .assets.scene_objects import scene_actor, scene_object, scene_world
 from .g3d_to_p3d.util import load_objects_dir_files, locate_objects_dir_files,\
-     load_realm_data, locate_dir
+     load_realm_data, locate_dir, locate_file
 from .g3d_to_p3d.scene_objects.scene_actor import load_scene_actor_from_tags
 from .g3d_to_p3d.scene_objects.scene_object import load_scene_object_from_tags
 from .g3d_to_p3d.scene_objects.scene_world import load_scene_world_from_tags
@@ -368,10 +368,14 @@ class Scene(ShowBase):
 
         return dict(self._cached_resource_texture_anims.get(set_name, {}))
 
-    def get_realm_level(self, dirpath, level_name, recache=False):
+    def get_realm_level(self, dirpath, level_name,
+                        is_dreamcast=False, recache=False):
         level_name = level_name.upper().strip()
         realm_name = level_name.rstrip("0123456789") # HAAAAAACK
-        realm      = self.get_realm(dirpath, realm_name, recache=recache)
+        realm      = self.get_realm(
+            dirpath, realm_name,
+            is_dreamcast=is_dreamcast, recache=recache
+            )
         if not realm:
             return None
 
@@ -379,10 +383,11 @@ class Scene(ShowBase):
             if "LEVEL" + level.name == level_name:
                 return level
 
-    def get_realm(self, dirpath, realm_name, recache=False):
+    def get_realm(self, dirpath, realm_name,
+                  is_dreamcast=False, recache=False):
         realm_name = realm_name.upper().strip()
         if realm_name not in self._realm_data or recache:
-            realm_datas = load_realm_data(dirpath, realm_name)
+            realm_datas = load_realm_data(dirpath, realm_name, is_dreamcast)
             self._realm_data[realm_name] = realm_datas.get(realm_name)
 
         return self._realm_data[realm_name]
@@ -540,12 +545,16 @@ class Scene(ShowBase):
         realm_name      = level_name.rstrip("0123456789")
 
         worlddata_dir = locate_dir(game_root_dir, "WDATA")
+        is_dreamcast  = False
         if not worlddata_dir:
             # arcade and dreamcast folder name
             worlddata_dir = locate_dir(game_root_dir, "WORLDDATA")
+            if locate_file(worlddata_dir, filename="TOWER.WAD"):
+                # NOTE: this is a bit of a hack, but it works, so eh?
+                is_dreamcast = True
 
         level_data = self.get_realm_level(
-            worlddata_dir, level_name
+            worlddata_dir, level_name, is_dreamcast=is_dreamcast
             )
 
         # locate the folder all the level and shared item dirs are in
@@ -611,6 +620,7 @@ class Scene(ShowBase):
             world_item_actors=world_item_actors,
             world_item_objects=world_item_objects,
             global_tex_anims=global_tex_anims,
+            is_dreamcast=is_dreamcast
             )
         self.add_scene_world(scene_world)
         if switch_display:
