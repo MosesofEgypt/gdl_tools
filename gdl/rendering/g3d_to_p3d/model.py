@@ -60,8 +60,8 @@ def load_geometries_from_g3d_model(
     for uv in g3d_model.uvs:
         uvsAddData(uv[0], 1.0 - uv[1])
 
-    for s, t in g3d_model.lm_uvs:
-        lmuvsAddData(s, 1.0 - t)
+    for st in g3d_model.lm_uvs:
+        lmuvsAddData(st[0], 1.0 - st[1])
 
     geometries = {}
     for idx_key in g3d_model.tri_lists:

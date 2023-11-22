@@ -75,11 +75,15 @@ class Scene(ShowBase):
         self.enableParticles()
 
         # put lighting on the main scene
-        self._ambient_light = AmbientLight('alight')
+        self._ambient_light     = AmbientLight('alight')
+        self._directional_light = DirectionalLight('alight')
         self._ambient_light.setColor((1, 1, 1, 1))
-        render.setLight(render.attachNewNode(self._ambient_light))
+        self._directional_light.setColor((0, 0, 0, 0))
 
         object_camera_parent = NodePath(PandaNode("object_camera_node"))
+
+        render.setLight(render.attachNewNode(self._ambient_light))
+        render.setLight(self.camera.parent.attachNewNode(self._directional_light))
 
         # world camera can start in world center
         self._world_camera_pos = self.camera.getPos()
@@ -144,6 +148,14 @@ class Scene(ShowBase):
     def active_object(self):
         return self._scene_objects.get(self.curr_object_set_name, {})\
                .get(self.curr_object_name)
+
+    def toggleTexture(self):
+        super().toggleTexture()
+        amb_level = 1.0 if self.textureEnabled else 0.5
+        dir_level = 0.0 if self.textureEnabled else 0.5
+
+        self._ambient_light.setColor((amb_level, amb_level, amb_level, 1.0))
+        self._directional_light.setColor((dir_level, dir_level, dir_level, 1.0))
 
     def get_fov(self):
         return self.camNode.getLens(0).fov.getX()

@@ -82,7 +82,7 @@ def load_realm_data(wdata_dir, realm_name="", is_dreamcast=False):
             elif realm_name and realm_name != realm.name:
                 continue
             elif realm.name in realms:
-                print("Warning: Duplicate realm of name '{realm.name}' found. Skipping.")
+                print(f"Warning: Duplicate realm of name '{realm.name}' found. Skipping.")
                 continue
             else:
                 realms[realm.name] = realm

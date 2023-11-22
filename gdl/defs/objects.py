@@ -288,16 +288,10 @@ v0_lod_fifo_data = QStruct("lod_fifo_data",
 
 v0_raw_lod_data = QStruct("raw_lod_data",
     SInt32("vert_count"),
-    # XYZ floats, followed by UV floats, and unknown sint16 pair
-    # uv coords are 0-256 range floats(divide by 256 to get 0-1)
     SInt32("verts_pointer"),
     SInt32("tri_count"),
-    # set of 3 uint16 for vert/norm indices, followed by the texture index
-    # index packed into the lower 14 bits of a uint16, with the upper 2
-    # serving to indicate whether the triangle is connected in a strip
     SInt32("tris_pointer"),
     SInt32("id_num"),
-    # IJK floats (count is equal to vert_count)
     SInt32("norms_pointer", DEFAULT=-1),
     SIZE=24,
     )
@@ -376,31 +370,47 @@ v1_lod_block = Struct("lod",
     SIZE=32
     )
 
-
-v0_comp_raw_model_data = Container("model_data",
+v0_raw_model_data = Container("model_data",
+    # XYZ floats, followed by a UVW float triplet
+    # (divide by 256 to properly scale UV pair)
     BytesRaw("vert_data",
-        SIZE=v0_comp_verts_size,
+        SIZE=v0_raw_verts_size,
         POINTER="..lods.[0].data.verts_pointer"
         ),
+    # set of 3 uint16 for vert/norm indices, followed by the texture index
+    # index packed into the lower 14 bits of a uint16, with the upper 2
+    # serving to indicate whether the triangle is connected in a strip
     BytesRaw("tri_data",
         SIZE=v0_raw_tris_size,
         POINTER="..lods.[0].data.tris_pointer"
         ),
+    # IJK floats (count is equal to vert_count)
     BytesRaw("norm_data",
         SIZE=v0_raw_norms_size,
         POINTER=v0_raw_norms_pointer
         ),
     )
 
-v0_raw_model_data = Container("model_data",
+v0_comp_raw_model_data = Container("model_data",
+    # vert_data is a stream format consisting of 6-byte chunks. the first
+    # chunk is always sentinel/shade/uv data, followed by a position data
+    # chunk to go with it. this pattern resets(uv followed by pos) if the
+    # sentinel does not increment on the next uv read. until it does though,
+    # each uv reuses the most recently parsed position chunk.
+    # uv chunk consists of a uint8 sentinel, followed by an sint8 for how
+    # light/dark to shade the vert, followed by an sint16 UV pair(divide
+    # by 1024 to properly scale values). the position data chunk is just
+    # an sint16 triplet(divide by 256 to properly scale values).
     BytesRaw("vert_data",
-        SIZE=v0_raw_verts_size,
+        SIZE=v0_comp_verts_size,
         POINTER="..lods.[0].data.verts_pointer"
         ),
+    # same as v0_raw_model_data.tri_data
     BytesRaw("tri_data",
         SIZE=v0_raw_tris_size,
         POINTER="..lods.[0].data.tris_pointer"
         ),
+    # i don't think this is possible, but w/e
     BytesRaw("norm_data",
         SIZE=v0_raw_norms_size,
         POINTER=v0_raw_norms_pointer
@@ -408,10 +418,14 @@ v0_raw_model_data = Container("model_data",
     )
 
 v0_raw_lm_model_data = Container("model_data",
+    # XYZ floats, followed by sint16 UV pair, then an sint16 lm UV
+    # pair, followed by an IJK_555 normal packed into lowest 15 bits
+    # of the next uint16(divide by 256 to properly scale both UV pairs).
     BytesRaw("vert_data",
         SIZE=v0_raw_verts_size,
         POINTER="..lods.[0].data.verts_pointer"
         ),
+    # same as v0_raw_model_data.tri_data
     BytesRaw("tri_data",
         SIZE=v0_raw_tris_size,
         POINTER="..lods.[0].data.tris_pointer"

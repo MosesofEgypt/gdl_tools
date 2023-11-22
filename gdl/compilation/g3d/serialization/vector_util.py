@@ -61,3 +61,24 @@ def point_inside_2d_triangle(p, v0, v1, v2):
     dx_21 = v2[0] - v1[0]
     dy_21 = v2[1] - v1[1]
     return (dx_21*dy_p1 > dy_21*dx_p1) == sign
+
+
+def unpack_norm_1555(norm_1555):
+    xn  = (norm_1555&31)/15 - 1
+    yn  = ((norm_1555>>5)&31)/15 - 1
+    zn  = ((norm_1555>>10)&31)/15 - 1
+    inv_mag = 1/(sqrt(xn*xn + yn*yn + zn*zn) + 0.0000001)
+    return (xn*inv_mag, yn*inv_mag, zn*inv_mag)
+
+
+def unpack_color_1555(color_1555):
+    return (
+        (color_1555&31)/31,        # red
+        ((color_1555>>5)&31)/31,   # green
+        ((color_1555>>10)&31)/31,  # blue
+        ((color_1555>>15)&1)*1.0,  # alpha(always set?)
+        )
+
+NORM_1555_UNPACK_TABLE = tuple(map(unpack_norm_1555, range(0x8000)))
+NORM_1555_UNPACK_TABLE += NORM_1555_UNPACK_TABLE  # double length for full 16bit range
+COLOR_1555_UNPACK_TABLE = tuple(map(unpack_color_1555, range(0x10000)))

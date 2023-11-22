@@ -4,6 +4,7 @@ import struct
 
 from sys import byteorder
 from . import constants as c
+from . import vector_util
 
 
 COMP_POS_SCALE   = 256
@@ -14,18 +15,22 @@ def import_raw_to_g3d(model_cache, start_vert=0):
     # slight speedup to cache these
     pos_scale   = 1/COMP_POS_SCALE
     uv_scale    = 1/COMP_UV_SCALE
+    shade_scale = 1/254
 
     bnd_rad_square  = 0.0
     tri_lists       = {}
     verts, norms    = [], []
     uvs,   lm_uvs   = [], []
+    colors          = []
 
     lm_name = model_cache.lightmap_name.upper()
-    vdata_int16 = array.array("h", model_cache.verts_rawdata)
-    tdata_int16 = array.array("H", model_cache.tris_rawdata)
-    ndata_float = array.array("f", model_cache.norms_rawdata)
+    vdata_int16     = array.array("h", model_cache.verts_rawdata)
+    tdata_int16     = array.array("H", model_cache.tris_rawdata)
+    ndata_float     = array.array("f", model_cache.norms_rawdata)
+    vdata_uint16    = array.array("H", model_cache.verts_rawdata)
     if byteorder == ">":
         vdata_int16.byteswap()
+        vdata_uint16.byteswap()
         tdata_int16.byteswap()
         ndata_float.byteswap()
 
@@ -33,18 +38,16 @@ def import_raw_to_g3d(model_cache, start_vert=0):
         i = 0
         expect_pos      = False
         new_uvs         = []
+        new_colors      = []
         default_uv      = (0.0, 0.0)
         default_pos     = (0.0, 0.0, 0.0)
         stream_end      = len(vdata_int16) - 3
         pos             = default_pos
 
-        vdata_uint16    = array.array("H", model_cache.verts_rawdata)
-        if byteorder == ">":
-            vdata_uint16.byteswap()
-
         while len(verts) < model_cache.vert_count:
             if i > stream_end:
                 verts.extend([pos] * len(new_uvs))
+                colors.extend(new_colors)
                 uvs.extend(new_uvs)
 
                 remainder = model_cache.vert_count-len(verts)
@@ -64,17 +67,24 @@ def import_raw_to_g3d(model_cache, start_vert=0):
                     )
             else:
                 uv_index = vdata_uint16[i] & 0xFF
-                unknown  = vdata_uint16[i] >> 8
+                shade    = max(0.0, min(
+                    1.0, 0.5 + ((vdata_int16[i] >> 8)*shade_scale)
+                    ))
                 if uv_index == 0:
                     verts.extend([pos] * len(new_uvs))
+                    colors.extend(new_colors)
                     uvs.extend(new_uvs)
                     new_uvs     = []
+                    new_colors  = []
                     expect_pos  = True
 
                 new_uvs.append((
                     vdata_int16[i+1]*uv_scale,
                     vdata_int16[i+2]*uv_scale
                     ))
+                # instead of storing normals, there is an sint8 that
+                # represents the smoothing gradient at this vertex.
+                new_colors.append((shade, shade, shade, 1.0))
 
             i += 3
 
@@ -94,22 +104,24 @@ def import_raw_to_g3d(model_cache, start_vert=0):
                 for i in range(6, len(vdata_int16), 12)
                 ])
             lm_uvs.extend([
-                (vdata_int16[i]*uv_scale, vdata_int16[i+1]*uv_scale)
+                (vdata_int16[i]*uv_scale,
+                 vdata_int16[i+1]*uv_scale,
+                 vdata_int16[i+2]*uv_scale)
                 for i in range(8, len(vdata_int16), 12)
                 ])
-            # TODO: determine what is stored in the last 4 bytes
-            #       of the vertex data. maybe normals are stored
-            #       as a compressed ijk_11_11_10 triple?
+            norms.extend([
+                vector_util.NORM_1555_UNPACK_TABLE[i]
+                for i in vdata_int16[11::12]
+                ])
         else:
             uvs.extend([
-                (vdata_float[i], vdata_float[i+1])
+                (vdata_float[i], vdata_float[i+1], vdata_float[i+2])
                 for i in range(3, len(vdata_float), 6)
                 ])
-
-    norms.extend([
-        tuple(ndata_float[i:i+3])
-        for i in range(0, len(ndata_float), 3)
-        ])
+            norms.extend([
+                tuple(ndata_float[i:i+3])
+                for i in range(0, len(ndata_float), 3)
+                ])
 
     if verts:
         bnd_rad_square = max(x**2 + y**2 + z**2 for x, y, z in verts)
@@ -154,6 +166,7 @@ def import_raw_to_g3d(model_cache, start_vert=0):
         tri_lists = tri_lists,
         verts = verts,
         norms = norms,
+        colors = colors,
         uvs = uvs,
         lm_uvs = lm_uvs,
         bounding_radius = math.sqrt(bnd_rad_square)

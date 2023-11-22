@@ -370,6 +370,7 @@ class G3DModel():
 
             self.verts.extend(parsed_data["verts"])
             self.norms.extend(parsed_data["norms"])
+            self.colors.extend(parsed_data["colors"])
             self.uvs.extend(parsed_data["uvs"])
             self.lm_uvs.extend(parsed_data["lm_uvs"])
 

@@ -7,6 +7,7 @@ from math import sqrt
 
 from . import constants as c
 from .. import util
+from . import vector_util
 
 OBJECT_HEADER_STRUCT = struct.Struct('<fIIII 12x 16s')
 #   bounding_radius
@@ -77,25 +78,6 @@ STREAM_DATA_STRUCTS = {
     (DATA_TYPE_UV,    STORAGE_TYPE_UINT16_LMUV)      : struct.Struct('<HHHH'),
     (DATA_TYPE_UV,    STORAGE_TYPE_UNKNOWN)          : struct.Struct('<'),
     }
-
-def unpack_norm_1555(norm_1555):
-    xn  = (norm_1555&31)/15 - 1
-    yn  = ((norm_1555>>5)&31)/15 - 1
-    zn  = ((norm_1555>>10)&31)/15 - 1
-    inv_mag = 1/(sqrt(xn*xn + yn*yn + zn*zn) + 0.0000001)
-    return (xn*inv_mag, yn*inv_mag, zn*inv_mag)
-
-def unpack_color_1555(color_1555):
-    return (
-        (color_1555&31)/31,        # red
-        ((color_1555>>5)&31)/31,   # green
-        ((color_1555>>10)&31)/31,  # blue
-        ((color_1555>>15)&1)*1.0,  # alpha(always set?)
-        )
-
-NORM_1555_UNPACK_TABLE = tuple(map(unpack_norm_1555, range(0x8000)))
-NORM_1555_UNPACK_TABLE += NORM_1555_UNPACK_TABLE  # double length for full 16bit range
-COLOR_1555_UNPACK_TABLE = tuple(map(unpack_color_1555, range(0x10000)))
 
 
 def pack_g3d_stream_header(buffer, d_type, s_type, flags=0, count=0):
@@ -217,7 +199,7 @@ def import_vif_to_g3d(input_buffer, start_vert=0, stream_len=-1):
 
         elif data_type == DATA_TYPE_NORM:
             dont_draw = [n >= 0x8000 for n in data]
-            norms.extend(map(NORM_1555_UNPACK_TABLE.__getitem__, data))
+            norms.extend(map(vector_util.NORM_1555_UNPACK_TABLE.__getitem__, data))
 
             # make sure the first 2 are removed since they
             # are always 1 and triangle strips are always
@@ -225,7 +207,7 @@ def import_vif_to_g3d(input_buffer, start_vert=0, stream_len=-1):
             faces_drawn[-1].extend(dont_draw[2:])
 
         elif data_type == DATA_TYPE_COLOR:
-            colors.extend(map(COLOR_1555_UNPACK_TABLE.__getitem__, data))
+            colors.extend(map(vector_util.COLOR_1555_UNPACK_TABLE.__getitem__, data))
 
         elif data_type == DATA_TYPE_UV:
             # 8/16/32 bit uv coordinates, or
