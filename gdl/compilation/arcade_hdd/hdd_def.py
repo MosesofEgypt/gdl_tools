@@ -130,7 +130,7 @@ hdd_blocks = (
         )
     )
 
-hdd_def = BlockDef("hdd", *hdd_blocks, endian="<")
+hdd_def = BlockDef("arcade_hdd", *hdd_blocks, endian="<")
 
 dir_entry_list_def = BlockDef("dir_entry_list",
     dir_entry_list,

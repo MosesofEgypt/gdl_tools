@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import os
 import pathlib
 import tkinter.filedialog
 import tkinter as tk
@@ -7,9 +8,11 @@ import zlib
 
 from tkinter import *
 from traceback import format_exc
+from ..compilation import dc_rom_compiler
 from ..compilation import ps2_wad_compiler
 from ..compilation import arcade_hdd_compiler
 from ..compilation.ps2_wad.util import is_ps2_wadbin
+from ..compilation.dc_rom.util import is_dc_sizes_rom
 from ..compilation.arcade_hdd.util import is_arcade_hdd, is_arcade_chd
 
 COMP_LEVEL_NONE = "0 (No compression)"
@@ -42,7 +45,7 @@ class GdlArchiveTool(Tk):
     def __init__(self, **options):
         Tk.__init__(self, **options)
         
-        self.title("GDL Archive Tool V1.1.0")
+        self.title("GDL Archive Tool V1.2.0")
         self.minsize(600, 250)
         self.resizable(1, 0)
 
@@ -56,8 +59,8 @@ class GdlArchiveTool(Tk):
         self.use_compression_names   = BooleanVar(self, True)
         self.overwrite               = BooleanVar(self, False)
 
-        self.target_filepath_frame = LabelFrame(self, text="HDD/WAD.BIN filepath")
-        self.target_dirpath_frame  = LabelFrame(self, text="HDD/WAD.BIN directory")
+        self.target_filepath_frame = LabelFrame(self, text="HDD/WAD.BIN or SIZES.ROM filepath")
+        self.target_dirpath_frame  = LabelFrame(self, text="Directory to compile from/decompile to")
         self.compile_frame         = LabelFrame(self, text="")
         self.settings_frame        = LabelFrame(self, text="Settings")
 
@@ -68,15 +71,19 @@ class GdlArchiveTool(Tk):
 
         # Add the buttons
         self.btn_compile_wadbin = Button(
-            self.compile_frame, text="Compile WAD.BIN", width=20,
+            self.compile_frame, text="Compile PS2 WAD", width=20,
             command=lambda *a, **kw: self._compile(make_wadbin=True)
             )
+        self.btn_compile_dc_rom = Button(
+            self.compile_frame, text="Compile Dreamcast ROM", width=20,
+            command=lambda *a, **kw: self._compile(make_rom=True)
+            )
         self.btn_compile_hdd = Button(
-            self.compile_frame, text="Compile HDD", width=20,
-            command=lambda *a, **kw: self._compile(make_wadbin=False)
+            self.compile_frame, text="Compile Arcade HDD", width=20,
+            command=lambda *a, **kw: self._compile(make_hdd=True)
             )
         self.btn_decompile = Button(
-            self.compile_frame, text="Decompile HDD/WAD.BIN", width=20,
+            self.compile_frame, text="Decompile archive", width=20,
             command=lambda *a, **kw: self._decompile()
             )
 
@@ -89,20 +96,20 @@ class GdlArchiveTool(Tk):
             variable=self.overwrite, onvalue=1, offvalue=0
             )
         self.use_internal_names_button = Checkbutton(
-            self.settings_frame, text='Use filenames built into WAD.BIN',
+            self.settings_frame, text='Use filenames built into PS2 WAD',
             variable=self.use_internal_names, onvalue=1, offvalue=0
             )
         self.use_compression_names_button = Checkbutton(
-            self.settings_frame, text='Use WAD.BIN file compress list',
+            self.settings_frame, text='Use PS2 WAD file compress list',
             variable=self.use_compression_names, onvalue=1, offvalue=0
             )
 
-        self.compress_level_label = Label(self.settings_frame, text="WAD.BIN compression level")
+        self.compress_level_label = Label(self.settings_frame, text="PS2 compression level")
         self.compress_level_menu = OptionMenu(
             self.settings_frame, self.compression_level, *sorted(COMPRESSION_LEVELS.keys())
             )
 
-        self.hdd_disc_select_label = Label(self.settings_frame, text="HDD disc select")
+        self.hdd_disc_select_label = Label(self.settings_frame, text="Arcade disc select")
         self.hdd_disc_select_menu = OptionMenu(
             self.settings_frame, self.hdd_disc_select, *sorted(HDD_DISC_SELECT.keys())
             )
@@ -127,8 +134,9 @@ class GdlArchiveTool(Tk):
         self.target_filepath_field.grid(row=0, column=0, sticky="we", padx=5, pady=5)
 
         self.btn_compile_wadbin.grid(row=1, column=0, sticky="we", padx=5, pady=5)
-        self.btn_compile_hdd.grid(row=1, column=1, sticky="we", padx=5, pady=5)
-        self.btn_decompile.grid(row=1, column=2, sticky="we", padx=5, pady=5)
+        self.btn_compile_dc_rom.grid(row=1, column=1, sticky="we", padx=5, pady=5)
+        self.btn_compile_hdd.grid(row=1, column=2, sticky="we", padx=5, pady=5)
+        self.btn_decompile.grid(row=2, column=0, sticky="we", padx=5, pady=5, columnspan=3)
 
         # grid the settings
         y = 0
@@ -157,6 +165,15 @@ class GdlArchiveTool(Tk):
             )
         return ps2_wad_compiler.Ps2WadCompiler(**kwargs)
 
+    def get_dc_rom_compiler(self, **kwargs):
+        kwargs.update(
+            dirpath = self.target_dirpath.get(),
+            sizes_filepath = self.target_filepath.get(),
+            overwrite = self.overwrite.get(),
+            parallel_processing = self.use_parallel_processing.get(),
+            )
+        return dc_rom_compiler.DcRomCompiler(**kwargs)
+
     def get_arcade_compiler(self, **kwargs):
         kwargs.update(
             hdd_dirpath = self.target_dirpath.get(),
@@ -172,11 +189,18 @@ class GdlArchiveTool(Tk):
             self.curr_dir = folderpath.replace('/','\\')
             self.target_dirpath.set(self.curr_dir)
 
-    def _compile(self, make_wadbin=None):
-        target = "WAD.BIN" if make_wadbin else "HDD"
-
+    def _compile(self, make_wadbin=False, make_hdd=False, make_rom=False):
+        target = (
+            "WAD.BIN"   if make_wadbin else
+            "SIZES.ROM" if make_rom    else
+            "HDD"       if make_hdd    else
+            ""
+            )
         if not make_wadbin:
-            print("Error: Compiling arcade HDD is not supported yet.")
+            if make_hdd:
+                print("Error: Compiling Arcade HDD is not supported yet.")
+            elif make_rom:
+                print("Error: Compiling Dreamcast ROM is not supported yet.")
             return
 
         target_dirpath = self.target_dirpath.get()
@@ -198,7 +222,10 @@ class GdlArchiveTool(Tk):
                 initialdir=self.curr_dir,
                 title=f"Select the file to save the {target} to",
                 filetypes=[
-                    (("PS2 WAD.BIN", "*.BIN") if make_wadbin else ("Arcade HDD", "*")),
+                    (("PS2 WAD.BIN", "*.BIN")           if make_wadbin else
+                     ("Dreamcast SIZES.ROM", "*.ROM")   if make_rom else
+                     ("Arcade HDD", "*")
+                     ),
                     ("all files", "*")
                     ],
                 defaultextension=".BIN"
@@ -206,6 +233,13 @@ class GdlArchiveTool(Tk):
 
         if not target_filepath:
             return
+
+        if make_rom:
+            target_filepath = pathlib.Path(target_filepath)
+            if target_filepath.name.lower() == "disk.rom":
+                target_filepath = target_filepath.with_name("SIZES.ROM")
+
+            target_filepath = target_filepath.as_posix()
 
         self.target_filepath.set(target_filepath)
         self.curr_dir = str(pathlib.Path(target_filepath).parent)
@@ -215,6 +249,8 @@ class GdlArchiveTool(Tk):
             print('Compiling...')
             if make_wadbin:
                 compiler = self.get_ps2_compiler()
+            elif make_rom:
+                compiler = self.get_dc_rom_compiler()
             else:
                 compiler = self.get_arcade_compiler()
 
@@ -229,21 +265,36 @@ class GdlArchiveTool(Tk):
         if not target_filepath:
             target_filepath = tkinter.filedialog.askopenfilename(
                 initialdir=self.curr_dir,
-                title="Select the HDD/WAD.BIN to decompile",
+                title="Select the WAD/HDD/ROM archive to decompile",
                 filetypes=[("all files", "*")]
                 )
 
         if not target_filepath:
             return
 
-        is_wadbin = False
+        target_filepath = pathlib.Path(target_filepath)
+        if target_filepath.name.lower() == "disk.rom":
+            for root, _, files in os.walk(target_filepath.parent):
+                for filename in files:
+                    if filename.lower() == "sizes.rom":
+                        target_filepath = target_filepath.with_name(filename)
+                        break
+                break
+
+        target_filepath = target_filepath.as_posix()
+
+        is_wadbin = is_sizes_rom = is_hdd = False
         if is_ps2_wadbin(target_filepath):
             is_wadbin = True
         elif is_arcade_chd(target_filepath):
             print(f"Error: CHD must first be decompressed to a raw HDD with chdman.")
             return
-        elif not is_arcade_hdd(target_filepath):
-            print(f"Error: The file does not appear to be an arcade HDD or PS2 WAD.BIN.")
+        elif is_arcade_hdd(target_filepath):
+            is_hdd = True
+        elif is_dc_sizes_rom(target_filepath):
+            is_sizes_rom = True
+        else:
+            print(f"Error: The file does not appear to be an Arcade HDD, PS2 WAD, or Dreamcast ROM.")
             return
 
         self.target_filepath.set(target_filepath)
@@ -253,7 +304,7 @@ class GdlArchiveTool(Tk):
         if not target_dirpath:
             target_dirpath = tkinter.filedialog.askdirectory(
                 initialdir=self.curr_dir,
-                title="Select the folder to extract the HDD/WAD.BIN files to"
+                title="Select the folder to extract the files to"
                 )
 
         if not target_dirpath:
@@ -267,6 +318,8 @@ class GdlArchiveTool(Tk):
             print('Decompiling...')
             if is_wadbin:
                 decompiler = self.get_ps2_compiler()
+            elif is_sizes_rom:
+                decompiler = self.get_dc_rom_compiler()
             else:
                 decompiler = self.get_arcade_compiler()
                 decompiler.load_hdd()

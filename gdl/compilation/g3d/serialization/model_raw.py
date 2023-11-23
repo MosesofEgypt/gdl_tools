@@ -9,13 +9,14 @@ from . import vector_util
 
 COMP_POS_SCALE   = 256
 COMP_UV_SCALE    = 1024
+COMP_SHADE_SCALE = 254
 
 
 def import_raw_to_g3d(model_cache, start_vert=0):
     # slight speedup to cache these
     pos_scale   = 1/COMP_POS_SCALE
     uv_scale    = 1/COMP_UV_SCALE
-    shade_scale = 1/254
+    shade_scale = 1/COMP_SHADE_SCALE
 
     bnd_rad_square  = 0.0
     tri_lists       = {}

@@ -58,6 +58,7 @@ def locate_file(search_root, *folder_names, filename=None):
 
 
 def load_realm_data(wdata_dir, realm_name="", is_dreamcast=False):
+    main_realms = {}
     realms = {}
     realm_name = realm_name.upper().strip()
 
@@ -77,17 +78,19 @@ def load_realm_data(wdata_dir, realm_name="", is_dreamcast=False):
                 )
             wdata_tag   = tagdef.build(filepath=filepath)
             realm = load_realm_from_wdata_tag(wdata_tag=wdata_tag)
+            realms_dict = realms if realm.type == "TEST" else main_realms
             if not realm:
                 continue
             elif realm_name and realm_name != realm.name:
                 continue
-            elif realm.name in realms:
+            elif realm.name in realms_dict:
                 print(f"Warning: Duplicate realm of name '{realm.name}' found. Skipping.")
                 continue
             else:
-                realms[realm.name] = realm
+                realms_dict[realm.name] = realm
         break
 
+    realms.update(main_realms)
     return realms
 
 

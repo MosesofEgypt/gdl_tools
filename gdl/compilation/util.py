@@ -27,7 +27,7 @@ def locate_assets(data_dir, extensions):
 
 
 def locate_target_platform_files(
-        dir, want_arcade=False, want_ps2=False
+        dir, want_arcade=False, want_ps2=False, want_dreamcast=False
         ):
     # TODO: update this to be able to locate ngc and xbox files
     filepaths = []
@@ -36,7 +36,14 @@ def locate_target_platform_files(
             filepath = pathlib.Path(root, filename)
             ext      = filepath.suffix.lower().lstrip(".")
 
-            is_arcade = is_ps2 = True
+            is_arcade = is_ps2 = is_dreamcast = True
+
+            if ext not in constants.DC_ROMDISK_FILE_EXTENSIONS:
+                is_dreamcast = False
+            elif ext == "wad" and get_is_arcade_wad(filepath):
+                is_dreamcast = False
+            elif ext == "rom" and get_is_arcade_rom(filepath):
+                is_dreamcast = False
 
             if ext not in constants.PS2_WAD_FILE_EXTENSIONS:
                 is_ps2 = False
@@ -52,8 +59,9 @@ def locate_target_platform_files(
             elif ext == "rom" and is_ps2:
                 is_arcade = False
 
-            if ((is_arcade and want_arcade) or
-                (is_ps2    and want_ps2)):
+            if ((is_dreamcast   and want_dreamcast) or
+                (is_arcade      and want_arcade) or
+                (is_ps2         and want_ps2)):
                 filepaths.append(filepath)
 
     return filepaths
