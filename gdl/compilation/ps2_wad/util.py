@@ -64,10 +64,6 @@ def is_compressible(filename):
     return True
 
 
-def locate_ps2_wad_files(wad_dir):
-    return locate_target_platform_files(wad_dir, want_ps2=True)
-
-
 def read_names_list(input_data):
     if isinstance(input_data, str):
         input_data = input_data.splitlines()

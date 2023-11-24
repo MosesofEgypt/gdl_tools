@@ -17,9 +17,6 @@ def compile_animation(kwargs):
     g3d_animation = G3DAnimation()
     asset_type    = os.path.splitext(asset_filepath)[-1].strip(".")
 
-    #if asset_type == "dae":
-    #    g3d_animation.import_collada(asset_filepath)
-    #else:
     raise NotImplementedError(f"Unknown asset type '{asset_type}'")
 
     animation_cache = g3d_animation.compile_g3d(cache_type)

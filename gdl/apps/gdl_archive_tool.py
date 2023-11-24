@@ -196,11 +196,8 @@ class GdlArchiveTool(Tk):
             "HDD"       if make_hdd    else
             ""
             )
-        if not make_wadbin:
-            if make_hdd:
-                print("Error: Compiling Arcade HDD is not supported yet.")
-            elif make_rom:
-                print("Error: Compiling Dreamcast ROM is not supported yet.")
+        if make_hdd:
+            print("Error: Compiling Arcade HDD is not supported yet.")
             return
 
         target_dirpath = self.target_dirpath.get()

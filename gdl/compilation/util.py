@@ -40,24 +40,24 @@ def locate_target_platform_files(
 
             if ext not in constants.DC_ROMDISK_FILE_EXTENSIONS:
                 is_dreamcast = False
-            elif ext == "wad" and get_is_arcade_wad(filepath):
+            elif ext == "wad" and not get_is_dreamcast_wad(filepath):
                 is_dreamcast = False
-            elif ext == "rom" and get_is_arcade_rom(filepath):
+            elif ext == "rom" and not get_is_dreamcast_rom(filepath):
                 is_dreamcast = False
-
-            if ext not in constants.PS2_WAD_FILE_EXTENSIONS:
-                is_ps2 = False
-            elif ext == "wad" and get_is_arcade_wad(filepath):
-                is_ps2 = False
-            elif ext == "rom" and get_is_arcade_rom(filepath):
-                is_ps2 = False
 
             if ext not in constants.ARC_HDD_FILE_EXTENSIONS:
                 is_arcade = False
-            elif ext == "wad" and is_ps2:
+            elif ext == "wad" and not get_is_arcade_wad(filepath):
                 is_arcade = False
-            elif ext == "rom" and is_ps2:
+            elif ext == "rom" and not get_is_arcade_rom(filepath):
                 is_arcade = False
+
+            if ext not in constants.PS2_WAD_FILE_EXTENSIONS:
+                is_ps2 = False
+            elif ext == "wad" and (is_dreamcast or is_arcade):
+                is_ps2 = False
+            elif ext == "rom" and (is_dreamcast or is_arcade):
+                is_ps2 = False
 
             if ((is_dreamcast   and want_dreamcast) or
                 (is_arcade      and want_arcade) or

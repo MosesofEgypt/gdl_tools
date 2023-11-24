@@ -3,6 +3,7 @@ import pathlib
 import tempfile
 
 from traceback import format_exc
+from .dc_rom import constants as c
 from .dc_rom import util
 
 
@@ -17,16 +18,26 @@ def _extract_files(kwargs):
             filename = header["filename"]
             filepath = dirpath.joinpath(filename)
             try:
-                if header["offset"] < 0 or (not kwargs["overwrite"] and filepath.is_file()):
+                in_archive = header["offset"] >= 0
+                if in_archive:
+                    if not kwargs["to_disk"]:
+                        print(f"Reading file: {filename}")
+                    elif kwargs["overwrite"] or not filepath.is_file():
+                        print(f"Extracting file: {filename}")
+                    else:
+                        continue
+                elif kwargs["to_disk"] and not filepath.is_file():
+                    print(f"Creating fake file: {filename}")
+                else:
                     continue
 
-                if kwargs["to_disk"]:
-                    print(f"Extracting file: {filename}")
+                if in_archive:
+                    fin.seek(header["offset"])
+                    data = fin.read(header["size"])
                 else:
-                    print(f"Reading file: {filename}")
-
-                fin.seek(header["offset"])
-                data = fin.read(header["size"])
+                    # NOTE: we create a fake file if it doesn't exist so the rebuilt
+                    #       SIZES.ROM has the correct sizes for ALL non-archive files
+                    data = b'\x00' * header["size"]
 
                 if kwargs["to_disk"]:
                     filepath.parent.mkdir(parents=True, exist_ok=True)
@@ -43,7 +54,51 @@ def _extract_files(kwargs):
 
 
 def _compile_rom(kwargs):
-    raise NotImplementedError()
+    dirpath         = pathlib.Path(kwargs["dirpath"])
+    sizes_filepath  = pathlib.Path(kwargs["sizes_filepath"])
+    disk_filepath   = pathlib.Path(kwargs["disk_filepath"])
+    files_to_skip   = set(f.lower() for f in kwargs.get("files_to_not_include", ()))
+    file_headers    = kwargs["file_headers"]
+
+    print(f"Compiling {len(file_headers)} files into rom.")
+
+    disk_filepath.parent.mkdir(parents=True, exist_ok=True)
+    with disk_filepath.open("wb") as fout:
+        for header in file_headers:
+            filename  = header["filename"].as_posix()
+            skip_file = filename.lower() in files_to_skip
+            if skip_file:
+                print(f"Compiling header-only: %s" % filename)
+            else:
+                print(f"Compiling file: %s" % filename)
+
+            try:
+                # read the data, and update the sizes/path hash/pointer
+                filepath = pathlib.Path(dirpath, filename)
+                with filepath.open("rb") as fin:
+                    fin.seek(0, os.SEEK_END)
+                    header["size"] = fin.tell()
+
+                    if skip_file:
+                        header["offset"] = -1
+                        continue
+
+                    fin.seek(0)
+                    data = fin.read()
+
+                header["offset"] = fout.tell()
+
+                # write data and padding
+                fout.write(data)
+                fout.write(b'\x00' * util.calculate_padding(fout.tell(), c.DC_ROM_FILE_CHUNK_SIZE))
+            except Exception:
+                print(format_exc())
+                print("Failed to compile '%s'" % header["filepath"])
+
+    # write the headers after we've calculated all the offsets
+    sizes_filepath.parent.mkdir(parents=True, exist_ok=True)
+    with sizes_filepath.open("wb") as fout:
+        util.write_file_headers(file_headers, fout)
 
 
 class DcRomCompiler:
@@ -112,7 +167,9 @@ class DcRomCompiler:
         files_to_extract_by_size = {}
 
         for header in file_headers:
-            files_to_extract_by_size.setdefault(header["size"], []).append(header)
+            files_to_extract_by_size.setdefault(
+                header["size"] if header["offset"] > 0 else 0, []
+                ).append(header)
 
         files_sorted_by_size = []
         for size in sorted(files_to_extract_by_size):
@@ -135,4 +192,41 @@ class DcRomCompiler:
             )
 
     def compile(self):
-        raise NotImplementedError()
+        self.disk_filepath  = pathlib.Path(self.disk_filepath)
+        self.sizes_filepath = pathlib.Path(self.sizes_filepath)
+
+        if self.disk_filepath.name and self.sizes_filepath.name:
+            pass
+        elif self.sizes_filepath.name:
+            self.disk_filepath  = self.sizes_filepath.with_name("DISK.ROM")
+        elif self.disk_filepath.name:
+            self.sizes_filepath = self.disk_filepath.with_name("SIZES.ROM")
+        else:
+            self.disk_filepath  = pathlib.Path("DISK.ROM")
+            self.sizes_filepath = pathlib.Path("SIZES.ROM")
+
+        if not self.overwrite and (self.sizes_filepath.is_file() or
+                                   self.disk_filepath.is_file()):
+            return
+
+        file_headers  = [
+            dict(
+                filename=filepath.relative_to(self.dirpath),
+                size=0, offset=-1
+                )
+            for filepath in util.locate_target_platform_files(
+                self.dirpath, want_dreamcast=True
+                )
+            if not (str(filepath).upper().endswith("DISK.ROM") or
+                    str(filepath).upper().endswith("SIZES.ROM"))
+            ]
+        files_to_not_include = c.FILES_TO_EXCLUDE_FROM_ARCHIVE
+
+        job_args = dict(
+            file_headers=file_headers, dirpath=self.dirpath,
+            files_to_not_include=files_to_not_include,
+            sizes_filepath=self.sizes_filepath,
+            disk_filepath=self.disk_filepath
+            )
+
+        util.process_jobs(_compile_rom, [job_args], process_count=1)

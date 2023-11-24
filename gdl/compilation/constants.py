@@ -49,6 +49,14 @@ DC_ROMDISK_FILE_EXTENSIONS = (
     "fnt",
     "rom",
     "wad",
+    "bnk",
+    "str",
+    "bin",
+    "drv",
+    "da",
+    "m1v",
+    "pvr",
+    "txt",
     )
 PS2_WAD_FILE_EXTENSIONS = (
     "ads",

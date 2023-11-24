@@ -46,10 +46,6 @@ def is_dc_sizes_rom(filepath):
     return False
 
 
-def locate_dreamcast_rom_files(wad_dir):
-    return locate_target_platform_files(wad_dir, want_dreamcast=True)
-
-
 def read_file_headers(filepath):
     dc_rom = rom_def.dc_rom_def.build(filepath=filepath)
     rawdata = dc_rom.path_string_data
@@ -72,7 +68,7 @@ def read_file_headers(filepath):
     return file_headers
 
 
-def write_file_headers(file_headers):
+def write_file_headers(file_headers, output_buffer):
     dc_rom = rom_def.dc_rom_def.build()
     dc_rom_headers = dc_rom.file_headers
 
@@ -106,4 +102,4 @@ def write_file_headers(file_headers):
         path_string_offsets_inv[k].encode("latin-1")
         for k in sorted(path_string_offsets_inv)
         )
-    return dc_rom.serialize()
+    dc_rom.serialize(buffer=output_buffer)

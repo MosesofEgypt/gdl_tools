@@ -51,6 +51,9 @@ def get_is_arcade_wad(filepath):
     return is_arcade
 
 
+get_is_dreamcast_wad = get_is_arcade_wad
+
+
 def get_is_arcade_rom(filepath):
     name = pathlib.Path(filepath).stem.lower()
     if name in ("anim", "objects", "textures", "worlds",
@@ -61,6 +64,14 @@ def get_is_arcade_rom(filepath):
     elif len(name) == 6 and name.startswith("index"):
         return True
     return False
+
+
+def get_is_dreamcast_rom(filepath):
+    name = pathlib.Path(filepath).stem.lower()
+    if name == "texdef":
+        return True
+    return get_is_arcade_rom(filepath)
+
 
 def get_is_big_endian_texdef(filepath):
     with open(filepath, "rb") as f:

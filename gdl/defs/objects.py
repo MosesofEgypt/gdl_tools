@@ -339,7 +339,7 @@ v1_raw_lod_lm_data = QStruct("raw_lod_lm_data",
 
 
 v0_lod_block = Struct("lod",
-    UInt32("unknown"),
+    Pad(4),
     v0_object_flags,
     Switch("data",
         CASES={
@@ -355,7 +355,7 @@ v0_lod_block = Struct("lod",
     )
 
 v1_lod_block = Struct("lod",
-    UInt32("unknown"),
+    Pad(4),
     v0_object_flags,
     Switch("data",
         CASES={
@@ -444,7 +444,7 @@ v0_model_data = Switch("model_data",
 v0_object_block = Struct("object",
     Float("inv_rad"), # always 0?
     Float("bnd_rad"),
-    UInt32("unknown", DEFAULT=1, VISIBLE=False), # always 1
+    UInt32("one", DEFAULT=1, VISIBLE=False), # always 1
     # NOTE: I'm calling them lod's, but i have no idea what they actually are
     Array("lods", SUB_STRUCT=v0_lod_block, SIZE=4),
     STEPTREE=v0_model_data,
@@ -452,9 +452,9 @@ v0_object_block = Struct("object",
     )
 
 v1_object_block = Struct("object",
-    Float("inv_rad"), # always 0?
+    Float("inv_rad"), # always 0
     Float("bnd_rad"),
-    UInt32("unknown", DEFAULT=1, VISIBLE=False), # always 1
+    UInt32("one", DEFAULT=1, VISIBLE=False), # always 1
     # NOTE: I'm calling them lod's, but i have no idea what they actually are
     Array("lods", SUB_STRUCT=v1_lod_block, SIZE=4),
     STEPTREE=v0_model_data,
@@ -462,7 +462,7 @@ v1_object_block = Struct("object",
     )
 
 v4_object_block = Struct("object",
-    Float("inv_rad"),
+    Float("inv_rad"), # always 0
     Float("bnd_rad"),
     v4_object_flags, # always 0?
     SInt32('sub_objects_count', EDITABLE=False), # name is a guess. always 1?

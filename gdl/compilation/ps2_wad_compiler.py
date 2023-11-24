@@ -19,10 +19,10 @@ def _extract_files(kwargs):
             # this ensures slashes are correct regardless of platform.
             filename = pathlib.Path(pathlib.PureWindowsPath(header["filename"]))
             filepath = wad_dirpath.joinpath(filename)
-            if not kwargs["overwrite"] and filepath.is_file():
-                continue
 
             if kwargs["to_disk"]:
+                if not kwargs["overwrite"] and filepath.is_file():
+                    continue
                 print(f"Extracting file: {filename}")
             else:
                 print(f"Reading file: {filename}")
@@ -237,7 +237,9 @@ class Ps2WadCompiler:
             )
 
     def compile(self):
-        files_to_compile = list(util.locate_ps2_wad_files(self.wad_dirpath))
+        files_to_compile = list(util.locate_target_platform_files(
+            self.wad_dirpath, want_ps2=True
+            ))
         wad_filepath = pathlib.Path(self.wad_filepath)
 
         if not self.overwrite and wad_filepath.is_file():
