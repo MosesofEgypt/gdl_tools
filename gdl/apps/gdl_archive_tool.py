@@ -57,6 +57,7 @@ class GdlArchiveTool(Tk):
         self.use_parallel_processing = BooleanVar(self, True)
         self.use_internal_names      = BooleanVar(self, True)
         self.use_compression_names   = BooleanVar(self, True)
+        self.fake_dc_files           = BooleanVar(self, True)
         self.overwrite               = BooleanVar(self, False)
 
         self.target_filepath_frame = LabelFrame(self, text="HDD/WAD.BIN or SIZES.ROM filepath")
@@ -98,6 +99,10 @@ class GdlArchiveTool(Tk):
         self.use_internal_names_button = Checkbutton(
             self.settings_frame, text='Use filenames built into PS2 WAD',
             variable=self.use_internal_names, onvalue=1, offvalue=0
+            )
+        self.fake_dc_files_button = Checkbutton(
+            self.settings_frame, text='Extract fake files for Dreamcast',
+            variable=self.fake_dc_files, onvalue=1, offvalue=0
             )
         self.use_compression_names_button = Checkbutton(
             self.settings_frame, text='Use PS2 WAD file compress list',
@@ -142,9 +147,10 @@ class GdlArchiveTool(Tk):
         y = 0
         for lbl, menu, radio in (
                 (self.compress_level_label, self.compress_level_menu, self.use_internal_names_button),
-                (self.hdd_disc_select_label, self.hdd_disc_select_menu, self.parallel_processing_button),
-                (None, None, self.overwrite_button),
+                (self.hdd_disc_select_label, self.hdd_disc_select_menu, self.fake_dc_files_button),
                 #(None, None, self.use_compression_names_button),
+                (None, None, self.parallel_processing_button),
+                (None, None, self.overwrite_button),
             ):
             if lbl:
                 lbl.grid(row=y, column=0, sticky="we", padx=2, pady=5)
@@ -170,6 +176,7 @@ class GdlArchiveTool(Tk):
             dirpath = self.target_dirpath.get(),
             sizes_filepath = self.target_filepath.get(),
             overwrite = self.overwrite.get(),
+            create_fake_files = self.fake_dc_files.get(),
             parallel_processing = self.use_parallel_processing.get(),
             )
         return dc_rom_compiler.DcRomCompiler(**kwargs)

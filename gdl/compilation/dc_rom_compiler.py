@@ -9,9 +9,10 @@ from .dc_rom import util
 
 def _extract_files(kwargs):
     file_buffers = {}
-    dirpath         = pathlib.Path(kwargs["dirpath"])
-    sizes_filepath  = pathlib.Path(kwargs["sizes_filepath"])
-    disk_filepath   = pathlib.Path(kwargs["disk_filepath"])
+    dirpath             = pathlib.Path(kwargs["dirpath"])
+    sizes_filepath      = pathlib.Path(kwargs["sizes_filepath"])
+    disk_filepath       = pathlib.Path(kwargs["disk_filepath"])
+    create_fake_files   = kwargs["create_fake_files"]
 
     with disk_filepath.open("rb") as fin:
         for header in kwargs["file_headers"]:
@@ -26,7 +27,7 @@ def _extract_files(kwargs):
                         print(f"Extracting file: {filename}")
                     else:
                         continue
-                elif kwargs["to_disk"] and not filepath.is_file():
+                elif create_fake_files and kwargs["to_disk"] and not filepath.is_file():
                     print(f"Creating fake file: {filename}")
                 else:
                     continue
@@ -108,6 +109,7 @@ class DcRomCompiler:
 
     overwrite = False
     parallel_processing = True
+    create_fake_files = False
 
     file_headers     = ()
 
@@ -148,6 +150,7 @@ class DcRomCompiler:
             file_headers=file_headers, overwrite=self.overwrite, to_disk=False,
             sizes_filepath=self.sizes_filepath, dirpath=self.dirpath,
             disk_filepath=self.disk_filepath,
+            create_fake_files=self.create_fake_files,
             ))
 
     def extract_file(self, file_header):
@@ -180,6 +183,7 @@ class DcRomCompiler:
                 file_headers=[], overwrite=self.overwrite, to_disk=True,
                 sizes_filepath=self.sizes_filepath, dirpath=self.dirpath,
                 disk_filepath=self.disk_filepath,
+                create_fake_files=self.create_fake_files,
                 )
             for i in range(os.cpu_count() if self.parallel_processing else 1)
             ]
