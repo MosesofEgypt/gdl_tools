@@ -181,12 +181,21 @@ PIXEL_SIZES = {
     PIX_FMT_AP_88:8,
     }
 
+VALID_FORMATS = set(PIXEL_SIZES.keys())
+
 MONOCHROME_FORMATS = set(
     (PIX_FMT_A_4_IDX_4, PIX_FMT_I_4_IDX_4,
      PIX_FMT_A_8_IDX_8, PIX_FMT_I_8_IDX_8,
-     PIX_FMT_IA_8_IDX_88, PIX_FMT_A_8, PIX_FMT_I_8,
-     PIX_FMT_AI_44, PIX_FMT_AI_88)
+     PIX_FMT_A_8,       PIX_FMT_I_8)
     )
+
+DUALCHROME_FORMATS = set(
+    (PIX_FMT_IA_8_IDX_88, PIX_FMT_AI_44, PIX_FMT_AI_88)
+    )
+
+RGB_FORMATS = set(VALID_FORMATS)
+RGB_FORMATS.difference_update(MONOCHROME_FORMATS)
+RGB_FORMATS.difference_update(DUALCHROME_FORMATS)
 
 # these limits are based on limitations of the miptbp structure
 VALID_DIMS = set(1<<i for i in range(15))

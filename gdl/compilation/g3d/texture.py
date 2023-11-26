@@ -205,8 +205,8 @@ def import_textures(
                 tex_pointer += len(texture_data)
 
                 bitm.format.data = texture_cache.format_id
-                bitm.width  = texture_cache.width
-                bitm.height = texture_cache.height
+                bitm.width       = texture_cache.width
+                bitm.height      = texture_cache.height
 
                 if target_dreamcast:
                     bitm.size = len(texture_data)
@@ -305,8 +305,9 @@ def import_textures(
                 mipmaps=bitm.mipmap_count,
                 pixel_format=bitm.tex0.psm.enum_name,
                 palette_format=(
-                    None if format_name in c.MONOCHROME_FORMATS else
                     bitm.tex0.clut_pixmode.enum_name
+                    if format_name in c.RGB_FORMATS else
+                    None
                     ),
                 )
             buffer_calc.pack()

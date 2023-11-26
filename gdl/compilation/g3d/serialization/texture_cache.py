@@ -66,13 +66,6 @@ class TextureCache(AssetCache):
         self.format_name = self.format_id_to_name[val]
 
     @property
-    def monochrome(self):
-        return self.format_name in constants.MONOCHROME_FORMATS
-    @property
-    def palettized(self):
-        return self.format_name in constants.PALETTE_SIZES
-
-    @property
     def format_name(self):
         return self._format_name
     @format_name.setter
@@ -82,18 +75,22 @@ class TextureCache(AssetCache):
         self._format_name = val
 
     @property
-    def palette_stride(self):
-        return constants.PALETTE_SIZES.get(self.format_name, 0)
+    def monochrome(self): return self.format_name in constants.MONOCHROME_FORMATS
     @property
-    def palette_count(self):
-        return 2**self.pixel_stride if self.palettized else 0
+    def dualchrome(self): return self.format_name in constants.DUALCHROME_FORMATS
     @property
-    def pixel_stride(self):
-        return constants.PIXEL_SIZES.get(self.format_name, 0)
+    def rgb_format(self): return self.format_name in constants.RGB_FORMATS
+    @property
+    def palettized(self): return self.format_name in constants.PALETTE_SIZES
 
     @property
-    def palette_size(self):
-        return self.palette_count*self.palette_stride
+    def palette_stride(self): return constants.PALETTE_SIZES.get(self.format_name, 0)
+    @property
+    def palette_count(self): return 2**self.pixel_stride if self.palettized else 0
+    @property
+    def pixel_stride(self): return constants.PIXEL_SIZES.get(self.format_name, 0)
+    @property
+    def palette_size(self): return self.palette_count*self.palette_stride
 
     def parse(self, rawdata, *, pixel_interop_edits=True):
         super().parse(rawdata)
@@ -272,7 +269,7 @@ class Ps2TextureCache(TextureCache):
 
     def parse_textures(self, rawdata, *, pixel_interop_edits=True):
         super().parse_textures(rawdata, pixel_interop_edits=pixel_interop_edits)
-        if pixel_interop_edits and not(self.monochrome or self.palettized):
+        if pixel_interop_edits and self.rgb_format and not self.palettized:
             self.textures = [bytearray(t) for t in self.textures]
             tex_conv.channel_swap_bgra_rgba_array(self.textures, self.pixel_stride // 8)
 
@@ -286,7 +283,7 @@ class Ps2TextureCache(TextureCache):
 
     def serialize_textures(self, *, pixel_interop_edits=True):
         texture_data = super().serialize_textures(pixel_interop_edits=pixel_interop_edits)
-        if pixel_interop_edits and not(self.monochrome or self.palettized):
+        if pixel_interop_edits and self.rgb_format and not self.palettized:
             tex_conv.channel_swap_bgra_rgba_array([texture_data], self.pixel_stride // 8)
 
         return texture_data

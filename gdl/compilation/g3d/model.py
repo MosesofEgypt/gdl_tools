@@ -212,6 +212,11 @@ def export_models(
     cache_dir      = data_dir.joinpath(c.IMPORT_FOLDERNAME, c.MOD_FOLDERNAME)
     tex_assets_dir = data_dir.joinpath(c.EXPORT_FOLDERNAME, c.TEX_FOLDERNAME)
 
+    is_arcade   = False
+    for bitm in objects_tag.data.bitmaps:
+        is_arcade   = hasattr(bitm, "ncc_table_data")
+        break
+
     texture_assets = util.locate_textures(tex_assets_dir)
 
     objects = objects_tag.data.objects
@@ -239,7 +244,8 @@ def export_models(
                     continue
 
                 model_cache = object_to_model_cache(
-                    obj, cache_type=asset_type, obj_index=i, bitmap_assets=bitmap_assets
+                    obj, cache_type=asset_type, obj_index=i,
+                    bitmap_assets=bitmap_assets, is_arcade=is_arcade
                     )
 
                 if asset_type in c.MODEL_CACHE_EXTENSIONS:
@@ -280,12 +286,13 @@ def export_models(
         )
 
 
-def object_to_model_cache(obj, cache_type=None, obj_index=0, bitmap_assets=()):
+def object_to_model_cache(obj, cache_type=None, obj_index=0, is_arcade=False,
+                          bitmap_assets=()):
     if not bitmap_assets:
         bitmap_assets = {}
 
     is_vif = hasattr(obj, "sub_object_0")
-    is_arc = hasattr(getattr(obj, "data", None), "fifo_data")
+    is_arc = hasattr(getattr(obj, "data", None), "fifo_data") or is_arcade
     is_dc  = hasattr(obj, "lods") and not is_arc
 
     texture_names   = []

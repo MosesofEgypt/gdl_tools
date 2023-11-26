@@ -35,6 +35,19 @@ class G3DTexture:
     dual_channel_map = (0, 1, 1, 1)
     argb_channel_map = (0, 1, 2, 3)
 
+    @property
+    def monochrome(self): return self.format_name in c.MONOCHROME_FORMATS
+    @property
+    def dualchrome(self): return self.format_name in c.DUALCHROME_FORMATS
+    @property
+    def rgb_format(self): return self.format_name in c.RGB_FORMATS
+    @property
+    def palettized(self): return self.format_name in c.PALETTE_SIZES
+    @property
+    def palette_stride(self): return c.PALETTE_SIZES.get(self.format_name, 0)
+    @property
+    def pixel_stride(self): return c.PIXEL_SIZES.get(self.format_name, 0)
+
     def import_asset(self, input_filepath, target_format=None, **kwargs):
         if target_format is None:
             target_format = self.target_format
@@ -71,7 +84,7 @@ class G3DTexture:
         self.small_vq = texture_cache.small_vq
 
         self.channel_map = (
-            self.dual_channel_map if self.format_name in (c.PIX_FMT_IA_8_IDX_88, c.PIX_FMT_AI_88) else
+            self.dual_channel_map if texture_cache.dualchrome else
             self.mono_channel_map if texture_cache.monochrome else
             self.argb_channel_map
             )
@@ -110,7 +123,7 @@ class G3DTexture:
     def to_arbytmap_instance(self, include_mipmaps=False):
         if not self.textures:
             raise ValueError("No texture loaded to save.")
-        elif self.format_name not in c.PIXEL_SIZES:
+        elif self.format_name not in c.VALID_FORMATS:
             raise ValueError("INVALID FORMAT: '%s'" % self.format_name)
 
         # make copies to keep original unaffected
@@ -127,7 +140,7 @@ class G3DTexture:
             # undo vector-quantization
             textures = texture_util.dequantize_vq_textures(
                 textures, palette, self.width, self.height,
-                c.PIXEL_SIZES[self.format_name]
+                self.pixel_stride
                 )
             texture_block = [array.array("H", texture) for texture in textures]
 
@@ -225,7 +238,7 @@ class G3DTexture:
             )
 
         indexing_size = (
-            None if target_format in c.MONOCHROME_FORMATS else
+            None if target_format not in c.RGB_FORMATS else
             8 if "IDX_8" in target_format else
             4 if "IDX_4" in target_format else
             None

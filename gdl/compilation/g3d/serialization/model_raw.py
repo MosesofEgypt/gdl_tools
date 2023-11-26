@@ -5,17 +5,22 @@ import struct
 from sys import byteorder
 from . import constants as c
 from . import vector_util
+from .model_cache import ArcadeModelCache
 
 
 COMP_POS_SCALE   = 256
 COMP_UV_SCALE    = 1024
+ARC_UV_SCALE     = 256
 COMP_SHADE_SCALE = 254
 
 
 def import_raw_to_g3d(model_cache, start_vert=0):
+    is_arcade   = isinstance(model_cache, ArcadeModelCache)
+
     # slight speedup to cache these
     pos_scale   = 1/COMP_POS_SCALE
     uv_scale    = 1/COMP_UV_SCALE
+    f_uvw_scale = 1/ARC_UV_SCALE if is_arcade else 1
     shade_scale = 1/COMP_SHADE_SCALE
 
     bnd_rad_square  = 0.0
@@ -115,8 +120,11 @@ def import_raw_to_g3d(model_cache, start_vert=0):
                 for i in vdata_int16[11::12]
                 ])
         else:
+            f_v_scale = -f_uvw_scale if is_arcade else f_uvw_scale
             uvs.extend([
-                (vdata_float[i], vdata_float[i+1], vdata_float[i+2])
+                (vdata_float[i]*f_uvw_scale,
+                 vdata_float[i+1]*f_v_scale,
+                 vdata_float[i+2]*f_uvw_scale)
                 for i in range(3, len(vdata_float), 6)
                 ])
             norms.extend([
@@ -155,7 +163,7 @@ def import_raw_to_g3d(model_cache, start_vert=0):
         v2 += start_vert
 
         tris.append(
-            (v0, v2, v1) if flip else
+            (v0, v2, v1) if flip != is_arcade else
             (v0, v1, v2)
             )
 

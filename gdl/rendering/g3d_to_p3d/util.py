@@ -147,62 +147,73 @@ def g3d_texture_to_dds(g3d_texture):
     dds_header.flags.linearsize = False
     dds_header.flags.pitch = True
 
-    monochrome = format_name in g3d_const.MONOCHROME_FORMATS
-    pfmt_head.flags.rgb_space = not pfmt_head.flags.alpha_only
-    pfmt_head.flags.has_alpha = g3d_texture.has_alpha
+    pfmt_head.flags.four_cc = False
+    pfmt_head.flags.rgb_space = True
+    pfmt_head.flags.has_alpha = (
+        False if g3d_texture.monochrome else g3d_texture.has_alpha
+        )
 
+    # convert specialized formats to something we can work with
     if g3d_texture.large_vq or g3d_texture.small_vq:
         # dreamcast texture. remove vector quantization
-        pfmt_head.rgb_bitcount = g3d_const.PIXEL_SIZES[format_name]
         (texture, ) = texture_util.dequantize_vq_textures(
             [texture], palette, g3d_texture.width, g3d_texture.height,
-            pfmt_head.rgb_bitcount
+            g3d_const.PIXEL_SIZES[format_name]
             )
-        palette = None
-    elif monochrome:
-        # making monochrome into 24bpp color
-        pfmt_head.rgb_bitcount = 8
-        pfmt_head.flags.has_alpha = False
+    elif format_name in (g3d_const.PIX_FMT_ABGR_3555_IDX_4_NGC,
+                       g3d_const.PIX_FMT_ABGR_3555_IDX_8_NGC):
+        format_name = g3d_const.PIX_FMT_ABGR_8888_IDX_8
+        palette = texture_conversions.argb_3555_to_8888(palette)
+    elif format_name in (g3d_const.PIX_FMT_ABGR_3555_NGC,
+                         g3d_const.PIX_FMT_XBGR_3555_NGC):
+        format_name = g3d_const.PIX_FMT_ABGR_8888
+        texture = texture_conversions.argb_3555_to_8888(texture)
+    elif format_name == g3d_const.PIX_FMT_AYIQ_8422:
+        format_name = g3d_const.PIX_FMT_ABGR_8888
+        texture = texture_conversions.ayiq_8422_to_argb_8888(
+            texture, g3d_texture.ncc_table
+            )
+    elif format_name == g3d_const.PIX_FMT_YIQ_422:
+        format_name = g3d_const.PIX_FMT_ABGR_8888
+        texture = texture_conversions.yiq_422_to_xrgb_8888(
+            texture, g3d_texture.ncc_table
+            )
+    elif g3d_texture.monochrome or g3d_texture.dualchrome:
+        # 4-bit monochrome gets unpacked to 8-bit, so change format
+        format_name = {
+            g3d_const.PIX_FMT_A_4_IDX_4: g3d_const.PIX_FMT_A_8_IDX_8,
+            g3d_const.PIX_FMT_I_4_IDX_4: g3d_const.PIX_FMT_I_8_IDX_8,
+            g3d_const.PIX_FMT_AI_44:     g3d_const.PIX_FMT_AI_88,
+            }.get(format_name, format_name)
+
+    if g3d_texture.palettized:
+        # palettized texture. need to depalettize
+        pfmt_head.rgb_bitcount = g3d_const.PALETTE_SIZES[format_name] * 8
+        (texture, ) = texture_util.depalettize_textures(
+            [texture], palette, pfmt_head.rgb_bitcount // 8
+            )
     else:
-        # gamecube exclusive format. convert to something we can work with
-        if format_name in (g3d_const.PIX_FMT_ABGR_3555_IDX_4_NGC,
-                           g3d_const.PIX_FMT_ABGR_3555_IDX_8_NGC):
-            format_name = g3d_const.PIX_FMT_ABGR_8888_IDX_8
-            palette = texture_conversions.argb_3555_to_8888(palette)
-        elif format_name in (g3d_const.PIX_FMT_ABGR_3555_NGC,
-                             g3d_const.PIX_FMT_XBGR_3555_NGC):
-            format_name = g3d_const.PIX_FMT_ABGR_8888
-            texture = texture_conversions.argb_3555_to_8888(texture)
+        pfmt_head.rgb_bitcount = g3d_const.PIXEL_SIZES[format_name]
 
-        if format_name not in g3d_const.PALETTE_SIZES:
-            # non-palettized texture
-            pfmt_head.rgb_bitcount = g3d_const.PIXEL_SIZES[format_name]
-        else:
-            # palettized texture. need to depalettize
-            pfmt_head.rgb_bitcount = g3d_const.PALETTE_SIZES[format_name] * 8
-            (texture, ) = texture_util.depalettize_textures(
-                [texture], palette, pfmt_head.rgb_bitcount // 8  # bytes_per_pixel
-                )
-
-    pfmt_head.flags.four_cc = False
     arby_format = texture_util.g3d_format_to_arby_format(
-        format_name, g3d_texture.has_alpha
+        format_name, pfmt_head.flags.has_alpha
         )
+
     masks   = fd.CHANNEL_MASKS[arby_format]
     offsets = fd.CHANNEL_OFFSETS[arby_format]
+    if g3d_texture.dualchrome:
+        masks   = (masks[0],)   + (masks[1],)*3
+        offsets = (offsets[0],) + (offsets[1],)*3
+    elif g3d_texture.monochrome:
+        masks   = (0,) + (masks[0],)*3
+        offsets = (0,) + (offsets[0],)*3
 
-    if monochrome:
-        pfmt_head.a_bitmask = 0
-        pfmt_head.r_bitmask = masks[0] << offsets[0]
-        pfmt_head.g_bitmask = masks[0] << offsets[0]
-        pfmt_head.b_bitmask = masks[0] << offsets[0]
-    else:
-        if pfmt_head.flags.has_alpha:
-            pfmt_head.a_bitmask = masks[0] << offsets[0]
+    if pfmt_head.flags.has_alpha:
+        pfmt_head.a_bitmask = masks[0] << offsets[0]
 
-        pfmt_head.r_bitmask = masks[1] << offsets[1]
-        pfmt_head.g_bitmask = masks[2] << offsets[2]
-        pfmt_head.b_bitmask = masks[3] << offsets[3]
+    pfmt_head.r_bitmask = masks[1] << offsets[1]
+    pfmt_head.g_bitmask = masks[2] << offsets[2]
+    pfmt_head.b_bitmask = masks[3] << offsets[3]
 
     dds_header.pitch_or_linearsize = (
         dds_header.width * pfmt_head.rgb_bitcount + 7

@@ -111,10 +111,16 @@ def load_model_from_objects_tag(
     g3d_model = G3DModel()
     shader_flags = {}
     if obj_index >= 0 and not is_obj_anim:
+        is_arcade   = False
+        for bitm in objects_tag.data.bitmaps:
+            is_arcade   = hasattr(bitm, "ncc_table_data")
+            break
+
         obj     = objects_tag.data.objects[obj_index]
         flags   = getattr(obj, "flags", None)
         model_cache = object_to_model_cache(
-            obj, obj_index=obj_index, bitmap_assets=bitmap_name_by_index
+            obj, obj_index=obj_index, is_arcade=is_arcade,
+            bitmap_assets=bitmap_name_by_index
             )
         g3d_model.import_g3d(model_cache)
         shader_flags.update(
