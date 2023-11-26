@@ -308,9 +308,12 @@ class CrucibleApp(Tk):
         build_target = BUILD_TARGETS.get(self.build_target.get(), "ps2")
         if not target_dir:
             return
-        elif build_target in ("arcade", "dreamcast"):
-            print("Error: Compiling arcade and dreamcast cache files is not supported yet.")
+        elif build_target == "arcade":
+            print("Error: Compiling arcade cache files is not supported yet.")
             return
+        elif build_target == "dreamcast" and (textures or models):
+            print("Error: Compiling dreamcast models and textures is not supported yet.")
+            textures = models = False
 
         start = time.time()
         try:

@@ -32,12 +32,11 @@ def load_textures_from_objects_tag(
                 # NOTE: we use negative indices in the bitmap_assets to indicate
                 #       that the name was taken from a dreamcast lightmap, and
                 #       doesn't actually have a bitmap block tied to this bitmap.
-                lod_data = objects[-(i+1)].lods[0].data
                 try:
-                    bitm = lod_data.lightmap_header
+                    bitm = getattr(objects[-(i+1)].model_data, "lightmap_header", None)
                     if (obj_ver == "v0" and (
-                        bitm.dc_lm_sig1 != g3d_const.DC_LM_HEADER_SIG1 or
-                        bitm.dc_lm_sig2 != g3d_const.DC_LM_HEADER_SIG2
+                        getattr(bitm, "dc_lm_sig1", None) != g3d_const.DC_LM_HEADER_SIG1 or
+                        getattr(bitm, "dc_lm_sig2", None) != g3d_const.DC_LM_HEADER_SIG2
                         )):
                         continue
                 except Exception:

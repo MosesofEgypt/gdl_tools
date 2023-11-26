@@ -35,8 +35,8 @@ def bitmap_defs_count(*args, node=None, parent=None, new_value=None, **kwargs):
         parent.header.bitmap_defs_count = new_value
     elif (parent.version_header.version.enum_name == 'v0' and
           parent.header.bitmap_defs_count == 0):
-        # midway did some stupid shit with v0 of this file
-        # also YES, it only applies to v0. trying to load with v1 included
+        # midway did some stupid shit with v0 of this file. also YES,
+        # it only applies to v0. trying to load with v1 included
         # causes errors trying to read non-existant bitmap defs
         return parent.header.bitmaps_count
     else:
@@ -63,6 +63,7 @@ def get_v0_model_data_type(*args, parent=None, **kwargs):
         return get_lod_type(*args, parent=parent.lods[0], **kwargs)
     except Exception:
         pass
+
 
 def v0_comp_verts_size(
         *args, parent=None, new_value=None, rawdata=None, **kwargs
@@ -134,21 +135,22 @@ def v0_raw_norms_pointer(*args, parent=None, new_value=None, **kwargs):
     if parent:
         lod = parent.parent.lods[0]
         if lod.flags.v_normals and new_value is None:
-            return lod.data.norms_pointer
+            return lod.data.aux_pointer
     return 0
 
 
 v0_object_flags = Bool32("flags",
     # confirmed these are the only flags set
     # for sst_cmds, data pointer is relative to lod struct
-    # NOTE: in dreamcast, only alpha and lightmap are ever set
+    # NOTE: in dreamcast, only bits 0-5 and 10 are set
     ("alpha",       0x00000001),
     ("v_normals",   0x00000002),
-    ("compressed",  0x00000004), #  indicates vertex data is compressed
-    #                               (TODO: figure out compression)
+    ("compressed",  0x00000004), # indicates vertex data is compressed
     ("fifo_cmds",   0x00000008),
-    ("lmap",        0x00000010), # contains lightmap data
-    ("unknown10",   0x00000400),
+    ("lmap",        0x00000010),
+    # all the below flags are extremely rare
+    # all except unknown10 are set 
+    ("unknown10",   0x00000400), # only ever set with compressed and/or fifo
     ("fifo_cmds_2", 0x00001000),
     ("unknown24",   0x01000000),
     ("unknown25",   0x02000000),
@@ -269,34 +271,31 @@ v13_sub_object_block = QStruct("sub_object",
 
 v0_lod_fifo_data = QStruct("lod_fifo_data",
     SInt32("vert_count"),
-    # NOTE: this pointer is relative to the start of this
-    #       lod_struct in the file.
+    # NOTE: when "unknown" is to 9, 10, or 11, this appears to be relative
+    #       to the start of this lod_struct in the file. otherwise it's 0.
     SInt32("unknown_pointer"),
-    # NOTE: this pointer is relative to the start of this
-    #       lod_struct in the file, AND sometimes seems
-    #       to point to the beginning of the file.
+    # NOTE: when "unknown" is to 9, this appears to be the negative
+    #       of the pointer to the parent lod struct. when set to 10
+    #       or 11, it's positive. otherwise it's 0.
     SInt32("unknown_pointer_2"),
     # NOTE: this pointer is relative to the start of this
     #       lod_struct in the file.
     SInt32("fifo_pointer"),
     SInt32("id_num"),
-    # is one of the following:
-    #   2, 5, 7, 9, 10, 11, 12, 13
+    # is one of the following at the specified frequency:
+    #   2: 950
+    #   5: 397
+    #   7: 29896
+    #   9: 11535
+    #   10: 46
+    #   11: 29163
+    #   12: 4523
+    #   13: 58
     SInt32("unknown"),
     SIZE=24
     )
 
 v0_raw_lod_data = QStruct("raw_lod_data",
-    SInt32("vert_count"),
-    SInt32("verts_pointer"),
-    SInt32("tri_count"),
-    SInt32("tris_pointer"),
-    SInt32("id_num"),
-    SInt32("norms_pointer", DEFAULT=-1),
-    SIZE=24,
-    )
-
-raw_lod_lm_data = QStruct("raw_lod_lm_data",
     SInt32("vert_count"),
     # XYZ floats, then sint16s UVs, uint16 lm UVs, and unknown sint16 pair
     SInt32("verts_pointer"),
@@ -304,39 +303,10 @@ raw_lod_lm_data = QStruct("raw_lod_lm_data",
     # these tris are the same structure as v0_raw_lod_data tris
     SInt32("tris_pointer"),
     SInt32("id_num"),
-    SInt32("lm_header_pointer", DEFAULT=-1),
+    # points to either a lightmap struct, or array of normals
+    SInt32("aux_pointer", DEFAULT=-1),
     SIZE=24,
     )
-
-v0_raw_lod_lm_data = QStruct("raw_lod_lm_data",
-    INCLUDE=raw_lod_lm_data,
-    STEPTREE=QStruct("lightmap_header",
-        Pointer32("tex_pointer", EDITABLE=False),
-        # wtf is going on here?
-        # I'm just calling them sigs for now since they're
-        # consistent and seem to be compeltely random
-        UInt32("dc_lm_sig1", DEFAULT=DC_LM_HEADER_SIG1),
-        UInt32("dc_lm_sig2", DEFAULT=DC_LM_HEADER_SIG2),
-        POINTER=".lm_header_pointer"
-        )
-    )
-
-v1_raw_lod_lm_data = QStruct("raw_lod_lm_data",
-    INCLUDE=raw_lod_lm_data,
-    STEPTREE=Struct("lightmap_header",
-        Pointer32("tex_pointer", EDITABLE=False),
-        # lightmaps are always R5G6B5, and this value is set to 1 in
-        # all files, and that matches the pixel format for R5G6B5 in
-        # the dreamcast PVR header, so this appears to be "format"
-        bitmap_format_dc,
-        image_type_dc,
-        Pad(2),
-        UInt16("width", EDITABLE=False),
-        UInt16("height", EDITABLE=False),
-        POINTER=".lm_header_pointer"
-        )
-    )
-
 
 v0_lod_block = Struct("lod",
     Pad(4),
@@ -346,7 +316,7 @@ v0_lod_block = Struct("lod",
             "fifo":      v0_lod_fifo_data,
             "comp":      v0_raw_lod_data,
             "uncomp":    v0_raw_lod_data,
-            "uncomp_lm": v0_raw_lod_lm_data,
+            "uncomp_lm": v0_raw_lod_data,
             },
         CASE=get_lod_type,
         SIZE=24
@@ -354,112 +324,102 @@ v0_lod_block = Struct("lod",
     SIZE=32
     )
 
-v1_lod_block = Struct("lod",
-    Pad(4),
-    v0_object_flags,
-    Switch("data",
-        CASES={
-            "fifo":      v0_lod_fifo_data,
-            "comp":      v0_raw_lod_data,
-            "uncomp":    v0_raw_lod_data,
-            "uncomp_lm": v1_raw_lod_lm_data,
-            },
-        CASE=get_lod_type,
-        SIZE=24
-        ),
-    SIZE=32
+# XYZ floats, followed by a UVW float triplet
+# (divide by 256 to properly scale UV pair)
+v0_uncomp_vert_data = BytesRaw("vert_data",
+    SIZE=v0_raw_verts_size,
+    POINTER="..lods.[0].data.verts_pointer"
     )
 
-v0_raw_model_data = Container("model_data",
-    # XYZ floats, followed by a UVW float triplet
-    # (divide by 256 to properly scale UV pair)
-    BytesRaw("vert_data",
-        SIZE=v0_raw_verts_size,
-        POINTER="..lods.[0].data.verts_pointer"
-        ),
-    # set of 3 uint16 for vert/norm indices, followed by the texture index
-    # index packed into the lower 14 bits of a uint16, with the upper 2
-    # serving to indicate whether the triangle is connected in a strip
-    BytesRaw("tri_data",
-        SIZE=v0_raw_tris_size,
-        POINTER="..lods.[0].data.tris_pointer"
-        ),
-    # IJK floats (count is equal to vert_count)
-    BytesRaw("norm_data",
-        SIZE=v0_raw_norms_size,
-        POINTER=v0_raw_norms_pointer
-        ),
+# vert_data is a stream format consisting of 6-byte chunks. the first
+# chunk is always sentinel/shade/uv data, followed by a position data
+# chunk to go with it. this pattern resets(uv followed by pos) if the
+# sentinel does not increment on the next uv read. until it does though,
+# each uv reuses the most recently parsed position chunk.
+# uv chunk consists of a uint8 sentinel, followed by an sint8 for how
+# light/dark to shade the vert, followed by an sint16 UV pair(divide
+# by 1024 to properly scale values). the position data chunk is just
+# an sint16 triplet(divide by 256 to properly scale values).
+v0_comp_vert_data = BytesRaw("vert_data",
+    SIZE=v0_comp_verts_size,
+    POINTER="..lods.[0].data.verts_pointer"
     )
 
-v0_comp_raw_model_data = Container("model_data",
-    # vert_data is a stream format consisting of 6-byte chunks. the first
-    # chunk is always sentinel/shade/uv data, followed by a position data
-    # chunk to go with it. this pattern resets(uv followed by pos) if the
-    # sentinel does not increment on the next uv read. until it does though,
-    # each uv reuses the most recently parsed position chunk.
-    # uv chunk consists of a uint8 sentinel, followed by an sint8 for how
-    # light/dark to shade the vert, followed by an sint16 UV pair(divide
-    # by 1024 to properly scale values). the position data chunk is just
-    # an sint16 triplet(divide by 256 to properly scale values).
-    BytesRaw("vert_data",
-        SIZE=v0_comp_verts_size,
-        POINTER="..lods.[0].data.verts_pointer"
-        ),
-    # same as v0_raw_model_data.tri_data
-    BytesRaw("tri_data",
-        SIZE=v0_raw_tris_size,
-        POINTER="..lods.[0].data.tris_pointer"
-        ),
-    # i don't think this is possible, but w/e
-    BytesRaw("norm_data",
-        SIZE=v0_raw_norms_size,
-        POINTER=v0_raw_norms_pointer
-        ),
+# set of 3 uint16 for vert/norm indices, followed by the texture index
+# index packed into the lower 14 bits of a uint16, with the upper 2
+# serving to indicate whether the triangle is connected in a strip
+v0_tri_data = BytesRaw("tri_data",
+    SIZE=v0_raw_tris_size,
+    POINTER="..lods.[0].data.tris_pointer"
     )
 
-v0_raw_lm_model_data = Container("model_data",
-    # XYZ floats, followed by sint16 UV pair, then an sint16 lm UV
-    # pair, followed by an IJK_555 normal packed into lowest 15 bits
-    # of the next uint16(divide by 256 to properly scale both UV pairs).
-    BytesRaw("vert_data",
-        SIZE=v0_raw_verts_size,
-        POINTER="..lods.[0].data.verts_pointer"
-        ),
-    # same as v0_raw_model_data.tri_data
-    BytesRaw("tri_data",
-        SIZE=v0_raw_tris_size,
-        POINTER="..lods.[0].data.tris_pointer"
-        ),
+# IJK floats (count is equal to vert_count)
+v0_norm_data = BytesRaw("norm_data",
+    SIZE=v0_raw_norms_size,
+    POINTER=v0_raw_norms_pointer
     )
 
-v0_model_data = Switch("model_data",
-    CASES={
-        "comp":      v0_comp_raw_model_data,
-        "uncomp":    v0_raw_model_data,
-        "uncomp_lm": v0_raw_lm_model_data,
-        },
-    CASE=get_v0_model_data_type
+v0_lm_header = QStruct("lightmap_header",
+    Pointer32("tex_pointer", EDITABLE=False),
+    # wtf is going on here?
+    # I'm just calling them sigs for now since they're
+    # consistent and seem to be compeltely random
+    # NOTE: these lightmaps are always 256x256 R5G6B5 textures if the
+    #       pointer is valid and the signatures match. otherwise, the
+    #       lightmap to be used is to be taken from the previous object.
+    UInt32("dc_lm_sig1", DEFAULT=DC_LM_HEADER_SIG1),
+    UInt32("dc_lm_sig2", DEFAULT=DC_LM_HEADER_SIG2),
+    SIZE=12, POINTER="..lods.[0].data.aux_pointer"
     )
 
-v0_object_block = Struct("object",
-    Float("inv_rad"), # always 0?
-    Float("bnd_rad"),
-    UInt32("one", DEFAULT=1, VISIBLE=False), # always 1
-    # NOTE: I'm calling them lod's, but i have no idea what they actually are
-    Array("lods", SUB_STRUCT=v0_lod_block, SIZE=4),
-    STEPTREE=v0_model_data,
-    SIZE=140
+v1_lm_header = Struct("lightmap_header",
+    Pointer32("tex_pointer", EDITABLE=False),
+    # lightmaps are always R5G6B5, and this value is set to 1 in
+    # all files, and that matches the pixel format for R5G6B5 in
+    # the dreamcast PVR header, so this appears to be "format"
+    bitmap_format_dc,
+    image_type_dc,
+    Pad(2),
+    UInt16("width", EDITABLE=False),
+    UInt16("height", EDITABLE=False),
+    SIZE=12, POINTER="..lods.[0].data.aux_pointer"
     )
 
-v1_object_block = Struct("object",
-    Float("inv_rad"), # always 0
-    Float("bnd_rad"),
-    UInt32("one", DEFAULT=1, VISIBLE=False), # always 1
-    # NOTE: I'm calling them lod's, but i have no idea what they actually are
-    Array("lods", SUB_STRUCT=v1_lod_block, SIZE=4),
-    STEPTREE=v0_model_data,
-    SIZE=140
-    )
+def _generate_arc_dc_object_block(header_version):
+    return Struct("object",
+        Pad(4), # always 0
+        Float("bnd_rad"),
+        UInt32("one", DEFAULT=1, VISIBLE=False), # always 1
+        # NOTE: I'm calling them lod's, but i have no idea what they actually are
+        Array("lods", SUB_STRUCT=v0_lod_block, SIZE=4),
+        STEPTREE=Switch("model_data",
+            CASES={
+                "comp":     Container("model_data",
+                    v0_comp_vert_data,
+                    v0_tri_data,
+                    v0_norm_data,
+                    ),
+                "uncomp":   Container("model_data",
+                    v0_uncomp_vert_data,
+                    v0_tri_data,
+                    v0_norm_data,
+                    ),
+                "uncomp_lm": Container("model_data",
+                    v0_uncomp_vert_data,
+                    v0_tri_data,
+                    (v0_lm_header if header_version == "v0" else
+                     v1_lm_header
+                     )
+                    ),
+                },
+            CASE=get_v0_model_data_type
+            ),
+        SIZE=140
+        )
+
+v0_object_block = _generate_arc_dc_object_block("v0")
+
+v1_object_block = _generate_arc_dc_object_block("v1")
 
 v4_object_block = Struct("object",
     Float("inv_rad"), # always 0

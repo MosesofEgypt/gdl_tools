@@ -181,7 +181,7 @@ class ObjectsTag(GdlTag):
                 # for dreamcast/arcade lightmaps, we use the name
                 # of the object when naming the lightmap
                 try:
-                    lm_header = obj.lods[0].data.lightmap_header
+                    lm_header = obj.model_data.lightmap_header
                     if (version == "v0" and (
                         lm_header.dc_lm_sig1 != c.DC_LM_HEADER_SIG1 or
                         lm_header.dc_lm_sig2 != c.DC_LM_HEADER_SIG2
@@ -292,96 +292,166 @@ class ObjectsTag(GdlTag):
         return dict(object_names), dict(bitmap_names)
 
     def set_pointers(self, offset=0):
-        '''
-        NOTE: This function is only meant to work with v4, v12, and v13 of the objects tag.
-        '''
-        header = self.data.header
+        header  = self.data.header
         version = self.data.version_header.version.enum_name
 
+        objects = self.data.objects
+        bitmaps = self.data.bitmaps
+        object_defs = self.data.object_defs
+        bitmap_defs = self.data.bitmap_defs
+
+        alignment   = 16
         subobj_size = 8
         bitmap_size = 64
         object_size = 64
         bitmap_def_size = 36
         object_def_size = 24
+
         # add in the header size
-        # TODO: update to handle dreamcast v1
-        if version in "v13":
-            offset += 160
-        elif version in "v12":
-            offset += 160
-            subobj_size = 6
+        offset += (
+            68 + # version header
+            (92 if version in ("v12", "v13") else 36) # main header
+            )
+        if version in ("v0", "v1"):
+            bitmap_size = 80
+            object_size = 140
+            subobj_size = 4
+            alignment   = 4
         elif version == "v4":
-            offset += 36
             bitmap_size = 80
             subobj_size = 4
-        else:
-            raise ValueError("Pointers can only be calculated for v4, v12, and v13 objects.")
+        elif version == "v12":
+            subobj_size = 6
+        elif version != "v13":
+            raise ValueError("Pointers can only be calculated for v0, v1, v4, v12, and v13 objects.")
+
+        # imitate some crap midway did where 0 in the object_defs_count
+        # means that both arrays use the objects_count as their count.
+        if version in ("v0", "v1") and len(object_defs) == len(objects):
+            header.object_defs_count = 0
+
+        # same thing for the bitmap_defs, but only in v0
+        if version == "v0" and len(bitmap_defs) == len(bitmaps):
+            header.bitmap_defs_count = 0
 
         # NOTE: we are intentionally serializing the object_defs and
         #       bitmap_defs before the sub_objects. Gauntlet doesn't
         #       seem to properly load player models containing a lot
         #       of data if the order mirrors existing objects files.
-        obj_count = header.objects_count
-        tex_count = header.bitmaps_count
-        obj_def_count = header.object_defs_count
-        tex_def_count = header.bitmap_defs_count
 
-        #set the object and bitmap arrays pointers
+        # set the object and bitmap arrays pointers
         if version in ("v12", "v13"):
             header.objects_pointer = offset
-            offset += obj_count * object_size
+            offset += len(objects) * object_size
             header.bitmaps_pointer = offset
-            offset += tex_count * bitmap_size
+            offset += len(bitmaps) * bitmap_size
         else:
             # v4 and earlier don't have dedicated pointers for the objects
             # and bitmaps. its assumed they're directly after the header.
-            offset += (obj_count * object_size +
-                       tex_count * bitmap_size)
+            offset += (len(objects) * object_size +
+                       len(bitmaps) * bitmap_size)
 
-        #set the object_def and bitmap_def arrays pointers
+        # set the object_def and bitmap_def arrays pointers
         header.object_defs_pointer = offset
-        offset += obj_def_count * object_def_size
-        offset += calculate_padding(offset, 16) # 16byte align
+        offset += len(object_defs) * object_def_size
+        offset += calculate_padding(offset, alignment) # align
 
         header.bitmap_defs_pointer = offset
-        offset += tex_def_count * bitmap_def_size
-        offset += calculate_padding(offset, 16) # 16byte align 
+        offset += len(bitmap_defs) * bitmap_def_size
+        offset += calculate_padding(offset, alignment) # align
 
-        # for v12 and v13, calculate subobject pointers
         if version in ("v12", "v13"):
-            # TODO: update this with calculating it for v4 when it is determined
-            #       which bytes in the v4_object_block are the sub_objects_pointer
+            # calculate subobject header and model pointers
             header.sub_objects_pointer = offset
-            for obj in self.data.objects:
-                if obj.sub_objects_count > 1:
-                    obj.sub_objects_pointer = offset
-                    offset += (obj.sub_objects_count-1) * subobj_size
-
-            header.sub_objects_end = offset  #not 16 byte aligned
-            offset += calculate_padding(offset, 16) # 16byte align 
-
-        # loop over all objects and set the pointers of their geometry data
-        for obj in self.data.objects:
-            obj.sub_object_models_pointer = offset
-            if version in ("v12", "v13") and obj.sub_objects_count < 2:
+            for obj in objects:
                 obj.sub_objects_pointer = offset
+                offset += max(0, obj.sub_objects_count-1) * subobj_size
 
-            #increment the offset by the size of the model data
-            for model in obj.data.sub_object_models:
-                offset += 16*(model.qword_count + 1)
+            header.sub_objects_end = offset  # not aligned
+            offset += calculate_padding(offset, alignment) # align
 
-        offset += calculate_padding(offset, 16) # 16byte align 
+            # loop over all objects and set the pointers of their geometry data
+            for obj in objects:
+                obj.sub_object_models_pointer = offset
+                if obj.sub_objects_count < 2:
+                    obj.sub_objects_pointer = offset
 
-        if version in ("v12", "v13"):
-            #set the file length
-            header.obj_end = header.tex_bits = offset
+                # increment the offset by the size of the model data
+                offset += sum(
+                    16*(model.qword_count + 1)
+                    for model in obj.data.sub_object_models
+                    )
+
+            # set the file length
+            offset += calculate_padding(offset, alignment) # align
+            header.obj_end  = offset
+            header.tex_bits = offset
+
+        elif version == "v4":
+            # loop over all objects and set the pointers of their geometry data
+            for obj in objects:
+                obj.sub_object_models_pointer = offset
+                # increment the offset by the size of the model data
+                offset += sum(
+                    16*(model.qword_count + 1)
+                    for model in obj.data.sub_object_models
+                    )
+
+        elif version in ("v0", "v1"):
+            pointers_by_data = {}
+            for obj in objects:
+                lod0    = obj.lods[0]
+                data    = obj.model_data
+                flags   = lod0.flags
+                header  = lod0.data
+
+                if flags.fifo_cmds or flags.fifo_cmds_2:
+                    raise ValueError("Cannot calculate pointers for arcade compressed models.")
+                elif flags.v_normals and flags.lmap:
+                    raise ValueError("Cannot have v_normals and lmap set at the same time.")
+
+                if data.vert_data in pointers_by_data:
+                    header.verts_pointer = pointers_by_data[data.vert_data]
+                else:
+                    pointers_by_data[data.vert_data] = offset
+                    header.verts_pointer = offset
+                    offset += len(data.vert_data)
+                    offset += calculate_padding(offset, alignment) # align
+
+                if data.tri_data in pointers_by_data:
+                    header.tris_pointer = pointers_by_data[data.tri_data]
+                else:
+                    pointers_by_data[data.tri_data] = offset
+                    header.tris_pointer = offset
+                    offset += len(data.tri_data)
+                    offset += calculate_padding(offset, alignment) # align
+
+                header.aux_pointer = offset
+                if flags.v_normals:
+                    if data.norm_data in pointers_by_data:
+                        header.aux_pointer = pointers_by_data[data.norm_data]
+                    else:
+                        pointers_by_data[data.norm_data] = offset
+                        offset += len(data.norm_data)
+                elif not flags.lmap:
+                    header.aux_pointer = -1
+                elif version == "v0" and (
+                        data.lightmap_header.dc_lm_sig1 != c.DC_LM_HEADER_SIG1 or
+                        data.lightmap_header.dc_lm_sig2 != c.DC_LM_HEADER_SIG2
+                        ):
+                    data.lightmap_header = None
+                else:
+                    offset += 12  # size of header
+
+                offset += calculate_padding(offset, alignment) # align
+
+                # copy pointers to all other lods
+                obj.lods[1].data[:] = header
+                obj.lods[2].data[:] = header
+                obj.lods[3].data[:] = header
 
     def serialize(self, **kwargs):
         version = self.data.version_header.version.enum_name
-        if version in ("v0", "v1"):
-            raise ValueError("Cannot serialize v0 and v1 objects.")
-
-        # TODO: update to handle dreamcast v1
         if version in ("v12", "v13"):
             # v12 and v13 cache the lightmap indices in the header
             min_lm_index = len(self.data.bitmaps)
@@ -392,10 +462,19 @@ class ObjectsTag(GdlTag):
                         min_lm_index = min(min_lm_index, subobj.lm_index)
                         max_lm_index = max(max_lm_index, subobj.lm_index)
 
-            if min_lm_index > max_lm_index:
-                self.data.header.lm_tex_first = self.data.header.lm_tex_num = 0
-            else:
+            if min_lm_index <= max_lm_index:
                 self.data.header.lm_tex_first = min_lm_index
                 self.data.header.lm_tex_num   = 1 + (max_lm_index - min_lm_index)
+            else:
+                self.data.header.lm_tex_first = 0
+                self.data.header.lm_tex_num   = 0
 
-        return GdlTag.serialize(self, **kwargs)
+        try:
+            # younger me was an idiot. zero-fill is making the file too
+            # large since some of the data may become redundant by being
+            # deduplicated, and the size it fills it to may be too large
+            tmp = self.zero_fill
+            self.zero_fill = False
+            GdlTag.serialize(self, **kwargs)
+        finally:
+            self.zero_fill = tmp

@@ -375,13 +375,12 @@ def export_textures(
             if obj_ver not in ("v0", "v1"):
                 break
 
-            lod_data = obj.lods[0].data
             try:
-                lm_header = lod_data.lightmap_header
-                if (obj_ver == "v1" or 
-                    lm_header.dc_lm_sig1 != c.DC_LM_HEADER_SIG1 or
-                    lm_header.dc_lm_sig2 != c.DC_LM_HEADER_SIG2
-                    ):
+                lm_header = getattr(obj.model_data, "lightmap_header", None)
+                if (obj_ver == "v1" or (
+                    getattr(lm_header, "dc_lm_sig1", None) == c.DC_LM_HEADER_SIG1 and
+                    getattr(lm_header, "dc_lm_sig2", None) == c.DC_LM_HEADER_SIG2
+                    )):
                     # NOTE: we use negative indices in the bitmap_assets to indicate
                     #       that the name was taken from a dreamcast lightmap, and
                     #       doesn't actually have a bitmap block tied to this bitmap.
@@ -449,7 +448,7 @@ def bitmap_to_texture_cache(bitmap_or_lm_block, textures_file, is_ngc=False, cac
     if not is_ps2_xbox and not is_ngc:
         is_dreamcast_lm = hasattr(bitmap_or_lm_block, "dc_lm_sig1")
         is_dreamcast    = hasattr(bitmap_or_lm_block, "image_type")
-        is_arcade    = not (is_dreamcast_lm or is_dreamcast)
+        is_arcade       = not (is_dreamcast_lm or is_dreamcast)
 
     flags = getattr(bitmap_or_lm_block, "flags", None)
     # create and populate texture cache

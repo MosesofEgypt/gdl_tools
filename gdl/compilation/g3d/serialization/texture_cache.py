@@ -410,7 +410,6 @@ class DreamcastTextureCache(TextureCache):
         return 8 if self.palettized else 0
     @property
     def palette_count(self):
-        # TODO: test this logic
         if not self.palettized:
             palette_count = 0
         elif self.large_vq or (self.small_vq and self.width > 64):
