@@ -12,7 +12,8 @@ from ...compilation.g3d import constants as c
 
 
 class ObjectsTag(GdlTag):
-    texdef_tag    = None
+    anim_tag    = None
+    texdef_tag  = None
 
     _object_assets_by_name  = None
     _bitmap_assets_by_name  = None

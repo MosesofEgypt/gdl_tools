@@ -119,6 +119,9 @@ def load_objects_dir_files(objects_dir):
         except Exception:
             print(format_exc())
 
+    if objects_tag and anim_tag:
+        objects_tag.anim_tag = anim_tag
+
     return dict(
         objects_tag = objects_tag,
         anim_tag    = anim_tag,

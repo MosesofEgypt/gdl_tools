@@ -8,7 +8,7 @@ from ...defs.anim import anim_def
 from ...defs.objects import objects_def
 from ...defs.texdef import texdef_def
 from ...defs.worlds import worlds_def
-from ..metadata import objects as objects_metadata
+from ..metadata import objects as objects_metadata, animations as animations_metadata
 from . import animation, model, texture
 from .serialization.asset_cache import verify_source_file_asset_checksum
 from . import constants as c
@@ -159,6 +159,8 @@ def compile_cache_files(
     anim_tag    = anim_def.build()    if build_anim_cache else None
     texdef_tag  = None
 
+    objects_tag.anim_tag   = anim_tag
+
     if objects_tag and (target_dreamcast or target_arcade):
         # dreamcast and arcade use v1 or v0 of the objects.
         # set header to v1 and reparse header and all arrays
@@ -198,6 +200,7 @@ def compile_cache_files(
 
     if build_texdef_cache:
         texdef_tag = compile_texdef_cache_from_objects(objects_tag)
+        objects_tag.texdef_tag = texdef_tag
 
     if serialize_cache_files:
         print("Serializing...")
@@ -277,7 +280,13 @@ def decompile_cache_files(
 
     if meta_asset_types and (objects_tag or anim_tag):
         objects_metadata.decompile_objects_metadata(
-            objects_tag, anim_tag, data_dir, overwrite=overwrite,
+            objects_tag, data_dir, anim_tag=anim_tag, overwrite=overwrite,
+            asset_types=meta_asset_types, individual_meta=individual_meta,
+            )
+
+    if meta_asset_types and anim_tag:
+        animations_metadata.decompile_animations_metadata(
+            anim_tag, data_dir, objects_tag=objects_tag, overwrite=overwrite,
             asset_types=meta_asset_types, individual_meta=individual_meta,
             )
 
