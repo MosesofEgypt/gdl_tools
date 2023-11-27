@@ -52,7 +52,7 @@ def decompile_animations_metadata(
             meta["sequences"][sequence.name.upper()] = seq_meta
             seq_metadata_by_atree_seq[(i, j)]        = seq_meta
 
-        seen_psys_ids       = {}
+        seen_psys_ids   = {}
         for j, node in enumerate(anode_infos):
             node_meta   = dict(parent=node.parent_index)
             node_type   = node.anim_type.enum_name
@@ -120,22 +120,21 @@ def decompile_animations_metadata(
 
 
         if texmod_type in ("fade_in", "fade_out"):
-            meta.update(
-                fade_rate   = frame_rate,
-                fade_start  = transform_start,
-                )
+            meta.update(fade_rate=frame_rate)
+            if transform_start:
+                meta.update(fade_start=transform_start)
+
         elif texmod_type in ("scroll_u", "scroll_v"):
-            meta.update({
-                f"{texmod_type}_rate": frame_rate,
-                f"{texmod_type}_start": transform_start,
-                })
+            meta.update({f"{texmod_type}_rate": frame_rate})
+            if transform_start:
+                meta.update({f"{texmod_type}_start": transform_start})
+
         elif texmod_type == "external":
             meta.update(external=True)
         else:
-            meta.update(
-                tex_swap_rate           = tex_swap_rate,
-                tex_swap_start_frame    = texmod.tex_start_frame,
-                )
+            meta.update(tex_swap_rate=tex_swap_rate)
+            if transform_start:
+                meta.update(tex_swap_start_frame=texmod.tex_start_frame)
 
         if i in node_metadata_by_texmod_index:
             texmods_dict = node_metadata_by_texmod_index[i].setdefault("texmods", {})
@@ -201,36 +200,100 @@ def decompile_psys_metadata(psys):
     if enables.max_pos: meta.update(max_pos=psys.max_pos)
 
     data = meta["emitter_data"]
-    if enables.e_delay:     data.update(delay=psys.e_delay)
-    if enables.e_rate_rand: data.update(rate_randomness=psys.e_rate_rand)
-    if enables.e_angle:     data.update(angle=psys.e_angle)
+    if enables.e_delay:     data.update(spawn_delay=round(psys.e_delay, 7))
+    if enables.e_rate_rand: data.update(spawn_rate_rand=round(psys.e_rate_rand, 7))
+    if enables.e_angle:     data.update(spawn_angle_rand=round(psys.e_angle, 7))
 
-    '''if enables.e_life:
-        data.update()
+    if enables.e_life:
+        if psys.e_life[0] > 0: data.update(phase_a_dur=round(psys.e_life[0], 7))
+        if psys.e_life[1] > 0: data.update(phase_b_dur=round(psys.e_life[1], 7))
 
     if enables.e_dir:
-        data.update()
+        data.update(
+            spawn_dir_i=round(psys.e_dir[0], 7),
+            spawn_dir_j=round(psys.e_dir[1], 7),
+            spawn_dir_k=round(psys.e_dir[2], 7)
+            )
 
     if enables.e_vol:
-        data.update()
+        data.update(
+            spawn_vol_width=round(psys.e_vol[0], 7),
+            spawn_vol_height=round(psys.e_vol[1], 7),
+            spawn_vol_length=round(psys.e_vol[2], 7)
+            )
 
     if enables.e_rate:
-        data.update()'''
+        if (psys.e_rate[0] == psys.e_rate[1] and
+            psys.e_rate[1] == psys.e_rate[2] and
+            psys.e_rate[2] == psys.e_rate[3]):
+            data.update(spawn_rate=round(psys.e_rate[0], 7))
+        else:
+            data.update({
+                f"spawn_rate_{k}": round(v, 7) for k, v in
+                _decompile_phase_property_metadata(psys.e_rate).items()
+                })
 
     data = meta["particle_data"]
     if enables.p_texcnt:    data.update(tex_count=psys.p_texcnt)
     if enables.p_texname:   data.update(tex_name=psys.p_texname)
-    if enables.p_gravity:   data.update(gravity=psys.p_gravity)
-    if enables.p_drag:      data.update(drag=psys.p_drag)
-    if enables.p_speed:     data.update(speed=psys.p_speed)
+    if enables.p_gravity:   data.update(gravity=round(psys.p_gravity, 7))
+    if enables.p_drag:      data.update(drag=round(psys.p_drag, 7))
+    if enables.p_speed:     data.update(speed=round(psys.p_speed, 7))
 
-    '''if enables.p_life:
-        data.update()
+    if enables.p_life:
+        if psys.p_life[0] > 0: data.update(phase_a_dur=round(psys.p_life[0], 7))
+        if psys.p_life[1] > 0: data.update(phase_b_dur=round(psys.p_life[1], 7))
 
-    if enables.p_color:
-        data.update()
+    if enables.p_rgb or enables.p_alpha:
+        colors = [tuple(v) for v in psys.p_color]
+        if (colors[0] == colors[1] and
+            colors[1] == colors[2] and
+            colors[2] == colors[3]):
+            color_tints = dict(color_tint=tuple(colors[0]))
+        else:
+            color_tints = {
+                f"color_tint_{k}": v for k, v in
+                _decompile_phase_property_metadata(colors).items()
+                }
+
+        if enables.p_rgb:
+            color_tints = {k: (255, 255, 255, v[3]) for k, v in dct.items()}
+        elif not enables.p_alpha:
+            color_tints = {k: (v[0], v[1], v[2], 255) for k, v in dct.items()}
+
+        data.update({
+            k: bytes((v[0], v[1], v[2], v[3])).hex()
+            for k, v in color_tints.items()
+            })
 
     if enables.p_width:
-        data.update()'''
+        if (psys.p_width[0] == psys.p_width[1] and
+            psys.p_width[1] == psys.p_width[2] and
+            psys.p_width[2] == psys.p_width[3]):
+            data.update(diameter=round(psys.p_width[0], 7))
+        else:
+            data.update({
+                f"diameter_{k}": round(v, 7) for k, v in
+                _decompile_phase_property_metadata(psys.p_width).items()
+                })
 
     return meta
+
+
+def _decompile_phase_property_metadata(prop):
+    data = {}
+    if prop[1] == prop[2]:
+        if prop[0] == prop[1]:
+            data.update(b_in=prop[2], b_out=prop[3])
+        elif prop[2] == prop[3]:
+            data.update(a_in=prop[0], a_out=prop[1])
+        else:
+            data.update(a_in=prop[0], a_out_b_in=prop[1], b_out=prop[3])
+    elif prop[0] != prop[1] and prop[2] == prop[3]:
+        data.update(a_in=prop[0], a_out=prop[1], b=prop[3])
+    elif prop[0] == prop[1] and prop[2] != prop[3]:
+        data.update(a=prop[0], b_in=prop[2], b_out=prop[3])
+    else:
+        data.update(a=prop[0], b=prop[2])
+
+    return data
