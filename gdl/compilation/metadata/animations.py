@@ -29,7 +29,7 @@ def decompile_animations_metadata(
     for i, atree in enumerate(anim_tag.data.atrees):
         meta = dict(
             prefix      = atree.atree_header.prefix.upper(),
-            nodes       = dict(),
+            nodes       = [],
             sequences   = dict(),
             )
 
@@ -41,9 +41,7 @@ def decompile_animations_metadata(
         anode_infos = atree_data.anode_infos
         obj_anims   = atree_data.obj_anim_header.obj_anims
         for j, sequence in enumerate(atree_data.atree_sequences):
-            seq_meta = dict()
-            if sequence.frame_rate != 30:
-                seq_meta.update(frame_rate = sequence.frame_rate)
+            seq_meta = dict(frame_rate = sequence.frame_rate)
 
             if sequence.repeat == "yes":
                 seq_meta.update(repeat = True)
@@ -54,13 +52,15 @@ def decompile_animations_metadata(
             meta["sequences"][sequence.name.upper()] = seq_meta
             seq_metadata_by_atree_seq[(i, j)]        = seq_meta
 
+        seen_psys_ids       = {}
         for j, node in enumerate(anode_infos):
-            node_meta   = dict()
+            node_meta   = dict(parent=node.parent_index)
             node_type   = node.anim_type.enum_name
-            if node.anim_type.enum_name not in ("null", "<INVALID>"):
-                node_meta.update(type=node_type)
+            node_name   = node.mb_desc.upper()
 
-            if node_type == "texture":
+            if node_type in ("null", "<INVALID>"):
+                node_meta.update(null=True)
+            elif node_type == "texture":
                 node_metadata_by_texmod_index[node.anim_seq_info_index] = node_meta
             elif node_type == "object":
                 obj_anims_meta = dict()
@@ -84,26 +84,24 @@ def decompile_animations_metadata(
             elif node_type == "particle_system":
                 try:
                     psys = anim_tag.data.particle_systems[node.anim_seq_info_index]
+                    psys_id = psys.id.enum_name
+                    node_meta.update(particle_system_id = psys_id)
                 except Exception:
-                    continue
+                    pass
 
-                node_meta.update(particle_system_id = psys.id.enum_name)
+            if node_name:
+                node_meta.update(name = node_name)
 
             x, y, z = node.init_pos
             if x**2 + y**2 + z**2:
                 node_meta.update(pos_x=x, pos_y=y, pos_z=z)
-
-            if node.parent_index in range(len(anode_infos)):
-                node_meta.update(
-                    parent=anode_infos[node.parent_index].mb_desc.upper()
-                    )
 
             flags = node.mb_flags
             for flag in flags.NAME_MAP:
                 if flags[flag]:
                     node_meta.setdefault("flags", {})[flag] = True
 
-            meta["nodes"][node.mb_desc.upper()] = node_meta
+            meta["nodes"].append(node_meta)
             
         actors_metadata_by_atree[i] = meta
         actors_metadata[name]       = meta
