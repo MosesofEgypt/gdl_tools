@@ -77,7 +77,7 @@ def decompile_animations_metadata(
                         frame_count = obj_anim.frame_count,
                         )
                     if obj_anim.start_frame:
-                        obj_anim_meta.update(obj_anim.start_frame)
+                        obj_anim_meta.update(start_frame = obj_anim.start_frame)
 
                     obj_anims_meta[sequence.name.upper()] = obj_anim_meta
 
@@ -107,6 +107,7 @@ def decompile_animations_metadata(
         actors_metadata[name]       = meta
 
 
+    texmods_by_source_index = {}
     for i, texmod in enumerate(anim_tag.data.texmods):
         meta = dict()
         name = bitmap_assets.get(texmod.tex_index, {}).get(
@@ -117,6 +118,7 @@ def decompile_animations_metadata(
         frame_rate      = 30 / (texmod.frame_count if texmod.frame_count else 1)
         tex_swap_rate   = 30 / max(1, texmod.frames_per_tex)
         transform_start = (texmod.start_frame / 30) * frame_rate
+        is_texswap      = False
 
 
         if texmod_type in ("fade_in", "fade_out"):
@@ -132,9 +134,10 @@ def decompile_animations_metadata(
         elif texmod_type == "external":
             meta.update(external=True)
         else:
-            meta.update(tex_swap_rate=tex_swap_rate)
+            is_texswap = True
+            meta.update(frame_rate=tex_swap_rate)
             if transform_start:
-                meta.update(tex_swap_start_frame=texmod.tex_start_frame)
+                meta.update(start_frame=texmod.tex_start_frame)
 
         if i in node_metadata_by_texmod_index:
             texmods_dict = node_metadata_by_texmod_index[i].setdefault("texmods", {})
@@ -149,6 +152,19 @@ def decompile_animations_metadata(
             texmods_dict = texmods_metadata
 
         texmods_dict.setdefault(name, {}).update(meta)
+
+        if is_texswap:
+            texmods_by_source_index.setdefault(texmod.type.source_index.idx, {})\
+                                   .setdefault(name, []).append(texmods_dict[name])
+
+    # for texmods that share the same texture frames, we assign all the frames
+    # to the alphabetically first in the array, and have the others reference it.
+    for source_index, metas in texmods_by_source_index.items():
+        source_name = sorted(metas)[0]
+        for texmod_name, metas_array in metas.items():
+            if texmod_name != source_name:
+                for meta in metas_array:
+                    meta["source_name"] = source_name
 
 
     if hasattr(anim_tag.data.particle_systems, "__iter__"):
@@ -257,9 +273,9 @@ def decompile_psys_metadata(psys):
                 }
 
         if enables.p_rgb:
-            color_tints = {k: (255, 255, 255, v[3]) for k, v in dct.items()}
+            color_tints = {k: (255, 255, 255, v[3]) for k, v in color_tints.items()}
         elif not enables.p_alpha:
-            color_tints = {k: (v[0], v[1], v[2], 255) for k, v in dct.items()}
+            color_tints = {k: (v[0], v[1], v[2], 255) for k, v in color_tints.items()}
 
         data.update({
             k: bytes((v[0], v[1], v[2], v[3])).hex()
