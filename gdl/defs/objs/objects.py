@@ -20,56 +20,106 @@ class ObjectsTag(GdlTag):
     _object_assets_by_index = None
     _bitmap_assets_by_index = None
 
-    _texmod_seqs  = None
+    _texmod_seqs    = None
+    _objanim_seqs   = None
     _texdef_names_by_pixels_pointer = None
 
     _lightmap_names = None
     _object_names   = None
     _bitmap_names   = None
     _texdef_names   = None
+    _texmod_names   = None
+    _objanim_names  = None
+
+    def load_anim_tag(self, filepath=None, recache=False):
+        if self.anim_tag is not None and not recache:
+            return
+
+        if filepath is None:
+            filepath = locate_objects_dir_files(
+                pathlib.Path(self.filepath).parent
+                )['anim_filepath']
+
+        if filepath:
+            self.anim_tag = anim_def.build(filepath=filepath)
+
+    def load_texdef_tag(self, filepath=None, recache=False):
+        if self.texdef_tag is not None and not recache:
+            return
+
+        if filepath is None:
+            filepath = locate_objects_dir_files(
+                pathlib.Path(self.filepath).parent
+                )['texdef_filepath']
+
+        if filepath:
+            try:
+                # so strangely, some of the dreamcast texdefs are big endian
+                if get_is_big_endian_texdef(filepath):
+                    FieldType.force_big()
+                self.texdef_tag = texdef_def.build(filepath=filepath)
+            finally:
+                FieldType.force_normal()
 
     def load_texmod_sequences(self, filepath=None, recache=False):
-        if self._texmod_seqs and not recache:
+        if self._texmod_seqs is not None and not recache:
             return
-        elif self.anim_tag is None or recache:
-            if filepath is None:
-                filepath = locate_objects_dir_files(
-                    pathlib.Path(self.filepath).parent
-                    )['anim_filepath']
-
-            if filepath:
-                self.anim_tag = anim_def.build(filepath=filepath)
 
         self._texmod_seqs = {}
+        self.load_anim_tag(filepath, recache)
+
         if self.anim_tag:
             self._texmod_seqs.update({
                 texmod.tex_index: dict(
                     start = texmod.type.source_index.idx,
                     count = abs(texmod.frame_count),
+                    name  = texmod.name.upper()
                     )
                 for texmod in self.anim_tag.data.texmods
                 if texmod.type.source_index.idx >= 0
                 })
 
-    def load_texdef_names(self, filepath=None, recache=False):
-        if self._texdef_names_by_pixels_pointer and not recache:
+    def load_objanim_sequences(self, filepath=None, recache=False):
+        if self._objanim_seqs is not None and not recache:
             return
-        elif self.texdef_tag is None or recache:
-            if filepath is None:
-                filepath = locate_objects_dir_files(
-                    pathlib.Path(self.filepath).parent
-                    )['texdef_filepath']
 
-            if filepath:
-                try:
-                    # so strangely, some of the dreamcast texdefs are big endian
-                    if get_is_big_endian_texdef(filepath):
-                        FieldType.force_big()
-                    self.texdef_tag = texdef_def.build(filepath=filepath)
-                finally:
-                    FieldType.force_normal()
+        self._objanim_seqs = {}
+        self.load_anim_tag(filepath, recache)
+
+        if self.anim_tag:
+            for atree in self.anim_tag.data.atrees:
+                prefix     = atree.atree_header.prefix
+                atree_data = atree.atree_header.atree_data
+                obj_anims  = atree_data.obj_anim_header.obj_anims
+                sequences  = atree_data.atree_sequences
+                if not obj_anims:
+                    continue
+
+                for node in atree_data.anode_infos:
+                    if node.anim_type.enum_name != "object":
+                        continue
+
+                    node_name = node.mb_desc.upper()
+                    i = node.anim_seq_info_index
+                    for j, atree_seq in enumerate(sequences):
+                        k = i + j
+                        if k not in range(len(obj_anims)):
+                            continue
+
+                        self._objanim_seqs.update({
+                            f"{prefix}_{atree_seq.name}_{node_name}": dict(
+                                count = abs(obj_anims[k].frame_count),
+                                name  = obj_anims[k].mb_desc.upper()
+                                )
+                            })
+
+    def load_texdef_names(self, filepath=None, recache=False):
+        if self._texdef_names_by_pixels_pointer is not None and not recache:
+            return
 
         self._texdef_names_by_pixels_pointer = {}
+        self.load_texdef_tag(filepath, recache)
+
         if self.texdef_tag:
             self._texdef_names_by_pixels_pointer.update({
                 bitmap.tex_pointer: bitmap_def.name
@@ -124,6 +174,76 @@ class ObjectsTag(GdlTag):
 
         return dict(self._bitmap_names)
 
+    def get_texmod_names(self, recache=False):
+        if not recache and self._texmod_names is not None:
+            return dict(self._texmod_names)
+
+        texmod_names            = {}
+        names_by_source_index   = dict()
+
+        for i, seq_data in self._texmod_seqs.items():
+            names_by_source_index.setdefault(seq_data["start"], {})\
+                                 .setdefault(seq_data["name"], [])\
+                                 .append(i)
+            texmod_names[i] = dict(
+                name=seq_data["name"], asset_name=seq_data["name"], index=i
+                )
+
+        # for texmods that share the same texture frames, we assign all the frames
+        # to the alphabetically first in the array, and have the others reference it.
+        for source_index, indices_by_names in names_by_source_index.items():
+            asset_name  = sorted(indices_by_names)[0]
+            tex_index   = sorted(indices_by_names[asset_name])[0]
+            seq_data    = self._texmod_seqs[tex_index]
+            start, count = seq_data["start"], seq_data['count']
+
+            for i in range(count):
+                name = (
+                    f"{asset_name}{i:06d}" if count > 99999 else
+                    f"{asset_name}{i:05d}" if count > 9999 else
+                    f"{asset_name}{i:04d}" if count > 999 else
+                    f"{asset_name}{i:03d}" if count > 99 else
+                    f"{asset_name}{i:02d}"
+                    )
+
+                texmod_names[start+i] = dict(
+                    name=name, asset_name=asset_name, index=start+i
+                    )
+
+        self._texmod_names = texmod_names
+        return dict(self._texmod_names)
+
+    def get_objanim_names(self, recache=False):
+        if not recache and self._objanim_names is not None:
+            return dict(self._objanim_names)
+
+        objanim_names           = {}
+        object_names_by_name    = {
+            v["name"]: v for k, v in
+            self.get_object_names(recache).items()
+            }
+        for asset_name, seq_data in self._objanim_seqs.items():
+            if seq_data["name"] not in object_names_by_name:
+                continue
+
+            start = object_names_by_name[seq_data["name"]]["index"]
+            count = seq_data["count"]
+            for i in range(count):
+                name = (
+                    f"{asset_name}{i:06d}" if count > 99999 else
+                    f"{asset_name}{i:05d}" if count > 9999 else
+                    f"{asset_name}{i:04d}" if count > 999 else
+                    f"{asset_name}{i:03d}" if count > 99 else
+                    f"{asset_name}{i:02d}"
+                    )
+
+                objanim_names[start + i] = dict(
+                    name=name, asset_name=asset_name, index=start+i
+                    )
+
+        self._objanim_names = objanim_names
+        return dict(self._objanim_names)
+
     def get_texdef_names(self, recache=False):
         if not recache and self._texdef_names is not None:
             return dict(self._texdef_names)
@@ -137,7 +257,6 @@ class ObjectsTag(GdlTag):
                 texdef_names[i] = dict(name=name, asset_name=name, index=i)
 
         self._texdef_names = texdef_names
-
         return dict(self._texdef_names)
 
     def get_lightmap_names(self, recache=False):
@@ -248,6 +367,12 @@ class ObjectsTag(GdlTag):
         # grab names from texdefs and bitmap_defs
         bitmap_names.update(self.get_texdef_names())
         bitmap_names.update(self.get_bitmap_def_names())
+
+        # fill in texmod frame names
+        bitmap_names.update(self.get_texmod_names())
+
+        # fill in object animation frame names
+        object_names.update(self.get_objanim_names())
 
         # fill in bitmap names that couldn't be determined
         asset_name, basename, unnamed_ct, name_index, frames = "", "", 0, 0, 0

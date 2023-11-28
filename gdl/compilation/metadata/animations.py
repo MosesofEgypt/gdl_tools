@@ -24,7 +24,14 @@ def decompile_animations_metadata(
     seq_metadata_by_atree_seq       = {}
     node_metadata_by_texmod_index   = {}
 
-    _, bitmap_assets = objects_tag.get_cache_names()
+    object_name_asset_map = {}
+    if objects_tag:
+        object_assets, bitmap_assets = objects_tag.get_cache_names()
+        for i, object_def in objects_tag.get_object_names().items():
+            object_name_asset_map[object_def["name"]] = object_assets[i]["asset_name"]
+
+    else:
+        object_assets, bitmap_assets = {}, {}
 
     for i, atree in enumerate(anim_tag.data.atrees):
         meta = dict(
@@ -47,7 +54,7 @@ def decompile_animations_metadata(
                 seq_meta.update(repeat = True)
 
             if sequence.flags.play_reversed:
-                seq_meta.update(play_reversed = True)
+                seq_meta.update(reverse = True)
 
             meta["sequences"][sequence.name.upper()] = seq_meta
             seq_metadata_by_atree_seq[(i, j)]        = seq_meta
@@ -59,7 +66,7 @@ def decompile_animations_metadata(
             node_name   = node.mb_desc.upper()
 
             if node_type in ("null", "<INVALID>"):
-                node_meta.update(null=True)
+                node_meta.update(is_null=True)
             elif node_type == "texture":
                 node_metadata_by_texmod_index[node.anim_seq_info_index] = node_meta
             elif node_type == "object":
@@ -72,10 +79,14 @@ def decompile_animations_metadata(
                     except Exception:
                         continue
 
+                    object_name = obj_anim.mb_desc.upper()
                     obj_anim_meta = dict(
-                        object_name = obj_anim.mb_desc.upper(),
+                        object_name = object_name_asset_map.get(
+                            object_name, object_name
+                            ),
                         frame_count = obj_anim.frame_count,
                         )
+
                     if obj_anim.start_frame:
                         obj_anim_meta.update(start_frame = obj_anim.start_frame)
 
@@ -162,9 +173,11 @@ def decompile_animations_metadata(
     for source_index, metas in texmods_by_source_index.items():
         source_name = sorted(metas)[0]
         for texmod_name, metas_array in metas.items():
-            if texmod_name != source_name:
-                for meta in metas_array:
-                    meta["source_name"] = source_name
+            if texmod_name == source_name:
+                continue
+
+            for meta in metas_array:
+                meta["source_name"] = source_name
 
 
     if hasattr(anim_tag.data.particle_systems, "__iter__"):

@@ -39,8 +39,8 @@ def decompile_objects_metadata(
             obj_flags = getattr(obj, "flags", None)
 
         for flag in c.OBJECT_FLAG_NAMES:
-            if hasattr(obj_flags, flag):
-                metadata_obj["flags"][flag] = bool(getattr(obj_flags, flag))
+            if getattr(obj_flags, flag, False):
+                metadata_obj["flags"][flag] = True
 
         if not metadata_obj["flags"]:
             metadata_obj.pop("flags")
@@ -99,8 +99,8 @@ def decompile_objects_metadata(
                 metadata_bitm[attr] = getattr(bitm, attr)
 
         for flag in c.BITMAP_FLAG_NAMES:
-            if hasattr(bitm.flags, flag):
-                metadata_bitm["flags"][flag] = bool(getattr(bitm.flags, flag))
+            if getattr(bitm.flags, flag, False):
+                metadata_bitm["flags"][flag] = True
 
         if not metadata_bitm["flags"]:
             metadata_bitm.pop("flags")

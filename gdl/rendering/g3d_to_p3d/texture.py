@@ -18,6 +18,12 @@ def load_textures_from_objects_tag(
         # oh well...
         pass
 
+    try:
+        objects_tag.load_texmod_sequences()
+    except Exception:
+        # oh well...
+        pass
+
     _, texture_assets = objects_tag.get_cache_names()
     texture_names = {
         asset["index"]: asset["name"] for asset in texture_assets.values()

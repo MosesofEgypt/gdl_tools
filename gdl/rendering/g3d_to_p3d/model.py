@@ -103,6 +103,12 @@ def load_model_from_objects_tag(
     if not textures:
         textures = {}
 
+    try:
+        objects_tag.load_objanim_sequences()
+    except Exception:
+        # oh well...
+        pass
+
     model_name = model_name.upper().strip()
     _, bitmap_name_by_index   = objects_tag.get_cache_names()
     object_indices_by_name, _ = objects_tag.get_cache_names(by_name=True)

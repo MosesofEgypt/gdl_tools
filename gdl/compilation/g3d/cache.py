@@ -275,6 +275,11 @@ def decompile_cache_files(
         except Exception:
             print('Could not load texmod sequences. Texture animations may be broken.')
 
+        try:
+            objects_tag.load_objanim_sequences()
+        except Exception:
+            print('Could not load obj anim sequences. Object animations may be broken.')
+
     if data_dir is None:
         data_dir = pathlib.Path(target_dir, c.DATA_FOLDERNAME)
 
