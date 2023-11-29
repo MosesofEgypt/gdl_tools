@@ -104,17 +104,14 @@ class AnimTag(GdlTag):
 
             # calculate anim_data_size and anim_header pointers
             anim_header_size = 28 # size of anim_header
-            anim_header.comp_ang_pointer = anim_header_size if comp_data.comp_angles else 0
-            if anim_header.comp_ang_pointer:
-                anim_header_size += 4 * len(comp_data.comp_angles)
+            anim_header.comp_ang_pointer    = anim_header_size if comp_data.comp_angles else 0
+            anim_header_size += len(comp_data.comp_angles)    * comp_data.comp_angles.itemsize
 
-            anim_header.comp_pos_pointer = anim_header_size if comp_data.comp_positions else 0
-            if anim_header.comp_pos_pointer:
-                anim_header_size += 4 * len(comp_data.comp_positions)
+            anim_header.comp_pos_pointer    = anim_header_size if comp_data.comp_positions else 0
+            anim_header_size += len(comp_data.comp_positions) * comp_data.comp_positions.itemsize
 
-            anim_header.comp_scale_pointer = anim_header_size if comp_data.comp_scales else 0
-            if anim_header.comp_scale_pointer:
-                anim_header_size += 4 * len(comp_data.comp_scales)
+            anim_header.comp_scale_pointer  = anim_header_size if comp_data.comp_scales else 0
+            anim_header_size += len(comp_data.comp_scales)    * comp_data.comp_scales.itemsize
 
             # calculate pointers for all frame data
             frame_data_size = 0
@@ -124,7 +121,7 @@ class AnimTag(GdlTag):
             for i in range(atree_header.atree_seq_count):
                 for anode_info in anode_infos:
                     if i not in range(len(anode_info.anim_seq_infos)):
-                        break
+                        continue
     
                     anim_seq_info = anode_info.anim_seq_infos[i]
                     frame_data = anim_seq_info.frame_data
@@ -134,7 +131,8 @@ class AnimTag(GdlTag):
 
                     frame_data_size += (
                         len(frame_data.frame_header_flags) + len(frame_data.comp_frame_data) +
-                        4 * (len(frame_data.initial_frame_data) + len(frame_data.uncomp_frame_data))
+                        len(frame_data.initial_frame_data) * frame_data.initial_frame_data.itemsize +
+                        len(frame_data.uncomp_frame_data)  * frame_data.uncomp_frame_data.itemsize
                         )
                     frame_data_size += calculate_padding(frame_data_size, 4) # 4byte align
 
