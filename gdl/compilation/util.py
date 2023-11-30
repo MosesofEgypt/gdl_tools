@@ -19,7 +19,8 @@ def locate_assets(data_dir, extensions):
                 continue
 
             if asset_name in assets:
-                print(f"Warning: Found duplicate asset named '{asset_name}'")
+                print(f"Warning: Skipping duplicate asset '{filepath.as_posix()}'.")
+                continue
 
             assets[asset_name] = filepath
 

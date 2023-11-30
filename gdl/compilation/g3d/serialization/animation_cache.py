@@ -13,6 +13,17 @@ for ext in (constants.ANIMATION_CACHE_EXTENSION_NGC, constants.ANIMATION_CACHE_E
 ANIM_CACHE_VER  = 0x0001
 
 # flags
+SEQ_DATA_TYPE_ROT_X         = 1 << 0
+SEQ_DATA_TYPE_ROT_Y         = 1 << 1
+SEQ_DATA_TYPE_ROT_Z         = 1 << 2
+SEQ_DATA_TYPE_POS_X         = 1 << 3
+SEQ_DATA_TYPE_POS_Y         = 1 << 4
+SEQ_DATA_TYPE_POS_Z         = 1 << 5
+SEQ_DATA_TYPE_SCALE_X       = 1 << 6
+SEQ_DATA_TYPE_SCALE_Y       = 1 << 7
+SEQ_DATA_TYPE_SCALE_Z       = 1 << 8
+SEQ_DATA_TYPE_COMPRESSED    = 1 << 9
+SEQ_DATA_TYPE_INITIAL_ONLY  = 1 << 10
 
 
 ANIM_CACHE_HEADER_STRUCT = struct.Struct('<')

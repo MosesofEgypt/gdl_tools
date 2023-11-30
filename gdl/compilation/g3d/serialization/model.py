@@ -268,10 +268,10 @@ class G3DModel():
                     continue
                 elif not bitmap_filepath:
                     # TODO: write a shared function to handle this naming
-                    for suffix in ("00", ".0001", ".0002"):
-                        temp_name = bitmap_name + suffix
-                        if temp_name in texture_assets:
-                            bitmap_filepath = texture_assets[temp_name]
+                    for key in texture_assets:
+                        if (key.startswith(bitmap_name) and
+                            set(key.split(bitmap_name, 1)[-1]).issubset("0123456789")):
+                            bitmap_filepath = texture_assets[key]
                             break
 
                 if not bitmap_filepath:

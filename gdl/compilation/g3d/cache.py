@@ -21,14 +21,21 @@ COMPILE_JOB_TYPE_MODELS     = 'model'
 
 
 def _compile_assets(
-        compile_job_type, data_dir,
+        compile_job_type,
         force_recompile=False, parallel_processing=False,
         target_ps2=False, target_ngc=False, target_xbox=False,
-        target_dreamcast=False, target_arcade=False, **kwargs
+        target_dreamcast=False, target_arcade=False, 
+        data_dir="", assets_dir=None, cache_dir=None, **kwargs
         ):
+    if not assets_dir:
+        assets_dir  = pathlib.Path(data_dir, c.EXPORT_FOLDERNAME, folder)
+    if not cache_dir:
+        cache_dir   = pathlib.Path(data_dir, c.IMPORT_FOLDERNAME, folder)
+
     if compile_job_type == COMPILE_JOB_TYPE_TEXTURES:
         folder          = c.TEX_FOLDERNAME
-        metadata_key    = "bitmaps"
+        metadata_func   = lambda: objects_metadata.\
+                          compile_objects_metadata(data_dir).get("bitmaps", ())
         compile_func    = texture.compile_texture
         cache_type      = (
             c.TEXTURE_CACHE_EXTENSION_PS2  if target_ps2 else
@@ -40,7 +47,8 @@ def _compile_assets(
             )
     elif compile_job_type == COMPILE_JOB_TYPE_MODELS:
         folder          = c.MOD_FOLDERNAME
-        metadata_key    = "objects"
+        metadata_func   = lambda: objects_metadata.\
+                          compile_objects_metadata(data_dir).get("objects", ())
         compile_func    = model.compile_model
         cache_type      = (
             c.MODEL_CACHE_EXTENSION_ARC  if target_arcade else
@@ -52,7 +60,8 @@ def _compile_assets(
             )
     elif compile_job_type == COMPILE_JOB_TYPE_ANIMATIONS:
         folder          = c.ANIM_FOLDERNAME
-        metadata_key    = "animations"
+        metadata_func   = lambda: animations_metadata.\
+                          compile_animations_metadata(data_dir).get("actors", ())
         compile_func    = animation.compile_animation
         cache_type      = (
             c.ANIMATION_CACHE_EXTENSION_ARC  if target_arcade else
@@ -72,23 +81,20 @@ def _compile_assets(
     if cache_type is None:
         raise ValueError("No target platform specified")
 
-    asset_folder = pathlib.Path(data_dir, c.EXPORT_FOLDERNAME, folder)
-    cache_folder = pathlib.Path(data_dir, c.IMPORT_FOLDERNAME, folder)
-
     # get the metadata for all assets to import and
     # key it by name to allow matching to asset files
     all_metadata = {
         m.get("name"): m
-        for m in objects_metadata.compile_objects_metadata(data_dir).get(metadata_key, ())
+        for m in metadata_func(data_dir)
         if isinstance(m, dict) and m.get("name")
         }
 
     if compile_job_type == COMPILE_JOB_TYPE_TEXTURES:
-        all_assets = util.locate_textures(asset_folder, cache_files=False)
+        all_assets = util.locate_textures(assets_dir, cache_files=False)
     elif compile_job_type == COMPILE_JOB_TYPE_MODELS:
-        all_assets = util.locate_models(asset_folder, cache_files=False)
+        all_assets = util.locate_models(assets_dir, cache_files=False)
     elif compile_job_type == COMPILE_JOB_TYPE_ANIMATIONS:
-        all_assets = util.locate_animations(asset_folder, cache_files=False)
+        all_assets = util.locate_animations(assets_dir, cache_files=False)
 
     all_job_args = []
     for name in sorted(all_assets):
@@ -99,9 +105,9 @@ def _compile_assets(
 
         try:
             asset_filepath = all_assets[name]
-            rel_filepath   = asset_filepath.relative_to(asset_folder)
+            rel_filepath   = asset_filepath.relative_to(assets_dir)
             filename       = rel_filepath.stem
-            cache_filepath = cache_folder.joinpath(f"{filename}.{cache_type}")
+            cache_filepath = cache_dir.joinpath(f"{filename}.{cache_type}")
 
             if not force_recompile and cache_filepath.is_file():
                 if verify_source_file_asset_checksum(asset_filepath, cache_filepath):
@@ -131,13 +137,18 @@ def compile_textures(*args, **kwargs):
 def compile_models(*args, **kwargs):
     return _compile_assets(COMPILE_JOB_TYPE_MODELS, *args, **kwargs)
 
+def compile_metadata():
+    # TODO: write this so it combines all metadata files in assets_dir
+    #       and writes them out to combined metadata file in cache_dir
+    pass
+
 
 def compile_cache_files(
-        objects_dir,
         target_ngc=False, target_ps2=False, target_xbox=False,
         target_dreamcast=False, target_arcade=False,
         serialize_cache_files=False, build_texdef_cache=False,
-        build_objects_cache=True, build_anim_cache=True
+        build_objects_cache=True, build_anim_cache=True,
+        objects_dir=".", cache_dir=None
         ):
     objects_dir = pathlib.Path(objects_dir)
     ext = (
@@ -183,20 +194,22 @@ def compile_cache_files(
 
         print("Importing textures...")
         texture_datas = texture.import_textures(
-            objects_tag, data_dir, target_ngc=target_ngc,
-            target_ps2=target_ps2, target_xbox=target_xbox,
-            target_dreamcast=target_dreamcast, target_arcade=target_arcade
+            objects_tag, target_ngc=target_ngc, target_ps2=target_ps2,
+            target_xbox=target_xbox, target_dreamcast=target_dreamcast,
+            target_arcade=target_arcade, data_dir=data_dir, cache_dir=cache_dir
             )
         print("Importing models...")
         model.import_models(
-            objects_tag, data_dir, target_ngc=target_ngc,
-            target_ps2=target_ps2, target_xbox=target_xbox,
-            target_dreamcast=target_dreamcast, target_arcade=target_arcade
-        )
+            objects_tag, target_ngc=target_ngc, target_ps2=target_ps2,
+            target_xbox=target_xbox, target_dreamcast=target_dreamcast,
+            target_arcade=target_arcade, data_dir=data_dir, cache_dir=cache_dir
+            )
 
     if anim_tag:
         print("Importing animations...")
-        animation.import_animations(anim_tag, objects_tag, data_dir)
+        animation.import_animations(
+            anim_tag, objects_tag, data_dir=data_dir, cache_dir=cache_dir
+            )
 
     if build_texdef_cache:
         texdef_tag = compile_texdef_cache_from_objects(objects_tag)
@@ -229,12 +242,14 @@ def compile_cache_files(
 
 
 def decompile_cache_files(
-        target_dir, data_dir=None, overwrite=False, individual_meta=True,
+        target_dir, overwrite=False, individual_meta=True,
         meta_asset_types=c.METADATA_ASSET_EXTENSIONS[0],
         anim_asset_types=c.ANIMATION_CACHE_EXTENSIONS,
         tex_asset_types=c.TEXTURE_CACHE_EXTENSIONS,
         mod_asset_types=c.MODEL_CACHE_EXTENSIONS,\
-        parallel_processing=False, swap_lightmap_and_diffuse=False, **kwargs
+        parallel_processing=False, swap_lightmap_and_diffuse=False,
+        data_dir=None, assets_dir=None, cache_dir=None,
+        **kwargs
         ):
 
     filepaths = util.locate_objects_dir_files(target_dir)
@@ -280,40 +295,46 @@ def decompile_cache_files(
         except Exception:
             print('Could not load obj anim sequences. Object animations may be broken.')
 
-    if data_dir is None:
-        data_dir = pathlib.Path(target_dir, c.DATA_FOLDERNAME)
+    data_dir = pathlib.Path(
+        *(data_dir if data_dir else (target_dir, c.DATA_FOLDERNAME))
+        )
 
     if meta_asset_types and (objects_tag or anim_tag):
         objects_metadata.decompile_objects_metadata(
-            objects_tag, data_dir, anim_tag=anim_tag, overwrite=overwrite,
+            objects_tag, anim_tag=anim_tag, overwrite=overwrite,
             asset_types=meta_asset_types, individual_meta=individual_meta,
+            data_dir=data_dir, assets_dir=assets_dir, cache_dir=cache_dir
             )
 
     if meta_asset_types and anim_tag:
         animations_metadata.decompile_animations_metadata(
-            anim_tag, data_dir, objects_tag=objects_tag, overwrite=overwrite,
+            anim_tag, objects_tag=objects_tag, overwrite=overwrite,
             asset_types=meta_asset_types, individual_meta=individual_meta,
+            data_dir=data_dir, assets_dir=assets_dir, cache_dir=cache_dir
             )
 
     if tex_asset_types and (objects_tag or texdef_tag):
         texture.export_textures(
-            data_dir, objects_tag=objects_tag, texdef_tag=texdef_tag,
+            objects_tag=objects_tag, texdef_tag=texdef_tag,
             overwrite=overwrite, parallel_processing=parallel_processing,
             asset_types=tex_asset_types, mipmaps=kwargs.get("mipmaps", False),
-            textures_filepath=filepaths['textures_filepath']
+            textures_filepath=filepaths['textures_filepath'],
+            data_dir=data_dir, assets_dir=assets_dir, cache_dir=cache_dir
             )
 
     if anim_asset_types and anim_tag:
         animation.export_animations(
-            anim_tag, objects_tag, data_dir, overwrite=overwrite,
+            anim_tag, overwrite=overwrite,
             parallel_processing=parallel_processing, asset_types=anim_asset_types,
+            data_dir=data_dir, assets_dir=assets_dir, cache_dir=cache_dir,
             )
 
     if mod_asset_types and objects_tag:
         model.export_models(
-            objects_tag, data_dir, overwrite=overwrite,
+            objects_tag, overwrite=overwrite,
             parallel_processing=parallel_processing, asset_types=mod_asset_types,
-            swap_lightmap_and_diffuse=swap_lightmap_and_diffuse
+            swap_lightmap_and_diffuse=swap_lightmap_and_diffuse,
+            data_dir=data_dir, assets_dir=assets_dir, cache_dir=cache_dir
             )
 
 

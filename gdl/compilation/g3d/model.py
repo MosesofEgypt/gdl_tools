@@ -61,20 +61,18 @@ def decompile_model(kwargs):
 
 
 def import_models(
-        objects_tag, data_dir, target_ps2=False, target_ngc=False,
+        objects_tag, target_ps2=False, target_ngc=False,
         target_xbox=False, target_dreamcast=False, target_arcade=False,
+        data_dir=".", cache_dir=None
         ):
     data_dir = pathlib.Path(data_dir)
 
-    _, inv_bitmap_names = objects_tag.get_cache_names(by_name=True, recache=True)
-
-    # we uppercase everything for uniformity. do it here
-    inv_bitmap_names = {n.upper(): i for n, i in inv_bitmap_names.items()}
+    if not cache_dir:
+        cache_dir = data_dir.joinpath(c.IMPORT_FOLDERNAME, c.MOD_FOLDERNAME)
 
     model_caches_by_name = {}
     all_asset_filepaths = util.locate_models(
-        data_dir.joinpath(c.IMPORT_FOLDERNAME, c.MOD_FOLDERNAME),
-        cache_files=True, target_ps2=target_ps2,
+        cache_dir, cache_files=True, target_ps2=target_ps2,
         target_ngc=target_ngc, target_xbox=target_xbox,
         target_dreamcast=target_dreamcast, target_arcade=target_arcade
         )
@@ -88,6 +86,10 @@ def import_models(
         except Exception:
             print(format_exc())
             print("Could not load model:\n    %s" % all_asset_filepaths[name])
+
+    # we uppercase everything for uniformity. do it here
+    _, inv_bitmap_names = objects_tag.get_cache_names(by_name=True, recache=True)
+    inv_bitmap_names = {n.upper(): i for n, i in inv_bitmap_names.items()}
 
     objects     = objects_tag.data.objects
     object_defs = objects_tag.data.object_defs
@@ -195,10 +197,10 @@ def import_models(
 
 
 def export_models(
-        objects_tag, data_dir,
-        asset_types=c.MODEL_CACHE_EXTENSIONS,
+        objects_tag, asset_types=c.MODEL_CACHE_EXTENSIONS,
         parallel_processing=False, overwrite=False,
-        swap_lightmap_and_diffuse=False
+        swap_lightmap_and_diffuse=False,
+        data_dir=".", assets_dir=None, cache_dir=None
         ):
     data_dir = pathlib.Path(data_dir)
     if isinstance(asset_types, str):
@@ -208,9 +210,12 @@ def export_models(
         if asset_type not in (*c.MODEL_CACHE_EXTENSIONS, *c.MODEL_ASSET_EXTENSIONS):
             raise ValueError("Unknown model type '%s'" % asset_type)
 
-    assets_dir     = data_dir.joinpath(c.EXPORT_FOLDERNAME, c.MOD_FOLDERNAME)
-    cache_dir      = data_dir.joinpath(c.IMPORT_FOLDERNAME, c.MOD_FOLDERNAME)
-    tex_assets_dir = data_dir.joinpath(c.EXPORT_FOLDERNAME, c.TEX_FOLDERNAME)
+    if not assets_dir:
+        assets_dir  = data_dir.joinpath(c.EXPORT_FOLDERNAME, c.MOD_FOLDERNAME)
+    if not cache_dir:
+        cache_dir   = data_dir.joinpath(c.IMPORT_FOLDERNAME, c.MOD_FOLDERNAME)
+
+    tex_assets_dir = assets_dir.with_name(c.TEX_FOLDERNAME)
 
     is_arcade   = False
     for bitm in objects_tag.data.bitmaps:

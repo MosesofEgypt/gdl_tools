@@ -75,17 +75,21 @@ def decompile_texture(kwargs):
 
 
 def import_textures(
-        objects_tag, data_dir, use_force_index_hack=False,
-        target_ngc=False, target_ps2=False, target_xbox=False,
-        target_dreamcast=False, target_arcade=False
+        objects_tag, target_ngc=False, target_ps2=False,
+        target_xbox=False, target_dreamcast=False, target_arcade=False,
+        data_dir=".", cache_dir=None
         ):
+    data_dir = pathlib.Path(data_dir)
+
+    if not cache_dir:
+        cache_dir = data_dir.joinpath(c.IMPORT_FOLDERNAME, c.TEX_FOLDERNAME)
+
     # locate and load all assets
     texture_caches_by_name = {}
     all_asset_filepaths = util.locate_textures(
-        pathlib.Path(data_dir, c.IMPORT_FOLDERNAME, c.TEX_FOLDERNAME),
-        target_ngc=target_ngc, target_xbox=target_xbox, target_ps2=target_ps2,
+        cache_dir, cache_files=True, target_ngc=target_ngc,
+        target_xbox=target_xbox, target_ps2=target_ps2,
         target_dreamcast=target_dreamcast, target_arcade=target_arcade,
-        cache_files=True,
         )
 
     for name in sorted(all_asset_filepaths):
@@ -330,10 +334,12 @@ def import_textures(
 
 
 def export_textures(
-        data_dir, objects_tag=None, texdef_tag=None,
+        objects_tag=None, texdef_tag=None,
         asset_types=c.TEXTURE_CACHE_EXTENSIONS, textures_filepath="",
-        parallel_processing=False, overwrite=False, mipmaps=False
+        parallel_processing=False, overwrite=False, mipmaps=False,
+        data_dir=".", assets_dir=None, cache_dir=None,
         ):
+    data_dir = pathlib.Path(data_dir)
     if isinstance(asset_types, str):
         asset_types = (asset_types, )
 
@@ -341,8 +347,11 @@ def export_textures(
         if asset_type not in (*c.TEXTURE_CACHE_EXTENSIONS, *c.TEXTURE_ASSET_EXTENSIONS):
             raise ValueError(f"Unknown texture type '{asset_type}'")
 
-    assets_dir = pathlib.Path(data_dir, c.EXPORT_FOLDERNAME, c.TEX_FOLDERNAME)
-    cache_dir  = pathlib.Path(data_dir, c.IMPORT_FOLDERNAME, c.TEX_FOLDERNAME)
+    if not assets_dir:
+        assets_dir  = data_dir.joinpath(c.EXPORT_FOLDERNAME, c.TEX_FOLDERNAME)
+    if not cache_dir:
+        cache_dir   = data_dir.joinpath(c.IMPORT_FOLDERNAME, c.TEX_FOLDERNAME)
+
     if objects_tag:
         tag_dir         = pathlib.Path(objects_tag.filepath).parent
         bitmaps         = objects_tag.data.bitmaps

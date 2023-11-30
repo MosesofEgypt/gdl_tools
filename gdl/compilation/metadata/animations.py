@@ -4,14 +4,22 @@ from . import constants as c
 from . import util
 
 
-def compile_animations_metadata(data_dir, by_asset_name=False):
-    return util.compile_metadata(data_dir, by_asset_name=by_asset_name)
+def compile_animations_metadata(
+        data_dir=".", assets_dir=None, cache_dir=None, by_asset_name=False
+        ):
+    # TODO: update this to merge metadata together to allow separate animations
+    #       to have separate metadata files, allowing easier editing
+    return util.compile_metadata(
+        data_dir=data_dir, assets_dir=assets_dir, cache_dir=cache_dir,
+        by_asset_name=by_asset_name
+        )
 
 
 def decompile_animations_metadata(
-        anim_tag, data_dir="", objects_tag=None,
+        anim_tag, objects_tag=None,
         asset_types=c.METADATA_ASSET_EXTENSIONS[0],
-        overwrite=False, individual_meta=True
+        overwrite=False, individual_meta=True,
+        data_dir=".", assets_dir=None, cache_dir=None
         ):
     if isinstance(asset_types, str):
         asset_types = (asset_types, )

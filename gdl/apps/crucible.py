@@ -17,9 +17,10 @@ BUILD_TARGETS = {
     "Arcade":       "arcade",
     "Dreamcast":    "dreamcast",
     }
+ANIM_EXTRACT_FORMATS = {
+    }    
 MOD_EXTRACT_FORMATS = {
     "Wavefront OBJ": "obj",
-    #"Collada DAE":   "dae",
     }
 TEX_EXTRACT_FORMATS = {
     "PNG": "png",
@@ -31,14 +32,19 @@ META_EXTRACT_FORMATS = {
     "JSON": "json",
     }
 
+if c.JMM_SUPPORT:
+    # experimental
+    ANIM_EXTRACT_FORMATS["Halo JMM"] = "jmm"
+
+
 class CrucibleApp(Tk):
-    curr_dir = "."
-    debug = False
+    curr_dir    = "."
+    debug       = False
     
     def __init__(self, **options):
         Tk.__init__(self, **options)
         
-        self.title("Crucible V1.3.0")
+        self.title("Crucible V1.4.0")
         self.minsize(500, 0)
         self.resizable(1, 0)
 
@@ -48,6 +54,7 @@ class CrucibleApp(Tk):
 
         self.build_target        = StringVar(self, "PlayStation2")
         self.mod_extract_format  = StringVar(self, "Wavefront OBJ")
+        self.anim_extract_format = StringVar(self, "Halo JMM" if c.JMM_SUPPORT else "UNSUPPORTED")
         self.tex_extract_format  = StringVar(self, "PNG")
         self.meta_extract_format = StringVar(self, "YAML")
         self.use_parallel_processing = BooleanVar(self, True)
@@ -119,6 +126,10 @@ class CrucibleApp(Tk):
             self.debug_actions_frame, text="Compile models", width=20,
             command=lambda *a, **kw: self._compile_objects(models=True)
             )
+        self.btn_compile_animations = Button(
+            self.debug_actions_frame, text="Compile animations", width=20,
+            command=lambda *a, **kw: self._compile_objects(animations=True)
+            )
         self.btn_compile_cache = Button(
             self.debug_actions_frame, text="Compile cache files", width=20,
             command=lambda *a, **kw: self._compile_objects(cache=True)
@@ -135,6 +146,7 @@ class CrucibleApp(Tk):
 
         self.build_target_label = Label(self.settings_frame, text="Platform target")
         self.mod_format_label   = Label(self.settings_frame, text="Model format")
+        self.anim_format_label  = Label(self.settings_frame, text="Animation format")
         self.tex_format_label   = Label(self.settings_frame, text="Texture format")
         self.meta_format_label  = Label(self.settings_frame, text="Metadata format")
 
@@ -143,6 +155,9 @@ class CrucibleApp(Tk):
             )
         self.mod_format_menu   = OptionMenu(
             self.settings_frame, self.mod_extract_format, *sorted(MOD_EXTRACT_FORMATS.keys())
+            )
+        self.anim_format_menu   = OptionMenu(
+            self.settings_frame, self.anim_extract_format, *sorted(ANIM_EXTRACT_FORMATS.keys())
             )
         self.tex_format_menu   = OptionMenu(
             self.settings_frame, self.tex_extract_format, *sorted(TEX_EXTRACT_FORMATS.keys())
@@ -178,7 +193,7 @@ class CrucibleApp(Tk):
                                [self.worlds_frame, 3],
                                [self.messages_frame, 3],
                                [self.settings_frame, 4],
-                               [self.debug_actions_frame, 6],
+                               [self.debug_actions_frame, 8],
                                ):
             for i in range(columns):
                 frame.columnconfigure(i, weight=1)
@@ -201,16 +216,18 @@ class CrucibleApp(Tk):
 
         self.btn_compile_textures.grid(row=0, column=0, sticky="we", columnspan=2, padx=2, pady=2)
         self.btn_compile_models.grid(row=0, column=2, sticky="we", columnspan=2, padx=2, pady=2)
-        self.btn_compile_cache.grid(row=0, column=4, sticky="we", columnspan=2, padx=2, pady=2)
-        self.btn_decompile_sources.grid(row=1, column=0, sticky="we", columnspan=3, padx=2, pady=2)
-        self.btn_decompile_cache.grid(row=1, column=3, sticky="we", columnspan=3, padx=2, pady=2)
+        self.btn_compile_animations.grid(row=0, column=4, sticky="we", columnspan=2, padx=2, pady=2)
+        self.btn_compile_cache.grid(row=0, column=6, sticky="we", columnspan=2, padx=2, pady=2)
+        self.btn_decompile_sources.grid(row=1, column=0, sticky="we", columnspan=4, padx=2, pady=2)
+        self.btn_decompile_cache.grid(row=1, column=4, sticky="we", columnspan=4, padx=2, pady=2)
 
         # grid the settings
         y = 0
         for lbl, menu, radio in (
                 (self.build_target_label, self.build_target_menu, self.parallel_processing_button),
                 (self.mod_format_label, self.mod_format_menu, self.force_recompile_button),
-                (self.tex_format_label, self.tex_format_menu, self.overwrite_button),
+                (self.anim_format_label, self.anim_format_menu, self.overwrite_button),
+                (self.tex_format_label, self.tex_format_menu, None),
                 (self.meta_format_label, self.meta_format_menu, None),
             ):
             lbl.grid(row=y, column=0, sticky="we", padx=2)
@@ -379,8 +396,12 @@ class CrucibleApp(Tk):
                     anim_asset_types.append(c.ANIMATION_CACHE_EXTENSION_PS2)
 
             if source:
-                mod_asset_types.append(MOD_EXTRACT_FORMATS.get(self.mod_extract_format.get(), "obj"))
-                tex_asset_types.append(TEX_EXTRACT_FORMATS.get(self.tex_extract_format.get(), "png"))
+                anim_format = ANIM_EXTRACT_FORMATS.get(self.anim_extract_format.get(), "")
+                mod_format  = MOD_EXTRACT_FORMATS.get(self.mod_extract_format.get(), "obj")
+                tex_format  = TEX_EXTRACT_FORMATS.get(self.tex_extract_format.get(), "png")
+                if anim_format: anim_asset_types.append(anim_format)
+                if mod_format:  mod_asset_types.append(mod_format)
+                if tex_format:  tex_asset_types.append(tex_format)
 
             meta_asset_type = META_EXTRACT_FORMATS.get(self.meta_extract_format.get(), "yaml")
 

@@ -4,14 +4,20 @@ from . import constants as c
 from . import util
 
 
-def compile_objects_metadata(data_dir, by_asset_name=False):
-    return util.compile_metadata(data_dir, by_asset_name=by_asset_name)
+def compile_objects_metadata(
+        data_dir=".", assets_dir=None, cache_dir=None, by_asset_name=False
+        ):
+    return util.compile_metadata(
+        data_dir=data_dir, assets_dir=assets_dir, cache_dir=cache_dir,
+        by_asset_name=by_asset_name
+        )
 
 
 def decompile_objects_metadata(
-        objects_tag, data_dir, anim_tag=None,
+        objects_tag, anim_tag=None,
         asset_types=c.METADATA_ASSET_EXTENSIONS[0],
-        overwrite=False, individual_meta=True
+        overwrite=False, individual_meta=True,
+        data_dir=".", assets_dir=None, cache_dir=None
         ):
     if isinstance(asset_types, str):
         asset_types = (asset_types, )
