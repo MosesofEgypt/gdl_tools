@@ -79,10 +79,8 @@ def import_textures(
         target_xbox=False, target_dreamcast=False, target_arcade=False,
         data_dir=".", cache_dir=None
         ):
-    data_dir = pathlib.Path(data_dir)
-
     if not cache_dir:
-        cache_dir = data_dir.joinpath(c.IMPORT_FOLDERNAME, c.TEX_FOLDERNAME)
+        cache_dir = pathlib.Path(data_dir).joinpath(c.IMPORT_FOLDERNAME, c.TEX_FOLDERNAME)
 
     # locate and load all assets
     texture_caches_by_name = {}
@@ -115,7 +113,7 @@ def import_textures(
 
     # get the metadata for all bitmaps to import
     all_metadata = objects_metadata.compile_objects_metadata(
-        data_dir, by_asset_name=False
+        cache_dir, by_asset_name=False
         )
 
     # for returning to the caller for easy iteration
@@ -348,7 +346,7 @@ def export_textures(
             raise ValueError(f"Unknown texture type '{asset_type}'")
 
     if not assets_dir:
-        assets_dir  = data_dir.joinpath(c.EXPORT_FOLDERNAME, c.TEX_FOLDERNAME)
+        assets_dir  = data_dir.joinpath(c.TEX_FOLDERNAME)
     if not cache_dir:
         cache_dir   = data_dir.joinpath(c.IMPORT_FOLDERNAME, c.TEX_FOLDERNAME)
 

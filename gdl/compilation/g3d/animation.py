@@ -59,6 +59,7 @@ def export_animations(
         overwrite=False, parallel_processing=True,
         data_dir=".", assets_dir=None, cache_dir=None
         ):
+    return
     data_dir = pathlib.Path(data_dir)
     if isinstance(asset_types, str):
         asset_types = (asset_types, )
@@ -74,7 +75,6 @@ def export_animations(
         cache_dir   = data_dir.joinpath(c.IMPORT_FOLDERNAME, c.ANIM_FOLDERNAME)
 
     atrees = anim_tag.data.atrees
-    object_assets, bitmap_assets = objects_tag.get_cache_names()
 
     all_job_args = []
 

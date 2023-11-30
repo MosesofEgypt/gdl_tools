@@ -65,10 +65,8 @@ def import_models(
         target_xbox=False, target_dreamcast=False, target_arcade=False,
         data_dir=".", cache_dir=None
         ):
-    data_dir = pathlib.Path(data_dir)
-
     if not cache_dir:
-        cache_dir = data_dir.joinpath(c.IMPORT_FOLDERNAME, c.MOD_FOLDERNAME)
+        cache_dir = pathlib.Path(data_dir).joinpath(c.IMPORT_FOLDERNAME, c.MOD_FOLDERNAME)
 
     model_caches_by_name = {}
     all_asset_filepaths = util.locate_models(
@@ -97,7 +95,9 @@ def import_models(
     del object_defs[:]
 
     # get the metadata for all models to import
-    metadata = objects_metadata.compile_objects_metadata(data_dir).get("objects", ())
+    metadata = objects_metadata.compile_objects_metadata(
+        cache_dir
+        ).get("objects", ())
     objects_metadata_by_name = {
         meta["name"]: meta for meta in metadata if "name" in meta
         }
@@ -211,7 +211,7 @@ def export_models(
             raise ValueError("Unknown model type '%s'" % asset_type)
 
     if not assets_dir:
-        assets_dir  = data_dir.joinpath(c.EXPORT_FOLDERNAME, c.MOD_FOLDERNAME)
+        assets_dir  = data_dir.joinpath(c.MOD_FOLDERNAME)
     if not cache_dir:
         cache_dir   = data_dir.joinpath(c.IMPORT_FOLDERNAME, c.MOD_FOLDERNAME)
 

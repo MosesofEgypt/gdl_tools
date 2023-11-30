@@ -82,7 +82,9 @@ class CrucibleApp(Tk):
             )
         self.btn_compile_objects_all = Button(
             self.objects_frame, text="Compile objects", width=20,
-            command=lambda *a, **kw: self._compile_objects(cache=True, models=True, textures=True)
+            command=lambda *a, **kw: self._compile_objects(
+                metadata=True, cache=True, models=True, textures=True
+                )
             )
         self.btn_decompile_objects_all = Button(
             self.objects_frame, text="Decompile objects", width=20,
@@ -96,7 +98,8 @@ class CrucibleApp(Tk):
         self.btn_compile_worlds_all = Button(
             self.worlds_frame, text="Compile worlds", width=20,
             command=lambda *a, **kw: self._compile_objects(
-                cache=True, models=True, textures=True, world=True),
+                cache=True, models=True, textures=True, world=True
+                ),
             state=DISABLED  # temporary
             )
         self.btn_decompile_worlds_all = Button(
@@ -120,19 +123,19 @@ class CrucibleApp(Tk):
         # DEBUG
         self.btn_compile_textures = Button(
             self.debug_actions_frame, text="Compile textures", width=20,
-            command=lambda *a, **kw: self._compile_objects(textures=True)
+            command=lambda *a, **kw: self._compile_objects(metadata=True, textures=True)
             )
         self.btn_compile_models = Button(
             self.debug_actions_frame, text="Compile models", width=20,
-            command=lambda *a, **kw: self._compile_objects(models=True)
+            command=lambda *a, **kw: self._compile_objects(metadata=True, models=True)
             )
         self.btn_compile_animations = Button(
             self.debug_actions_frame, text="Compile animations", width=20,
-            command=lambda *a, **kw: self._compile_objects(animations=True)
+            command=lambda *a, **kw: self._compile_objects(metadata=True, animations=True)
             )
         self.btn_compile_cache = Button(
             self.debug_actions_frame, text="Compile cache files", width=20,
-            command=lambda *a, **kw: self._compile_objects(cache=True)
+            command=lambda *a, **kw: self._compile_objects(metadata=True, cache=True)
             )
         self.btn_decompile_sources = Button(
             self.debug_actions_frame, text="Decompile asset sources", width=20,
@@ -320,7 +323,7 @@ class CrucibleApp(Tk):
         print('Finished. Took %s seconds.\n' % (time.time() - start))
 
     def _compile_objects(self, models=False, textures=False, cache=False,
-                         world=False, animations=False):
+                         world=False, animations=False, metadata=False):
         target_dir = self.target_worlds_dir.get() if world else self.target_objects_dir.get()
         build_target = BUILD_TARGETS.get(self.build_target.get(), "ps2")
         if not target_dir:
@@ -338,6 +341,10 @@ class CrucibleApp(Tk):
                 parallel_processing = self.use_parallel_processing.get(),
                 want_world_compiler = world, target_dir=target_dir,
                 )
+            if metadata:
+                print('Compiling metadata...')
+                compiler.compile_metadata()
+
             if textures:
                 print('Compiling textures...')
                 compiler.compile_textures()
@@ -369,11 +376,13 @@ class CrucibleApp(Tk):
             print('Decompiling...')
 
             build_target = BUILD_TARGETS.get(self.build_target.get(), "ps2")
+            meta_asset_types = []
             anim_asset_types = []
             mod_asset_types  = []
             tex_asset_types  = []
 
             if cache:
+                meta_asset_types.append(c.METADATA_CACHE_EXTENSION)
                 if build_target == "ngc":
                     mod_asset_types.append(c.MODEL_CACHE_EXTENSION_NGC)
                     tex_asset_types.append(c.TEXTURE_CACHE_EXTENSION_NGC)
@@ -396,24 +405,24 @@ class CrucibleApp(Tk):
                     anim_asset_types.append(c.ANIMATION_CACHE_EXTENSION_PS2)
 
             if source:
+                meta_format = META_EXTRACT_FORMATS.get(self.meta_extract_format.get(), "yaml")
                 anim_format = ANIM_EXTRACT_FORMATS.get(self.anim_extract_format.get(), "")
                 mod_format  = MOD_EXTRACT_FORMATS.get(self.mod_extract_format.get(), "obj")
                 tex_format  = TEX_EXTRACT_FORMATS.get(self.tex_extract_format.get(), "png")
+                if meta_format: meta_asset_types.append(meta_format)
                 if anim_format: anim_asset_types.append(anim_format)
                 if mod_format:  mod_asset_types.append(mod_format)
                 if tex_format:  tex_asset_types.append(tex_format)
 
-            meta_asset_type = META_EXTRACT_FORMATS.get(self.meta_extract_format.get(), "yaml")
-
             decompiler = self.get_objects_compiler(
                 parallel_processing=self.use_parallel_processing.get(),
                 want_world_compiler=world, target_dir=target_dir,
-            )
+                )
             decompiler.decompile(
                 anim_asset_types = anim_asset_types,
                 mod_asset_types = mod_asset_types,
                 tex_asset_types = tex_asset_types,
-                meta_asset_types = [meta_asset_type]
+                meta_asset_types = meta_asset_types
                 )
         except Exception:
             print(format_exc())

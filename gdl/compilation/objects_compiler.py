@@ -20,7 +20,6 @@ class ObjectsCompiler:
     swap_lightmap_and_diffuse = False  # debug feature
 
     overwrite = False
-    individual_meta = True
 
     serialize_cache_files = True
     build_texdef_cache = True
@@ -30,6 +29,17 @@ class ObjectsCompiler:
         # copied into the attributes of this new class
         for k, v in kwargs.items():
             setattr(self, k, v)
+
+    def compile_metadata(self):
+        data_dir = pathlib.Path(self.target_dir, c.DATA_FOLDERNAME)
+        if not data_dir.is_dir():
+            return
+        elif not(self.build_ngc_files or self.build_ps2_files or
+                 self.build_xbox_files or self.build_arcade_files or
+                 self.build_dreamcast_files):
+            return
+
+        cache_comp.compile_metadata(data_dir=data_dir, force_recompile=self.force_recompile)
 
     def compile_animations(self):
         data_dir = pathlib.Path(self.target_dir, c.DATA_FOLDERNAME)
@@ -153,8 +163,7 @@ class ObjectsCompiler:
 
     def decompile(self, **kwargs):
         kwargs.setdefault("overwrite", self.overwrite)
-        kwargs.setdefault("individual_meta", self.individual_meta)
         kwargs.setdefault("parallel_processing", self.parallel_processing)
         kwargs.setdefault("swap_lightmap_and_diffuse", self.swap_lightmap_and_diffuse)
 
-        cache_comp.decompile_cache_files(data_dir=self.target_dir, **kwargs)
+        cache_comp.decompile_cache_files(target_dir=self.target_dir, **kwargs)

@@ -1,5 +1,3 @@
-import os
-
 from . import constants as c
 from . import util
 
@@ -15,15 +13,11 @@ def compile_objects_metadata(
 
 def decompile_objects_metadata(
         objects_tag, anim_tag=None,
-        asset_types=c.METADATA_ASSET_EXTENSIONS[0],
-        overwrite=False, individual_meta=True,
-        data_dir=".", assets_dir=None, cache_dir=None
+        asset_types=c.METADATA_CACHE_EXTENSIONS,
+        overwrite=False, data_dir=".", assets_dir=None, cache_dir=None
         ):
-    if isinstance(asset_types, str):
-        asset_types = (asset_types, )
-
-    bitmaps_metadata = []
-    objects_metadata = []
+    bitmaps_metadata = {}
+    objects_metadata = {}
 
     object_assets, bitmap_assets = objects_tag.get_cache_names()
     objects = objects_tag.data.objects
@@ -33,11 +27,10 @@ def decompile_objects_metadata(
     for i, obj in enumerate(objects):
         metadata_obj = dict(
             flags={},
-            name=object_assets[i]["name"],
             asset_name=object_assets[i]["asset_name"]
             )
 
-        objects_metadata.append(metadata_obj)
+        objects_metadata[object_assets[i]["name"]] = metadata_obj
 
         if hasattr(obj, "lods"):
             obj_flags = obj.lods[0].flags
@@ -56,7 +49,6 @@ def decompile_objects_metadata(
         metadata_bitm = dict(
             flags={}, lod_k=0,
             format=bitm.format.enum_name,
-            name=bitmap_assets[i]["name"],
             asset_name=bitmap_assets[i]["asset_name"],
             cache_name=exported_bitmaps.get(i, False),
             )
@@ -90,7 +82,7 @@ def decompile_objects_metadata(
                 if bitm.tex0[name].enum_name != default:
                     metadata_bitm[name] = bitm.tex0[name].enum_name
 
-        bitmaps_metadata.append(metadata_bitm)
+        bitmaps_metadata[bitmap_assets[i]["name"]] = metadata_bitm
 
         attrs_to_write = ()
         if not has_bitm_data:
@@ -111,24 +103,11 @@ def decompile_objects_metadata(
         if not metadata_bitm["flags"]:
             metadata_bitm.pop("flags")
 
-    os.makedirs(data_dir, exist_ok=True)
-
-    if individual_meta:
-        metadata_sets = util.split_metadata_by_asset_name(
-            group_singletons=True,
-            metadata_by_type=dict(
-                bitmaps=bitmaps_metadata,
-                objects=objects_metadata
-                )
-            )
-    else:
-        metadata_sets = dict(
-            bitmaps=dict(bitmaps=bitmaps_metadata),
-            objects=dict(objects=objects_metadata),
-            )
-
-    for set_name in metadata_sets:
-        for asset_type in asset_types:
-            filepath = os.path.join(data_dir, "%s.%s" % (set_name, asset_type))
-            util.dump_metadata(metadata_sets[set_name], filepath, overwrite)
-
+    metadata_sets = dict(
+        bitmaps = bitmaps_metadata,
+        objects = objects_metadata
+        )
+    util.dump_metadata_sets(
+        metadata_sets, asset_types=asset_types, overwrite=overwrite,
+        data_dir=data_dir, assets_dir=assets_dir, cache_dir=cache_dir
+        )

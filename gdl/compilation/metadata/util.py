@@ -8,13 +8,13 @@ from ..util import *
 
 
 def locate_metadata(data_dir):
-    return locate_assets(data_dir, c.METADATA_ASSET_EXTENSIONS)
+    return locate_assets(data_dir, (c.METADATA_CACHE_EXTENSION, ))
 
 
 def load_metadata(filepath):
     filepath    = pathlib.Path(filepath)
     asset_type  = filepath.suffix.strip(".").lower()
-    if asset_type in ("yaml", "yml"):
+    if asset_type in ("yaml", "yml", c.METADATA_CACHE_EXTENSION):
         with filepath.open() as f:
             metadata = yaml.safe_load(f)
     elif asset_type == "json":
@@ -26,12 +26,41 @@ def load_metadata(filepath):
     return metadata
 
 
+def dump_metadata_sets(metadata_sets, overwrite=False, dont_group=(),
+                       asset_types=c.METADATA_CACHE_EXTENSIONS,
+                       data_dir=".", assets_dir=None, cache_dir=None):
+    data_dir = pathlib.Path(data_dir)
+    if isinstance(asset_types, str):
+        asset_types = (asset_types, )
+
+    if not assets_dir: assets_dir  = data_dir
+    if not cache_dir:  cache_dir   = data_dir.joinpath(c.IMPORT_FOLDERNAME)
+
+    individual_metadata_sets = split_metadata_by_asset_name(
+        metadata_by_type=metadata_sets,
+        group_singletons=True, dont_group=dont_group,
+        )
+
+    for asset_type in asset_types:
+        if asset_type in c.METADATA_CACHE_EXTENSIONS:
+            dump_dir = cache_dir
+            metadata = { k: {k: v} for k, v in metadata_sets.items() }
+        else:
+            dump_dir = assets_dir
+            metadata = individual_metadata_sets
+
+        for set_name in metadata:
+            filepath = pathlib.Path(dump_dir, "%s.%s" % (set_name, asset_type))
+            filepath.parent.mkdir(parents=True, exist_ok=True)
+            dump_metadata(metadata[set_name], filepath, overwrite)
+
+
 def dump_metadata(metadata, filepath, overwrite=False):
     filepath    = pathlib.Path(filepath)
     asset_type  = filepath.suffix.strip(".").lower()
     if filepath.is_file() and not overwrite:
         return
-    elif asset_type in ("yaml", "yml"):
+    elif asset_type in ("yaml", "yml", c.METADATA_CACHE_EXTENSION):
         with filepath.open('w') as f:
             yaml.safe_dump(metadata, f)
     elif asset_type in ("json", ):
@@ -39,24 +68,25 @@ def dump_metadata(metadata, filepath, overwrite=False):
             json.dump(metadata, f, sort_keys=True, indent=2)
 
 
-def split_metadata_by_asset_name(group_singletons, metadata_by_type):
+def split_metadata_by_asset_name(metadata_by_type, group_singletons=False, dont_group=()):
     meta_by_asset_names = {}
     for typ, metadata in metadata_by_type.items():
-        for asset_metadata in metadata:
-            meta_by_asset_names.setdefault(
-                "%s_%s" % (typ, asset_metadata["asset_name"]), {typ: []}
-                )[typ].append(asset_metadata)
+        for name, asset_metadata in metadata.items():
+            asset_name = asset_metadata.get("asset_name", name)
+            meta_by_asset_names.setdefault(f"{typ}/{asset_name}", {})\
+                               .setdefault(typ, {})\
+                               .update({name: asset_metadata})
 
-    # consolidate all single-asset meta into combined files
     if group_singletons:
-        for set_name in sorted(tuple(meta_by_asset_names)):
-            typ = set_name.split("_")[0]
-            if len(meta_by_asset_names[set_name][typ]) > 1:
-                continue
-
-            asset_meta_list = meta_by_asset_names.pop(set_name)[typ]
-            combined_metadata = meta_by_asset_names.setdefault(typ, {typ: []})
-            combined_metadata[typ].extend(asset_meta_list)
+        for typ_name in sorted(meta_by_asset_names):
+            typ, name = typ_name.split("/", 1)
+            if len(meta_by_asset_names[typ_name][typ]) > 2:
+                meta_by_asset_names[f"{typ}/anim_{name}"] = meta_by_asset_names.pop(typ_name)
+            elif typ not in dont_group:
+                meta_by_asset_names.setdefault(typ, {})\
+                                   .setdefault(typ, {})\
+                                   .update(meta_by_asset_names.pop(typ_name)[typ])
+                
 
     return meta_by_asset_names
 
@@ -90,8 +120,8 @@ def compile_metadata(data_dir, by_asset_name=False):
 
     if by_asset_name:
         all_metadata = util.split_metadata_by_asset_name(
+            metadata_by_type=meta_type_lists,
             group_singletons=False,
-            metadata_by_type=meta_type_lists
             )
     else:
         all_metadata = meta_type_lists

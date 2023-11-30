@@ -8,7 +8,8 @@ from ...defs.anim import anim_def
 from ...defs.objects import objects_def
 from ...defs.texdef import texdef_def
 from ...defs.worlds import worlds_def
-from ..metadata import objects as objects_metadata, animations as animations_metadata
+from ..metadata import objects as objects_metadata,\
+     animations as animations_metadata, util as metadata_util
 from . import animation, model, texture
 from .serialization.asset_cache import verify_source_file_asset_checksum
 from . import constants as c
@@ -25,17 +26,17 @@ def _compile_assets(
         force_recompile=False, parallel_processing=False,
         target_ps2=False, target_ngc=False, target_xbox=False,
         target_dreamcast=False, target_arcade=False, 
-        data_dir="", assets_dir=None, cache_dir=None, **kwargs
+        data_dir=".", assets_dir=None, cache_dir=None, **kwargs
         ):
     if not assets_dir:
-        assets_dir  = pathlib.Path(data_dir, c.EXPORT_FOLDERNAME, folder)
+        assets_dir  = pathlib.Path(data_dir, folder)
     if not cache_dir:
         cache_dir   = pathlib.Path(data_dir, c.IMPORT_FOLDERNAME, folder)
 
     if compile_job_type == COMPILE_JOB_TYPE_TEXTURES:
         folder          = c.TEX_FOLDERNAME
         metadata_func   = lambda: objects_metadata.\
-                          compile_objects_metadata(data_dir).get("bitmaps", ())
+                          compile_objects_metadata(assets_dir).get("bitmaps", ())
         compile_func    = texture.compile_texture
         cache_type      = (
             c.TEXTURE_CACHE_EXTENSION_PS2  if target_ps2 else
@@ -48,7 +49,7 @@ def _compile_assets(
     elif compile_job_type == COMPILE_JOB_TYPE_MODELS:
         folder          = c.MOD_FOLDERNAME
         metadata_func   = lambda: objects_metadata.\
-                          compile_objects_metadata(data_dir).get("objects", ())
+                          compile_objects_metadata(assets_dir).get("objects", ())
         compile_func    = model.compile_model
         cache_type      = (
             c.MODEL_CACHE_EXTENSION_ARC  if target_arcade else
@@ -61,7 +62,7 @@ def _compile_assets(
     elif compile_job_type == COMPILE_JOB_TYPE_ANIMATIONS:
         folder          = c.ANIM_FOLDERNAME
         metadata_func   = lambda: animations_metadata.\
-                          compile_animations_metadata(data_dir).get("actors", ())
+                          compile_animations_metadata(assets_dir).get("actors", ())
         compile_func    = animation.compile_animation
         cache_type      = (
             c.ANIMATION_CACHE_EXTENSION_ARC  if target_arcade else
@@ -84,8 +85,7 @@ def _compile_assets(
     # get the metadata for all assets to import and
     # key it by name to allow matching to asset files
     all_metadata = {
-        m.get("name"): m
-        for m in metadata_func(data_dir)
+        m.get("name"): m for m in metadata_func()
         if isinstance(m, dict) and m.get("name")
         }
 
@@ -137,10 +137,19 @@ def compile_textures(*args, **kwargs):
 def compile_models(*args, **kwargs):
     return _compile_assets(COMPILE_JOB_TYPE_MODELS, *args, **kwargs)
 
-def compile_metadata():
-    # TODO: write this so it combines all metadata files in assets_dir
-    #       and writes them out to combined metadata file in cache_dir
-    pass
+def compile_metadata(objects_dir=".", assets_dir=None, cache_dir=None):
+    data_dir = pathlib.Path(objects_dir, c.DATA_FOLDERNAME)
+
+    if not assets_dir: assets_dir  = data_dir
+    if not cache_dir:  cache_dir   = data_dir.joinpath(c.IMPORT_FOLDERNAME)
+
+    # TODO: delete any metadata files found in the folder
+
+    metadata_sets = metadata_util.compile_metadata(assets_dir, by_asset_name=False)
+    for set_name in metadata_sets:
+        filepath = pathlib.Path(cache_dir, "{set_name}.{c.METADATA_CACHE_EXTENSION}")
+        filepath.mkdir(parents=True, exist_ok=True)
+        metadata_util.dump_metadata(metadata_sets[set_name], filepath, overwrite)
 
 
 def compile_cache_files(
@@ -170,7 +179,7 @@ def compile_cache_files(
     anim_tag    = anim_def.build()    if build_anim_cache else None
     texdef_tag  = None
 
-    objects_tag.anim_tag   = anim_tag
+    objects_tag.anim_tag = anim_tag
 
     if objects_tag and (target_dreamcast or target_arcade):
         # dreamcast and arcade use v1 or v0 of the objects.
@@ -184,6 +193,7 @@ def compile_cache_files(
     anim_tag.filepath = objects_dir.joinpath(
         f"{c.ANIM_FILENAME}.{anim_worlds_ext}"
         )
+
     if objects_tag:
         objects_tag.filepath = objects_dir.joinpath(
             f"{c.OBJECTS_FILENAME}.{ext}"
@@ -242,11 +252,11 @@ def compile_cache_files(
 
 
 def decompile_cache_files(
-        target_dir, overwrite=False, individual_meta=True,
-        meta_asset_types=c.METADATA_ASSET_EXTENSIONS[0],
+        target_dir, overwrite=False,
+        meta_asset_types=c.METADATA_CACHE_EXTENSIONS,
         anim_asset_types=c.ANIMATION_CACHE_EXTENSIONS,
         tex_asset_types=c.TEXTURE_CACHE_EXTENSIONS,
-        mod_asset_types=c.MODEL_CACHE_EXTENSIONS,\
+        mod_asset_types=c.MODEL_CACHE_EXTENSIONS,
         parallel_processing=False, swap_lightmap_and_diffuse=False,
         data_dir=None, assets_dir=None, cache_dir=None,
         **kwargs
@@ -302,15 +312,15 @@ def decompile_cache_files(
     if meta_asset_types and (objects_tag or anim_tag):
         objects_metadata.decompile_objects_metadata(
             objects_tag, anim_tag=anim_tag, overwrite=overwrite,
-            asset_types=meta_asset_types, individual_meta=individual_meta,
-            data_dir=data_dir, assets_dir=assets_dir, cache_dir=cache_dir
+            asset_types=meta_asset_types, data_dir=data_dir,
+            assets_dir=assets_dir, cache_dir=cache_dir
             )
 
     if meta_asset_types and anim_tag:
         animations_metadata.decompile_animations_metadata(
             anim_tag, objects_tag=objects_tag, overwrite=overwrite,
-            asset_types=meta_asset_types, individual_meta=individual_meta,
-            data_dir=data_dir, assets_dir=assets_dir, cache_dir=cache_dir
+            asset_types=meta_asset_types, data_dir=data_dir,
+            assets_dir=assets_dir, cache_dir=cache_dir
             )
 
     if tex_asset_types and (objects_tag or texdef_tag):

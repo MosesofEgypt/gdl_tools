@@ -1,4 +1,4 @@
-from ..constants import *
+from ..g3d.constants import *
 
 
 OBJECT_FLAG_NAMES = (
