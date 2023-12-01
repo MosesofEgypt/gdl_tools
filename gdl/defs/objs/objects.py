@@ -22,6 +22,7 @@ class ObjectsTag(GdlTag):
 
     _texmod_seqs    = None
     _objanim_seqs   = None
+    _actorobj_map   = None
     _texdef_names_by_pixels_pointer = None
 
     _lightmap_names = None
@@ -68,50 +69,78 @@ class ObjectsTag(GdlTag):
         self._texmod_seqs = {}
         self.load_anim_tag(filepath, recache)
 
-        if self.anim_tag:
-            self._texmod_seqs.update({
-                texmod.tex_index: dict(
-                    start = texmod.type.source_index.idx,
-                    count = abs(texmod.frame_count),
-                    name  = texmod.name.upper()
-                    )
-                for texmod in self.anim_tag.data.texmods
-                if texmod.type.source_index.idx >= 0
-                })
+        if not self.anim_tag:
+            return
+
+        self._texmod_seqs.update({
+            texmod.tex_index: dict(
+                start = texmod.type.source_index.idx,
+                count = abs(texmod.frame_count),
+                name  = texmod.name.upper()
+                )
+            for texmod in self.anim_tag.data.texmods
+            if texmod.type.source_index.idx >= 0
+            })
 
     def load_objanim_sequences(self, filepath=None, recache=False):
         if self._objanim_seqs is not None and not recache:
             return
 
         self._objanim_seqs = {}
-        self.load_anim_tag(filepath, recache)
+        self.load_actor_object_assets(filepath, recache=True)
 
-        if self.anim_tag:
-            for atree in self.anim_tag.data.atrees:
-                prefix     = atree.atree_header.prefix
-                atree_data = atree.atree_header.atree_data
-                obj_anims  = atree_data.obj_anim_header.obj_anims
-                sequences  = atree_data.atree_sequences
-                if not obj_anims:
+        if not self.anim_tag:
+            return
+
+        for atree in self.anim_tag.data.atrees:
+            prefix     = atree.atree_header.prefix.upper().strip()
+            atree_data = atree.atree_header.atree_data
+            obj_anims  = atree_data.obj_anim_header.obj_anims
+            sequences  = atree_data.atree_sequences
+            if not obj_anims:
+                continue
+
+            for node in atree_data.anode_infos:
+                if node.anim_type.enum_name != "object":
                     continue
 
-                for node in atree_data.anode_infos:
-                    if node.anim_type.enum_name != "object":
+                node_name       = node.mb_desc.upper().strip()
+                object_prefix   = f"{prefix}{node_name}"
+                i = node.anim_seq_info_index
+                for j, atree_seq in enumerate(sequences):
+                    k = i + j
+                    if k not in range(len(obj_anims)):
                         continue
 
-                    node_name = node.mb_desc.upper()
-                    i = node.anim_seq_info_index
-                    for j, atree_seq in enumerate(sequences):
-                        k = i + j
-                        if k not in range(len(obj_anims)):
-                            continue
+                    object_name = f"{object_prefix}_{atree_seq.name}"
+                    self._objanim_seqs.update({
+                        object_name: dict(
+                            count = abs(obj_anims[k].frame_count),
+                            name  = obj_anims[k].mb_desc.upper().strip(),
+                            actor = prefix
+                            )
+                        })
 
-                        self._objanim_seqs.update({
-                            f"{prefix}_{atree_seq.name}_{node_name}": dict(
-                                count = abs(obj_anims[k].frame_count),
-                                name  = obj_anims[k].mb_desc.upper()
-                                )
-                            })
+    def load_actor_object_assets(self, filepath=None, recache=False):
+        if self._actorobj_map is not None and not recache:
+            return
+
+        self._actorobj_map = {}
+        self.load_anim_tag(filepath, recache)
+
+        if not self.anim_tag:
+            return
+
+        for atree in self.anim_tag.data.atrees:
+            prefix  = atree.atree_header.prefix.upper().strip()
+            for node in atree.atree_header.atree_data.anode_infos:
+                if (node.anim_type.enum_name not in ("skeletal", "null") or
+                    node.flags.no_object_def):
+                    continue
+
+                node_name   = node.mb_desc.upper().strip()
+                object_name = f"{prefix}{node_name}"
+                self._actorobj_map[object_name] = prefix
 
     def load_texdef_names(self, filepath=None, recache=False):
         if self._texdef_names_by_pixels_pointer is not None and not recache:
@@ -135,15 +164,43 @@ class ObjectsTag(GdlTag):
             return dict(self._object_names)
 
         object_names = {}
-        for bitm_def in self.data.object_defs:
-            obj_index = bitm_def.obj_index
-            name      = bitm_def.name.strip().upper()
-
-            for i in range(obj_index, obj_index + max(0, bitm_def.frames) + 1):
+        for obj_def in self.data.object_defs:
+            obj_index   = obj_def.obj_index
+            asset_name  = obj_def.name.strip().upper()
+            for i in range(obj_index, obj_index + max(0, obj_def.frames) + 1):
+                name = (asset_name if i == obj_index else f"{name}.{i:04}")
                 object_names[i] = dict(
-                    name        = (name if i == obj_index else f"{name}.{i:04}"),
-                    asset_name  = name,
-                    index       = i
+                    name        = name,
+                    asset_name  = asset_name,
+                    def_name    = name,
+                    index       = i,
+                    actor       = self._actorobj_map.get(name, asset_name)
+                    )
+
+        # fill in object animation frame names
+        objanim_names       = {}
+        object_data_by_name = { v["name"]: v for v in object_names.values()}
+        for asset_name, seq_data in self._objanim_seqs.items():
+            if seq_data["name"] not in object_data_by_name:
+                continue
+
+            start = object_data_by_name[seq_data["name"]]["index"]
+            count = seq_data["count"]
+            for i in range(count):
+                name = (
+                    f"{asset_name}_{i:06d}" if count > 99999 else
+                    f"{asset_name}_{i:05d}" if count > 9999 else
+                    f"{asset_name}_{i:04d}" if count > 999 else
+                    f"{asset_name}_{i:03d}" if count > 99 else
+                    f"{asset_name}_{i:02d}"
+                    )
+
+                object_names[start + i] = dict(
+                    name        = name,
+                    asset_name  = asset_name,
+                    def_name    = object_names.get(start + i, {}).get("def_name", name),
+                    index       = start+i,
+                    actor       = seq_data.get("actor", "")
                     )
 
         # fill in object names that couldn't be determined
@@ -154,9 +211,10 @@ class ObjectsTag(GdlTag):
 
             name = f"{c.UNNAMED_ASSET_NAME}.{unnamed_count:04}"
             object_names[i] = dict(
-                name=name,
-                asset_name=c.UNNAMED_ASSET_NAME,
-                index=i
+                name        = name,
+                asset_name  = c.UNNAMED_ASSET_NAME,
+                index       = i,
+                actor       = self._actorobj_map.get(name, "")
                 )
             unnamed_count += 1
 
@@ -168,7 +226,9 @@ class ObjectsTag(GdlTag):
             return dict(self._bitmap_names)
 
         self._bitmap_names = {
-            b.tex_index: dict(name=b.name, asset_name=b.name, index=b.tex_index)
+            b.tex_index: dict(
+                name=b.name, asset_name=b.name, def_name=b.name, index=b.tex_index
+                )
             for b in self.data.bitmap_defs if b.name
             }
 
@@ -199,11 +259,11 @@ class ObjectsTag(GdlTag):
 
             for i in range(count):
                 name = (
-                    f"{asset_name}{i:06d}" if count > 99999 else
-                    f"{asset_name}{i:05d}" if count > 9999 else
-                    f"{asset_name}{i:04d}" if count > 999 else
-                    f"{asset_name}{i:03d}" if count > 99 else
-                    f"{asset_name}{i:02d}"
+                    f"{asset_name}_{i:06d}" if count > 99999 else
+                    f"{asset_name}_{i:05d}" if count > 9999 else
+                    f"{asset_name}_{i:04d}" if count > 999 else
+                    f"{asset_name}_{i:03d}" if count > 99 else
+                    f"{asset_name}_{i:02d}"
                     )
 
                 texmod_names[start+i] = dict(
@@ -212,37 +272,6 @@ class ObjectsTag(GdlTag):
 
         self._texmod_names = texmod_names
         return dict(self._texmod_names)
-
-    def get_objanim_names(self, recache=False):
-        if not recache and self._objanim_names is not None:
-            return dict(self._objanim_names)
-
-        objanim_names           = {}
-        object_names_by_name    = {
-            v["name"]: v for k, v in
-            self.get_object_names(recache).items()
-            }
-        for asset_name, seq_data in self._objanim_seqs.items():
-            if seq_data["name"] not in object_names_by_name:
-                continue
-
-            start = object_names_by_name[seq_data["name"]]["index"]
-            count = seq_data["count"]
-            for i in range(count):
-                name = (
-                    f"{asset_name}{i:06d}" if count > 99999 else
-                    f"{asset_name}{i:05d}" if count > 9999 else
-                    f"{asset_name}{i:04d}" if count > 999 else
-                    f"{asset_name}{i:03d}" if count > 99 else
-                    f"{asset_name}{i:02d}"
-                    )
-
-                objanim_names[start + i] = dict(
-                    name=name, asset_name=asset_name, index=start+i
-                    )
-
-        self._objanim_names = objanim_names
-        return dict(self._objanim_names)
 
     def get_texdef_names(self, recache=False):
         if not recache and self._texdef_names is not None:
@@ -311,7 +340,7 @@ class ObjectsTag(GdlTag):
                     continue
 
                 object_asset = object_names.get(i, {})
-                name        = f"{c.LIGHTMAP_NAME}_{object_asset['name']}"
+                name        = f"{c.LIGHTMAP_NAME}_{object_asset.get('name', '')}"
                 fake_index  = -(i+1) # to identify which object its from, we'll negate it
                 lightmap_names[fake_index] = dict(
                     index       = fake_index,
@@ -344,6 +373,7 @@ class ObjectsTag(GdlTag):
             name_counts = {}
             for i, obj in enumerate(self.data.objects):
                 asset_name = object_names[i]["asset_name"]
+                actor      = object_names[i].get("actor", asset_name)
                 name_counts.setdefault(asset_name, 0)
 
                 # populate maps to help name bitmaps
@@ -358,25 +388,23 @@ class ObjectsTag(GdlTag):
                     name = f"{asset_name}.{name_counts[asset_name]:04}"
                     name_counts[asset_name] += 1
                     bitmap_names[header.tex_index] = dict(
-                        name=name, asset_name=asset_name, index=header.tex_index
+                        name        = name,
+                        asset_name  = asset_name,
+                        index       = header.tex_index,
+                        actor       = actor
                         )
-
-        # generate names of lightmaps
-        bitmap_names.update(self.get_lightmap_names())
-
-        # grab names from texdefs and bitmap_defs
-        bitmap_names.update(self.get_texdef_names())
-        bitmap_names.update(self.get_bitmap_def_names())
-
-        # fill in texmod frame names
-        bitmap_names.update(self.get_texmod_names())
-
-        # fill in object animation frame names
-        object_names.update(self.get_objanim_names())
+        
+        for other_bitmap_names in (
+                self.get_lightmap_names(),   # generate names of lightmaps
+                self.get_texdef_names(),     # grab names from texdefs
+                self.get_bitmap_def_names(), # grab names from bitmap_defs
+                self.get_texmod_names(),     # use texmod frame names
+                ):
+            for k, v in other_bitmap_names.items():
+                bitmap_names.setdefault(k, {}).update(v)
 
         # fill in bitmap names that couldn't be determined
         asset_name, basename, unnamed_ct, name_index, frames = "", "", 0, 0, 0
-
         for i, bitm in enumerate(self.data.bitmaps):
             if bitm.frame_count and i in bitmap_names:
                 asset_name  = bitmap_names[i]["asset_name"]
@@ -395,7 +423,7 @@ class ObjectsTag(GdlTag):
                 unnamed_ct  += 1
 
             name = f"{basename}.{name_index:04}"
-            bitmap_names[i] = dict(name=name, asset_name=asset_name, index=i)
+            bitmap_names[i] = dict(name=name, asset_name=asset_name, index=i, actor=c.UNNAMED_ASSET_NAME)
             name_index += 1
 
         self._object_assets_by_index = object_names

@@ -69,10 +69,8 @@ def export_animations(
                               *c.ANIMATION_ASSET_EXTENSIONS):
             raise ValueError("Unknown model type '%s'" % asset_type)
 
-    if not assets_dir:
-        assets_dir  = data_dir.joinpath(c.EXPORT_FOLDERNAME, c.ANIM_FOLDERNAME)
-    if not cache_dir:
-        cache_dir   = data_dir.joinpath(c.IMPORT_FOLDERNAME, c.ANIM_FOLDERNAME)
+    if not assets_dir: assets_dir  = data_dir
+    if not cache_dir:  cache_dir   = data_dir.joinpath(c.IMPORT_FOLDERNAME)
 
     atrees = anim_tag.data.atrees
 

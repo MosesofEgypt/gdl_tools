@@ -66,7 +66,7 @@ def import_models(
         data_dir=".", cache_dir=None
         ):
     if not cache_dir:
-        cache_dir = pathlib.Path(data_dir).joinpath(c.IMPORT_FOLDERNAME, c.MOD_FOLDERNAME)
+        cache_dir = pathlib.Path(data_dir).joinpath(c.IMPORT_FOLDERNAME)
 
     model_caches_by_name = {}
     all_asset_filepaths = util.locate_models(
@@ -210,19 +210,15 @@ def export_models(
         if asset_type not in (*c.MODEL_CACHE_EXTENSIONS, *c.MODEL_ASSET_EXTENSIONS):
             raise ValueError("Unknown model type '%s'" % asset_type)
 
-    if not assets_dir:
-        assets_dir  = data_dir.joinpath(c.MOD_FOLDERNAME)
-    if not cache_dir:
-        cache_dir   = data_dir.joinpath(c.IMPORT_FOLDERNAME, c.MOD_FOLDERNAME)
-
-    tex_assets_dir = assets_dir.with_name(c.TEX_FOLDERNAME)
+    if not assets_dir: assets_dir  = data_dir
+    if not cache_dir:  cache_dir   = data_dir.joinpath(c.IMPORT_FOLDERNAME)
 
     is_arcade   = False
     for bitm in objects_tag.data.bitmaps:
         is_arcade   = hasattr(bitm, "ncc_table_data")
         break
 
-    texture_assets = util.locate_textures(tex_assets_dir)
+    texture_assets = util.locate_textures(assets_dir)
 
     objects = objects_tag.data.objects
     object_assets, bitmap_assets = objects_tag.get_cache_names()
@@ -243,7 +239,7 @@ def export_models(
 
                 filepath = pathlib.Path(
                     cache_dir if asset_type in c.MODEL_CACHE_EXTENSIONS else assets_dir,
-                    filename
+                    asset.get("actor", ""), filename
                     )
                 if filepath.is_file() and not overwrite:
                     continue

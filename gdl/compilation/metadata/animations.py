@@ -4,15 +4,10 @@ from . import constants as c
 from . import util
 
 
-def compile_animations_metadata(
-        data_dir=".", assets_dir=None, cache_dir=None, by_asset_name=False
-        ):
+def compile_animations_metadata(data_dir=".", cache_files=False):
     # TODO: update this to merge metadata together to allow separate animations
     #       to have separate metadata files, allowing easier editing
-    return util.compile_metadata(
-        data_dir=data_dir, assets_dir=assets_dir, cache_dir=cache_dir,
-        by_asset_name=by_asset_name
-        )
+    return util.compile_metadata(data_dir=data_dir, cache_files=cache_files)
 
 
 def decompile_animations_metadata(
@@ -27,8 +22,9 @@ def decompile_animations_metadata(
     if objects_tag:
         object_assets, bitmap_assets = objects_tag.get_cache_names()
         object_asset_name_map = {
-            obj_def["name"]: object_assets[i]["asset_name"]
+            obj_def["def_name"]: object_assets[i]["asset_name"]
             for i, obj_def in objects_tag.get_object_names().items()
+            if "def_name" in obj_def
             }
     else:
         bitmap_assets = {}
@@ -79,16 +75,72 @@ def decompile_animations_metadata(
         for psys in anim_tag.data.particle_systems:
             psys_metadata[psys.id.enum_name] = decompile_psys_metadata(psys)
 
-    metadata_sets = dict(
-        actors           = actors_metadata,
-        texmods          = texmods_metadata,
-        particle_systems = psys_metadata,
-        )
+
+    animations_metadata = {}
+    for actor_name, actor_metadata in actors_metadata.items():
+        sequences = actor_metadata.pop("sequences", None)
+        if not sequences:
+            continue
+
+        root_nodes = actor_metadata.get("nodes", ())
+        for seq_name, seq_meta in sequences.items():
+            anim_nodes = []
+            animations_metadata[(actor_name, seq_name)] = dict(
+                sequences = { seq_name: seq_meta },
+                nodes     = anim_nodes
+                )
+
+            node_copy_pairs = [(anim_nodes, root_nodes)]
+            while node_copy_pairs:
+                next_node_copy_pairs = []
+                for dst_children, src_children in node_copy_pairs:
+                    for src_node in src_children:
+                        dst_node = {}
+                        dst_node.update({
+                            k: v for k, v in src_node.items()
+                            if k not in ("children", "object_anims")
+                            })
+                        dst_children.append(dst_node)
+                        object_anims = src_node.get("object_anims", {})
+                        if seq_name in object_anims:
+                            dst_node.update(
+                                object_anims = { seq_name: object_anims[seq_name] }
+                                )
+
+                        if src_node.get("children"):
+                            dst_node.update(children = [])
+                            next_node_copy_pairs.append((
+                                dst_node["children"], src_node["children"]
+                                ))
+
+                node_copy_pairs = next_node_copy_pairs
+
+
+        for node in root_nodes:
+            if not node.get("object_anims"):
+                node.pop("object_anims", None)
+
+
+    metadata_sets = {
+        "_texmods":          dict(texmods          = texmods_metadata),
+        "_particle_systems": dict(particle_systems = psys_metadata),
+        **{
+            f"{actor_name}/{actor_name}_actor": dict(
+                actors = {actor_name: actors_metadata[actor_name]}
+                )
+            for actor_name in sorted(actors_metadata)
+            },
+        **{
+            f"{actor_name}/animations/{seq_name}": dict(
+                actors = {actor_name: animations_metadata[(actor_name, seq_name)]}
+                )
+            for actor_name, seq_name in sorted(animations_metadata)
+            },
+        }
 
     util.dump_metadata_sets(
         metadata_sets, asset_types=asset_types, overwrite=overwrite,
         data_dir=data_dir, assets_dir=assets_dir, cache_dir=cache_dir,
-        dont_group=("actors", )
         )
 
 
@@ -109,7 +161,7 @@ def decompile_atree_metadata(
     atree_data  = atree.atree_header.atree_data
     anode_infos = atree_data.anode_infos
     obj_anims   = atree_data.obj_anim_header.obj_anims
-    for j, sequence in enumerate(atree_data.atree_sequences):
+    for i, sequence in enumerate(atree_data.atree_sequences):
         seq_meta = dict(frame_rate = sequence.frame_rate)
 
         if sequence.repeat == "yes":
@@ -120,19 +172,20 @@ def decompile_atree_metadata(
 
         meta["sequences"][sequence.name.upper()] = seq_meta
 
-        for k in range(sequence.texmod_count):
-            k += sequence.texmod_index
-            if k in range(len(texmods)):
-                texmod = texmods[k]
+        for j in range(sequence.texmod_count):
+            j += sequence.texmod_index
+            if j in range(len(texmods)):
+                texmod = texmods[j]
                 name, texmod_meta = decompile_texdef_metadata(texmod, bitmap_assets)
-                actor_specific_texmods[k] = (name, texmod_meta)
+                actor_specific_texmods[j] = (name, texmod_meta)
                 seq_meta.setdefault("texmods", {})\
                         .setdefault(name, {})\
                         .update(texmod_meta)
 
     seen_psys_ids   = {}
-    for j, node in enumerate(anode_infos):
-        node_meta   = dict(parent=node.parent_index)
+    nodes_by_index  = {}
+    for i, node in enumerate(anode_infos):
+        node_meta   = dict(parent=node.parent_index, index=i)
         node_type   = node.anim_type.enum_name
         node_name   = node.mb_desc.upper()
 
@@ -152,9 +205,9 @@ def decompile_atree_metadata(
             obj_anims_meta = dict()
             node_meta.update(object_anims = obj_anims_meta)
 
-            for k, sequence in enumerate(atree_data.atree_sequences):
+            for j, sequence in enumerate(atree_data.atree_sequences):
                 try:
-                    obj_anim = obj_anims[k + node.anim_seq_info_index]
+                    obj_anim = obj_anims[j + node.anim_seq_info_index]
                 except Exception:
                     continue
 
@@ -162,8 +215,7 @@ def decompile_atree_metadata(
                 obj_anim_meta = dict(
                     object_name = object_asset_name_map.get(
                         object_name, object_name
-                        ),
-                    frame_count = obj_anim.frame_count,
+                        )
                     )
 
                 if obj_anim.start_frame:
@@ -191,7 +243,21 @@ def decompile_atree_metadata(
             if flags[flag]:
                 node_meta.setdefault("flags", {})[flag] = True
 
-        meta["nodes"].append(node_meta)
+        nodes_by_index[i] = node_meta
+
+    if nodes_by_index:
+        for i in sorted(nodes_by_index):
+            node_meta    = nodes_by_index[i]
+            parent_index = node_meta.pop("parent")
+            if parent_index == -1:
+                meta["nodes"].append(node_meta)
+                continue
+
+            parent_meta  = nodes_by_index.get(parent_index)
+            if not parent_meta:
+                raise ValueError("Node parent does not exist. Cannot extract node graph.")
+
+            parent_meta.setdefault("children", []).append(node_meta)
 
     return name, meta
 

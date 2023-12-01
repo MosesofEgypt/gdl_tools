@@ -2,13 +2,8 @@ from . import constants as c
 from . import util
 
 
-def compile_objects_metadata(
-        data_dir=".", assets_dir=None, cache_dir=None, by_asset_name=False
-        ):
-    return util.compile_metadata(
-        data_dir=data_dir, assets_dir=assets_dir, cache_dir=cache_dir,
-        by_asset_name=by_asset_name
-        )
+def compile_objects_metadata(data_dir=".", cache_files=False):
+    return util.compile_metadata(data_dir=data_dir, cache_files=cache_files)
 
 
 def decompile_objects_metadata(
@@ -22,12 +17,13 @@ def decompile_objects_metadata(
     object_assets, bitmap_assets = objects_tag.get_cache_names()
     objects = objects_tag.data.objects
     bitmaps = objects_tag.data.bitmaps
-    exported_objects = {obj.obj_index:  True for obj  in objects_tag.data.object_defs}
     exported_bitmaps = {bitm.tex_index: True for bitm in objects_tag.data.bitmap_defs}
     for i, obj in enumerate(objects):
-        metadata_obj = dict(
-            flags={},
-            asset_name=object_assets[i]["asset_name"]
+        asset           = object_assets[i]
+        metadata_obj    = dict(
+            flags       = {},
+            asset_name  = asset["asset_name"],
+            actor       = asset.get("actor"),
             )
 
         objects_metadata[object_assets[i]["name"]] = metadata_obj
@@ -44,15 +40,22 @@ def decompile_objects_metadata(
         if not metadata_obj["flags"]:
             metadata_obj.pop("flags")
 
-    for i in range(len(bitmaps)):
-        bitm = bitmaps[i]
-        metadata_bitm = dict(
-            flags={}, lod_k=0,
-            format=bitm.format.enum_name,
-            asset_name=bitmap_assets[i]["asset_name"],
-            cache_name=exported_bitmaps.get(i, False),
+
+    for i, bitm in enumerate(bitmaps):
+        asset           = bitmap_assets[i]
+        metadata_bitm   = dict(
+            flags       = {},
+            format      = bitm.format.enum_name,
+            asset_name  = asset["asset_name"],
+            actor       = asset.get("actor"),
             )
-        if hasattr(bitm, "lod_k"): # v4 and higher
+
+        if bitm.frame_count == 0 and exported_bitmaps.get(i):
+            metadata_bitm.update(cache_name=True)
+
+        if bitm.frame_count > 0:
+            metadata_bitm.update(animation=True)
+        elif hasattr(bitm, "lod_k"): # v4 and higher
             metadata_bitm.update(mipmap_count=bitm.mipmap_count, lod_k=bitm.lod_k)
         elif hasattr(bitm, "dc_sig"): # dreamcast
             image_type  = bitm.image_type.enum_name
@@ -84,18 +87,6 @@ def decompile_objects_metadata(
 
         bitmaps_metadata[bitmap_assets[i]["name"]] = metadata_bitm
 
-        attrs_to_write = ()
-        if not has_bitm_data:
-            attrs_to_write += (
-                "width", "height",
-                "frame_count", "tex_palette_count",
-                "tex_palette_index", "tex_shift_index"
-                )
-
-        for attr in attrs_to_write:
-            if hasattr(bitm, attr):
-                metadata_bitm[attr] = getattr(bitm, attr)
-
         for flag in c.BITMAP_FLAG_NAMES:
             if getattr(bitm.flags, flag, False):
                 metadata_bitm["flags"][flag] = True
@@ -103,11 +94,98 @@ def decompile_objects_metadata(
         if not metadata_bitm["flags"]:
             metadata_bitm.pop("flags")
 
-    metadata_sets = dict(
-        bitmaps = bitmaps_metadata,
-        objects = objects_metadata
-        )
+    for meta in (*bitmaps_metadata.values(), *objects_metadata.values()):
+        if not meta.get("actor"):
+            meta.pop("actor", "")
+
+    # move animation frames into parent and remove duplicate fields
+    objects_metadata.update(_consolidate_metadata_frames(objects_metadata, False))
+    bitmaps_metadata.update(_consolidate_metadata_frames(bitmaps_metadata, True))
+
+    nonactor_bitmaps_metadata = {
+        name: metadata
+        for name, metadata in tuple(bitmaps_metadata.items())
+        if not metadata.get("actor")
+        }
+    nonactor_objects_metadata = {
+        name: metadata
+        for name, metadata in tuple(objects_metadata.items())
+        if not metadata.get("actor")
+        }
+
+    actor_bitmaps_metadata = {}
+    for name, metadata in bitmaps_metadata.items():
+        actor = metadata.pop("actor", None)
+        if actor:
+            actor_bitmaps_metadata.setdefault(actor, {})[name] = metadata
+
+    actor_objects_metadata = {}
+    for name, metadata in objects_metadata.items():
+        actor = metadata.pop("actor", None)
+        if actor:
+            actor_objects_metadata.setdefault(actor, {})[name] = metadata
+
+    metadata_sets = {
+        "_objects": dict(objects = nonactor_objects_metadata),
+        "_bitmaps": dict(bitmaps = nonactor_bitmaps_metadata),
+        **{
+            f"{actor_name}/{actor_name}_objects": dict(
+                objects = actor_objects_metadata[actor_name]
+                )
+            for actor_name in sorted(actor_objects_metadata)
+            },
+        **{
+            f"{actor_name}/{actor_name}_bitmaps": dict(
+                bitmaps = actor_bitmaps_metadata[actor_name]
+                )
+            for actor_name in sorted(actor_bitmaps_metadata)
+            }
+        }
     util.dump_metadata_sets(
         metadata_sets, asset_types=asset_types, overwrite=overwrite,
-        data_dir=data_dir, assets_dir=assets_dir, cache_dir=cache_dir
+        data_dir=data_dir, assets_dir=assets_dir, cache_dir=cache_dir,
         )
+
+
+def _consolidate_metadata_frames(metadata, is_bitmaps):
+    all_anim_metadata = {}
+    for name in sorted(metadata):
+        metadata_item = metadata[name]
+        asset_name    = metadata_item["asset_name"]
+
+        if asset_name not in all_anim_metadata:
+            # NOTE: stripping off digits and then preceeding underscore
+            if not is_bitmaps and name.rstrip("0123456789")[:-1] != asset_name:
+                continue
+            elif is_bitmaps and (name != asset_name or not metadata_item.pop("animation", None)):
+                continue
+            metadata.pop(name)
+            all_anim_metadata[asset_name] = metadata_item
+            continue
+
+        anim_metadata = all_anim_metadata[asset_name]
+        metadata.pop(name)
+        for k in sorted(metadata_item):
+            # for the first bitmap frame, copy all fields into the parent metadata.
+            # this will allow us to reduce the duplicate fields in the metadata.
+            if is_bitmaps and "frames" not in anim_metadata and k not in anim_metadata:
+                anim_metadata[k] = metadata_item[k]
+
+            if metadata_item[k] == anim_metadata.get(k):
+                metadata_item.pop(k)
+
+        anim_metadata.setdefault("frames", {})[name] = metadata_item
+
+    if is_bitmaps:
+        for anim_metadata in all_anim_metadata.values():
+            anim_metadata.pop("cache_name", None)
+            for frame_metadata in anim_metadata.get("frames", {}).values():
+                metadata_item.pop("cache_name", None)
+    else:
+        metadata.update({
+            k: all_anim_metadata.pop(k)
+            for k in sorted(all_anim_metadata)
+            if "frames" not in all_anim_metadata[k]
+            })
+
+    return all_anim_metadata

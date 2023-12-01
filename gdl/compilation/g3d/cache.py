@@ -34,7 +34,6 @@ def _compile_assets(
         cache_dir   = pathlib.Path(data_dir, c.IMPORT_FOLDERNAME, folder)
 
     if compile_job_type == COMPILE_JOB_TYPE_TEXTURES:
-        folder          = c.TEX_FOLDERNAME
         metadata_func   = lambda: objects_metadata.\
                           compile_objects_metadata(assets_dir).get("bitmaps", ())
         compile_func    = texture.compile_texture
@@ -47,7 +46,6 @@ def _compile_assets(
             None
             )
     elif compile_job_type == COMPILE_JOB_TYPE_MODELS:
-        folder          = c.MOD_FOLDERNAME
         metadata_func   = lambda: objects_metadata.\
                           compile_objects_metadata(assets_dir).get("objects", ())
         compile_func    = model.compile_model
@@ -60,7 +58,6 @@ def _compile_assets(
             None
             )
     elif compile_job_type == COMPILE_JOB_TYPE_ANIMATIONS:
-        folder          = c.ANIM_FOLDERNAME
         metadata_func   = lambda: animations_metadata.\
                           compile_animations_metadata(assets_dir).get("actors", ())
         compile_func    = animation.compile_animation
@@ -84,11 +81,7 @@ def _compile_assets(
 
     # get the metadata for all assets to import and
     # key it by name to allow matching to asset files
-    all_metadata = {
-        m.get("name"): m for m in metadata_func()
-        if isinstance(m, dict) and m.get("name")
-        }
-
+    all_metadata = metadata_func()
     if compile_job_type == COMPILE_JOB_TYPE_TEXTURES:
         all_assets = util.locate_textures(assets_dir, cache_files=False)
     elif compile_job_type == COMPILE_JOB_TYPE_MODELS:
@@ -145,7 +138,7 @@ def compile_metadata(objects_dir=".", assets_dir=None, cache_dir=None):
 
     # TODO: delete any metadata files found in the folder
 
-    metadata_sets = metadata_util.compile_metadata(assets_dir, by_asset_name=False)
+    metadata_sets = metadata_util.compile_metadata(assets_dir, cache_files=False)
     for set_name in metadata_sets:
         filepath = pathlib.Path(cache_dir, "{set_name}.{c.METADATA_CACHE_EXTENSION}")
         filepath.mkdir(parents=True, exist_ok=True)
@@ -305,11 +298,16 @@ def decompile_cache_files(
         except Exception:
             print('Could not load obj anim sequences. Object animations may be broken.')
 
+        try:
+            objects_tag.load_actor_object_assets()
+        except Exception:
+            print('Could not load actor object assets. Objects may not be sorted well.')
+
     data_dir = pathlib.Path(
         *(data_dir if data_dir else (target_dir, c.DATA_FOLDERNAME))
         )
 
-    if meta_asset_types and (objects_tag or anim_tag):
+    if meta_asset_types and objects_tag:
         objects_metadata.decompile_objects_metadata(
             objects_tag, anim_tag=anim_tag, overwrite=overwrite,
             asset_types=meta_asset_types, data_dir=data_dir,

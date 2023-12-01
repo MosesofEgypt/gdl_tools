@@ -80,7 +80,7 @@ def import_textures(
         data_dir=".", cache_dir=None
         ):
     if not cache_dir:
-        cache_dir = pathlib.Path(data_dir).joinpath(c.IMPORT_FOLDERNAME, c.TEX_FOLDERNAME)
+        cache_dir = pathlib.Path(data_dir).joinpath(c.IMPORT_FOLDERNAME)
 
     # locate and load all assets
     texture_caches_by_name = {}
@@ -345,10 +345,8 @@ def export_textures(
         if asset_type not in (*c.TEXTURE_CACHE_EXTENSIONS, *c.TEXTURE_ASSET_EXTENSIONS):
             raise ValueError(f"Unknown texture type '{asset_type}'")
 
-    if not assets_dir:
-        assets_dir  = data_dir.joinpath(c.TEX_FOLDERNAME)
-    if not cache_dir:
-        cache_dir   = data_dir.joinpath(c.IMPORT_FOLDERNAME, c.TEX_FOLDERNAME)
+    if not assets_dir: assets_dir  = data_dir
+    if not cache_dir:  cache_dir   = data_dir.joinpath(c.IMPORT_FOLDERNAME)
 
     if objects_tag:
         tag_dir         = pathlib.Path(objects_tag.filepath).parent
@@ -417,7 +415,7 @@ def export_textures(
 
                     filepath = pathlib.Path(
                         cache_dir if asset_type in c.TEXTURE_CACHE_EXTENSIONS else assets_dir,
-                        filename
+                        asset.get("actor", ""), filename
                         )
                     if filepath.is_file() and not overwrite:
                         continue
