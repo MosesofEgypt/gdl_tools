@@ -22,8 +22,8 @@ PS2_WAD_FILENAME = "wad.bin"
 # set up the filepaths and foldernames that textures, animations,
 # models, and definitions will be extracted to and imported from.
 DATA_FOLDERNAME   = 'assets'
-IMPORT_FOLDERNAME = 'cache'
-EXPORT_FOLDERNAME = 'source'
+IMPORT_FOLDERNAME = '__g3d_cache'
+EXPORT_FOLDERNAME = 'source' # deprecated
 
 METADATA_ASSET_EXTENSIONS = (
     "yaml",

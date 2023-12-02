@@ -30,32 +30,32 @@ def decompile_animations_metadata(
         bitmap_assets = {}
         object_asset_name_map = {}
 
-
-    actors_metadata_by_atree    = {}
-    actor_specific_texmods      = {}
     texmods, particle_systems   = anim_tag.data.texmods, anim_tag.data.particle_systems
+
+    # decompile actors
+    actors_metadata_by_atree    = {}
+    actor_texmods_by_index      = {}
     for i, atree in enumerate(anim_tag.data.atrees):
         name, meta = decompile_atree_metadata(
             atree, i, texmods, particle_systems,
-            bitmap_assets, object_asset_name_map, actor_specific_texmods
+            bitmap_assets, object_asset_name_map, actor_texmods_by_index
             )
         actors_metadata_by_atree[i] = meta
         actors_metadata[name]       = meta
 
-
+    # decompile texmods
     texmods_by_source_index   = {}
-    for i, texmod in enumerate(anim_tag.data.texmods):
-        name, meta = actor_specific_texmods.get(i, (None, None))
+    for i, texmod in enumerate(texmods):
+        name, meta = actor_texmods_by_index.get(i, (None, None))
         if meta is None:
-            name, new_meta = decompile_texdef_metadata(texmod, bitmap_assets)
+            name, new_meta = decompile_texmod_metadata(texmod, bitmap_assets)
             actor_meta = actors_metadata_by_atree.get(texmod.atree)
-            if actor_meta is not None:
-                meta = actor_meta.setdefault("texmods", {}).setdefault(name, {})
-            else:
+            if actor_meta is None:
                 meta = texmods_metadata.setdefault(name, {})
+            else:
+                meta = actor_meta.setdefault("texmods", {}).setdefault(name, {})
 
             meta.update(new_meta)
-
         if "frame_rate" in meta:
             texmods_by_source_index.setdefault(texmod.type.source_index.idx, {})\
                                    .setdefault(name, []).append(meta)
@@ -71,11 +71,7 @@ def decompile_animations_metadata(
             for meta in metas_array:
                 meta["source_name"] = source_name
 
-    if hasattr(anim_tag.data.particle_systems, "__iter__"):
-        for psys in anim_tag.data.particle_systems:
-            psys_metadata[psys.id.enum_name] = decompile_psys_metadata(psys)
-
-
+    # split the animations out of the atrees so they can be saved separately
     animations_metadata = {}
     for actor_name, actor_metadata in actors_metadata.items():
         sequences = actor_metadata.pop("sequences", None)
@@ -104,8 +100,10 @@ def decompile_animations_metadata(
                         object_anims = src_node.get("object_anims", {})
                         if seq_name in object_anims:
                             dst_node.update(
-                                object_anims = { seq_name: object_anims[seq_name] }
+                                object_anims = { seq_name: object_anims.pop(seq_name) }
                                 )
+                            if not object_anims:
+                                src_node.pop("object_anims", None)
 
                         if src_node.get("children"):
                             dst_node.update(children = [])
@@ -116,14 +114,15 @@ def decompile_animations_metadata(
                 node_copy_pairs = next_node_copy_pairs
 
 
-        for node in root_nodes:
-            if not node.get("object_anims"):
-                node.pop("object_anims", None)
+    # decompile particle systems
+    if hasattr(particle_systems, "__iter__"):
+        for psys in anim_tag.data.particle_systems:
+            psys_metadata[psys.id.enum_name] = decompile_psys_metadata(psys)
 
 
     metadata_sets = {
-        "_texmods":          dict(texmods          = texmods_metadata),
-        "_particle_systems": dict(particle_systems = psys_metadata),
+        "_texmods/_texmods":   dict(texmods          = texmods_metadata),
+        "_particles/_systems": dict(particle_systems = psys_metadata),
         **{
             f"{actor_name}/{actor_name}_actor": dict(
                 actors = {actor_name: actors_metadata[actor_name]}
@@ -131,7 +130,7 @@ def decompile_animations_metadata(
             for actor_name in sorted(actors_metadata)
             },
         **{
-            f"{actor_name}/animations/{seq_name}": dict(
+            f"{actor_name}/anims/{seq_name}": dict(
                 actors = {actor_name: animations_metadata[(actor_name, seq_name)]}
                 )
             for actor_name, seq_name in sorted(animations_metadata)
@@ -146,7 +145,7 @@ def decompile_animations_metadata(
 
 def decompile_atree_metadata(
         atree, atree_index, texmods, particle_systems,
-        bitmap_assets, object_asset_name_map, actor_specific_texmods
+        bitmap_assets, object_asset_name_map, actor_texmods_by_index
         ):
     meta    = dict(
         prefix      = atree.atree_header.prefix.upper(),
@@ -154,30 +153,31 @@ def decompile_atree_metadata(
         sequences   = dict(),
         )
 
-    name = atree.name.upper()
-    if meta["prefix"] == name:
+    atree_name = atree.name.upper()
+    if meta["prefix"] == atree_name:
         del meta["prefix"]
 
     atree_data  = atree.atree_header.atree_data
     anode_infos = atree_data.anode_infos
     obj_anims   = atree_data.obj_anim_header.obj_anims
-    for i, sequence in enumerate(atree_data.atree_sequences):
-        seq_meta = dict(frame_rate = sequence.frame_rate)
+    for i, seq in enumerate(atree_data.atree_sequences):
+        seq_meta = dict(frame_rate = seq.frame_rate)
 
-        if sequence.repeat == "yes":
+        if seq.repeat == "yes":
             seq_meta.update(repeat = True)
 
-        if sequence.flags.play_reversed:
+        if seq.flags.play_reversed:
             seq_meta.update(reverse = True)
 
-        meta["sequences"][sequence.name.upper()] = seq_meta
+        meta["sequences"][seq.name.upper()] = seq_meta
+        if seq.texmod_index >= 0:
+            for j in range(seq.texmod_index, seq.texmod_index + seq.texmod_count):
+                if j not in range(len(texmods)):
+                    continue
 
-        for j in range(sequence.texmod_count):
-            j += sequence.texmod_index
-            if j in range(len(texmods)):
                 texmod = texmods[j]
-                name, texmod_meta = decompile_texdef_metadata(texmod, bitmap_assets)
-                actor_specific_texmods[j] = (name, texmod_meta)
+                name, texmod_meta = decompile_texmod_metadata(texmod, bitmap_assets)
+                actor_texmods_by_index[j] = (name, texmod_meta)
                 seq_meta.setdefault("texmods", {})\
                         .setdefault(name, {})\
                         .update(texmod_meta)
@@ -195,8 +195,8 @@ def decompile_atree_metadata(
             if node.anim_seq_info_index in range(len(texmods)):
                 texmod = texmods[node.anim_seq_info_index]
 
-                name, texmod_meta = decompile_texdef_metadata(texmod, bitmap_assets)
-                actor_specific_texmods[node.anim_seq_info_index] = (name, texmod_meta)
+                name, texmod_meta = decompile_texmod_metadata(texmod, bitmap_assets)
+                actor_texmods_by_index[node.anim_seq_info_index] = (name, texmod_meta)
 
                 node_meta.setdefault("texmods", {})\
                         .setdefault(name, {})\
@@ -205,7 +205,7 @@ def decompile_atree_metadata(
             obj_anims_meta = dict()
             node_meta.update(object_anims = obj_anims_meta)
 
-            for j, sequence in enumerate(atree_data.atree_sequences):
+            for j, seq in enumerate(atree_data.atree_sequences):
                 try:
                     obj_anim = obj_anims[j + node.anim_seq_info_index]
                 except Exception:
@@ -221,7 +221,7 @@ def decompile_atree_metadata(
                 if obj_anim.start_frame:
                     obj_anim_meta.update(start_frame = obj_anim.start_frame)
 
-                obj_anims_meta[sequence.name.upper()] = obj_anim_meta
+                obj_anims_meta[seq.name.upper()] = obj_anim_meta
 
         elif node_type == "particle_system":
             try:
@@ -259,10 +259,10 @@ def decompile_atree_metadata(
 
             parent_meta.setdefault("children", []).append(node_meta)
 
-    return name, meta
+    return atree_name, meta
 
 
-def decompile_texdef_metadata(texmod, bitmap_assets):
+def decompile_texmod_metadata(texmod, bitmap_assets):
     meta = dict()
     name = bitmap_assets.get(texmod.tex_index, {}).get(
         "asset_name", texmod.name
@@ -349,7 +349,7 @@ def decompile_psys_metadata(psys):
     data = meta["particle_data"]
     if enables.p_texcnt:    data.update(tex_count=psys.p_texcnt)
     if enables.p_texname:   data.update(tex_name=psys.p_texname)
-    if enables.p_gravity:   data.update(gravity=round(psys.p_gravity, 7))
+    if enables.p_gravity:   data.update(gravity_mul=round(psys.p_gravity, 7))
     if enables.p_drag:      data.update(drag=round(psys.p_drag, 7))
     if enables.p_speed:     data.update(speed=round(psys.p_speed, 7))
 

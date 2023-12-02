@@ -415,7 +415,7 @@ def export_textures(
 
                     filepath = pathlib.Path(
                         cache_dir if asset_type in c.TEXTURE_CACHE_EXTENSIONS else assets_dir,
-                        asset.get("actor", ""), filename
+                        asset.get("actor", "_bitmaps"), filename
                         )
                     if filepath.is_file() and not overwrite:
                         continue

@@ -11,97 +11,34 @@ def decompile_objects_metadata(
         asset_types=c.METADATA_CACHE_EXTENSIONS,
         overwrite=False, data_dir=".", assets_dir=None, cache_dir=None
         ):
-    bitmaps_metadata = {}
-    objects_metadata = {}
-
     object_assets, bitmap_assets = objects_tag.get_cache_names()
-    objects = objects_tag.data.objects
-    bitmaps = objects_tag.data.bitmaps
     exported_bitmaps = {bitm.tex_index: True for bitm in objects_tag.data.bitmap_defs}
-    for i, obj in enumerate(objects):
-        asset           = object_assets[i]
-        metadata_obj    = dict(
-            flags       = {},
-            asset_name  = asset["asset_name"],
-            actor       = asset.get("actor"),
+
+    # decompile metadata for objects and bitmaps
+    objects_metadata = {
+        object_assets[i]["name"]: decompile_object_metadata(
+            obj,
+            asset_name=object_assets[i]["asset_name"],
+            actor_name=object_assets[i].get("actor")
             )
+        for i, obj in enumerate(objects_tag.data.objects)
+        }
 
-        objects_metadata[object_assets[i]["name"]] = metadata_obj
-
-        if hasattr(obj, "lods"):
-            obj_flags = obj.lods[0].flags
-        else:
-            obj_flags = getattr(obj, "flags", None)
-
-        for flag in c.OBJECT_FLAG_NAMES:
-            if getattr(obj_flags, flag, False):
-                metadata_obj["flags"][flag] = True
-
-        if not metadata_obj["flags"]:
-            metadata_obj.pop("flags")
-
-
-    for i, bitm in enumerate(bitmaps):
-        asset           = bitmap_assets[i]
-        metadata_bitm   = dict(
-            flags       = {},
-            format      = bitm.format.enum_name,
-            asset_name  = asset["asset_name"],
-            actor       = asset.get("actor"),
+    bitmaps_metadata = {
+        bitmap_assets[i]["name"]: decompile_bitmap_metadata(
+            bitm,
+            asset_name=bitmap_assets[i]["asset_name"],
+            actor_name=bitmap_assets[i].get("actor"),
+            cache_name=(i in exported_bitmaps)
             )
-
-        if bitm.frame_count == 0 and exported_bitmaps.get(i):
-            metadata_bitm.update(cache_name=True)
-
-        if bitm.frame_count > 0:
-            metadata_bitm.update(animation=True)
-        elif hasattr(bitm, "lod_k"): # v4 and higher
-            metadata_bitm.update(mipmap_count=bitm.mipmap_count, lod_k=bitm.lod_k)
-        elif hasattr(bitm, "dc_sig"): # dreamcast
-            image_type  = bitm.image_type.enum_name
-            for name in ("twiddled", "mipmap", "small_vq", "large_vq"):
-                if name in image_type:
-                    metadata_bitm[name] = True
-        else:
-            metadata_bitm.update(mipmap_count=abs(bitm.small_lod_log2_inv - bitm.large_lod_log2_inv))
-
-        if getattr(bitm.flags, "invalid", False):
-            # set to arbitrary valid value(often time set to random garbage)
-            metadata_bitm["format"] = "ABGR_1555"
-
-        has_bitm_data = (
-            not getattr(bitm.flags, "invalid", False) and
-            not getattr(bitm.flags, "external", False) and
-            bitm.frame_count <= 0
-            )
-
-        if not has_bitm_data and hasattr(bitm, "tex0"):
-            for name, default in (
-                    ("tex_cc", "rgba"),
-                    ("tex_function", "decal"),
-                    ("clut_smode", "csm1"),
-                    ("clut_loadmode", "recache"),
-                    ):
-                if bitm.tex0[name].enum_name != default:
-                    metadata_bitm[name] = bitm.tex0[name].enum_name
-
-        bitmaps_metadata[bitmap_assets[i]["name"]] = metadata_bitm
-
-        for flag in c.BITMAP_FLAG_NAMES:
-            if getattr(bitm.flags, flag, False):
-                metadata_bitm["flags"][flag] = True
-
-        if not metadata_bitm["flags"]:
-            metadata_bitm.pop("flags")
-
-    for meta in (*bitmaps_metadata.values(), *objects_metadata.values()):
-        if not meta.get("actor"):
-            meta.pop("actor", "")
+        for i, bitm in enumerate(objects_tag.data.bitmaps)
+        }
 
     # move animation frames into parent and remove duplicate fields
     objects_metadata.update(_consolidate_metadata_frames(objects_metadata, False))
     bitmaps_metadata.update(_consolidate_metadata_frames(bitmaps_metadata, True))
 
+    # filter out objects and bitmaps not assigned to a specific actor
     nonactor_bitmaps_metadata = {
         name: metadata
         for name, metadata in tuple(bitmaps_metadata.items())
@@ -113,6 +50,7 @@ def decompile_objects_metadata(
         if not metadata.get("actor")
         }
 
+    # sort remaining objects and bitmaps by what actor they're assigned to
     actor_bitmaps_metadata = {}
     for name, metadata in bitmaps_metadata.items():
         actor = metadata.pop("actor", None)
@@ -125,9 +63,14 @@ def decompile_objects_metadata(
         if actor:
             actor_objects_metadata.setdefault(actor, {})[name] = metadata
 
+    # remove actor field from all metadata frames
+    for metadata in (*objects_metadata.values(), *bitmaps_metadata.values()):
+        for frame_metadata in metadata.get("frames", {}).values():
+            frame_metadata.pop("actor", None)
+
     metadata_sets = {
-        "_objects": dict(objects = nonactor_objects_metadata),
-        "_bitmaps": dict(bitmaps = nonactor_bitmaps_metadata),
+        "_objects/_objects": dict(objects = nonactor_objects_metadata),
+        "_bitmaps/_bitmaps": dict(bitmaps = nonactor_bitmaps_metadata),
         **{
             f"{actor_name}/{actor_name}_objects": dict(
                 objects = actor_objects_metadata[actor_name]
@@ -145,6 +88,83 @@ def decompile_objects_metadata(
         metadata_sets, asset_types=asset_types, overwrite=overwrite,
         data_dir=data_dir, assets_dir=assets_dir, cache_dir=cache_dir,
         )
+
+
+def decompile_object_metadata(obj, asset_name=None, actor_name=None):
+    metadata_obj    = dict(
+        flags       = {},
+        )
+
+    if asset_name: metadata_obj.update(asset_name = asset_name)
+    if actor_name: metadata_obj.update(actor = actor_name)
+
+    if hasattr(obj, "lods"):
+        obj_flags = obj.lods[0].flags
+    else:
+        obj_flags = getattr(obj, "flags", None)
+
+    for flag in c.OBJECT_FLAG_NAMES:
+        if getattr(obj_flags, flag, False):
+            metadata_obj["flags"][flag] = True
+
+    if not metadata_obj["flags"]:
+        metadata_obj.pop("flags")
+
+    return metadata_obj
+
+
+def decompile_bitmap_metadata(bitm, asset_name=None, actor_name=None, cache_name=True):
+    metadata_bitm   = dict(
+        flags       = {},
+        format      = bitm.format.enum_name,
+        )
+
+    if asset_name: metadata_bitm.update(asset_name = asset_name)
+    if actor_name: metadata_bitm.update(actor = actor_name)
+
+    if bitm.frame_count == 0 and cache_name:
+        metadata_bitm.update(cache_name=True)
+
+    if bitm.frame_count > 0:
+        metadata_bitm.update(animation=True)
+    elif hasattr(bitm, "lod_k"): # v4 and higher
+        metadata_bitm.update(mipmap_count=bitm.mipmap_count, lod_k=bitm.lod_k)
+    elif hasattr(bitm, "dc_sig"): # dreamcast
+        image_type  = bitm.image_type.enum_name
+        for name in ("twiddled", "mipmap", "small_vq", "large_vq"):
+            if name in image_type:
+                metadata_bitm[name] = True
+    else:
+        metadata_bitm.update(mipmap_count=abs(bitm.small_lod_log2_inv - bitm.large_lod_log2_inv))
+
+    if getattr(bitm.flags, "invalid", False):
+        # set to arbitrary valid value(often time set to random garbage)
+        metadata_bitm["format"] = "ABGR_1555"
+
+    has_bitm_data = (
+        not getattr(bitm.flags, "invalid", False) and
+        not getattr(bitm.flags, "external", False) and
+        bitm.frame_count <= 0
+        )
+
+    if not has_bitm_data and hasattr(bitm, "tex0"):
+        for name, default in (
+                ("tex_cc", "rgba"),
+                ("tex_function", "decal"),
+                ("clut_smode", "csm1"),
+                ("clut_loadmode", "recache"),
+                ):
+            if bitm.tex0[name].enum_name != default:
+                metadata_bitm[name] = bitm.tex0[name].enum_name
+
+    for flag in c.BITMAP_FLAG_NAMES:
+        if getattr(bitm.flags, flag, False):
+            metadata_bitm["flags"][flag] = True
+
+    if not metadata_bitm["flags"]:
+        metadata_bitm.pop("flags")
+
+    return metadata_bitm
 
 
 def _consolidate_metadata_frames(metadata, is_bitmaps):

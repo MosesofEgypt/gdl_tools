@@ -239,7 +239,7 @@ def export_models(
 
                 filepath = pathlib.Path(
                     cache_dir if asset_type in c.MODEL_CACHE_EXTENSIONS else assets_dir,
-                    asset.get("actor", ""), filename
+                    asset.get("actor", "_objects"), filename
                     )
                 if filepath.is_file() and not overwrite:
                     continue

@@ -23,6 +23,7 @@ class ObjectsTag(GdlTag):
     _texmod_seqs    = None
     _objanim_seqs   = None
     _actorobj_map   = None
+    _particle_map   = None
     _texdef_names_by_pixels_pointer = None
 
     _lightmap_names = None
@@ -126,6 +127,7 @@ class ObjectsTag(GdlTag):
             return
 
         self._actorobj_map = {}
+        self._particle_map = {}
         self.load_anim_tag(filepath, recache)
 
         if not self.anim_tag:
@@ -141,6 +143,15 @@ class ObjectsTag(GdlTag):
                 node_name   = node.mb_desc.upper().strip()
                 object_name = f"{prefix}{node_name}"
                 self._actorobj_map[object_name] = prefix
+
+        particle_systems = self.anim_tag.data.particle_systems
+        if not hasattr(particle_systems, "__iter__"):
+            return
+
+        for psys in particle_systems:
+            name = psys.p_texname.upper().strip()
+            if psys.enables.p_texname and name:
+                self._particle_map.setdefault(name, psys.id.enum_name)
 
     def load_texdef_names(self, filepath=None, recache=False):
         if self._texdef_names_by_pixels_pointer is not None and not recache:
@@ -174,8 +185,9 @@ class ObjectsTag(GdlTag):
                     asset_name  = asset_name,
                     def_name    = name,
                     index       = i,
-                    actor       = self._actorobj_map.get(name, asset_name)
                     )
+                if self._actorobj_map.get(name):
+                    object_names[i].update(actor=self._actorobj_map[name])
 
         # fill in object animation frame names
         objanim_names       = {}
@@ -188,6 +200,7 @@ class ObjectsTag(GdlTag):
             count = seq_data["count"]
             for i in range(count):
                 name = (
+                    f"{asset_name}_{i:07d}" if count > 999999 else
                     f"{asset_name}_{i:06d}" if count > 99999 else
                     f"{asset_name}_{i:05d}" if count > 9999 else
                     f"{asset_name}_{i:04d}" if count > 999 else
@@ -202,21 +215,27 @@ class ObjectsTag(GdlTag):
                     index       = start+i,
                     actor       = seq_data.get("actor", "")
                     )
+                if seq_data.get("actor"):
+                    object_names[start + i].update(actor=seq_data["actor"])
 
         # fill in object names that couldn't be determined
         unnamed_count = 0
         for i, obj in enumerate(self.data.objects):
-            if i in object_names:
-                continue
+            if i not in object_names:
+                name = f"{c.UNNAMED_ASSET_NAME}.{unnamed_count:04}"
+                object_names[i] = dict(
+                    name        = name,
+                    asset_name  = c.UNNAMED_ASSET_NAME,
+                    index       = i,
+                    actor       = self._actorobj_map.get(name, "")
+                    )
+                if self._actorobj_map.get(name):
+                    object_names[i].update(actor=self._actorobj_map[name])
 
-            name = f"{c.UNNAMED_ASSET_NAME}.{unnamed_count:04}"
-            object_names[i] = dict(
-                name        = name,
-                asset_name  = c.UNNAMED_ASSET_NAME,
-                index       = i,
-                actor       = self._actorobj_map.get(name, "")
-                )
-            unnamed_count += 1
+                unnamed_count += 1
+
+            if not object_names[i].get("actor"):
+                object_names[i].pop("actor", None)
 
         self._object_names = object_names
         return dict(self._object_names)
@@ -240,25 +259,28 @@ class ObjectsTag(GdlTag):
 
         texmod_names            = {}
         names_by_source_index   = dict()
+        model_bitmap_names      = self.get_model_bitmap_names()
 
         for i, seq_data in self._texmod_seqs.items():
             names_by_source_index.setdefault(seq_data["start"], {})\
                                  .setdefault(seq_data["name"], [])\
                                  .append(i)
             texmod_names[i] = dict(
-                name=seq_data["name"], asset_name=seq_data["name"], index=i
+                name=seq_data["name"], asset_name=seq_data["name"],
+                index=i, actor=model_bitmap_names.get(i, {}).get("actor", "_texmods")
                 )
 
         # for texmods that share the same texture frames, we assign all the frames
         # to the alphabetically first in the array, and have the others reference it.
         for source_index, indices_by_names in names_by_source_index.items():
             asset_name  = sorted(indices_by_names)[0]
-            tex_index   = sorted(indices_by_names[asset_name])[0]
-            seq_data    = self._texmod_seqs[tex_index]
-            start, count = seq_data["start"], seq_data['count']
+            anim_index  = sorted(indices_by_names[asset_name])[0]
+            count       = self._texmod_seqs[anim_index]['count']
+            actor       = model_bitmap_names.get(anim_index, {}).get("actor", "_texmods")
 
             for i in range(count):
                 name = (
+                    f"{asset_name}_{i:07d}" if count > 999999 else
                     f"{asset_name}_{i:06d}" if count > 99999 else
                     f"{asset_name}_{i:05d}" if count > 9999 else
                     f"{asset_name}_{i:04d}" if count > 999 else
@@ -266,8 +288,9 @@ class ObjectsTag(GdlTag):
                     f"{asset_name}_{i:02d}"
                     )
 
-                texmod_names[start+i] = dict(
-                    name=name, asset_name=asset_name, index=start+i
+                texmod_names[source_index+i] = dict(
+                    name=name, asset_name=asset_name,
+                    index=source_index+i, actor=actor
                     )
 
         self._texmod_names = texmod_names
@@ -284,6 +307,8 @@ class ObjectsTag(GdlTag):
             if i not in texdef_names and bitm.tex_pointer in names_by_pointer:
                 name = names_by_pointer.pop(bitm.tex_pointer)
                 texdef_names[i] = dict(name=name, asset_name=name, index=i)
+                if name in self._particle_map:
+                    texdef_names[i].update(actor="_particles")
 
         self._texdef_names = texdef_names
         return dict(self._texdef_names)
@@ -361,6 +386,42 @@ class ObjectsTag(GdlTag):
         self._lightmap_names = lightmap_names
         return dict(self._lightmap_names)
 
+    def get_model_bitmap_names(self):
+        is_vif  = self.data.version_header.version.enum_name in ("v4", "v12", "v13")
+
+        bitmap_names = {}
+        object_names = self.get_object_names()
+
+        # use model names to help name bitmaps
+        bitmap_indices_by_actor_asset = {}
+        for i, obj in enumerate(self.data.objects):
+            indices = bitmap_indices_by_actor_asset\
+                      .setdefault(object_names[i].get("actor", ""), {})\
+                      .setdefault(object_names[i]["asset_name"], set())
+            if is_vif:
+                # populate maps to help name bitmaps
+                subobj_headers = (obj.sub_object_0, )
+                if hasattr(obj.data, "sub_objects"):
+                    subobj_headers += tuple(obj.data.sub_objects)
+
+                for header in subobj_headers:
+                    indices.add(header.tex_index)
+
+        for actor in sorted(bitmap_indices_by_actor_asset):
+            for asset_name, indices in bitmap_indices_by_actor_asset[actor].items():
+                for i, tex_index in enumerate(sorted(indices)):
+                    bitmap_names.setdefault(
+                        tex_index, dict(
+                            name        = f"{asset_name}.{i:04}",
+                            asset_name  = asset_name,
+                            index       = tex_index,
+                            )
+                        )
+                    if actor:
+                        bitmap_names[tex_index].setdefault("actor", actor)
+
+        return bitmap_names
+
     def generate_cache_names(self):
         version = self.data.version_header.version.enum_name
         is_vif  = version in ("v4", "v12", "v13")
@@ -368,37 +429,12 @@ class ObjectsTag(GdlTag):
         bitmap_names = {}
         object_names = self.get_object_names()
 
-        # use model names to help name bitmaps
-        if is_vif:
-            name_counts = {}
-            for i, obj in enumerate(self.data.objects):
-                asset_name = object_names[i]["asset_name"]
-                actor      = object_names[i].get("actor", asset_name)
-                name_counts.setdefault(asset_name, 0)
-
-                # populate maps to help name bitmaps
-                subobj_headers = (obj.sub_object_0, )
-                if hasattr(obj.data, "sub_objects"):
-                    subobj_headers += tuple(obj.data.sub_objects)
-
-                for header in subobj_headers:
-                    if header.tex_index in bitmap_names:
-                        continue
-
-                    name = f"{asset_name}.{name_counts[asset_name]:04}"
-                    name_counts[asset_name] += 1
-                    bitmap_names[header.tex_index] = dict(
-                        name        = name,
-                        asset_name  = asset_name,
-                        index       = header.tex_index,
-                        actor       = actor
-                        )
-        
         for other_bitmap_names in (
-                self.get_lightmap_names(),   # generate names of lightmaps
-                self.get_texdef_names(),     # grab names from texdefs
-                self.get_bitmap_def_names(), # grab names from bitmap_defs
-                self.get_texmod_names(),     # use texmod frame names
+                self.get_model_bitmap_names(),  # get names from looking at parent object names
+                self.get_lightmap_names(),      # generate names of lightmaps
+                self.get_texdef_names(),        # grab names from texdefs
+                self.get_bitmap_def_names(),    # grab names from bitmap_defs
+                self.get_texmod_names(),        # use texmod frame names
                 ):
             for k, v in other_bitmap_names.items():
                 bitmap_names.setdefault(k, {}).update(v)
