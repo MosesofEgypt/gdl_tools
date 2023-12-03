@@ -91,8 +91,8 @@ def decompile_objects_metadata(
 
 
 def decompile_object_metadata(obj, asset_name=None, actor_name=None):
-    metadata_obj    = dict(
-        flags       = {},
+    metadata_obj = dict(
+        flags    = {},
         )
 
     if asset_name: metadata_obj.update(asset_name = asset_name)
@@ -169,18 +169,22 @@ def decompile_bitmap_metadata(bitm, asset_name=None, actor_name=None, cache_name
 
 def _consolidate_metadata_frames(metadata, is_bitmaps):
     all_anim_metadata = {}
+    is_objects = not is_bitmaps # for clarity
+
     for name in sorted(metadata):
         metadata_item = metadata[name]
         asset_name    = metadata_item["asset_name"]
 
         if asset_name not in all_anim_metadata:
             # NOTE: stripping off digits and then preceeding underscore
-            if not is_bitmaps and name.rstrip("0123456789")[:-1] != asset_name:
-                continue
-            elif is_bitmaps and (name != asset_name or not metadata_item.pop("animation", None)):
-                continue
-            metadata.pop(name)
-            all_anim_metadata[asset_name] = metadata_item
+            #       for object names to match the asset name
+            if ((is_objects and name.rstrip("0123456789")[:-1] == asset_name) or
+                (is_bitmaps and (name != asset_name or not metadata_item.pop("animation", None)))
+                 ):
+                metadata.pop(name)
+                all_anim_metadata[asset_name] = metadata_item
+                if is_objects:
+                    metadata_item.update(orig_name=name)
             continue
 
         anim_metadata = all_anim_metadata[asset_name]

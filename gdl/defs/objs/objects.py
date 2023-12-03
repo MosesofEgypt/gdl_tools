@@ -32,6 +32,7 @@ class ObjectsTag(GdlTag):
     _texdef_names   = None
     _texmod_names   = None
     _objanim_names  = None
+    _particle_names = None
 
     def load_anim_tag(self, filepath=None, recache=False):
         if self.anim_tag is not None and not recache:
@@ -175,6 +176,7 @@ class ObjectsTag(GdlTag):
             return dict(self._object_names)
 
         object_names = {}
+        # fill in object names from definitions
         for obj_def in self.data.object_defs:
             obj_index   = obj_def.obj_index
             asset_name  = obj_def.name.strip().upper()
@@ -296,6 +298,21 @@ class ObjectsTag(GdlTag):
         self._texmod_names = texmod_names
         return dict(self._texmod_names)
 
+    def get_particle_names(self, recache=False):
+        if not recache and self._particle_names is not None:
+            return dict(self._particle_names)
+
+        particle_names = {}
+        names_by_index = self.get_bitmap_def_names()
+
+        for i, bitm in enumerate(self.data.bitmaps):
+            if names_by_index.get(i, {}).get("name") in self._particle_map:
+                particle_names[i] = dict(names_by_index[i])
+                particle_names[i].update(actor="_particles")
+
+        self._particle_names = particle_names
+        return dict(self._particle_names)
+
     def get_texdef_names(self, recache=False):
         if not recache and self._texdef_names is not None:
             return dict(self._texdef_names)
@@ -307,8 +324,6 @@ class ObjectsTag(GdlTag):
             if i not in texdef_names and bitm.tex_pointer in names_by_pointer:
                 name = names_by_pointer.pop(bitm.tex_pointer)
                 texdef_names[i] = dict(name=name, asset_name=name, index=i)
-                if name in self._particle_map:
-                    texdef_names[i].update(actor="_particles")
 
         self._texdef_names = texdef_names
         return dict(self._texdef_names)
@@ -375,11 +390,9 @@ class ObjectsTag(GdlTag):
 
         # name the lightmaps
         for i, tex_index in enumerate(sorted(lightmap_names)):
-            lightmap_asset = lightmap_names[tex_index]
-            if "name" not in lightmap_asset:
-                name = f"{c.LIGHTMAP_NAME}.{i}"
-                lightmap_asset.update(
-                    name        = name,
+            if "name" not in lightmap_names[tex_index]:
+                lightmap_names[tex_index].update(
+                    name        = f"{c.LIGHTMAP_NAME}.{i}",
                     asset_name  = c.LIGHTMAP_NAME,
                     )
 
@@ -392,7 +405,8 @@ class ObjectsTag(GdlTag):
         bitmap_names = {}
         object_names = self.get_object_names()
 
-        # use model names to help name bitmaps
+        # loop over all objects and create a hash to map all texture
+        # indices to the assets of each actor that use them
         bitmap_indices_by_actor_asset = {}
         for i, obj in enumerate(self.data.objects):
             indices = bitmap_indices_by_actor_asset\
@@ -407,6 +421,8 @@ class ObjectsTag(GdlTag):
                 for header in subobj_headers:
                     indices.add(header.tex_index)
 
+        # now that we know what textures are used by each model, we'll
+        # determine names for those bitmaps using the objects as a base
         for actor in sorted(bitmap_indices_by_actor_asset):
             for asset_name, indices in bitmap_indices_by_actor_asset[actor].items():
                 for i, tex_index in enumerate(sorted(indices)):
@@ -434,33 +450,22 @@ class ObjectsTag(GdlTag):
                 self.get_lightmap_names(),      # generate names of lightmaps
                 self.get_texdef_names(),        # grab names from texdefs
                 self.get_bitmap_def_names(),    # grab names from bitmap_defs
+                self.get_particle_names(),      # grab names from particles
                 self.get_texmod_names(),        # use texmod frame names
                 ):
             for k, v in other_bitmap_names.items():
                 bitmap_names.setdefault(k, {}).update(v)
 
         # fill in bitmap names that couldn't be determined
-        asset_name, basename, unnamed_ct, name_index, frames = "", "", 0, 0, 0
+        unnamed_ct = 0
         for i, bitm in enumerate(self.data.bitmaps):
-            if bitm.frame_count and i in bitmap_names:
-                asset_name  = bitmap_names[i]["asset_name"]
-                basename    = bitmap_names[i]["name"]
-                frames      = max(0, bitm.frame_count)
-                name_index  = 0
-
-            if i in bitmap_names:
-                continue
-            elif frames > 0:
-                frames  -= 1
-            else:
-                basename    = c.UNNAMED_ASSET_NAME
-                asset_name  = c.UNNAMED_ASSET_NAME
-                name_index  = unnamed_ct
-                unnamed_ct  += 1
-
-            name = f"{basename}.{name_index:04}"
-            bitmap_names[i] = dict(name=name, asset_name=asset_name, index=i, actor=c.UNNAMED_ASSET_NAME)
-            name_index += 1
+            if i not in bitmap_names:
+                bitmap_names[i] = dict(
+                    name=f"{c.UNNAMED_ASSET_NAME}.{unnamed_ct:04}",
+                    asset_name=c.UNNAMED_ASSET_NAME,
+                    index=i
+                    )
+                unnamed_ct += 1
 
         self._object_assets_by_index = object_names
         self._bitmap_assets_by_index = bitmap_names
