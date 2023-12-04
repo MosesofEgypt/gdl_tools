@@ -12,17 +12,17 @@ def load_textures_from_objects_tag(
         objects_tag, textures_filepath, is_ngc=False
         ):
     textures = {}
-    try:
-        objects_tag.load_texdef_names()
-    except Exception:
-        # oh well...
-        pass
-
-    try:
-        objects_tag.load_texmod_sequences()
-    except Exception:
-        # oh well...
-        pass
+    for load_func in (
+        objects_tag.load_texdef_names,
+        objects_tag.load_texmod_sequences,
+        objects_tag.load_objanim_sequences,
+        objects_tag.load_actor_object_assets,
+        ):
+        try:
+            load_func()
+        except Exception:
+            # oh well...
+            pass
 
     _, texture_assets = objects_tag.get_cache_names()
     texture_names = {

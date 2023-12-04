@@ -34,6 +34,17 @@ class ObjectsTag(GdlTag):
     _objanim_names  = None
     _particle_names = None
 
+    @property
+    def texmod_seqs(self): return self._texmod_seqs or {}
+    @property
+    def objanim_seqs(self): return self._objanim_seqs or {}
+    @property
+    def actorobj_map(self): return self._actorobj_map or {}
+    @property
+    def particle_map(self): return self._particle_map or {}
+    @property
+    def texdef_names_by_pixels_pointer(self): return self._texdef_names_by_pixels_pointer or {}
+
     def load_anim_tag(self, filepath=None, recache=False):
         if self.anim_tag is not None and not recache:
             return
@@ -188,13 +199,13 @@ class ObjectsTag(GdlTag):
                     def_name    = name,
                     index       = i,
                     )
-                if self._actorobj_map.get(name):
-                    object_names[i].update(actor=self._actorobj_map[name])
+                if self.actorobj_map.get(name):
+                    object_names[i].update(actor=self.actorobj_map[name])
 
         # fill in object animation frame names
         objanim_names       = {}
         object_data_by_name = { v["name"]: v for v in object_names.values()}
-        for asset_name, seq_data in self._objanim_seqs.items():
+        for asset_name, seq_data in self.objanim_seqs.items():
             if seq_data["name"] not in object_data_by_name:
                 continue
 
@@ -229,10 +240,10 @@ class ObjectsTag(GdlTag):
                     name        = name,
                     asset_name  = c.UNNAMED_ASSET_NAME,
                     index       = i,
-                    actor       = self._actorobj_map.get(name, "")
+                    actor       = self.actorobj_map.get(name, "")
                     )
-                if self._actorobj_map.get(name):
-                    object_names[i].update(actor=self._actorobj_map[name])
+                if self.actorobj_map.get(name):
+                    object_names[i].update(actor=self.actorobj_map[name])
 
                 unnamed_count += 1
 
@@ -263,7 +274,7 @@ class ObjectsTag(GdlTag):
         names_by_source_index   = dict()
         model_bitmap_names      = self.get_model_bitmap_names()
 
-        for i, seq_data in self._texmod_seqs.items():
+        for i, seq_data in self.texmod_seqs.items():
             names_by_source_index.setdefault(seq_data["start"], {})\
                                  .setdefault(seq_data["name"], [])\
                                  .append(i)
@@ -277,7 +288,7 @@ class ObjectsTag(GdlTag):
         for source_index, indices_by_names in names_by_source_index.items():
             asset_name  = sorted(indices_by_names)[0]
             anim_index  = sorted(indices_by_names[asset_name])[0]
-            count       = self._texmod_seqs[anim_index]['count']
+            count       = self.texmod_seqs[anim_index]['count']
             actor       = model_bitmap_names.get(anim_index, {}).get("actor", "_texmods")
 
             for i in range(count):
@@ -306,7 +317,7 @@ class ObjectsTag(GdlTag):
         names_by_index = self.get_bitmap_def_names()
 
         for i, bitm in enumerate(self.data.bitmaps):
-            if names_by_index.get(i, {}).get("name") in self._particle_map:
+            if names_by_index.get(i, {}).get("name") in self.particle_map:
                 particle_names[i] = dict(names_by_index[i])
                 particle_names[i].update(actor="_particles")
 
@@ -318,7 +329,7 @@ class ObjectsTag(GdlTag):
             return dict(self._texdef_names)
 
         texdef_names     = {}
-        names_by_pointer = dict(self._texdef_names_by_pixels_pointer or {})
+        names_by_pointer = dict(self.texdef_names_by_pixels_pointer)
 
         for i, bitm in enumerate(self.data.bitmaps):
             if i not in texdef_names and bitm.tex_pointer in names_by_pointer:
