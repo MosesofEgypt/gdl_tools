@@ -115,8 +115,8 @@ def decompile_object_metadata(obj, asset_name=None, actor_name=None):
 
 def decompile_bitmap_metadata(bitm, asset_name=None, actor_name=None, cache_name=True):
     metadata_bitm   = dict(
-        flags       = {},
-        format      = bitm.format.enum_name,
+        flags   = {},
+        format  = bitm.format.enum_name,
         )
 
     if asset_name: metadata_bitm.update(asset_name = asset_name)
@@ -147,7 +147,9 @@ def decompile_bitmap_metadata(bitm, asset_name=None, actor_name=None, cache_name
         bitm.frame_count <= 0
         )
 
-    if not has_bitm_data and hasattr(bitm, "tex0"):
+    if has_bitm_data and hasattr(bitm, "tex0") and (
+        bitm.tex0.tex_width != 0 and bitm.tex0.tex_height != 0 
+        ):
         for name, default in (
                 ("tex_cc", "rgba"),
                 ("tex_function", "decal"),
@@ -167,38 +169,44 @@ def decompile_bitmap_metadata(bitm, asset_name=None, actor_name=None, cache_name
     return metadata_bitm
 
 
+def is_frame_name(name, asset_name):
+    stripped_name = name.rstrip("0123456789").upper()
+    asset_name    = asset_name.upper() + "_"
+    return stripped_name == asset_name
+
+
 def _consolidate_metadata_frames(metadata, is_bitmaps):
     all_anim_metadata = {}
     is_objects = not is_bitmaps # for clarity
 
     for name in sorted(metadata):
+        asset_name = metadata[name]["asset_name"]
+        if asset_name in all_anim_metadata:
+            continue
+        elif ((is_bitmaps and name == asset_name and metadata[name].pop("animation", None)) or
+              (is_objects and is_frame_name(name, asset_name))
+              ):
+            metadata_item = all_anim_metadata[asset_name] = metadata.pop(name)
+            metadata_item.update(frames=({name: {}} if is_objects else {}))
+
+    for name in sorted(metadata):
         metadata_item = metadata[name]
         asset_name    = metadata_item["asset_name"]
-
-        if asset_name not in all_anim_metadata:
-            # NOTE: stripping off digits and then preceeding underscore
-            #       for object names to match the asset name
-            if ((is_objects and name.rstrip("0123456789")[:-1] == asset_name) or
-                (is_bitmaps and (name != asset_name or not metadata_item.pop("animation", None)))
-                 ):
-                metadata.pop(name)
-                all_anim_metadata[asset_name] = metadata_item
-                if is_objects:
-                    metadata_item.update(orig_name=name)
+        anim_metadata = all_anim_metadata.get(asset_name)
+        if anim_metadata is None or not is_frame_name(name, asset_name):
             continue
 
-        anim_metadata = all_anim_metadata[asset_name]
         metadata.pop(name)
-        for k in sorted(metadata_item):
+        frames = anim_metadata["frames"]
+        if is_bitmaps and not frames:
             # for the first bitmap frame, copy all fields into the parent metadata.
             # this will allow us to reduce the duplicate fields in the metadata.
-            if is_bitmaps and "frames" not in anim_metadata and k not in anim_metadata:
-                anim_metadata[k] = metadata_item[k]
+            anim_metadata.update(metadata_item)
 
+        frames[name] = metadata_item
+        for k in sorted(metadata_item):
             if metadata_item[k] == anim_metadata.get(k):
                 metadata_item.pop(k)
-
-        anim_metadata.setdefault("frames", {})[name] = metadata_item
 
     if is_bitmaps:
         for anim_metadata in all_anim_metadata.values():

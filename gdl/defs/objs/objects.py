@@ -467,6 +467,22 @@ class ObjectsTag(GdlTag):
             for k, v in other_bitmap_names.items():
                 bitmap_names.setdefault(k, {}).update(v)
 
+        seen_names   = {}
+        for k, v in bitmap_names.items():
+            name = v.get("name")
+            seen_index = seen_names.get(name, None)
+            if seen_index != k and seen_index is not None:
+                print(f"Fixing conflict with name '{name}' between index {k} and {seen_index}")
+                new_name = name
+                i = 1
+                while new_name in seen_names:
+                    new_name = f"{name}.{i:04}"
+                    i += 1
+
+                v.update(name=new_name)
+
+            seen_names[name] = k
+
         # fill in bitmap names that couldn't be determined
         unnamed_ct = 0
         for i, bitm in enumerate(self.data.bitmaps):
