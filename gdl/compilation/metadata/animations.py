@@ -262,7 +262,7 @@ def decompile_atree_metadata(
             if not seq_meta: continue
 
             is_compressed = bool(seq_info.type.compressed_data)
-            seq_meta["compress"] = (seq_meta["compress"] >= 0)
+            seq_meta["compress"] = (seq_meta["compress"] > 0)
             if seq_meta["compress"] != is_compressed:
                 seq_meta.setdefault("compress_per_node", {})[i] = is_compressed
 

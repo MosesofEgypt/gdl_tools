@@ -40,7 +40,7 @@ def dump_metadata_sets(metadata_sets, overwrite=False,
                 name_parts.update(k.lower() for k in metadata_set.keys())
 
             metadata = {
-                "_".join(name_parts): merge_metadata_sets(*metadata_sets.values())
+                "_".join(sorted(name_parts)): merge_metadata_sets(*metadata_sets.values())
                 }
         else:
             dump_dir = assets_dir

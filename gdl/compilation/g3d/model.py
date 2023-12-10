@@ -231,7 +231,6 @@ def export_models(
         obj   = objects[i]
 
         try:
-            j = None  # initialize in case exception occurs before loop starts
             for asset_type in asset_types:
                 filename = f"{asset['name']}.{asset_type}"
                 if asset['name'] != asset["asset_name"]:
@@ -273,9 +272,8 @@ def export_models(
 
         except:
             print(format_exc())
-            print(f"The above error occurred while trying to export subobj {j} "
-                  f"of object {i} as {asset_type}. name: '{asset.get('name')}', "
-                  f"asset_name: '{asset.get('asset_name')}'"
+            print(f"The above error occurred while trying to export object {i} as {asset_type}. "
+                  f"name: '{asset.get('name')}', asset_name: '{asset.get('asset_name')}'"
                   )
 
     print("Decompiling %s models in %s" % (

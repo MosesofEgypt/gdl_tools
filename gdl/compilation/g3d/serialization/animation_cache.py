@@ -3,9 +3,8 @@ import struct
 
 from sys import byteorder
 
-from . import constants
+from . import animation_util, constants
 from .asset_cache import AssetCache
-from .. import util
 
 # ensure they're all no more than 4 characters since we use them as the cache_type
 for ext in (constants.ANIMATION_CACHE_EXTENSION_NGC, constants.ANIMATION_CACHE_EXTENSION_PS2,
@@ -34,22 +33,24 @@ NODE_HEADER_STRUCT = struct.Struct('<3f Hh HBB')
 #   flags
 #   parent_index
 #   frame_flag_count
-#   node_type_id
 #   node_name_length
+#   node_type_id
 
 # node flags
 ANIM_CACHE_NODE_FLAG_ROT_X          = 1 << 0
 ANIM_CACHE_NODE_FLAG_ROT_Y          = 1 << 1
 ANIM_CACHE_NODE_FLAG_ROT_Z          = 1 << 2
-ANIM_CACHE_NODE_FLAG_POS_X          = 1 << 3
-ANIM_CACHE_NODE_FLAG_POS_Y          = 1 << 4
-ANIM_CACHE_NODE_FLAG_POS_Z          = 1 << 5
-ANIM_CACHE_NODE_FLAG_SCALE_X        = 1 << 6
-ANIM_CACHE_NODE_FLAG_SCALE_Y        = 1 << 7
-ANIM_CACHE_NODE_FLAG_SCALE_Z        = 1 << 8
-ANIM_CACHE_NODE_FLAG_COMPRESSED     = 1 << 9
-ANIM_CACHE_NODE_FLAG_INITIAL_ONLY   = 1 << 10
-ANIM_CACHE_NODE_FLAG_HAS_ANIM_DATA  = 1 << 15
+
+ANIM_CACHE_NODE_FLAG_POS_X          = 1 << 4
+ANIM_CACHE_NODE_FLAG_POS_Y          = 1 << 5
+ANIM_CACHE_NODE_FLAG_POS_Z          = 1 << 6
+
+ANIM_CACHE_NODE_FLAG_SCALE_X        = 1 << 8
+ANIM_CACHE_NODE_FLAG_SCALE_Y        = 1 << 9
+ANIM_CACHE_NODE_FLAG_SCALE_Z        = 1 << 10
+
+ANIM_CACHE_NODE_FLAG_COMPRESSED     = 1 << 13
+ANIM_CACHE_NODE_FLAG_INITIAL_ONLY   = 1 << 14
 
 
 NODE_TYPES  = (
@@ -61,83 +62,38 @@ NODE_TYPES  = (
     )
 
 
-def comp_frame_data_to_uncomp(indices, values):
-    return tuple(util.dereference_indexed_values(indices, values))
-
-def combine_uncomp_values(*values):
-    all_values = set()
-    [map(all_values.update, value_set) for value_set in value_sets]
-    return tuple(sorted(all_values))
-
-def rebase_comp_frame_data(indices, src_values, dst_values):
-    return tuple(util.dereference_indexed_values(
-        util.dereference_indexed_values(indices, src_values),
-        util.invert_map(dst_values)
-        ))
-
-def combine_compressed_frame_data(*indices_and_values_pairs):
-    for pair in indices_and_values_pairs:
-        if not(isinstance(pair, tuple) and
-               hasattr(pair[0], "__iter__") and
-               hasattr(pair[1], "__iter__")):
-            raise ValueError("Must pass in indices and values as tuple pairs.")
-
-    combined_values = combine_uncomp_values(v for i, v in indices_and_values_pairs)
-    return tuple(
-        rebase_comp_frame_data(i, v, combined_values)
-        for i, v in indices_and_values_pairs
-        )
-
-def reduce_compressed_frame_data(*indices_arrays, all_values):
-    value_map   = util.invert_map(all_values)
-    results     = [None] * len(indices_arrays)
-
-    for i, indices in enumerate(indices_arrays):
-        uncomp_data     = comp_frame_data_to_uncomp(indices, all_values)
-        reduced_values  = tuple(sorted(set(uncomp_data)))
-        reduced_indices = tuple(util.dereference_indexed_values(
-            uncomp_data, util.invert_map(reduced_values)
-            ))
-        results[i]      = (reduced_indices, reduced_values)
-
-    return results
-
-
 class AnimationCacheNode():
     name            = ""
     parent          = -1
     _type_id        = 0
     _flags          = 0
+    _init_pos       = ()
     _frame_flags    = ()
     _frame_data     = ()
     _initial_frame  = ()
-    _init_pos       = ()
-
-    def _get_flag(self, mask):
-        return bool(self._flags, mask)
 
     @property
-    def rot_x(self): return self._get_flag(ANIM_CACHE_NODE_FLAG_ROT_X)
+    def rot_x(self): return bool(self._flags & ANIM_CACHE_NODE_FLAG_ROT_X)
     @property
-    def rot_y(self): return self._get_flag(ANIM_CACHE_NODE_FLAG_ROT_Y)
+    def rot_y(self): return bool(self._flags & ANIM_CACHE_NODE_FLAG_ROT_Y)
     @property
-    def rot_z(self): return self._get_flag(ANIM_CACHE_NODE_FLAG_ROT_Z)
+    def rot_z(self): return bool(self._flags & ANIM_CACHE_NODE_FLAG_ROT_Z)
     @property
-    def pos_x(self): return self._get_flag(ANIM_CACHE_NODE_FLAG_POS_X)
+    def pos_x(self): return bool(self._flags & ANIM_CACHE_NODE_FLAG_POS_X)
     @property
-    def pos_y(self): return self._get_flag(ANIM_CACHE_NODE_FLAG_POS_Y)
+    def pos_y(self): return bool(self._flags & ANIM_CACHE_NODE_FLAG_POS_Y)
     @property
-    def pos_z(self): return self._get_flag(ANIM_CACHE_NODE_FLAG_POS_Z)
+    def pos_z(self): return bool(self._flags & ANIM_CACHE_NODE_FLAG_POS_Z)
     @property
-    def scale_x(self): return self._get_flag(ANIM_CACHE_NODE_FLAG_SCALE_X)
+    def scale_x(self): return bool(self._flags & ANIM_CACHE_NODE_FLAG_SCALE_X)
     @property
-    def scale_y(self): return self._get_flag(ANIM_CACHE_NODE_FLAG_SCALE_Y)
+    def scale_y(self): return bool(self._flags & ANIM_CACHE_NODE_FLAG_SCALE_Y)
     @property
-    def scale_z(self): return self._get_flag(ANIM_CACHE_NODE_FLAG_SCALE_Z)
+    def scale_z(self): return bool(self._flags & ANIM_CACHE_NODE_FLAG_SCALE_Z)
     @property
-    def compressed(self): return self._get_flag(ANIM_CACHE_NODE_FLAG_COMPRESSED)
+    def compressed(self): return bool(self._flags & ANIM_CACHE_NODE_FLAG_COMPRESSED)
     @property
-    def initial_frame_only(self): return self._get_flag(ANIM_CACHE_NODE_FLAG_INITIAL_ONLY)
+    def initial_frame_only(self): return bool(self._flags & ANIM_CACHE_NODE_FLAG_INITIAL_ONLY)
 
     def _set_flag(self, val, mask):
         if val: self._flags |=  mask
@@ -173,14 +129,21 @@ class AnimationCacheNode():
             self.pos_x,   self.pos_y,   self.pos_z,
             self.scale_x, self.scale_y, self.scale_z
             ))
-
     @property
     def initial_frame_size(self):
         return self.frame_size if self.compressed or self.initial_frame_only else 0
+    @property
+    def framedata_typecode(self):
+        return "B" if self.compressed else "f"
+
+    @property
+    def keyframe_count(self):
+        keyframe_count = animation_util.count_set_bits(self._frame_flags) - self.compressed
+        return 0 if keyframe_count <= 0 else keyframe_count
 
     @property
     def frame_flags(self): return self._frame_flags
-    @property
+    @frame_flags.setter
     def frame_flags(self, val):
         if not hasattr(val, "__iter__"):
             raise TypeError(f"frame_flags must be an iterable, not {type(val)}")
@@ -192,7 +155,7 @@ class AnimationCacheNode():
     def frame_data(self, val):
         if not hasattr(val, "__iter__"):
             raise TypeError(f"frame_data must be an iterable, not {type(val)}")
-        elif len(val) % self.frame_size:
+        elif self.frame_size and len(val) % self.frame_size:
             raise ValueError(f"frame_data must contain a multiple of {self.frame_size} values")
 
         self._frame_data = tuple(map(int if self.compressed else float, val))
@@ -212,7 +175,9 @@ class AnimationCacheNode():
         if not hasattr(val, "__iter__"):
             raise TypeError(f"initial_frame must be an iterable, not {type(val)}")
         elif len(val) != self.initial_frame_size:
-            raise ValueError(f"initial_frame must contain {self.initial_frame_size} values")
+            raise ValueError(
+                f"initial_frame must contain {self.initial_frame_size} values, not {len(val)}"
+                )
 
         self._initial_frame = tuple(map(float, val))
 
@@ -246,14 +211,16 @@ class AnimationCacheNode():
 
 class AnimationCache(AssetCache):
     cache_type_version  = ANIM_CACHE_VER
-    prefix              = ""
+
     name                = ""
+    prefix              = ""
+    frame_rate          = 30
+    frame_count         = 0
+
     comp_angles         = ()
     comp_positions      = ()
     comp_scales         = ()
     nodes               = ()
-    frame_rate          = 30
-    frame_count         = 0
 
     def parse(self, rawdata):
         super().parse(rawdata)
@@ -283,81 +250,126 @@ class AnimationCache(AssetCache):
 
         self.parse_nodes(rawdata)
 
+    def serialize(self):
+        self.cache_type_version = ANIM_CACHE_VER
+
+        cache_header_rawdata    = super().serialize()
+        anim_header_rawdata     = ANIM_CACHE_HEADER_STRUCT.pack(
+            self.frame_rate, self.frame_count, len(self.prefix), len(self.name),
+            len(self.comp_angles), len(self.comp_positions), len(self.comp_scales)
+            )
+        ang_array   = array.array("f", self.comp_angles)
+        pos_array   = array.array("f", self.comp_positions)
+        sca_array   = array.array("f", self.comp_scales)
+
+        if byteorder == ">": # expected to be in little-endian
+            ang_array.byteswap()
+            pos_array.byteswap()
+            sca_array.byteswap()
+
+        prefix_rawdata  = self.prefix.upper().encode('latin-1')
+        name_rawdata    = self.name.upper().encode('latin-1')
+        ang_rawdata     = ang_array.tobytes()
+        pos_rawdata     = pos_array.tobytes()
+        sca_rawdata     = sca_array.tobytes()
+        nodes_rawdata   = self.serialize_nodes()
+
+        return b''.join((
+            cache_header_rawdata, anim_header_rawdata, prefix_rawdata,
+            name_rawdata, ang_rawdata, pos_rawdata, sca_rawdata, nodes_rawdata
+            ))
+
     def parse_nodes(self, rawdata):
-        node_count = NODES_ARRAY_HEADER_STRUCT.unpack(
+        (node_count, ) = NODES_ARRAY_HEADER_STRUCT.unpack(
            rawdata.read(NODES_ARRAY_HEADER_STRUCT.size)
            )
-        nodes           = [None] * node_count
-        node_map        = {}
-        node_map_root   = None
-        seen_nodes      = set()
+        nodes   = [None] * node_count
         for i in range(node_count):
             node = nodes[i] = AnimationCacheNode()
-            ix, iy, iz, flags, parent, frame_flag_ct, type_id, name_len = \
+            ix, iy, iz, flags, parent, frame_flag_ct, name_len, type_id = \
                 NODE_HEADER_STRUCT.unpack(
                     rawdata.read(NODE_HEADER_STRUCT.size)
                     )
-            name    = rawdata.read(name_len).decode('latin-1').upper()
+            name = rawdata.read(name_len).decode('latin-1').upper()
 
             if parent >= 0 and parent not in range(node_count):
                 raise ValueError(f"Node '{name}' at index {i} specifies "
                                  f"non-existent parent index {parent}.")
 
-            node.flags      = flags
-            node.name       = name
-            node.parent     = parent
-            node.type_id    = type_id
-            node.init_pos   = (ix, iy, iz)
+            node.flags          = flags
+            node.name           = name
+            node.parent         = parent
+            node.type_id        = type_id
+            node.init_pos       = (ix, iy, iz)
+            node.frame_flags    = rawdata.read(frame_flag_ct)
 
-            frame_flags = rawdata.read(frame_flag_ct)
-            frame_size  = node.frame_size*(1 if node.is_compressed else 4)
-            frame_count = max(
-                0, util.count_set_bits(frame_flags) - (1 if node.is_compressed else 0)
-                )
-            initial_frame   = array.array(
-                "f", rawdata.read(4*node.initial_frame_size)
-                )
-            frame_data      = array.array(
-                "B" if node.is_compressed else "f",
-                rawdata.read(frame_count*frame_size)
+            initial_data_size   = 4*node.initial_frame_size
+            frame_data_size     = node.keyframe_count * node.frame_size * (
+                1 if node.compressed else 4
                 )
 
+            initial_frame   = array.array("f", rawdata.read(initial_data_size))
+            frame_data      = array.array(node.framedata_typecode, rawdata.read(frame_data_size))
             if byteorder == ">":
                 initial_frame.byteswap()
                 frame_data.byteswap()
 
+            if node.type_name != "skeletal":
+                node.flags, node.frame_flags    = 0, ()
+                initial_frame, frame_data       = (), ()
+
             node.initial_frame  = initial_frame
             node.frame_data     = frame_data
 
-            node_map.setdefault(parent, {})[i] = node_map.setdefault(i, {})
-            if parent < 0:
-                node_map_root = node_map[i]
-                seen_nodes.add(i)
-
-        if node_map_root is None:
-            raise ValueError("Could not locate root node in atree.")
-
-        curr_nodes = tuple(node_map_root.items())
-        while curr_nodes:
-            next_nodes = ()
-            for i, node in curr_nodes.items():
-                next_nodes += tuple(node.items())
-                if i in seen_nodes:
-                    raise ValueError("Cyclical hierarchy detected in atree.")
-                seen_nodes.add(i)
-
-            curr_nodes = next_nodes
-
-        if len(seen_nodes) != node_count:
-            raise ValueError("Orphaned nodes detected in atree.")
-
         self.nodes = nodes
+        self.validate_hierarchy()
 
-    def serialize(self):
-        self.cache_type_version = ANIM_CACHE_VER
+    def serialize_nodes(self):
+        self.validate_hierarchy()
 
-        cache_header_rawdata = super().serialize()
-        return cache_header_rawdata
+        nodes_rawdata = NODES_ARRAY_HEADER_STRUCT.pack(len(self.nodes))
+
+        for node in self.nodes:
+            if node.type_name == "skeletal":
+                flags, frame_flags          = node.flags, node.frame_flags
+                initial_frame, frame_data   = node.initial_frame, node.frame_data
+            else:
+                flags, frame_flags          = 0, ()
+                initial_frame, frame_data   = (), ()
+
+            nodes_rawdata += NODE_HEADER_STRUCT.pack(
+                *node.init_pos, flags, node.parent,
+                len(frame_flags), len(node.name), node.type_id
+                )
+            initial_frame       = array.array("f", initial_frame)
+            frame_data          = array.array(node.framedata_typecode, frame_data)
+            if byteorder == ">":
+                initial_frame.byteswap()
+                frame_data.byteswap()
+
+            nodes_rawdata += b''.join((
+                node.name.upper().encode('latin-1'),
+                bytes(frame_flags),
+                initial_frame.tobytes(),
+                frame_data.tobytes()
+                ))
+
+        return nodes_rawdata
+
+    def reduce_compressed_data(self):
+        frame_datas, angles, positions, scales = animation_util.reduce_compressed_data(
+            self.nodes, self.comp_angles, self.comp_positions, self.comp_scales
+            )
+
+        for i, frame_data in frame_datas.items():
+            self.nodes[i].frame_data = frame_data
+
+        self.comp_angles    = angles 
+        self.comp_positions = positions
+        self.comp_scales    = scales
+
+    def validate_hierarchy(self):
+        animation_util.validate_hierarchy(self.nodes)
 
 
 class Ps2AnimationCache(AnimationCache):

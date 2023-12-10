@@ -46,9 +46,9 @@ def locate_metadata(data_dir, cache_files=False):
 
 def invert_map(mapping):
     if isinstance(mapping, dict):
-        return {v: k for k, v in values.items()}
+        return {v: k for k, v in mapping.items()}
     elif isinstance(mapping, (list, tuple)):
-        return {v: k for k, v in enumerate(values)}
+        return {v: k for k, v in enumerate(mapping)}
 
     raise ValueError(f"Cannot invert mapping for type {type(mapping)}")
 
