@@ -1,15 +1,9 @@
 from supyr_struct.defs.tag_def import TagDef
 from .objs.anim import AnimTag
 from ..common_descs import *
+from ..util import count_set_bits
 
 def get(): return anim_def
-
-# convert all possible frame flag values to the
-# number of frames they indicate exist in the data
-FRAME_FLAGS_TO_FRAME_SIZE = [
-    sum(bool(i & (1<<b)) for b in range(8))
-    for i in range(256)
-    ]
 
 
 def get_atree_data_array_pointer(
@@ -82,10 +76,7 @@ def _get_frame_data_size(*args, node=None, parent=None, new_value=None,
     if ((parent is not None and new_value is None) and
         bool(parent.parent.type.compressed_data) == want_compressed
         ):
-        frame_data_size = sum(
-            FRAME_FLAGS_TO_FRAME_SIZE[flags]
-            for flags in parent.frame_header_flags
-            )
+        frame_data_size = count_set_bits(parent.frame_header_flags)
         if want_compressed:
             frame_data_size = max(0, frame_data_size - 1)
 

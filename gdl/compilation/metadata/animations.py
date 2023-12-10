@@ -160,6 +160,7 @@ def decompile_atree_metadata(
     atree_data  = atree.atree_header.atree_data
     anode_infos = atree_data.anode_infos
     obj_anims   = atree_data.obj_anim_header.obj_anims
+    seq_metas   = {}
     for i, seq in enumerate(atree_data.atree_sequences):
         seq_meta = dict(frame_rate = seq.frame_rate)
 
@@ -169,7 +170,7 @@ def decompile_atree_metadata(
         if seq.flags.play_reversed:
             seq_meta.update(reverse = True)
 
-        meta["sequences"][seq.name.upper()] = seq_meta
+        seq_metas[i] = meta["sequences"][seq.name.upper()] = seq_meta
         if seq.texmod_index >= 0:
             for j in range(seq.texmod_index, seq.texmod_index + seq.texmod_count):
                 if j not in range(len(texmods)):
@@ -230,6 +231,12 @@ def decompile_atree_metadata(
                 node_meta.update(particle_system_id = psys_id)
             except Exception:
                 pass
+        else:
+            for j, seq_info in enumerate(node.anim_seq_infos):
+                if j not in seq_metas: continue
+                seq_metas[j]["compress"] = seq_metas[j].get("compress", 0) + (
+                    1 if seq_info.type.compressed_data else -1
+                    )
 
         if node_name:
             node_meta.update(name = node_name)
@@ -244,6 +251,21 @@ def decompile_atree_metadata(
                 node_meta.setdefault("flags", {})[flag] = True
 
         nodes_by_index[i] = node_meta
+
+
+    for i, node in enumerate(anode_infos):
+        if node.anim_type.enum_name != "skeletal":
+            continue
+
+        for j, seq_info in enumerate(node.anim_seq_infos):
+            seq_meta = seq_metas.get(j)
+            if not seq_meta: continue
+
+            is_compressed = bool(seq_info.type.compressed_data)
+            seq_meta["compress"] = (seq_meta["compress"] >= 0)
+            if seq_meta["compress"] != is_compressed:
+                seq_meta.setdefault("compress_per_node", {})[i] = is_compressed
+
 
     if nodes_by_index:
         for i in sorted(nodes_by_index):

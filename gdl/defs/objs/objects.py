@@ -620,6 +620,11 @@ class ObjectsTag(GdlTag):
                     )
 
         elif version in ("v0", "v1"):
+            # keep a cache of all unique data chunks written to the file.
+            # if a chunk we're about to write has already been written,
+            # we'll reuse the pointer instead of writing it again.
+            # TODO: see if this concept can be successfully extended to
+            #       the other objects versions, and to the bitmaps too.
             pointers_by_data = {}
             for obj in objects:
                 lod0    = obj.lods[0]

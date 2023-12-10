@@ -7,6 +7,18 @@ from .compilation.constants import WAD_LUMP_TYPES
 from .supyr_struct_ext import FixedBytearrayBuffer,\
      BytearrayBuffer, BytesBuffer
 
+# convert all possible byte values to the
+# number of bits that are set in that value
+BYTE_VALUES_TO_SET_BIT_COUNT = tuple(
+    sum(bool(i & (1<<b)) for b in range(8))
+    for i in range(256)
+    )
+
+
+def count_set_bits(byte_data):
+    return sum(map(BYTE_VALUES_TO_SET_BIT_COUNT.__getitem__, byte_data))
+
+
 _processing_pool = None
 
 def process_jobs(job_function, all_job_args=(), process_count=None):
