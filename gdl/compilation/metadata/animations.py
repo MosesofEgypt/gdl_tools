@@ -130,7 +130,7 @@ def decompile_animations_metadata(
             for actor_name in sorted(actors_metadata)
             },
         **{
-            f"{actor_name}/anims/{seq_name}": dict(
+            f"{actor_name}/anims/{actor_name}_{seq_name}": dict(
                 actors = {actor_name: animations_metadata[(actor_name, seq_name)]}
                 )
             for actor_name, seq_name in sorted(animations_metadata)

@@ -37,12 +37,19 @@ def decompile_animation(kwargs):
     filepath        = kwargs["filepath"]
 
     print("Decompiling animation: %s" % name)
-    if asset_type == "jmm":
-        g3d_animation = G3DAnimation()
-        g3d_animation.import_g3d(animation_cache)
-        g3d_animation.export_jmm(filepath)
-    elif asset_type in c.ANIMATION_CACHE_EXTENSIONS:
+
+    if asset_type in c.ANIMATION_CACHE_EXTENSIONS:
         animation_cache.serialize_to_file(filepath)
+        return
+
+    g3d_animation = G3DAnimation()
+    g3d_animation.import_g3d(animation_cache)
+    if g3d_animation.compressed:
+        print(f"Decompressing animation {name} for export...")
+        g3d_animation.decompress()
+
+    if asset_type == "jmm":
+        g3d_animation.export_jmm(filepath)
     else:
         raise NotImplementedError(f"Unknown asset type '{asset_type}'")
 
@@ -76,14 +83,14 @@ def export_animations(
         typ for typ in asset_types
         if typ in c.ANIMATION_CACHE_EXTENSIONS
         ))
-    cache_type = cache_types[0] if len(cache_types) == 1 else None
+    cache_type  = cache_types[0] if len(cache_types) == 1 else None
 
     all_job_args = []
 
     # loop over each object
     for i, atree in enumerate(anim_tag.data.atrees):
-        actor_name = atree.name.upper()
-        anim_cache = None
+        actor_name       = atree.name.upper()
+        anim_cache, name = None, None
         try:
             anim_caches = atree_to_animation_caches(atree, cache_type)
 
@@ -92,25 +99,25 @@ def export_animations(
                     anim_caches = atree_to_animation_caches(atree, cache_type=asset_type)
 
                 for anim_cache in anim_caches:
-                    filename = pathlib.PurePath(
-                        actor_name, "anims", f"{anim_cache.name}.{asset_type}"
+                    name = f"{actor_name}_{anim_cache.name}"
+                    export_dir  = (
+                        cache_dir if asset_type in c.ANIMATION_CACHE_EXTENSIONS else
+                        assets_dir
                         )
-
-                    filepath = pathlib.Path(
-                        cache_dir if asset_type in c.ANIMATION_CACHE_EXTENSIONS else assets_dir,
-                        filename
+                    filepath    = pathlib.Path(
+                        export_dir, actor_name, "anims", f"{name}.{asset_type}"
                         )
                     if filepath.is_file() and not overwrite:
                         continue
 
                     all_job_args.append(dict(
-                        animation_cache=anim_cache, name=f"{actor_name}_{anim_cache.name}",
+                        animation_cache=anim_cache, name=name,
                         asset_type=asset_type, filepath=filepath,
                         ))
         except:
             print(format_exc())
             print(f"The above error occurred while trying to export actor {i} as {asset_type}. "
-                  f"actor_name: '{actor_name}', sequence_name: '{getattr(anim_cache, 'name', None)}'"
+                  f"actor_name: '{actor_name}', name: '{name}'"
                   )
 
     print("Decompiling %s animations in %s" % (
@@ -165,7 +172,6 @@ def atree_to_animation_caches(atree, cache_type=None):
             if node_type == "skeletal" and i not in range(len(seq_infos)):
                 print("Warning: skeletal node missing sequence info. Changing to null.")
                 node_type = "null"
-                reduce_compressed_frame_data
 
             anim_node.type_name = node_type
             if node_type == "skeletal":
