@@ -14,6 +14,13 @@ PS2_MAX_STRIP_LEN    = RETAIL_MAX_STRIP_LEN  # dont change. levels might not loa
 
 COLL_SCALE  = 0x40
 
-DEFAULT_TEX_NAME  = "__unnamed_0"
-DEFAULT_LM_NAME   = "__unnamed_0"
-DEFAULT_INDEX_KEY = (DEFAULT_TEX_NAME, DEFAULT_LM_NAME)
+DEFAULT_TEX_NAME    = "__unnamed_0"
+DEFAULT_LM_NAME     = "__unnamed_0"
+DEFAULT_INDEX_KEY   = (DEFAULT_TEX_NAME, DEFAULT_LM_NAME)
+DEFAULT_NODE_NAMES  = (
+    "__NULL",
+    "__UNNAMED",
+    "__UNNAMED_OBJ",
+    "__TEXMOD",
+    "__PSYS"
+    )

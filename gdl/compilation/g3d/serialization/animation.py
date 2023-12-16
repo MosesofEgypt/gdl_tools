@@ -3,7 +3,7 @@ import os
 
 from .animation_cache import AnimationCache, AnimationCacheNode,\
      NODE_TYPES
-from . import animation_jmm, animation_util, constants as c
+from . import halo_jm, animation_util, constants as c
 
 
 class G3DAnimationNode(AnimationCacheNode):
@@ -214,17 +214,17 @@ class G3DAnimation():
         return animation_cache
 
     def import_jmm(self, input_filepath):
-        if animation_jmm.halo_anim is None:
+        if halo_jm.halo_anim is None:
             raise NotImplementedError(
                 "Could not locate reclaimer animation module. Cannot export jmm."
                 )
 
         with open(input_filepath, "r", newline="\n") as f:
-            jma_anim = animation_jmm.halo_anim.read_jma(f.read())
+            jma_anim = halo_jm.halo_anim.read_jma(f.read())
 
-        animation_jmm.import_jmm_to_g3d(jma_anim, self)
+        halo_jm.import_jmm_to_g3d(jma_anim, self)
 
     def export_jmm(self, output_filepath):
-        jma_anim = animation_jmm.export_g3d_to_jmm(self)
+        jma_anim = halo_jm.export_g3d_to_jmm(self)
 
-        animation_jmm.halo_anim.write_jma(output_filepath, jma_anim)
+        halo_jm.halo_anim.write_jma(output_filepath, jma_anim)

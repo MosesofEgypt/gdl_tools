@@ -3,7 +3,7 @@ import pathlib
 from traceback import format_exc
 from ...supyr_struct_ext import FixedBytearrayBuffer
 from ..metadata import objects as objects_metadata
-from .serialization import model_jms
+from .serialization import halo_jm
 from .serialization.animation import G3DAnimationNode
 from .serialization.model import G3DModel
 from .serialization.asset_cache import get_asset_checksum
@@ -67,9 +67,9 @@ def decompile_model(kwargs):
                     g3d_models[i] = G3DModel()
                     g3d_models[i].import_g3d(model_cache)
 
-            jms = model_jms.export_g3d_to_jms(g3d_nodes, g3d_models)
+            jms = halo_jm.export_g3d_to_jms(g3d_nodes, g3d_models)
             jms.name = name
-            model_jms.halo_model.write_jms(filepath, jms)
+            halo_jm.halo_model.write_jms(filepath, jms)
 
     elif asset_type in c.MODEL_CACHE_EXTENSIONS:
         for i, model_cache in enumerate(model_caches):
