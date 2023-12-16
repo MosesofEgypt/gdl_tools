@@ -3,6 +3,8 @@ import pathlib
 from traceback import format_exc
 from ...supyr_struct_ext import FixedBytearrayBuffer
 from ..metadata import objects as objects_metadata
+from .serialization import model_jms
+from .serialization.animation import G3DAnimationNode
 from .serialization.model import G3DModel
 from .serialization.asset_cache import get_asset_checksum
 from .serialization.model_cache import ModelCache, Ps2ModelCache,\
@@ -42,20 +44,36 @@ def compile_model(kwargs):
 def decompile_model(kwargs):
     name           = kwargs["name"]
     texture_assets = kwargs["texture_assets"]
-    model_cache    = kwargs["model_cache"]
+    model_caches   = kwargs["model_caches"]
     asset_type     = kwargs["asset_type"]
-    filepath       = kwargs["filepath"]
+    filepaths      = kwargs["filepaths"]
+    g3d_nodes      = kwargs.get("g3d_nodes", None)
 
     print("Decompiling model: %s" % name)
     if asset_type == "obj":
-        g3d_model = G3DModel()
-        g3d_model.import_g3d(model_cache)
-        g3d_model.export_obj(
-            filepath, texture_assets,
-            swap_lightmap_and_diffuse=kwargs["swap_lightmap_and_diffuse"]
-            )
+        for i, model_cache in enumerate(model_caches):
+            g3d_model = G3DModel()
+            g3d_model.import_g3d(model_cache)
+            g3d_model.export_obj(
+                filepaths[i], texture_assets,
+                swap_lightmap_and_diffuse=kwargs["swap_lightmap_and_diffuse"]
+                )
+    elif asset_type == "jms":
+        filepath = pathlib.Path(filepaths[0])
+        if not filepath.is_file():
+            g3d_models = {}
+            for i, model_cache in enumerate(model_caches):
+                if model_cache:
+                    g3d_models[i] = G3DModel()
+                    g3d_models[i].import_g3d(model_cache)
+
+            jms = model_jms.export_g3d_to_jms(g3d_nodes, g3d_models)
+            jms.name = name
+            model_jms.halo_model.write_jms(filepath, jms)
+
     elif asset_type in c.MODEL_CACHE_EXTENSIONS:
-        model_cache.serialize_to_file(filepath)
+        for i, model_cache in enumerate(model_caches):
+            model_cache.serialize_to_file(filepaths[i])
     else:
         raise NotImplementedError(f"Unknown asset type '{asset_type}'")
 
@@ -197,7 +215,7 @@ def import_models(
 
 
 def export_models(
-        objects_tag, asset_types=c.MODEL_CACHE_EXTENSIONS,
+        objects_tag, anim_tag=None, asset_types=c.MODEL_CACHE_EXTENSIONS,
         parallel_processing=False, overwrite=False,
         swap_lightmap_and_diffuse=False,
         data_dir=".", assets_dir=None, cache_dir=None
@@ -207,7 +225,9 @@ def export_models(
         asset_types = (asset_types, )
 
     for asset_type in asset_types:
-        if asset_type not in (*c.MODEL_CACHE_EXTENSIONS, *c.MODEL_ASSET_EXTENSIONS):
+        if asset_type not in (*c.MODEL_CACHE_EXTENSIONS,
+                              *c.MODEL_ASSET_EXTENSIONS,
+                              *c.ACTOR_ASSET_EXTENSIONS):
             raise ValueError("Unknown model type '%s'" % asset_type)
 
     if not assets_dir: assets_dir  = data_dir
@@ -220,33 +240,39 @@ def export_models(
 
     texture_assets = util.locate_textures(assets_dir)
 
-    objects = objects_tag.data.objects
+    objects = {i: obj for i, obj in enumerate(objects_tag.data.objects)}
     object_assets, bitmap_assets = objects_tag.get_cache_names()
 
     all_job_args = []
+    model_caches_by_index = {}
+
+    actor_asset_types = tuple(s for s in asset_types if s in c.ACTOR_ASSET_EXTENSIONS)
+    model_asset_types = tuple(s for s in asset_types if s not in actor_asset_types)
 
     # loop over each object
-    for i in range(len(object_assets)):
-        asset = object_assets[i]
-        obj   = objects[i]
+    for asset_type in model_asset_types:
+        for i in range(len(object_assets)):
+            if i not in object_assets or i not in objects:
+                continue
 
-        try:
-            for asset_type in asset_types:
-                filename = f"{asset['name']}.{asset_type}"
-                if asset['name'] != asset["asset_name"]:
-                    filename = pathlib.PurePath(asset["asset_name"], filename)
+            asset = object_assets[i]
+            filename = f"{asset['name']}.{asset_type}"
+            if asset['name'] != asset["asset_name"]:
+                filename = pathlib.PurePath(asset["asset_name"], filename)
 
-                filepath = pathlib.Path(
-                    cache_dir if asset_type in c.MODEL_CACHE_EXTENSIONS else assets_dir,
-                    asset.get("actor", "_objects"), filename
-                    )
-                if filepath.is_file() and not overwrite:
-                    continue
+            filepath = pathlib.Path(
+                cache_dir if asset_type in c.MODEL_CACHE_EXTENSIONS else assets_dir,
+                asset.get("actor", "_objects"), filename
+                )
+            if filepath.is_file() and not overwrite:
+                continue
 
+            try:
                 model_cache = object_to_model_cache(
-                    obj, cache_type=asset_type, obj_index=i,
+                    objects[i], cache_type=asset_type, obj_index=i,
                     bitmap_assets=bitmap_assets, is_arcade=is_arcade
                     )
+                model_caches_by_index[i] = model_cache
 
                 if asset_type in c.MODEL_CACHE_EXTENSIONS:
                     if isinstance(model_cache, Ps2ModelCache) and asset_type not in (
@@ -265,16 +291,51 @@ def export_models(
                         continue
 
                 all_job_args.append(dict(
-                    texture_assets=texture_assets, model_cache=model_cache,
-                    name=asset['name'], asset_type=asset_type, filepath=filepath,
+                    texture_assets=texture_assets, model_caches=[model_cache],
+                    name=asset['name'], asset_type=asset_type, filepaths=[filepath],
                     swap_lightmap_and_diffuse=swap_lightmap_and_diffuse,
                     ))
 
-        except:
-            print(format_exc())
-            print(f"The above error occurred while trying to export object {i} as {asset_type}. "
-                  f"name: '{asset.get('name')}', asset_name: '{asset.get('asset_name')}'"
-                  )
+            except:
+                print(format_exc())
+                print(f"The above error occurred while trying to export object {i} as {asset_type}. "
+                      f"name: '{asset.get('name')}', asset_name: '{asset.get('asset_name')}'"
+                      )
+
+    object_indices_by_name = {object_assets[k]["name"]: k for k in object_assets}
+    # loop over each actor
+    for asset_type in actor_asset_types:
+        for atree in anim_tag.data.atrees:
+            name    = atree.name.upper()
+            prefix  = atree.atree_header.prefix.upper()
+
+            filepath = pathlib.Path(assets_dir, name, f"{name}.{asset_type}")
+            if filepath.is_file() and not overwrite:
+                continue
+
+            try:
+                nodes        = atree_to_g3d_nodes(atree)
+                model_caches = []
+
+                for node in nodes:
+                    obj_index   = object_indices_by_name.get(prefix + node.name)
+                    model_cache = model_caches_by_index.get(obj_index)
+                    if model_cache is None:
+                        obj         = objects.get(obj_index)
+                        model_cache = None if obj is None else object_to_model_cache(
+                            obj, cache_type=asset_type, obj_index=obj_index,
+                            bitmap_assets=bitmap_assets, is_arcade=is_arcade
+                            )
+
+                    model_caches.append(model_cache)
+
+                all_job_args.append(dict(
+                    texture_assets=texture_assets, asset_type=asset_type,
+                    g3d_nodes=nodes, model_caches=model_caches, filepaths=[filepath],
+                    name=name, swap_lightmap_and_diffuse=swap_lightmap_and_diffuse,
+                    ))
+            except:
+                print(format_exc())
 
     print("Decompiling %s models in %s" % (
         len(all_job_args), "parallel" if parallel_processing else "series"
@@ -368,3 +429,15 @@ def object_to_model_cache(obj, cache_type=None, obj_index=0, is_arcade=False,
     model_cache.is_extracted    = True
 
     return model_cache
+
+
+def atree_to_g3d_nodes(atree):
+    g3d_nodes   = []
+    for anode_info in atree.atree_header.atree_data.anode_infos:
+        g3d_nodes.append(G3DAnimationNode())
+        g3d_nodes[-1].name      = anode_info.mb_desc.upper()
+        g3d_nodes[-1].parent    = anode_info.parent_index
+        g3d_nodes[-1].init_pos  = anode_info.init_pos
+        g3d_nodes[-1].type_name = anode_info.anim_type.enum_name
+
+    return g3d_nodes

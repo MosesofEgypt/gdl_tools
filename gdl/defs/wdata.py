@@ -249,7 +249,7 @@ level_data_lump = Lump('level_datas',
         SInt32("shop_max_kills"),
         SInt32("shop_max_exp"),
         Float("ambient"),
-        QStruct("light_dir", INCLUDE=bgr_float),
+        QStruct("light_dir", INCLUDE=ijk_float),
         QStruct("light_color_fp", INCLUDE=bgr_float),
         Float("light_inten"),
         SIZE=268

@@ -42,10 +42,13 @@ TEXTURE_CACHE_EXTENSIONS = (
     TEXTURE_CACHE_EXTENSION_ARC,
     )
 
-ANIM_FOLDERNAME   = 'animations'
-MOD_FOLDERNAME    = 'objects'
-COLL_FOLDERNAME   = 'collision'
-TEX_FOLDERNAME    = 'bitmaps'
+ANIM_FOLDERNAME     = 'anims'
+MOD_FOLDERNAME      = 'objects'
+COLL_FOLDERNAME     = 'collision'
+TEX_FOLDERNAME      = 'bitmaps'
+COLL_FOLDERNAME     = 'collision'
+TEXMODS_FOLDERNAME  = '_texmods'
+PSYS_FOLDERNAME     = '_particles'
 
 ANIM_FILENAME       = 'anim'
 OBJECTS_FILENAME    = 'objects'

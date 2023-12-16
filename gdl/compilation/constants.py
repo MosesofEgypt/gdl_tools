@@ -4,9 +4,9 @@
 try:
     from reclaimer.animation import jma as halo_anim
     del halo_anim
-    JMM_SUPPORT = True
+    JMM_SUPPORT = JMS_SUPPORT = True
 except ModuleNotFoundError:
-    JMM_SUPPORT = False
+    JMM_SUPPORT = JMS_SUPPORT = False
 
 # the extensions used on the objects, textures, anim, and worlds files
 PS2_EXTENSION = 'ps2'
@@ -30,9 +30,10 @@ METADATA_ASSET_EXTENSIONS = (
     "yml",
     "json",
     )
-ANIMATION_ASSET_EXTENSIONS = (
-    )
+ANIMATION_ASSET_EXTENSIONS = ()
 ANIMATION_ASSET_EXTENSIONS += ("jmm",) if JMM_SUPPORT else ()
+ACTOR_ASSET_EXTENSIONS = ()
+ACTOR_ASSET_EXTENSIONS += ("jms",) if JMM_SUPPORT else ()
 MODEL_ASSET_EXTENSIONS = (
     "obj",
     #"dae",

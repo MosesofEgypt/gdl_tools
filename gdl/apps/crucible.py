@@ -34,7 +34,8 @@ META_EXTRACT_FORMATS = {
 
 if c.JMM_SUPPORT:
     # experimental
-    ANIM_EXTRACT_FORMATS["Halo JMM"] = "jmm"
+    ANIM_EXTRACT_FORMATS["HCE JMM"] = "jmm"
+    MOD_EXTRACT_FORMATS["HCE JMS"] = "jms"
 
 
 class CrucibleApp(Tk):
@@ -44,7 +45,7 @@ class CrucibleApp(Tk):
     def __init__(self, **options):
         Tk.__init__(self, **options)
         
-        self.title("Crucible V1.4.0")
+        self.title("Crucible V1.4.1")
         self.minsize(500, 0)
         self.resizable(1, 0)
 
@@ -54,7 +55,7 @@ class CrucibleApp(Tk):
 
         self.build_target        = StringVar(self, "PlayStation2")
         self.mod_extract_format  = StringVar(self, "Wavefront OBJ")
-        self.anim_extract_format = StringVar(self, "Halo JMM" if c.JMM_SUPPORT else "UNSUPPORTED")
+        self.anim_extract_format = StringVar(self, "HCE JMM" if c.JMM_SUPPORT else "UNSUPPORTED")
         self.tex_extract_format  = StringVar(self, "PNG")
         self.meta_extract_format = StringVar(self, "YAML")
         self.use_parallel_processing = BooleanVar(self, True)

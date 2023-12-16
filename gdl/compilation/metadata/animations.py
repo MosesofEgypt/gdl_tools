@@ -37,7 +37,7 @@ def decompile_animations_metadata(
     actor_texmods_by_index      = {}
     for i, atree in enumerate(anim_tag.data.atrees):
         name, meta = decompile_atree_metadata(
-            atree, i, texmods, particle_systems,
+            atree, texmods, particle_systems,
             bitmap_assets, object_asset_name_map, actor_texmods_by_index
             )
         actors_metadata_by_atree[i] = meta
@@ -121,8 +121,8 @@ def decompile_animations_metadata(
 
 
     metadata_sets = {
-        "_texmods/_texmods":   dict(texmods          = texmods_metadata),
-        "_particles/_systems": dict(particle_systems = psys_metadata),
+        f"{c.TEXMODS_FOLDERNAME}/_texmods": dict(texmods          = texmods_metadata),
+        f"{c.PSYS_FOLDERNAME}/_systems":    dict(particle_systems = psys_metadata),
         **{
             f"{actor_name}/{actor_name}_actor": dict(
                 actors = {actor_name: actors_metadata[actor_name]}
@@ -130,7 +130,7 @@ def decompile_animations_metadata(
             for actor_name in sorted(actors_metadata)
             },
         **{
-            f"{actor_name}/anims/{actor_name}_{seq_name}": dict(
+            f"{actor_name}/{c.ANIM_FOLDERNAME}/{actor_name}_{seq_name}": dict(
                 actors = {actor_name: animations_metadata[(actor_name, seq_name)]}
                 )
             for actor_name, seq_name in sorted(animations_metadata)
@@ -144,7 +144,7 @@ def decompile_animations_metadata(
 
 
 def decompile_atree_metadata(
-        atree, atree_index, texmods, particle_systems,
+        atree, texmods, particle_systems,
         bitmap_assets, object_asset_name_map, actor_texmods_by_index
         ):
     meta    = dict(
@@ -242,8 +242,9 @@ def decompile_atree_metadata(
             node_meta.update(name = node_name)
 
         x, y, z = node.init_pos
-        if x**2 + y**2 + z**2:
-            node_meta.update(pos_x=x, pos_y=y, pos_z=z)
+        if x: node_meta.update(pos_x=x)
+        if y: node_meta.update(pos_y=y)
+        if z: node_meta.update(pos_z=z)
 
         flags = node.mb_flags
         for flag in flags.NAME_MAP:

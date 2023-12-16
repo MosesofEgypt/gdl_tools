@@ -199,7 +199,11 @@ class G3DModel():
                 v0   = tuple(int(i)-1 for i in line[0].split('/'))
                 v1   = tuple(int(i)-1 for i in line[1].split('/'))
                 v2   = tuple(int(i)-1 for i in line[2].split('/'))
+
                 # TODO: Update this to handle the indices not being the same
+                if set(len(set(v0)), len(set(v1)), len(set(v2))) != {1}:
+                    raise ValueError("Cannot import OBJ files with nonuniform vert indices.")
+
                 tris.append((v0[0], v1[0], v2[0]))
 
         self.bounding_radius = sqrt(bounding_radius_square)

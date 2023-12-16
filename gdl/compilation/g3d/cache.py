@@ -339,7 +339,7 @@ def decompile_cache_files(
 
     if mod_asset_types and objects_tag:
         model.export_models(
-            objects_tag, overwrite=overwrite,
+            objects_tag, anim_tag=anim_tag, overwrite=overwrite,
             parallel_processing=parallel_processing, asset_types=mod_asset_types,
             swap_lightmap_and_diffuse=swap_lightmap_and_diffuse,
             data_dir=data_dir, assets_dir=assets_dir, cache_dir=cache_dir

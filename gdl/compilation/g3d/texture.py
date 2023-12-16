@@ -424,12 +424,12 @@ def export_textures(
                     texture_cache = bitmap_to_texture_cache(
                         bitm, textures_file, is_ngc=is_ngc, cache_type=asset_type
                         )
-
-                    all_job_args.append(dict(
-                        name=asset["name"], asset_type=asset_type,
-                        filepath=filepath, overwrite=overwrite,
-                        include_mipmaps=mipmaps, texture_cache=texture_cache
-                        ))
+                    if texture_cache:
+                        all_job_args.append(dict(
+                            name=asset["name"], asset_type=asset_type,
+                            filepath=filepath, overwrite=overwrite,
+                            include_mipmaps=mipmaps, texture_cache=texture_cache
+                            ))
             except:
                 print(format_exc())
                 print(f"The above error occurred while trying to export bitmap {i} as {asset_type}. "
@@ -455,6 +455,22 @@ def bitmap_to_texture_cache(bitmap_or_lm_block, textures_file, is_ngc=False, cac
         is_dreamcast_lm = hasattr(bitmap_or_lm_block, "dc_lm_sig1")
         is_dreamcast    = hasattr(bitmap_or_lm_block, "image_type")
         is_arcade       = not (is_dreamcast_lm or is_dreamcast)
+
+    if cache_type in c.TEXTURE_CACHE_EXTENSIONS:
+        if is_ps2_xbox and cache_type not in (
+                c.TEXTURE_CACHE_EXTENSION_PS2, c.TEXTURE_CACHE_EXTENSION_XBOX
+                ):
+            print("Cannot export PS2/XBOX texture to non-PS2/XBOX cache file.")
+            return
+        elif is_ngc and cache_type != c.TEXTURE_CACHE_EXTENSION_NGC:
+            print("Cannot export Gamecube texture to non-Gamecube cache file.")
+            return
+        elif (is_dreamcast or is_dreamcast_lm) and cache_type != c.TEXTURE_CACHE_EXTENSION_DC:
+            print("Cannot export Dreamcast texture to non-Dreamcast cache file.")
+            return
+        elif is_arcade and cache_type != c.TEXTURE_CACHE_EXTENSION_ARC:
+            print("Cannot export Arcade texture to non-Arcade cache file.")
+            return
 
     flags = getattr(bitmap_or_lm_block, "flags", None)
     # create and populate texture cache

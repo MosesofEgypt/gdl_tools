@@ -10,10 +10,6 @@ if c.JMM_SUPPORT:
 
 
 def import_jmm_to_g3d(jma, g3d_anim):
-    if halo_anim is None:
-        raise NotImplementedError(
-            "Could not locate reclaimer animation module. Cannot import jmm."
-            )
     raise NotImplementedError("Write this")
 
 
@@ -71,3 +67,4 @@ def export_g3d_to_jmm(g3d_anim):
         nodes=jma_nodes, frames=jma_frames_data
         )
     return jma
+    

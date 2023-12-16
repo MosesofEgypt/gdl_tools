@@ -214,6 +214,11 @@ class G3DAnimation():
         return animation_cache
 
     def import_jmm(self, input_filepath):
+        if animation_jmm.halo_anim is None:
+            raise NotImplementedError(
+                "Could not locate reclaimer animation module. Cannot export jmm."
+                )
+
         with open(input_filepath, "r", newline="\n") as f:
             jma_anim = animation_jmm.halo_anim.read_jma(f.read())
 

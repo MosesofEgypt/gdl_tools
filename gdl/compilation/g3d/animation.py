@@ -105,7 +105,7 @@ def export_animations(
                         assets_dir
                         )
                     filepath    = pathlib.Path(
-                        export_dir, actor_name, "anims", f"{name}.{asset_type}"
+                        export_dir, actor_name, c.ANIM_FOLDERNAME, f"{name}.{asset_type}"
                         )
                     if filepath.is_file() and not overwrite:
                         continue
