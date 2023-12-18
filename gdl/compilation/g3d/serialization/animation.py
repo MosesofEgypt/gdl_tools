@@ -10,33 +10,25 @@ class G3DAnimationNode(AnimationCacheNode):
     keyframe_indices = ()
 
     def generate_keyframe_indices(self, frame_count):
-        keyframe_indices = [[0.0, 0.0, 0] for i in range(frame_count)]
-        f_0 = kf_0 = 0
-        f_1 = kf_1 = 0
+        keyframe_indices = [[0, 0] for i in range(frame_count)]
+        f_0  = f  = 0
+        kf_0 = kf = 0
         for i, flags in enumerate(self.frame_flags):
             for j in range(8):
-                f_1 = i*8 + j
-                if f_1 >= frame_count:
+                f = i*8 + j
+                if f >= frame_count:
                     break
                 elif flags&1:
-                    scale = 1/(f_1 - f_0) if f_1 != f_0 else 1
-                    for x, f_i in enumerate(range(f_0, f_1)):
-                        keyframe_indices[f_i][2] = x*scale
+                    keyframe_indices[f] = [kf, 1.0]
 
-                    f_0  = f_1
-                    kf_0 = kf_1
-                    kf_1 += 1
-
-                keyframe_indices[f_1] = [kf_0, kf_1, 0]
+                    f_0, kf_0 = f, kf
+                    kf += 1
 
                 flags >>= 1
 
-        for f_i in range(f_0, frame_count):
-            keyframe_indices[f_i][:] = (kf_0, kf_0, 0)
-
-        self.keyframe_indices = tuple(map(tuple, keyframe_indices))
         #print("Keyframes:", self.keyframe_indices)
         #print("Flags:", self.frame_flags)
+        self.keyframe_indices = tuple(map(tuple, keyframe_indices))
 
     def decompress_frame_data(self, comp_angles, comp_positions, comp_scales):
         off         = 0
@@ -55,20 +47,17 @@ class G3DAnimationNode(AnimationCacheNode):
             (self.scale_z, comp_scales),
             ):
             if flag:
-                initial_val = self.initial_frame[off]
-                frame_data[off::stride] = map(
-                    initial_val.__add__,
-                    animation_util.comp_frame_data_to_uncomp(
-                        self.frame_data[off::stride], values
-                        )
+                frame_data[off::stride] = animation_util.comp_frame_data_to_uncomp(
+                    self.frame_data[off::stride], values
                     )
+                off += 1
                 #print("xyzhprXYZ"[i], initial_val, frame_data[off::stride])
             #i += 1
-            off += flag
 
         self.compressed     = False
-        self.frame_data     = self.initial_frame + tuple(self.frame_data)
+        self.frame_data     = self.initial_frame + tuple(frame_data)
         if self.initial_frame_only:
+            # TODO: figure out wtf is going on here
             self.frame_flags = (
                 [self.frame_flags[0] | 1, *self.frame_flags[1:]]
                 if self.frame_flags else
@@ -87,46 +76,31 @@ class G3DAnimationNode(AnimationCacheNode):
             self.frame_size*(kf_i+1)
             ])
         frame_data_pop = frame_data.pop
-
-        px, py, pz = self._init_pos
         return (
-            frame_data_pop(0) if self.pos_x else px,
-            frame_data_pop(0) if self.pos_y else py,
-            frame_data_pop(0) if self.pos_z else pz,
+            frame_data_pop(0) if self.pos_x else 0.0,
+            frame_data_pop(0) if self.pos_y else 0.0,
+            frame_data_pop(0) if self.pos_z else 0.0,
             frame_data_pop(0) if self.rot_x else 0.0,
             frame_data_pop(0) if self.rot_y else 0.0,
             frame_data_pop(0) if self.rot_z else 0.0,
-            frame_data_pop(0) if self.scale_x else 1.0,
-            frame_data_pop(0) if self.scale_y else 1.0,
-            frame_data_pop(0) if self.scale_z else 1.0
-            )
-
-    def interpolate_keyframes(self, keyframe_0_index, keyframe_1_index, time):
-        if self.initial_frame_only:
-            keyframe_0_index = keyframe_1_index = 0
-
-        kf0 = self.get_keyframe(keyframe_0_index)
-        if keyframe_0_index == keyframe_1_index or time == 0.0:
-            return kf0
-    
-        kf1 = self.get_keyframe(keyframe_1_index)
-        t1  = 0 if time <= 0 else 1 if time >= 1 else time
-        t0  = 1 - t1
-        return (
-            kf0[0]*t0 + kf1[0]*t1, kf0[1]*t0 + kf1[1]*t1, kf0[2]*t0 + kf1[2]*t1, # px, py, pz
-            kf0[3]*t0 + kf1[3]*t1, kf0[4]*t0 + kf1[4]*t1, kf0[5]*t0 + kf1[5]*t1, # rx, ry, rz
-            kf0[6]*t0 + kf1[6]*t1, kf0[7]*t0 + kf1[7]*t1, kf0[8]*t0 + kf1[8]*t1, # sx, sy, sz
+            frame_data_pop(0) if self.scale_x else 0.0,
+            frame_data_pop(0) if self.scale_y else 0.0,
+            frame_data_pop(0) if self.scale_z else 0.0
             )
 
     def get_frame_data(self, frame):
         if self.compressed:
             raise ValueError("Must decompress animation before getting frame data.")
-
-        kf_0, kf_1, t = self.keyframe_indices[frame]
-        if self.initial_frame_only:
+        elif self.initial_frame_only:
             return self.get_keyframe(0)
 
-        return self.interpolate_keyframes(kf_0, kf_1, t)
+        kf_i, t = self.keyframe_indices[frame]
+        kf      = self.get_keyframe(kf_i)
+        return (
+            kf[0]*t, kf[1]*t, kf[2]*t, # px, py, pz
+            kf[3]*t, kf[4]*t, kf[5]*t, # rx, ry, rz
+            kf[6]*t, kf[7]*t, kf[8]*t, # sx, sy, sz
+            )
 
 
 class G3DAnimation():
