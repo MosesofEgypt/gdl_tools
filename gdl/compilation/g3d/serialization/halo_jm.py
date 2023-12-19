@@ -1,6 +1,6 @@
 # EXPERIMENTAL!!! borrowing halo ce animation
 # format if the reclaimer module is available
-
+from math import cos, sin
 from . import constants as c
 from ....rendering.assets.scene_objects.util import gdl_euler_to_quaternion
 
@@ -15,13 +15,24 @@ if c.JMS_SUPPORT:
 def g3d_pos_to_halo_pos(x, y, z): return z, -x, y
 def halo_pos_to_g3d_pos(x, y, z): return -y, z, x
 
-# TODO: write this
-def g3d_rot_to_halo_rot(h, p, r): return h, p, r
-def halo_rot_to_g3d_rot(h, p, r): return h, p, r
-
 # converting uvw is easy. just invert the v coordinate
 def g3d_uvw_to_halo_uvw(u, v, w=0.0): return u, 1.0-v, w
 halo_uvw_to_g3d_uvw = g3d_uvw_to_halo_uvw
+
+
+def g3d_euler_to_jma_quaternion(y, p, r):
+    c1, c2, c3 = cos(y/2), cos(-p/2), cos(-r/2)
+    s1, s2, s3 = sin(y/2), sin(-p/2), sin(-r/2)
+    
+    c1c2 = c1*c2
+    c1s2 = c1*s2
+    s1c2 = s1*c2
+    s1s2 = s1*s2
+
+    return (
+        (c1c2*c3 - s1s2*s3), (c1c2*s3 + s1s2*c3),
+	(s1c2*c3 + c1s2*s3), (c1s2*c3 - s1c2*s3)
+        )
 
 
 # NOTE: backslash isn't a reserved character in JMS materials, but
@@ -125,7 +136,7 @@ def export_g3d_to_jmm(g3d_anim):
 
             jma_ns.pos_x, jma_ns.pos_y, jma_ns.pos_z = g3d_pos_to_halo_pos(px, py, pz)
             jma_ns.rot_w, jma_ns.rot_i, jma_ns.rot_j, jma_ns.rot_k = \
-                          gdl_euler_to_quaternion(*g3d_rot_to_halo_rot(rx, ry, rz))
+                          g3d_euler_to_jma_quaternion(rx, ry, rz)
             uniform &= (abs(sx - sy) + abs(sy - sz)) < 0.000001
             # NOTE: this is a hack. GDL supports scale independently on
             #       x, y, and z, but halo only supports uniform scale.
