@@ -34,7 +34,10 @@ class G3DAnimationNode(AnimationCacheNode):
         off         = 0
         stride      = self.frame_size
         frame_data  = list(self.frame_data)
-        #i = 0
+        i = 0
+        if self.flags & 2047:
+            print(self.name)
+
         for flag, values in (
             (self.rot_x,   comp_angles),
             (self.rot_y,   comp_angles),
@@ -50,12 +53,14 @@ class G3DAnimationNode(AnimationCacheNode):
                 frame_data[off::stride] = animation_util.comp_frame_data_to_uncomp(
                     self.frame_data[off::stride], values
                     )
+                print("   ", "hprxyzXYZ"[i], [
+                    self.initial_frame[off], #*frame_data[off::stride]
+                    ])
                 off += 1
-                #print("xyzhprXYZ"[i], initial_val, frame_data[off::stride])
-            #i += 1
+            i += 1
 
-        self.compressed     = False
-        self.frame_data     = self.initial_frame + tuple(frame_data)
+        self.compressed = False
+        self.frame_data = self.initial_frame + tuple(frame_data)
         if self.initial_frame_only:
             # TODO: figure out wtf is going on here
             self.frame_flags = (
@@ -77,12 +82,12 @@ class G3DAnimationNode(AnimationCacheNode):
             ])
         frame_data_pop = frame_data.pop
         return (
-            frame_data_pop(0) if self.pos_x else 0.0,
-            frame_data_pop(0) if self.pos_y else 0.0,
-            frame_data_pop(0) if self.pos_z else 0.0,
             frame_data_pop(0) if self.rot_x else 0.0,
             frame_data_pop(0) if self.rot_y else 0.0,
             frame_data_pop(0) if self.rot_z else 0.0,
+            frame_data_pop(0) if self.pos_x else 0.0,
+            frame_data_pop(0) if self.pos_y else 0.0,
+            frame_data_pop(0) if self.pos_z else 0.0,
             frame_data_pop(0) if self.scale_x else 0.0,
             frame_data_pop(0) if self.scale_y else 0.0,
             frame_data_pop(0) if self.scale_z else 0.0
@@ -97,8 +102,8 @@ class G3DAnimationNode(AnimationCacheNode):
         kf_i, t = self.keyframe_indices[frame]
         kf      = self.get_keyframe(kf_i)
         return (
-            kf[0]*t, kf[1]*t, kf[2]*t, # px, py, pz
-            kf[3]*t, kf[4]*t, kf[5]*t, # rx, ry, rz
+            kf[0]*t, kf[1]*t, kf[2]*t, # rx, ry, rz
+            kf[3]*t, kf[4]*t, kf[5]*t, # px, py, pz
             kf[6]*t, kf[7]*t, kf[8]*t, # sx, sy, sz
             )
 

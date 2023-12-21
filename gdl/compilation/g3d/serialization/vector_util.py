@@ -14,6 +14,25 @@ def cross_product(ray_a, ray_b):
 cos_angle_between_vectors = dot_product
 
 
+def multiply_quaternions(q0, q1):
+    w = -q0[3] * q1[3] - q0[1] * q1[1] - q0[2] * q1[2] + q0[0] * q1[0]
+    i =  q0[3] * q1[0] + q0[1] * q1[2] - q0[2] * q1[1] + q0[0] * q1[3]
+    j = -q0[3] * q1[2] + q0[1] * q1[0] + q0[2] * q1[3] + q0[0] * q1[1]
+    k =  q0[3] * q1[1] - q0[1] * q1[3] + q0[2] * q1[0] + q0[0] * q1[2]
+    div = w**2 + i**2 + j**2 + k**2
+    if not div:
+        i = j = k = 0.0
+        w = 1.0
+    else:
+        div = sqrt(div)
+        i /= div
+        j /= div
+        k /= div
+        w /= div
+
+    return w, i, j, k
+
+
 def rotate_vector_by_quaternion(v, q):
     vm_sq = v[0]**2 + v[1]**2 + v[2]**2
     if not vm_sq:

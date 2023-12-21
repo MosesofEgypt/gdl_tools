@@ -1,7 +1,7 @@
 # EXPERIMENTAL!!! borrowing halo ce animation
 # format if the reclaimer module is available
-from math import cos, sin
-from . import constants as c
+from math import cos, sin, pi
+from . import constants as c, vector_util
 from ....rendering.assets.scene_objects.util import gdl_euler_to_quaternion
 
 halo_anim = halo_model = None
@@ -20,19 +20,23 @@ def g3d_uvw_to_halo_uvw(u, v, w=0.0): return u, 1.0-v, w
 halo_uvw_to_g3d_uvw = g3d_uvw_to_halo_uvw
 
 
-def g3d_euler_to_jma_quaternion(y, p, r):
-    c1, c2, c3 = cos(y/2), cos(-p/2), cos(-r/2)
-    s1, s2, s3 = sin(y/2), sin(-p/2), sin(-r/2)
-    
-    c1c2 = c1*c2
-    c1s2 = c1*s2
-    s1c2 = s1*c2
-    s1s2 = s1*s2
-
-    return (
-        (c1c2*c3 - s1s2*s3), (c1c2*s3 + s1s2*c3),
-	(s1c2*c3 + c1s2*s3), (c1s2*c3 - s1c2*s3)
-        )
+def g3d_euler_to_jma_quaternion(h, p, r):
+    #return gdl_euler_to_quaternion(h, -p, -r)
+    #'''
+    h_quat = gdl_euler_to_quaternion(h, 0,  0)
+    p_quat = gdl_euler_to_quaternion(0, -p, 0)
+    r_quat = gdl_euler_to_quaternion(0, 0, -r)
+    result = (1, 0, 0, 0)
+    for quat in (
+        h_quat, p_quat, r_quat,#?
+        #h_quat, r_quat, p_quat,#
+        #p_quat, h_quat, r_quat,#
+        #p_quat, r_quat, h_quat,#
+        #r_quat, h_quat, p_quat,#
+        #r_quat, p_quat, h_quat,#
+        ):
+        result = vector_util.multiply_quaternions(result, quat)
+    return result
 
 
 # NOTE: backslash isn't a reserved character in JMS materials, but
@@ -124,12 +128,12 @@ def export_g3d_to_jmm(g3d_anim):
         ]
     uniform = True
     for n, node in enumerate(g3d_anim.nodes):
-        px, py, pz = node.init_pos
         rx, ry, rz = 0.0, 0.0, 0.0
+        px, py, pz = node.init_pos
         sx, sy, sz = 1.0, 1.0, 1.0
         for f, frame_data in enumerate(jma_frames_data):
             jma_ns = frame_data[n]
-            pdx, pdy, pdz, rdx, rdy, rdz, sdx, sdy, sdz = node.get_frame_data(f)
+            rdx, rdy, rdz, pdx, pdy, pdz, sdx, sdy, sdz = node.get_frame_data(f)
             px, py, pz = px+pdx, py+pdy, pz+pdz
             rx, ry, rz = rx+rdx, ry+rdy, rz+rdz
             sx, sy, sz = sx+sdx, sy+sdy, sz+sdz
