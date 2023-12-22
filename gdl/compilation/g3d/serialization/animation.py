@@ -7,7 +7,7 @@ from . import halo_jm, animation_util, constants as c
 
 
 class G3DAnimationNode(AnimationCacheNode):
-    keyframe_spacing = ()
+    kf_spacing = ()
 
     def _get_keyframe(self, keyframe_slice):
         keyframe_data_pop = list(keyframe_slice).pop
@@ -33,9 +33,6 @@ class G3DAnimationNode(AnimationCacheNode):
         i, stride     = 0, self.frame_size
         keyframe_data = list(self.keyframe_data)
 
-        #axis_strs = list("hprxyzXYZ")
-        #if self.flags & 2047: print(self.name)
-
         for flag, values in (
             (self.rot_x,   comp_angles),
             (self.rot_y,   comp_angles),
@@ -59,14 +56,6 @@ class G3DAnimationNode(AnimationCacheNode):
 
                 i += 1
 
-            #axis_str = axis_strs.pop(0)
-            #if flag: print(f"   {axis_str}", [
-            #    self.initial_keyframe[i-1], len(keyframe_data[i-1::stride])
-            #    ])
-
-        # NOTE: do not set keyframe data before changing compressed status.
-        #       the function that converts keyframe_data values will try
-        #       to convert them all to ints, which is completely wrong.
         self.compressed = False
         self.keyframe_data = keyframe_data
 
@@ -85,7 +74,7 @@ class G3DAnimationNode(AnimationCacheNode):
         if self.initial_keyframe:
             kf_spacing = kf_spacing[1:]
 
-        self.keyframe_spacing = tuple(kf_spacing)
+        self.kf_spacing = tuple(kf_spacing)
 
     def get_initial_keyframe(self):
         return (
@@ -111,21 +100,28 @@ class G3DAnimationNode(AnimationCacheNode):
         if self.compressed:
             raise ValueError("Must decompress animation before getting frame data.")
 
-        # fill in the initial frames to be overwritten as we parse the animation
-        kf0 = self.get_initial_keyframe()
+        # get the first frame to fill the animation with to start off
+        kf_0        = self.get_initial_keyframe()
+        kf_index, f = 0, 0
+        if not self.initial_keyframe:
+            # if there's no initial keyframe data(an uncompressed anim
+            # with data) then the first frame is the first keyframe.
+            kf_0        = self.get_keyframe(kf_index)
+            kf_index, f = 1, self.kf_spacing[0] if self.kf_spacing else 0
 
         if self.initial_keyframe_only:
-            self.frame_data = [kf0] * max(1, frame_count)
+            self.frame_data = [kf_0] * max(1, frame_count)
             return
 
-        frame_data, f = [kf0] * frame_count, 0
-        for i, count in enumerate(self.keyframe_spacing):
+        # fill in the initial frames to be overwritten as we parse the animation
+        frame_data = [kf_0] * frame_count
+        for count in self.kf_spacing[kf_index:]:
             # NOTE: count is the number of frames from kf0 to kf1.
             #       this includes kf0, but excludes kf1
-            kf1 = self.get_keyframe(i)
+            kf_1 = self.get_keyframe(kf_index)
             if count > 1:
-                rx0, ry0, rz0, px0, py0, pz0, sx0, sy0, sz0 = kf0
-                rx1, ry1, rz1, px1, py1, pz1, sx1, sy1, sz1 = kf1
+                rx0, ry0, rz0, px0, py0, pz0, sx0, sy0, sz0 = kf_0
+                rx1, ry1, rz1, px1, py1, pz1, sx1, sy1, sz1 = kf_1
 
                 frame_data[f: f+count] = [
                     (rx0*t0 + rx1*t1, ry0*t0 + ry1*t1, rz0*t0 + rz1*t1,
@@ -134,14 +130,15 @@ class G3DAnimationNode(AnimationCacheNode):
                     for t0, t1 in [(1.0 - i/count, i/count) for i in range(count)]
                     ]
             else:
-                frame_data[f] = kf0
+                frame_data[f] = kf_0
 
             f += count
-            kf0 = kf1
+            kf_index += 1
+            kf_0 = kf_1
 
         # pad with last frame
         remainder = frame_count - f
-        frame_data[f: f+remainder] = (kf0, )*remainder
+        frame_data[f: f+remainder] = (kf_0, )*remainder
 
         self.frame_data = frame_data
 
@@ -198,15 +195,12 @@ class G3DAnimation():
     def import_g3d(self, animation_cache):
         self.clear()
 
-        # NOTE: for now, the G3DAnimation and G3DAnimationNode are basically
-        #       just copies of the AnimationCache and AnimationCacheNode.
-        #       eventually this will change when compilation, exporting, and
-        #       importing different formats is implemented. this works for now
-
         self.name           = animation_cache.name
         self.prefix         = animation_cache.prefix
         self.frame_rate     = animation_cache.frame_rate
-        self.frame_count    = animation_cache.frame_count
+        # NOTE: in some animations the frame count is set to 0, however
+        #       there's always at least the initial frame, so we do this
+        self.frame_count    = max(1, animation_cache.frame_count)
 
         self.comp_angles    = tuple(animation_cache.comp_angles)
         self.comp_positions = tuple(animation_cache.comp_positions)

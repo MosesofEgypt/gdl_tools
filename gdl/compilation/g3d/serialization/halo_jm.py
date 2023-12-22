@@ -10,11 +10,10 @@ if c.JMS_SUPPORT:
     from reclaimer.animation import jma as halo_anim
 
 
-# NOTE: Converting from gauntlet coordinate system to halo coordinates
-#       requires rotating axis and negating the y axis like so
-# TODO: Try swapping x and y axis to go with rotations
-def g3d_pos_to_halo_pos(x, y, z): return z, -x, y
-def halo_pos_to_g3d_pos(x, y, z): return -y, z, x
+# Converting from gauntlet coordinate system to Halo coordinates
+# is pretty simple, and just requires swapping the y and z axis
+def g3d_pos_to_halo_pos(x, y, z): return x, z, y
+halo_pos_to_g3d_pos = g3d_pos_to_halo_pos
 
 # converting uvw is easy. just invert the v coordinate
 def g3d_uvw_to_halo_uvw(u, v, w=0.0): return u, 1.0-v, w
@@ -23,23 +22,9 @@ halo_uvw_to_g3d_uvw = g3d_uvw_to_halo_uvw
 
 def g3d_euler_to_jma_quaternion(h, p, r):
     return gdl_euler_to_quaternion(-r, -p, -h)
-    #'''
-    h_quat = gdl_euler_to_quaternion( 0, h, 0)
-    p_quat = gdl_euler_to_quaternion( 0, 0, p)
-    r_quat = gdl_euler_to_quaternion(-r, 0, 0)
-    quats = (
-        h_quat, p_quat, r_quat,
-        #h_quat, p_quat, r_quat,#?
-        #h_quat, r_quat, p_quat,#
-        #p_quat, h_quat, r_quat,#
-        #p_quat, r_quat, h_quat,#
-        #r_quat, h_quat, p_quat,#
-        #r_quat, p_quat, h_quat,#
-        )
-    return vector_util.multiply_quaternions(
-        vector_util.multiply_quaternions(quats[0], quats[1]), quats[2]
-        #quats[2], vector_util.multiply_quaternions(quats[1], quats[0])
-        )
+
+def jma_quaternion_to_g3d_euler(h, p, r):
+    raise NotImplementedError("Not implemented yet")
 
 
 # NOTE: backslash isn't a reserved character in JMS materials, but
