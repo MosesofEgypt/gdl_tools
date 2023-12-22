@@ -175,12 +175,12 @@ def atree_to_animation_caches(atree, cache_type=None):
 
             anim_node.type_name = node_type
             if node_type == "skeletal":
-                seq_info                = seq_infos[i]
-                frame_data              = seq_info.frame_data
-                anim_node.flags         = seq_info.type.data
-                anim_node.frame_flags   = frame_data.frame_header_flags
-                anim_node.initial_frame = frame_data.initial_frame_data
-                anim_node.frame_data    = (
+                seq_info                    = seq_infos[i]
+                frame_data                  = seq_info.frame_data
+                anim_node.flags             = seq_info.type.data
+                anim_node.frame_flags       = frame_data.frame_header_flags
+                anim_node.initial_keyframe  = frame_data.initial_frame_data
+                anim_node.keyframe_data     = (
                     frame_data.comp_frame_data if anim_node.compressed else
                     frame_data.uncomp_frame_data
                     )

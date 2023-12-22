@@ -12,6 +12,7 @@ if c.JMS_SUPPORT:
 
 # NOTE: Converting from gauntlet coordinate system to halo coordinates
 #       requires rotating axis and negating the y axis like so
+# TODO: Try swapping x and y axis to go with rotations
 def g3d_pos_to_halo_pos(x, y, z): return z, -x, y
 def halo_pos_to_g3d_pos(x, y, z): return -y, z, x
 
@@ -21,22 +22,24 @@ halo_uvw_to_g3d_uvw = g3d_uvw_to_halo_uvw
 
 
 def g3d_euler_to_jma_quaternion(h, p, r):
-    #return gdl_euler_to_quaternion(h, -p, -r)
+    return gdl_euler_to_quaternion(-r, -p, -h)
     #'''
-    h_quat = gdl_euler_to_quaternion(h, 0,  0)
-    p_quat = gdl_euler_to_quaternion(0, -p, 0)
-    r_quat = gdl_euler_to_quaternion(0, 0, -r)
-    result = (1, 0, 0, 0)
-    for quat in (
-        h_quat, p_quat, r_quat,#?
+    h_quat = gdl_euler_to_quaternion( 0, h, 0)
+    p_quat = gdl_euler_to_quaternion( 0, 0, p)
+    r_quat = gdl_euler_to_quaternion(-r, 0, 0)
+    quats = (
+        h_quat, p_quat, r_quat,
+        #h_quat, p_quat, r_quat,#?
         #h_quat, r_quat, p_quat,#
         #p_quat, h_quat, r_quat,#
         #p_quat, r_quat, h_quat,#
         #r_quat, h_quat, p_quat,#
         #r_quat, p_quat, h_quat,#
-        ):
-        result = vector_util.multiply_quaternions(result, quat)
-    return result
+        )
+    return vector_util.multiply_quaternions(
+        vector_util.multiply_quaternions(quats[0], quats[1]), quats[2]
+        #quats[2], vector_util.multiply_quaternions(quats[1], quats[0])
+        )
 
 
 # NOTE: backslash isn't a reserved character in JMS materials, but
@@ -103,9 +106,9 @@ def g3d_nodes_to_jms_nodes(g3d_nodes):
             c.DEFAULT_NODE_NAMES[g3d_node.type_id]
             )
 
-        count               = name_counts.get(name, 0)
-        jms_node.name       = name if f"{name}.{count:04}" in name_counts else name
-        name_counts[name]   = count + 1
+        count             = name_counts.get(name, 0)
+        jms_node.name     = name if f"{name}.{count:04}" in name_counts else name
+        name_counts[name] = count + 1
 
     for parent_index, children in children_by_parent.items():
         nodes[parent_index].first_child = children[0]
@@ -127,16 +130,11 @@ def export_g3d_to_jmm(g3d_anim):
         for f in range(g3d_anim.frame_count)
         ]
     uniform = True
+    g3d_anim.generate_frames()
     for n, node in enumerate(g3d_anim.nodes):
-        rx, ry, rz = 0.0, 0.0, 0.0
-        px, py, pz = node.init_pos
-        sx, sy, sz = 1.0, 1.0, 1.0
         for f, frame_data in enumerate(jma_frames_data):
             jma_ns = frame_data[n]
-            rdx, rdy, rdz, pdx, pdy, pdz, sdx, sdy, sdz = node.get_frame_data(f)
-            px, py, pz = px+pdx, py+pdy, pz+pdz
-            rx, ry, rz = rx+rdx, ry+rdy, rz+rdz
-            sx, sy, sz = sx+sdx, sy+sdy, sz+sdz
+            rx, ry, rz, px, py, pz, sx, sy, sz = node.get_frame(f)
 
             jma_ns.pos_x, jma_ns.pos_y, jma_ns.pos_z = g3d_pos_to_halo_pos(px, py, pz)
             jma_ns.rot_w, jma_ns.rot_i, jma_ns.rot_j, jma_ns.rot_k = \

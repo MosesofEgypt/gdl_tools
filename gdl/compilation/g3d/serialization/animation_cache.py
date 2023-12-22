@@ -63,14 +63,14 @@ NODE_TYPES  = (
 
 
 class AnimationCacheNode():
-    name            = ""
-    parent          = -1
-    _type_id        = 0
-    _flags          = 0
-    _init_pos       = ()
-    _frame_flags    = ()
-    _frame_data     = ()
-    _initial_frame  = ()
+    name                = ""
+    parent              = -1
+    _type_id            = 0
+    _flags              = 0
+    _init_pos           = ()
+    _frame_flags        = ()
+    _keyframe_data      = ()
+    _initial_keyframe   = ()
 
     @property
     def rot_x(self): return bool(self._flags & ANIM_CACHE_NODE_FLAG_ROT_X)
@@ -93,7 +93,7 @@ class AnimationCacheNode():
     @property
     def compressed(self): return bool(self._flags & ANIM_CACHE_NODE_FLAG_COMPRESSED)
     @property
-    def initial_frame_only(self): return bool(self._flags & ANIM_CACHE_NODE_FLAG_INITIAL_ONLY)
+    def initial_keyframe_only(self): return bool(self._flags & ANIM_CACHE_NODE_FLAG_INITIAL_ONLY)
 
     def _set_flag(self, val, mask):
         if val: self._flags |=  mask
@@ -119,8 +119,8 @@ class AnimationCacheNode():
     def scale_z(self, val): self._set_flag(val, ANIM_CACHE_NODE_FLAG_SCALE_Z)
     @compressed.setter
     def compressed(self, val): self._set_flag(val, ANIM_CACHE_NODE_FLAG_COMPRESSED)
-    @initial_frame_only.setter
-    def initial_frame_only(self, val): self._set_flag(val, ANIM_CACHE_NODE_FLAG_INITIAL_ONLY)
+    @initial_keyframe_only.setter
+    def initial_keyframe_only(self, val): self._set_flag(val, ANIM_CACHE_NODE_FLAG_INITIAL_ONLY)
 
     @property
     def frame_size(self):
@@ -130,8 +130,8 @@ class AnimationCacheNode():
             self.scale_x, self.scale_y, self.scale_z
             ))
     @property
-    def initial_frame_size(self):
-        return self.frame_size if self.compressed or self.initial_frame_only else 0
+    def initial_keyframe_size(self):
+        return self.frame_size if self.compressed or self.initial_keyframe_only else 0
     @property
     def framedata_typecode(self):
         return "B" if self.compressed else "f"
@@ -150,15 +150,15 @@ class AnimationCacheNode():
         self._frame_flags = tuple(map(int, val))
 
     @property
-    def frame_data(self): return self._frame_data
-    @frame_data.setter
-    def frame_data(self, val):
+    def keyframe_data(self): return self._keyframe_data
+    @keyframe_data.setter
+    def keyframe_data(self, val):
         if not hasattr(val, "__iter__"):
-            raise TypeError(f"frame_data must be an iterable, not {type(val)}")
+            raise TypeError(f"keyframe_data must be an iterable, not {type(val)}")
         elif self.frame_size and len(val) % self.frame_size:
-            raise ValueError(f"frame_data must contain a multiple of {self.frame_size} values")
+            raise ValueError(f"keyframe_data must contain a multiple of {self.frame_size} values")
 
-        self._frame_data = tuple(map(int if self.compressed else float, val))
+        self._keyframe_data = tuple(map(int if self.compressed else float, val))
 
     @property
     def flags(self): return self._flags
@@ -169,17 +169,17 @@ class AnimationCacheNode():
         self._flags = int(val)
 
     @property
-    def initial_frame(self): return tuple(self._initial_frame)
-    @initial_frame.setter
-    def initial_frame(self, val):
+    def initial_keyframe(self): return tuple(self._initial_keyframe)
+    @initial_keyframe.setter
+    def initial_keyframe(self, val):
         if not hasattr(val, "__iter__"):
-            raise TypeError(f"initial_frame must be an iterable, not {type(val)}")
-        elif len(val) != self.initial_frame_size:
+            raise TypeError(f"initial_keyframe must be an iterable, not {type(val)}")
+        elif len(val) != self.initial_keyframe_size:
             raise ValueError(
-                f"initial_frame must contain {self.initial_frame_size} values, not {len(val)}"
+                f"initial_keyframe must contain {self.initial_keyframe_size} values, not {len(val)}"
                 )
 
-        self._initial_frame = tuple(map(float, val))
+        self._initial_keyframe = tuple(map(float, val))
 
     @property
     def init_pos(self): return tuple(self._init_pos)
@@ -303,23 +303,23 @@ class AnimationCache(AssetCache):
             node.init_pos       = (ix, iy, iz)
             node.frame_flags    = rawdata.read(frame_flag_ct)
 
-            initial_data_size   = 4*node.initial_frame_size
-            frame_data_size     = node.keyframe_count * node.frame_size * (
+            initial_data_size   = 4*node.initial_keyframe_size
+            keyframe_data_size  = node.keyframe_count * node.frame_size * (
                 1 if node.compressed else 4
                 )
 
-            initial_frame   = array.array("f", rawdata.read(initial_data_size))
-            frame_data      = array.array(node.framedata_typecode, rawdata.read(frame_data_size))
+            initial_keyframe = array.array("f", rawdata.read(initial_data_size))
+            keyframe_data    = array.array(node.framedata_typecode, rawdata.read(keyframe_data_size))
             if byteorder == ">":
-                initial_frame.byteswap()
-                frame_data.byteswap()
+                initial_keyframe.byteswap()
+                keyframe_data.byteswap()
 
             if node.type_name != "skeletal":
                 node.flags, node.frame_flags    = 0, ()
-                initial_frame, frame_data       = (), ()
+                initial_keyframe, keyframe_data    = (), ()
 
-            node.initial_frame  = initial_frame
-            node.frame_data     = frame_data
+            node.initial_keyframe = initial_keyframe
+            node.keyframe_data    = keyframe_data
 
         self.nodes = nodes
         self.validate_hierarchy()
@@ -331,38 +331,38 @@ class AnimationCache(AssetCache):
 
         for node in self.nodes:
             if node.type_name == "skeletal":
-                flags, frame_flags          = node.flags, node.frame_flags
-                initial_frame, frame_data   = node.initial_frame, node.frame_data
+                flags, frame_flags              = node.flags, node.frame_flags
+                initial_keyframe, keyframe_data = node.initial_keyframe, node.keyframe_data
             else:
-                flags, frame_flags          = 0, ()
-                initial_frame, frame_data   = (), ()
+                flags, frame_flags              = 0, ()
+                initial_keyframe, keyframe_data = (), ()
 
             nodes_rawdata += NODE_HEADER_STRUCT.pack(
                 *node.init_pos, flags, node.parent,
                 len(frame_flags), len(node.name), node.type_id
                 )
-            initial_frame       = array.array("f", initial_frame)
-            frame_data          = array.array(node.framedata_typecode, frame_data)
+            initial_keyframe = array.array("f", initial_keyframe)
+            keyframe_data    = array.array(node.framedata_typecode, keyframe_data)
             if byteorder == ">":
-                initial_frame.byteswap()
-                frame_data.byteswap()
+                initial_keyframe.byteswap()
+                keyframe_data.byteswap()
 
             nodes_rawdata += b''.join((
                 node.name.upper().encode('latin-1'),
                 bytes(frame_flags),
-                initial_frame.tobytes(),
-                frame_data.tobytes()
+                initial_keyframe.tobytes(),
+                keyframe_data.tobytes()
                 ))
 
         return nodes_rawdata
 
     def reduce_compressed_data(self):
-        frame_datas, angles, positions, scales = animation_util.reduce_compressed_data(
+        keyframe_datas, angles, positions, scales = animation_util.reduce_compressed_data(
             self.nodes, self.comp_angles, self.comp_positions, self.comp_scales
             )
 
-        for i, frame_data in frame_datas.items():
-            self.nodes[i].frame_data = frame_data
+        for i, keyframe_data in keyframe_datas.items():
+            self.nodes[i].keyframe_data = keyframe_data
 
         self.comp_angles    = angles 
         self.comp_positions = positions

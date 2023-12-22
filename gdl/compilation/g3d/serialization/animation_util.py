@@ -2,7 +2,7 @@
 from ..util import *
 
 
-def comp_frame_data_to_uncomp(indices, values):
+def comp_keyframe_data_to_uncomp(indices, values):
     return tuple(dereference_indexed_values(indices, values))
 
 
@@ -12,14 +12,14 @@ def combine_uncomp_values(*value_sets):
     return tuple(sorted(all_values))
 
 
-def rebase_comp_frame_data(indices, src_values, dst_values):
+def rebase_comp_keyframe_data(indices, src_values, dst_values):
     return tuple(dereference_indexed_values(
         dereference_indexed_values(indices, src_values),
         invert_map(dst_values)
         ))
 
 
-def combine_compressed_frame_data(*indices_and_values_pairs):
+def combine_compressed_keyframe_data(*indices_and_values_pairs):
     for pair in indices_and_values_pairs:
         if not(isinstance(pair, tuple) and
                hasattr(pair[0], "__iter__") and
@@ -28,17 +28,17 @@ def combine_compressed_frame_data(*indices_and_values_pairs):
 
     combined_values = combine_uncomp_values(v for i, v in indices_and_values_pairs)
     return tuple(
-        rebase_comp_frame_data(i, v, combined_values)
+        rebase_comp_keyframe_data(i, v, combined_values)
         for i, v in indices_and_values_pairs
         )
 
 
-def reduce_compressed_frame_data(*indices_arrays, all_values):
+def reduce_compressed_keyframe_data(*indices_arrays, all_values):
     value_map   = invert_map(all_values)
     results     = [None] * len(indices_arrays)
 
     for i, indices in enumerate(indices_arrays):
-        uncomp_data     = comp_frame_data_to_uncomp(indices, all_values)
+        uncomp_data     = comp_keyframe_data_to_uncomp(indices, all_values)
         reduced_values  = tuple(sorted(set(uncomp_data)))
         reduced_indices = tuple(dereference_indexed_values(
             uncomp_data, invert_map(reduced_values)
@@ -75,32 +75,32 @@ def reduce_compressed_data(nodes, comp_angles, comp_positions, comp_scales):
             (node.scale_z,  all_scale_indices),
             ):
             if flag:
-                indices.update(node.frame_data[off::stride])
+                indices.update(node.keyframe_data[off::stride])
                 off += 1
 
-    _, reduced_angles = reduce_compressed_frame_data(
+    _, reduced_angles = reduce_compressed_keyframe_data(
         tuple(all_angle_indices), all_values=comp_angles
         )[0]
-    _, reduced_positions = reduce_compressed_frame_data(
+    _, reduced_positions = reduce_compressed_keyframe_data(
         tuple(all_position_indices), all_values=comp_positions
         )[0]
-    _, reduced_scales = reduce_compressed_frame_data(
+    _, reduced_scales = reduce_compressed_keyframe_data(
         tuple(all_scale_indices), all_values=comp_scales
         )[0]
     ang_reduced = len(reduced_angles)    != len(comp_angles)
     pos_reduced = len(reduced_positions) != len(comp_positions)
     sca_reduced = len(reduced_scales)    != len(comp_scales)
 
-    new_frame_datas = {}
+    new_keyframe_datas = {}
 
     # to save time, only iterate if something was reduced.
     if ang_reduced or pos_reduced or sca_reduced:
         for i, node in enumerate(nodes):
             if not node.compressed: continue
 
-            off         = 0
-            stride      = node.frame_size
-            frame_data  = new_frame_datas[i] = list(node.frame_data)
+            off           = 0
+            stride        = node.frame_size
+            keyframe_data = new_keyframe_datas[i] = list(node.keyframe_data)
 
             for rebase, flag, full, reduced in (
                 (ang_reduced, node.rot_x,   comp_angles,    reduced_angles),
@@ -114,8 +114,8 @@ def reduce_compressed_data(nodes, comp_angles, comp_positions, comp_scales):
                 (sca_reduced, node.scale_z, comp_scales,    reduced_scales),
                 ):
                 if rebase and flag:
-                    frame_data[off::stride] = rebase_comp_frame_data(
-                        node.frame_data[off::stride], full, reduced
+                    keyframe_data[off::stride] = rebase_comp_keyframe_data(
+                        node.keyframe_data[off::stride], full, reduced
                         )
                 off += flag
 
@@ -123,7 +123,7 @@ def reduce_compressed_data(nodes, comp_angles, comp_positions, comp_scales):
     if pos_reduced: comp_positions = reduced_positions
     if sca_reduced: comp_scales    = reduced_scales
 
-    return new_frame_datas, comp_angles, comp_positions, comp_scales
+    return new_keyframe_datas, comp_angles, comp_positions, comp_scales
 
 
 def validate_hierarchy(nodes):
@@ -141,13 +141,13 @@ def validate_hierarchy(nodes):
             raise ValueError(
                 f"Unsupported frame_flags set in {node.type_name} "
                 f"node '{node.name}' at index {i}.")
-        elif node.initial_frame:
+        elif node.initial_keyframe:
             raise ValueError(
-                f"Unsupported initial_frame data in {node.type_name} "
+                f"Unsupported initial_keyframe data in {node.type_name} "
                 f"node '{node.name}' at index {i}.")
-        elif node.frame_data:
+        elif node.keyframe_data:
             raise ValueError(
-                f"Unsupported frame_data in {node.type_name} "
+                f"Unsupported keyframe_data in {node.type_name} "
                 f"node '{node.name}' at index {i}.")
 
         node_map.setdefault(node.parent, {})[i] = node_map.setdefault(i, {})
