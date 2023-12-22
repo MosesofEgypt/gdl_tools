@@ -134,7 +134,11 @@ def export_g3d_to_jmm(g3d_anim):
 
     jma = halo_anim.JmaAnimation(
         anim_type="base", frame_info_type="none", world_relative=False,
-        frame_rate=g3d_anim.frame_rate, name=g3d_anim.name,
+        # NOTE: the frame rate in the resource cache doesn't actually seem
+        #       to be the frame rate to render the animation at. it appears
+        #       to be more likely the frame rate the animation was rendered
+        #       at. maybe something to do with optimizing animating?
+        name=g3d_anim.name, frame_rate=30,#g3d_anim.frame_rate,
         nodes=nodes, frames=jma_frames_data
         )
     return jma
