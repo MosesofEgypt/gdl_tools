@@ -130,6 +130,7 @@ def compile_textures(*args, **kwargs):
 def compile_models(*args, **kwargs):
     return _compile_assets(COMPILE_JOB_TYPE_MODELS, *args, **kwargs)
 
+
 def compile_metadata(objects_dir=".", assets_dir=None, cache_dir=None):
     data_dir = pathlib.Path(objects_dir, c.DATA_FOLDERNAME)
 

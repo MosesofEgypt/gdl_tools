@@ -126,6 +126,12 @@ def reduce_compressed_data(nodes, comp_angles, comp_positions, comp_scales):
     return new_keyframe_datas, comp_angles, comp_positions, comp_scales
 
 
+# NOTE: Need to make function to return mapping to reorder nodes
+#       based on how gauntlet would want them ordered. It seems
+#       to want nodes sorted depth-first, but ordering of direct
+#       siblings within a parent node doesnt seem to matter. 
+
+
 def validate_hierarchy(nodes):
     root_node   = None
     node_map    = {}

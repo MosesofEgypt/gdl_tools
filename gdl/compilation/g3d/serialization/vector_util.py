@@ -15,37 +15,35 @@ cos_angle_between_vectors = dot_product
 
 
 def multiply_quaternions(q0, q1):
-    w = -q0[3] * q1[3] - q0[1] * q1[1] - q0[2] * q1[2] + q0[0] * q1[0]
-    i =  q0[3] * q1[0] + q0[1] * q1[2] - q0[2] * q1[1] + q0[0] * q1[3]
-    j = -q0[3] * q1[2] + q0[1] * q1[0] + q0[2] * q1[3] + q0[0] * q1[1]
-    k =  q0[3] * q1[1] - q0[1] * q1[3] + q0[2] * q1[0] + q0[0] * q1[2]
+    # NOTE: this function accepts quaternions in (w, i, j, k) form
+    q0w, q0i, q0j, q0k = q0
+    q1w, q1i, q1j, q1k = q1
+    w = -q0k*q1k - q0i*q1i - q0j*q1j + q0w*q1w
+    i =  q0k*q1w + q0i*q1j - q0j*q1i + q0w*q1k
+    j = -q0k*q1j + q0i*q1w + q0j*q1k + q0w*q1i
+    k =  q0k*q1i - q0i*q1k + q0j*q1w + q0w*q1j
     div = w**2 + i**2 + j**2 + k**2
     if not div:
-        i = j = k = 0.0
-        w = 1.0
-    else:
-        div = sqrt(div)
-        i /= div
-        j /= div
-        k /= div
-        w /= div
+        return (1.0, 0.0, 0.0, 0.0)
 
-    return w, i, j, k
+    mul = 1/sqrt(div)
+    return (w*mul, i*mul, j*mul, k*mul)
 
 
 def rotate_vector_by_quaternion(v, q):
+    # NOTE: this function accepts quaternions in (w, i, j, k) form
     vm_sq = v[0]**2 + v[1]**2 + v[2]**2
     if not vm_sq:
         return (0, 0, 0)
 
     vm = sqrt(vm_sq)
-    v1 = [q[0], q[1], q[2]]
+    v1 = [q[1], q[2], q[3]]
     v2 = [v[0], v[1], v[2]]
     v3 = cross_product(v1, v2)
 
     v1m = 2 * dot_product(v1, v)
-    v2m = q[3]**2 - dot_product(v1, v1)
-    v3m = 2 * q[3]
+    v2m = q[0]**2 - dot_product(v1, v1)
+    v3m = 2 * q[0]
 
     vr = (
         v1[0]*v1m + v2[0]*v2m + v3[0]*v3m,

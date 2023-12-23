@@ -57,7 +57,7 @@ class CollisionTriangle:
         #   roll: around z axis from +x to +y
         c0, c1 = math.cos(y / 2), math.cos(r / 2)
         s0, s1 = math.sin(y / 2), math.sin(r / 2)
-        rot_quat = (-c0*s1, s0*c1, s0*s1, c0*c1)
+        rot_quat = (c0*c1, -c0*s1, s0*c1, s0*s1)
 
         vd = vector_util.rotate_vector_by_quaternion((vx, 0, vz), rot_quat)
 

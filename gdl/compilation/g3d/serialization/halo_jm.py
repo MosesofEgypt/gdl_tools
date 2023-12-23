@@ -1,6 +1,6 @@
 # EXPERIMENTAL!!! borrowing halo ce animation
 # format if the reclaimer module is available
-from math import cos, sin, pi
+from math import cos, sin, pi, sqrt
 from . import constants as c, vector_util
 from ....rendering.assets.scene_objects.util import gdl_euler_to_quaternion
 
@@ -20,8 +20,18 @@ def g3d_uvw_to_halo_uvw(u, v, w=0.0): return u, 1.0-v, w
 halo_uvw_to_g3d_uvw = g3d_uvw_to_halo_uvw
 
 
-def g3d_euler_to_jma_quaternion(h, p, r):
-    return gdl_euler_to_quaternion(-r, -p, -h)
+def g3d_euler_to_jma_quaternion(h, p, r, invert=True):
+    w, i, j, k = gdl_euler_to_quaternion(-r, -p, -h)
+    if not invert:
+        return (w, i, j, k)
+
+    div = i**2 + j**2 + k**2 + w**2
+    if div:
+        mul = -1/sqrt(div)
+        return (-w*mul, i*mul, j*mul, k*mul)
+
+    raise ValueError(f"Quaternion ({w}, {i}, {j}, {k}) is not invertable.")
+
 
 def jma_quaternion_to_g3d_euler(h, p, r):
     raise NotImplementedError("Not implemented yet")
@@ -46,8 +56,10 @@ def g3d_texname_to_jms_material(texname):
 
 
 def jms_material_to_g3d_texname(material):
-    texname = ""
-    i = 0
+    texname, i = "", 0
+    # look, I've been writing perl for 4 years now, and
+    # I've gotten really good at perl. I could easily
+    # write a regex for this, but I just don't want to.
     while i < len(material):
         c = material[i]
         if c == JMS_MATERIAL_ESCAPE_CHAR:
