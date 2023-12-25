@@ -39,11 +39,11 @@ class AnimTag(GdlTag):
                     blocksize, array_offset = 88, texmod_array_offset
                 elif anim_type == "particle_system":
                     blocksize, array_offset = 312, psys_array_offset
+                elif anim_type == "null":
+                    anode.anim_seq_info_index  = 0
+                    anode.anim_seq_info_offset = 0
+                    continue
                 else:
-                    if anim_type == "null":
-                        anode.anim_seq_info_index  = 0
-                        anode.anim_seq_info_offset = 0
-
                     continue
 
                 if calc_indices:

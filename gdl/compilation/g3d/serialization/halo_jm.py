@@ -4,16 +4,19 @@ from math import cos, sin, pi, sqrt
 from . import constants as c, vector_util
 from ....rendering.assets.scene_objects.util import gdl_euler_to_quaternion
 
+# TODO: create subclass of JmsModel to support halo 3 JMS enough to read them.
+#       do the same with JmaAnimation enough to support custom halo 3 JMA.
+
 halo_anim = halo_model = None
 if c.JMS_SUPPORT:
     from reclaimer.model import jms as halo_model
     from reclaimer.animation import jma as halo_anim
 
 
-# Converting from gauntlet coordinate system to Halo coordinates
-# is pretty simple, and just requires swapping the y and z axis
-def g3d_pos_to_halo_pos(x, y, z): return x, z, y
-halo_pos_to_g3d_pos = g3d_pos_to_halo_pos
+# Converting from gauntlet coordinate system to Halo coordinates is 
+# pretty simple, and just requires swapping y and z and scaling 
+def g3d_pos_to_halo_pos(x, y, z): return x*100, z*100, y*100
+def halo_pos_to_g3d_pos(x, y, z): return x/100, z/100, y/100
 
 # converting uvw is easy. just invert the v coordinate
 def g3d_uvw_to_halo_uvw(u, v, w=0.0): return u, 1.0-v, w
@@ -25,12 +28,9 @@ def g3d_euler_to_jma_quaternion(h, p, r, invert=True):
     if not invert:
         return (w, i, j, k)
 
-    div = i**2 + j**2 + k**2 + w**2
-    if div:
-        mul = -1/sqrt(div)
-        return (-w*mul, i*mul, j*mul, k*mul)
-
-    raise ValueError(f"Quaternion ({w}, {i}, {j}, {k}) is not invertable.")
+    length = i**2 + j**2 + k**2 + w**2
+    scale = -1/sqrt(length) if length else 1
+    return (-w*scale, i*scale, j*scale, k*scale)
 
 
 def jma_quaternion_to_g3d_euler(h, p, r):
@@ -58,7 +58,7 @@ def g3d_texname_to_jms_material(texname):
 def jms_material_to_g3d_texname(material):
     texname, i = "", 0
     # look, I've been writing perl for 4 years now, and
-    # I've gotten really good at perl. I could easily
+    # I've gotten really good at regex. I could easily
     # write a regex for this, but I just don't want to.
     while i < len(material):
         c = material[i]
@@ -146,11 +146,7 @@ def export_g3d_to_jmm(g3d_anim):
 
     jma = halo_anim.JmaAnimation(
         anim_type="base", frame_info_type="none", world_relative=False,
-        # NOTE: the frame rate in the resource cache doesn't actually seem
-        #       to be the frame rate to render the animation at. it appears
-        #       to be more likely the frame rate the animation was rendered
-        #       at. maybe something to do with optimizing animating?
-        name=g3d_anim.name, frame_rate=30,#g3d_anim.frame_rate,
+        name=g3d_anim.name, frame_rate=30**2/max(1, g3d_anim.frame_rate),
         nodes=nodes, frames=jma_frames_data
         )
     return jma

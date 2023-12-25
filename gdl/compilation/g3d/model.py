@@ -26,13 +26,7 @@ def compile_model(kwargs):
         optimize_for_ngc=(cache_type == c.MODEL_CACHE_EXTENSION_NGC and optimize),
         optimize_for_xbox=(cache_type == c.MODEL_CACHE_EXTENSION_XBOX and optimize),
         )
-    asset_type = asset_filepath.suffix.strip(".")
-
-    if asset_type == "obj":
-        with open(asset_filepath, "r") as f:
-            g3d_model.import_obj(f)
-    else:
-        raise NotImplementedError(f"Unknown asset type '{asset_type}'")
+    g3d_model.import_asset(asset_filepath)
 
     model_cache = g3d_model.compile_g3d(cache_type)
     model_cache.source_asset_checksum = get_asset_checksum(
@@ -45,16 +39,18 @@ def decompile_model(kwargs):
     name           = kwargs["name"]
     texture_assets = kwargs["texture_assets"]
     model_caches   = kwargs["model_caches"]
-    asset_type     = kwargs["asset_type"]
     filepaths      = kwargs["filepaths"]
     g3d_nodes      = kwargs.get("g3d_nodes", None)
 
+    # expect the assets to be of uniform type
+    asset_type     = filepaths[0].suffix.strip(".").lower()
+
     print("Decompiling model: %s" % name)
-    if asset_type == "obj":
+    if asset_type in c.MODEL_ASSET_EXTENSIONS:
         for i, model_cache in enumerate(model_caches):
             g3d_model = G3DModel()
             g3d_model.import_g3d(model_cache)
-            g3d_model.export_obj(
+            g3d_model.export_asset(
                 filepaths[i], texture_assets,
                 swap_lightmap_and_diffuse=kwargs["swap_lightmap_and_diffuse"]
                 )
@@ -292,7 +288,7 @@ def export_models(
 
                 all_job_args.append(dict(
                     texture_assets=texture_assets, model_caches=[model_cache],
-                    name=asset['name'], asset_type=asset_type, filepaths=[filepath],
+                    name=asset['name'], filepaths=[filepath],
                     swap_lightmap_and_diffuse=swap_lightmap_and_diffuse,
                     ))
 
@@ -330,8 +326,8 @@ def export_models(
                     model_caches.append(model_cache)
 
                 all_job_args.append(dict(
-                    texture_assets=texture_assets, asset_type=asset_type,
-                    g3d_nodes=nodes, model_caches=model_caches, filepaths=[filepath],
+                    texture_assets=texture_assets, g3d_nodes=nodes,
+                    model_caches=model_caches, filepaths=[filepath],
                     name=name, swap_lightmap_and_diffuse=swap_lightmap_and_diffuse,
                     ))
             except:
