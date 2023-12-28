@@ -1,5 +1,6 @@
-import pathlib
 import json
+import os
+import pathlib
 import traceback
 import yaml
 
@@ -65,6 +66,25 @@ def dump_metadata(metadata, filepath, overwrite=False):
     elif asset_type in ("json", ):
         with filepath.open('w') as f:
             json.dump(metadata, f, sort_keys=True, indent=2)
+
+
+def clear_metadata_files(dir, extensions):
+    if isinstance(extensions, str):
+        extensions = [extensions]
+
+    extensions = set(s.lower() for s in extensions)
+    for root, dirs, files in os.walk(dir):
+        for filename in files:
+            if filename.lower() in extensions:
+                filepath = pathlib.Path(root, filename)
+                try:
+                    filepath.unlink(missing_ok=True)
+                except Exception:
+                    raise IOError(f"Could not unlink file '{filepath}'.")
+
+
+def clear_cache_files(cache_dir):
+    return clear_metadata_files(cache_dir, c.METADATA_CACHE_EXTENSION)
 
 
 def merge_metadata_sets(*metadata_sets):

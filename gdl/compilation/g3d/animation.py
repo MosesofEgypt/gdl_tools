@@ -92,11 +92,12 @@ def export_animations(
         actor_name       = atree.name.upper()
         anim_cache, name = None, None
         try:
-            anim_caches = atree_to_animation_caches(atree, cache_type)
+            node_names  = anim_tag.get_node_names(i)
+            anim_caches = atree_to_animation_caches(atree, node_names, cache_type)
 
             for asset_type in asset_types:
                 if asset_type in c.ANIMATION_CACHE_EXTENSIONS and asset_type != cache_type:
-                    anim_caches = atree_to_animation_caches(atree, cache_type=asset_type)
+                    anim_caches = atree_to_animation_caches(atree, node_names, cache_type=asset_type)
 
                 for anim_cache in anim_caches:
                     name = f"{actor_name}_{anim_cache.name}"
@@ -129,7 +130,7 @@ def export_animations(
         )
 
 
-def atree_to_animation_caches(atree, cache_type=None):
+def atree_to_animation_caches(atree, node_names=(), cache_type=None):
     anim_cache_class = (
         AnimationCache.get_cache_class_from_cache_type(cache_type)
         if cache_type in c.ANIMATION_CACHE_EXTENSIONS else
@@ -154,28 +155,27 @@ def atree_to_animation_caches(atree, cache_type=None):
         anim_cache.comp_positions   = comp_positions
         anim_cache.comp_scales      = comp_scales
 
-    for anode_info in atree_data.anode_infos:
-        node_name   = anode_info.mb_desc.upper()
+    for i, anode_info in enumerate(atree_data.anode_infos):
         init_pos    = tuple(anode_info.init_pos)
         node_type   = anode_info.anim_type.enum_name
         parent      = anode_info.parent_index
 
         seq_infos   = anode_info.anim_seq_infos
-        for i, anim_cache in enumerate(anim_caches):
+        for j, anim_cache in enumerate(anim_caches):
             anim_node = AnimationCacheNode()
             anim_cache.nodes += (anim_node, )
 
-            anim_node.name      = node_name
+            anim_node.name      = node_names[i]
             anim_node.parent    = parent
             anim_node.init_pos  = init_pos
 
-            if node_type == "skeletal" and i not in range(len(seq_infos)):
+            if node_type == "skeletal" and j not in range(len(seq_infos)):
                 print("Warning: skeletal node missing sequence info. Changing to null.")
                 node_type = "null"
 
             anim_node.type_name = node_type
             if node_type == "skeletal":
-                seq_info                    = seq_infos[i]
+                seq_info                    = seq_infos[j]
                 frame_data                  = seq_info.frame_data
                 anim_node.flags             = seq_info.type.data
                 anim_node.frame_flags       = frame_data.frame_header_flags
@@ -185,7 +185,7 @@ def atree_to_animation_caches(atree, cache_type=None):
                     frame_data.uncomp_frame_data
                     )
 
-    for anim_cache in anim_caches:
-        anim_cache.reduce_compressed_data()
+    #for anim_cache in anim_caches:
+    #    anim_cache.reduce_compressed_data()
 
     return anim_caches

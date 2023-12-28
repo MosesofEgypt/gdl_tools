@@ -86,26 +86,16 @@ def g3d_nodes_to_jms_nodes(g3d_nodes):
     nodes = []
 
     children_by_parent = {}
-    name_counts = {k: 0 for k in c.DEFAULT_NODE_NAMES}
     for i, g3d_node in enumerate(g3d_nodes):
         x, y, z = g3d_pos_to_halo_pos(*g3d_node.init_pos)
         jms_node = halo_model.JmsNode(
-            parent_index=g3d_node.parent,
+            name=g3d_node.name, parent_index=max(-1, g3d_node.parent),
             pos_x=x, pos_y=y, pos_z=z
             )
         nodes.append(jms_node)
 
         if jms_node.parent_index != -1:
             children_by_parent.setdefault(jms_node.parent_index, []).append(i)
-
-        name = (
-            g3d_node.name if g3d_node.name else
-            c.DEFAULT_NODE_NAMES[g3d_node.type_id]
-            )
-
-        count             = name_counts.get(name, 0)
-        jms_node.name     = name if f"{name}.{count:04}" in name_counts else name
-        name_counts[name] = count + 1
 
     for parent_index, children in children_by_parent.items():
         nodes[parent_index].first_child = children[0]

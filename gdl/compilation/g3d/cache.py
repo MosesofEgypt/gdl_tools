@@ -137,13 +137,14 @@ def compile_metadata(objects_dir=".", assets_dir=None, cache_dir=None):
     if not assets_dir: assets_dir  = data_dir
     if not cache_dir:  cache_dir   = data_dir.joinpath(c.IMPORT_FOLDERNAME)
 
-    # TODO: delete any metadata files found in the folder
+    # delete any metadata files found in the folder
+    metadata_util.clear_cache_files(cache_dir)
 
-    metadata_sets = metadata_util.compile_metadata(assets_dir, cache_files=False)
-    for set_name in metadata_sets:
-        filepath = pathlib.Path(cache_dir, "{set_name}.{c.METADATA_CACHE_EXTENSION}")
-        filepath.mkdir(parents=True, exist_ok=True)
-        metadata_util.dump_metadata(metadata_sets[set_name], filepath, overwrite)
+    all_metadata = metadata_util.compile_metadata(assets_dir, cache_files=False)
+
+    filepath = pathlib.Path(cache_dir, "metadata." + c.METADATA_CACHE_EXTENSION)
+    filepath.mkdir(parents=True, exist_ok=True)
+    metadata_util.dump_metadata(all_metadata, filepath, overwrite)
 
 
 def compile_cache_files(

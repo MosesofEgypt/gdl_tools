@@ -17,7 +17,6 @@ def decompile_animations_metadata(
         ):
     actors_metadata     = {}
     texmods_metadata    = {}
-    psys_metadata       = {}
 
     if objects_tag:
         object_assets, bitmap_assets = objects_tag.get_cache_names()
@@ -30,14 +29,15 @@ def decompile_animations_metadata(
         bitmap_assets = {}
         object_asset_name_map = {}
 
-    texmods, particle_systems   = anim_tag.data.texmods, anim_tag.data.particle_systems
+    texmods, particle_systems = anim_tag.data.texmods, anim_tag.data.particle_systems
 
     # decompile actors
     actors_metadata_by_atree    = {}
     actor_texmods_by_index      = {}
     for i, atree in enumerate(anim_tag.data.atrees):
+        node_names = anim_tag.get_node_names(i)
         name, meta = decompile_atree_metadata(
-            atree, texmods, particle_systems,
+            atree, texmods, node_names,
             bitmap_assets, object_asset_name_map, actor_texmods_by_index
             )
         actors_metadata_by_atree[i] = meta
@@ -56,6 +56,7 @@ def decompile_animations_metadata(
                 meta = actor_meta.setdefault("texmods", {}).setdefault(name, {})
 
             meta.update(new_meta)
+
         if "frame_rate" in meta:
             texmods_by_source_index.setdefault(texmod.type.source_index.idx, {})\
                                    .setdefault(name, []).append(meta)
@@ -115,14 +116,11 @@ def decompile_animations_metadata(
 
 
     # decompile particle systems
-    if hasattr(particle_systems, "__iter__"):
-        for psys in anim_tag.data.particle_systems:
-            psys_metadata[psys.id.enum_name] = decompile_psys_metadata(psys)
-
+    psys_metadata = decompile_all_psys_metadata(anim_tag.data.particle_systems)
 
     metadata_sets = {
-        f"{c.TEXMODS_FOLDERNAME}/_texmods": dict(texmods          = texmods_metadata),
-        f"{c.PSYS_FOLDERNAME}/_systems":    dict(particle_systems = psys_metadata),
+        f"{c.TEXMODS_FOLDERNAME}/_texmods": dict(texmods = texmods_metadata),
+        f"{c.PSYS_FOLDERNAME}/_systems":    psys_metadata,
         **{
             f"{actor_name}/{actor_name}_actor": dict(
                 actors = {actor_name: actors_metadata[actor_name]}
@@ -131,7 +129,13 @@ def decompile_animations_metadata(
             },
         **{
             f"{actor_name}/{c.ANIM_FOLDERNAME}/{actor_name}_{seq_name}": dict(
-                actors = {actor_name: animations_metadata[(actor_name, seq_name)]}
+                actor_sequences = {
+                    # NOTE: joining using forward slash to ensure it isn't used
+                    #       in an actors name, as it'll break the import process
+                    "/".join(actor_name, seq_name): animations_metadata[
+                        (actor_name, seq_name)
+                        ]
+                    }
                 )
             for actor_name, seq_name in sorted(animations_metadata)
             },
@@ -144,12 +148,17 @@ def decompile_animations_metadata(
 
 
 def decompile_atree_metadata(
-        atree, texmods, particle_systems,
-        bitmap_assets, object_asset_name_map, actor_texmods_by_index
+        atree, texmods, node_names, bitmap_assets,
+        object_asset_name_map, actor_texmods_by_index
         ):
-    meta    = dict(
+
+    atree_data  = atree.atree_header.atree_data
+    anode_infos = atree_data.anode_infos
+    obj_anims   = atree_data.obj_anim_header.obj_anims
+    seq_metas   = {}
+    meta        = dict(
         prefix      = atree.atree_header.prefix.upper(),
-        nodes       = [],
+        nodes       = [None] * len(anode_infos),
         sequences   = dict(),
         )
 
@@ -157,10 +166,6 @@ def decompile_atree_metadata(
     if meta["prefix"] == atree_name:
         del meta["prefix"]
 
-    atree_data  = atree.atree_header.atree_data
-    anode_infos = atree_data.anode_infos
-    obj_anims   = atree_data.obj_anim_header.obj_anims
-    seq_metas   = {}
     for i, seq in enumerate(atree_data.atree_sequences):
         seq_meta = dict(frame_rate = seq.frame_rate)
 
@@ -183,25 +188,28 @@ def decompile_atree_metadata(
                         .setdefault(name, {})\
                         .update(texmod_meta)
 
-    seen_psys_ids   = {}
-    nodes_by_index  = {}
+    seen_nodes      = {}
     for i, node in enumerate(anode_infos):
-        node_meta   = dict(parent=node.parent_index, index=i)
+        node_meta   = dict()
         node_type   = node.anim_type.enum_name
-        node_name   = node.mb_desc.upper()
+        node_name   = node_names[i]
 
-        if node_type in ("null", "<INVALID>"):
+        if node.parent_index >= 0:
+            node_meta.update(parent=node.parent_index)
+
+        if node_type == "null":
             node_meta.update(is_null=True)
         elif node_type == "texture":
             if node.anim_seq_info_index in range(len(texmods)):
                 texmod = texmods[node.anim_seq_info_index]
 
-                name, texmod_meta = decompile_texmod_metadata(texmod, bitmap_assets)
-                actor_texmods_by_index[node.anim_seq_info_index] = (name, texmod_meta)
+                texmod_name, texmod_meta = decompile_texmod_metadata(texmod, bitmap_assets)
+                actor_texmods_by_index[node.anim_seq_info_index] = (texmod_name, texmod_meta)
 
                 node_meta.setdefault("texmods", {})\
-                        .setdefault(name, {})\
+                        .setdefault(texmod_name, {})\
                         .update(texmod_meta)
+
         elif node_type == "object":
             obj_anims_meta = dict()
             node_meta.update(object_anims = obj_anims_meta)
@@ -224,13 +232,6 @@ def decompile_atree_metadata(
 
                 obj_anims_meta[seq.name.upper()] = obj_anim_meta
 
-        elif node_type == "particle_system":
-            try:
-                psys = particle_systems[node.anim_seq_info_index]
-                psys_id = psys.id.enum_name
-                node_meta.update(particle_system_id = psys_id)
-            except Exception:
-                pass
         else:
             for j, seq_info in enumerate(node.anim_seq_infos):
                 if j not in seq_metas: continue
@@ -238,20 +239,19 @@ def decompile_atree_metadata(
                     1 if seq_info.type.compressed_data else -1
                     )
 
+        seen_nodes.setdefault(node_name, []).append(i)
+
         if node_name:
             node_meta.update(name = node_name)
-
-        x, y, z = node.init_pos
-        if x: node_meta.update(pos_x=x)
-        if y: node_meta.update(pos_y=y)
-        if z: node_meta.update(pos_z=z)
 
         flags = node.mb_flags
         for flag in flags.NAME_MAP:
             if flags[flag]:
                 node_meta.setdefault("flags", {})[flag] = True
 
-        nodes_by_index[i] = node_meta
+        meta["nodes"][i] = node_meta
+        if node_meta["parent"] not in range(len(meta["nodes"])):
+            raise ValueError("Node parent does not exist. Cannot extract node graph.")
 
 
     for i, node in enumerate(anode_infos):
@@ -267,20 +267,6 @@ def decompile_atree_metadata(
             if seq_meta["compress"] != is_compressed:
                 seq_meta.setdefault("compress_per_node", {})[i] = is_compressed
 
-
-    if nodes_by_index:
-        for i in sorted(nodes_by_index):
-            node_meta    = nodes_by_index[i]
-            parent_index = node_meta.pop("parent")
-            if parent_index == -1:
-                meta["nodes"].append(node_meta)
-                continue
-
-            parent_meta  = nodes_by_index.get(parent_index)
-            if not parent_meta:
-                raise ValueError("Node parent does not exist. Cannot extract node graph.")
-
-            parent_meta.setdefault("children", []).append(node_meta)
 
     return atree_name, meta
 
@@ -314,6 +300,17 @@ def decompile_texmod_metadata(texmod, bitmap_assets):
             meta.update(start_frame=texmod.tex_start_frame)
 
     return name, meta
+
+
+def decompile_all_psys_metadata(particle_systems):
+    psys_metadata = {}
+    # decompile particle systems
+    if hasattr(particle_systems, "__iter__"):
+        for psys in particle_systems:
+            psys_metadata[psys.id.enum_name] = decompile_psys_metadata(psys)
+
+    return dict(particle_systems=psys_metadata)
+
 
 def decompile_psys_metadata(psys):
     meta = dict(

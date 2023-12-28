@@ -4,12 +4,56 @@ from .tag import GdlTag
 from ...compilation.util import calculate_padding
 
 class AnimTag(GdlTag):
+    _node_names_by_atree = None
 
     @property
     def actor_names(self):
-        return tuple(sorted(
+        return tuple(
             atree.name.upper().strip() for atree in self.data.atrees
-            ))
+            )
+
+    def get_actor_node_names(self, atree_index=None, recache=False):
+        if recache or self._node_names_by_atree is None:
+            node_names_by_atree = {}
+            atrees  = self.data.atrees
+            
+            for i, atree in enumerate(atrees):
+                nodes       = atree.atree_header.atree_data.anode_infos
+                occurrances = {}
+                node_names  = node_names_by_atree[i] = [None] * len(nodes)
+                for j, node in enumerate(nodes):
+                    node_type = node.anim_type.enum_name
+
+                    if node_type == "particle_system":
+                        name = "PSYS"
+                    elif node_type == "texture":
+                        name = "TEXMOD"
+                    else:
+                        name = node.mb_desc.upper().strip()
+
+                    occurrances.setdefault(name, []).append(
+                        (j, node.flags.no_object_def == False)
+                        )
+
+                for name, instances in occurrances.items():
+                    for j, inst in enumerate(instances):
+                        node_i, has_object_def = inst
+                        # if the node actually uses the object
+                        # model, it cant be renamed
+                        if has_object_def or len(instances) == 1:
+                            node_names[node_i] = name
+                        else:
+                            node_names[node_i] = f"{name}.{j+1:06}"
+
+            self._node_names_by_atree = node_names_by_atree
+
+        if atree_index is None:
+            return {k: list(v) for k, v in self._node_names_by_atree.items()}
+
+        return list(self._node_names_by_atree.get(atree_index, []))
+
+    def generate_cache_names(self):
+        self.get_actor_node_names()
 
     def _calculate_sequence_info_data(self, calc_indices=True):
         '''
