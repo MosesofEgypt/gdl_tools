@@ -96,7 +96,7 @@ def decompile_atree_metadata(
     atree_data  = atree.atree_header.atree_data
     anode_infos = atree_data.anode_infos
     obj_anims   = atree_data.obj_anim_header.obj_anims
-    seq_metas   = {}
+    seq_metas   = []
     meta        = dict(
         prefix      = atree.atree_header.prefix.upper().strip(),
         nodes       = [None] * len(anode_infos),
@@ -108,7 +108,12 @@ def decompile_atree_metadata(
         del meta["prefix"]
 
     for i, seq in enumerate(atree_data.atree_sequences):
-        seq_meta = dict(frame_rate = seq.frame_rate)
+        seq_name = seq.name.upper().strip()
+        seq_meta = meta["sequences"][seq_name] = dict(
+            frame_rate = seq.frame_rate,
+            node_compression = dict()
+            )
+        seq_metas.append(seq_meta)
 
         if seq.repeat == "yes":
             seq_meta.update(repeat = True)
@@ -116,8 +121,6 @@ def decompile_atree_metadata(
         if seq.flags.play_reversed:
             seq_meta.update(reverse = True)
 
-        seq_name = seq.name.upper().strip()
-        seq_metas[i] = meta["sequences"][seq_name] = seq_meta
         if seq.texmod_index <= 0:
             continue
 
@@ -133,9 +136,12 @@ def decompile_atree_metadata(
 
     seen_nodes  = {}
     for i, node in enumerate(anode_infos):
-        node_meta   = dict()
         node_type   = node.anim_type.enum_name
         node_name   = node_names[i]
+        node_meta   = dict(
+            type = node_type,
+            name = node_name,
+            )
 
         if node.parent_index >= 0:
             node_meta.update(parent=node.parent_index)
@@ -169,16 +175,15 @@ def decompile_atree_metadata(
 
                 meta["sequences"][seq_name].setdefault("obj_anims", {})[node_name] = obj_anim_meta
         else:
-            for j, seq_info in enumerate(node.anim_seq_infos):
-                if j not in seq_metas: continue
-                seq_metas[j]["compress"] = seq_metas[j].get("compress", 0) + (
-                    1 if seq_info.type.compressed_data else -1
+            for seq_info, seq_meta in zip(node.anim_seq_infos, seq_metas):
+                seq_meta.update(
+                    node_compression = {
+                        i: bool(seq_info.type.compressed_data),
+                        **seq_meta["node_compression"]
+                        }
                     )
 
         seen_nodes.setdefault(node_name, []).append(i)
-
-        if node_name:
-            node_meta.update(name = node_name)
 
         flags = node.mb_flags
         for flag in flags.NAME_MAP:
@@ -190,19 +195,18 @@ def decompile_atree_metadata(
             raise ValueError("Node parent does not exist. Cannot extract node graph.")
 
 
-    for i, node in enumerate(anode_infos):
-        if node.anim_type.enum_name != "skeletal":
-            continue
+    for j, seq_meta in enumerate(seq_metas):
+        node_comp = seq_meta["node_compression"]
+        compress = sum(
+            1 if compressed else -1
+            for compressed in node_comp.values()
+            ) >= 0
 
-        for j, seq_info in enumerate(node.anim_seq_infos):
-            seq_meta = seq_metas.get(j)
-            if not seq_meta: continue
-
-            is_compressed = bool(seq_info.type.compressed_data)
-            seq_meta["compress"] = (seq_meta["compress"] > 0)
-            if seq_meta["compress"] != is_compressed:
-                seq_meta.setdefault("compress_per_node", {})[i] = is_compressed
-
+        # set default compression and remove per-node overrides that match it
+        seq_meta["compress"] = compress
+        [node_comp.__delitem__(v) for v in tuple(node_comp.values()) if v != compress]
+        if not node_comp:
+            del seq_meta["node_compression"]
 
     return atree_name, meta
 

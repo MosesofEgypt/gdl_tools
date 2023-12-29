@@ -323,7 +323,7 @@ def export_models(
                 obj_index = object_name_map.get(prefix + node.name)
                 if obj_index in objects:
                     try:
-                        all_model_caches[obj_index] = model_caches[i] = object_to_model_cache(
+                        all_model_caches[obj_index] = model_caches[j] = object_to_model_cache(
                             objects[obj_index], obj_index=obj_index, **conv_args
                             )
                     except:
@@ -357,7 +357,7 @@ def export_models(
                 except:
                     print(format_exc())
 
-            model_caches.insert(0, None) # insert 1 for root
+            model_caches.insert(0, None) # insert empty root model
 
             all_job_args.append(dict(
                 g3d_nodes=nodes, model_caches=model_caches,

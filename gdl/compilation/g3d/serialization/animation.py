@@ -101,13 +101,14 @@ class G3DAnimationNode(AnimationCacheNode):
             raise ValueError("Must decompress animation before getting frame data.")
 
         # get the first frame to fill the animation with to start off
-        kf_0        = self.get_initial_keyframe()
-        kf_index, f = 0, 0
-        if not self.initial_keyframe:
+        kf_index = 0
+        if self.initial_keyframe:
+            kf_0     = self.get_initial_keyframe()
+        else:
             # if there's no initial keyframe data(an uncompressed anim
             # with data) then the first frame is the first keyframe.
-            kf_0        = self.get_keyframe(kf_index)
-            kf_index, f = 1, self.kf_spacing[0] if self.kf_spacing else 0
+            kf_0     = self.get_keyframe(0)
+            kf_index += 1
 
         if self.initial_keyframe_only:
             self.frame_data = [kf_0] * max(1, frame_count)
@@ -115,6 +116,7 @@ class G3DAnimationNode(AnimationCacheNode):
 
         # fill in the initial frames to be overwritten as we parse the animation
         frame_data = [kf_0] * frame_count
+        f = 0
         for count in self.kf_spacing[kf_index:]:
             # NOTE: count is the number of frames from kf0 to kf1.
             #       this includes kf0, but excludes kf1

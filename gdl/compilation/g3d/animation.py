@@ -98,6 +98,10 @@ def export_animations(
             for asset_type in asset_types:
                 anim_caches = atree_to_animation_caches(atree, node_names, cache_type=asset_type)
 
+                # generate animations for object anims
+                if asset_type not in c.ANIMATION_CACHE_EXTENSIONS:
+                    anim_caches += atree_to_obj_anim_caches(atree, node_names)
+
                 for anim_cache in anim_caches:
                     name = f"{actor_name}_{anim_cache.name}"
                     export_dir  = (
@@ -184,10 +188,6 @@ def atree_to_animation_caches(atree, node_names, cache_type=None):
                     frame_data.uncomp_frame_data
                     )
 
-    # generate animations for object anims
-    if cache_type not in c.ANIMATION_CACHE_EXTENSIONS:
-        anim_caches += atree_to_obj_anim_caches(atree, node_names)
-
     #for anim_cache in anim_caches:
     #    anim_cache.reduce_compressed_data()
 
@@ -196,7 +196,7 @@ def atree_to_animation_caches(atree, node_names, cache_type=None):
 
 def atree_to_obj_anim_caches(atree, node_names):
     atree_data      = atree.atree_header.atree_data
-    prefix          = atree.atree_header.prefix.upper()
+    prefix          = atree.atree_header.prefix.upper().strip()
 
     obj_anims       = tuple(atree_data.obj_anim_header.obj_anims)
     all_sequences   = [
@@ -208,54 +208,54 @@ def atree_to_obj_anim_caches(atree, node_names):
         for seq in atree_data.atree_sequences
         ]
 
-    obj_anim_caches = []
+    anim_caches = []
     for anode_info in atree_data.anode_infos:
         if anode_info.anim_type.enum_name != "object":
             continue
 
         init_pos    = tuple(anode_info.init_pos)
-        seq_infos   = anode_info.anim_seq_infos
+        seq_index   = anode_info.anim_seq_info_index
         node_name   = anode_info.mb_desc.upper().strip()
-        for sequence in all_sequences:
+        for i, sequence in enumerate(all_sequences):
             # NOTE: for object animations being extracted to a non-cache
             #       format, we convert it into a series of nodes, one for
             #       each frame. the scale of each node is set to 0, except
             #       on the frame that model is supposed to be visible.
             try:
-                obj_anim = obj_anims[anode_info.anim_seq_info_index]
+                obj_anim = obj_anims[i + seq_index]
             except Exception:
                 print("Warning: Could not get object animation for "
-                      f"node '{anim_node.name}' in actor '{prefix}'.")
+                      f"node '{node_name}' in actor '{prefix}'.")
                 continue
 
-            obj_anim_cache = Ps2AnimationCache()
+            anim_cache = Ps2AnimationCache()
             # TODO: make utility functions for generating identifier names like this
-            obj_anim_cache.name         = f"{node_name}_{sequence['name']}"
-            obj_anim_cache.frame_count  = sequence['frame_count']
-            obj_anim_cache.frame_rate   = sequence['frame_rate']
+            anim_cache.name         = f"{node_name}_{sequence['name']}"
+            anim_cache.frame_count  = sequence['frame_count']
+            anim_cache.frame_rate   = sequence['frame_rate']
 
             # NOTE: abusing things a bit by adding new properties to the
             #       class, which are being consumed in the loop below
-            obj_anim_cache.obj_frame_count  = obj_anim.frame_count
-            obj_anim_cache.obj_start_frame  = obj_anim.start_frame
-            obj_anim_cache.init_pos         = init_pos
+            anim_cache.obj_frame_count  = obj_anim.frame_count
+            anim_cache.obj_start_frame  = obj_anim.start_frame
+            anim_cache.init_pos         = init_pos
 
-            obj_anim_caches.append(obj_anim_cache)
+            anim_caches.append(anim_cache)
 
     # generate animations for object anims
-    for anim_cache in obj_anim_caches:
+    for anim_cache in anim_caches:
         anim_cache.nodes = util.generate_obj_anim_nodes(
-            anim_cache.obj_frame_count, AnimationCacheNode
+            anim_cache.obj_frame_count, AnimationCacheNode, anim_cache.name
             )
         # shift the root bone to where the obj anim node is
         anim_cache.nodes[0].init_pos = anim_cache.init_pos
         for i, node in enumerate(anim_cache.nodes[1:]):
             frame_index     = i + obj_anim.start_frame
             frame_count     = anim_cache.frame_count
-            keyframe_data   = [-1.0] * (3*frame_count) # -1.0 to subtract scale to 0.0
+            keyframe_data   = [-1, -1, -1] * frame_count # -1.0 to subtract scale to 0.0
             frame_flags     = [0xFF]*((frame_count+7)//8)
 
-            keyframe_data[frame_index*3: (frame_index+1)*3] = (0.0, 0.0, 0.0)
+            keyframe_data[frame_index*3: (frame_index+1)*3] = (0, 0, 0)
             if frame_count % 8:
                 frame_flags[-1] = (1<<(frame_count%8))-1
 
@@ -263,4 +263,4 @@ def atree_to_obj_anim_caches(atree, node_names):
             node.frame_flags    = frame_flags
             node.keyframe_data  = keyframe_data
 
-    return obj_anim_caches
+    return anim_caches
