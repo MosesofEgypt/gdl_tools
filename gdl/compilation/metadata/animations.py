@@ -32,31 +32,28 @@ def decompile_animations_metadata(
     texmods, particle_systems = anim_tag.data.texmods, anim_tag.data.particle_systems
 
     # decompile actors
-    actors_metadata_by_atree    = {}
-    actor_texmods_by_index      = {}
     for i, atree in enumerate(anim_tag.data.atrees):
-        node_names = anim_tag.get_node_names(i)
+        node_names = anim_tag.get_actor_node_names(i)
         name, meta = decompile_atree_metadata(
-            atree, texmods, node_names,
-            bitmap_assets, object_asset_name_map, actor_texmods_by_index
+            atree, texmods, node_names, bitmap_assets, object_asset_name_map
             )
-        actors_metadata_by_atree[i] = meta
-        actors_metadata[name]       = meta
+        actors_metadata[name] = meta
 
     # decompile texmods
-    texmods_by_source_index   = {}
+    texmods_by_source_index = {}
     for i, texmod in enumerate(texmods):
-        name, meta = actor_texmods_by_index.get(i, (None, None))
-        if meta is None:
-            name, new_meta = decompile_texmod_metadata(texmod, bitmap_assets)
-            actor_meta = actors_metadata_by_atree.get(texmod.atree)
-            if actor_meta is None:
-                meta = texmods_metadata.setdefault(name, {})
-            else:
-                meta = actor_meta.setdefault("texmods", {}).setdefault(name, {})
+        if texmod.atree >= 0 or texmod.seq_index >= 0:
+            # bound to a specific atree and/or sequence in it. skip
+            continue
 
-            meta.update(new_meta)
+        name, meta = decompile_texmod_metadata(texmod, bitmap_assets)
+        if name in texmods_metadata:
+            texmods_metadata[name].update(meta)
+            meta = texmods_metadata[name]
 
+        texmods_metadata[name] = meta
+
+        # existence of frame_rate indicates it's a tex-swap animation
         if "frame_rate" in meta:
             texmods_by_source_index.setdefault(texmod.type.source_index.idx, {})\
                                    .setdefault(name, []).append(meta)
@@ -72,49 +69,6 @@ def decompile_animations_metadata(
             for meta in metas_array:
                 meta["source_name"] = source_name
 
-    # split the animations out of the atrees so they can be saved separately
-    animations_metadata = {}
-    for actor_name, actor_metadata in actors_metadata.items():
-        sequences = actor_metadata.pop("sequences", None)
-        if not sequences:
-            continue
-
-        root_nodes = actor_metadata.get("nodes", ())
-        for seq_name, seq_meta in sequences.items():
-            anim_nodes = []
-            animations_metadata[(actor_name, seq_name)] = dict(
-                sequences = { seq_name: seq_meta },
-                nodes     = anim_nodes
-                )
-
-            node_copy_pairs = [(anim_nodes, root_nodes)]
-            while node_copy_pairs:
-                next_node_copy_pairs = []
-                for dst_children, src_children in node_copy_pairs:
-                    for src_node in src_children:
-                        dst_node = {}
-                        dst_node.update({
-                            k: v for k, v in src_node.items()
-                            if k not in ("children", "object_anims")
-                            })
-                        dst_children.append(dst_node)
-                        object_anims = src_node.get("object_anims", {})
-                        if seq_name in object_anims:
-                            dst_node.update(
-                                object_anims = { seq_name: object_anims.pop(seq_name) }
-                                )
-                            if not object_anims:
-                                src_node.pop("object_anims", None)
-
-                        if src_node.get("children"):
-                            dst_node.update(children = [])
-                            next_node_copy_pairs.append((
-                                dst_node["children"], src_node["children"]
-                                ))
-
-                node_copy_pairs = next_node_copy_pairs
-
-
     # decompile particle systems
     psys_metadata = decompile_all_psys_metadata(anim_tag.data.particle_systems)
 
@@ -126,19 +80,7 @@ def decompile_animations_metadata(
                 actors = {actor_name: actors_metadata[actor_name]}
                 )
             for actor_name in sorted(actors_metadata)
-            },
-        **{
-            f"{actor_name}/{c.ANIM_FOLDERNAME}/{actor_name}_{seq_name}": dict(
-                actor_sequences = {
-                    # NOTE: joining using forward slash to ensure it isn't used
-                    #       in an actors name, as it'll break the import process
-                    "/".join(actor_name, seq_name): animations_metadata[
-                        (actor_name, seq_name)
-                        ]
-                    }
-                )
-            for actor_name, seq_name in sorted(animations_metadata)
-            },
+            }
         }
 
     util.dump_metadata_sets(
@@ -148,8 +90,7 @@ def decompile_animations_metadata(
 
 
 def decompile_atree_metadata(
-        atree, texmods, node_names, bitmap_assets,
-        object_asset_name_map, actor_texmods_by_index
+        atree, texmods, node_names, bitmap_assets, object_asset_name_map
         ):
 
     atree_data  = atree.atree_header.atree_data
@@ -157,12 +98,12 @@ def decompile_atree_metadata(
     obj_anims   = atree_data.obj_anim_header.obj_anims
     seq_metas   = {}
     meta        = dict(
-        prefix      = atree.atree_header.prefix.upper(),
+        prefix      = atree.atree_header.prefix.upper().strip(),
         nodes       = [None] * len(anode_infos),
         sequences   = dict(),
         )
 
-    atree_name = atree.name.upper()
+    atree_name = atree.name.upper().strip()
     if meta["prefix"] == atree_name:
         del meta["prefix"]
 
@@ -175,20 +116,22 @@ def decompile_atree_metadata(
         if seq.flags.play_reversed:
             seq_meta.update(reverse = True)
 
-        seq_metas[i] = meta["sequences"][seq.name.upper()] = seq_meta
-        if seq.texmod_index >= 0:
-            for j in range(seq.texmod_index, seq.texmod_index + seq.texmod_count):
-                if j not in range(len(texmods)):
-                    continue
+        seq_name = seq.name.upper().strip()
+        seq_metas[i] = meta["sequences"][seq_name] = seq_meta
+        if seq.texmod_index <= 0:
+            continue
 
-                texmod = texmods[j]
-                name, texmod_meta = decompile_texmod_metadata(texmod, bitmap_assets)
-                actor_texmods_by_index[j] = (name, texmod_meta)
-                seq_meta.setdefault("texmods", {})\
-                        .setdefault(name, {})\
-                        .update(texmod_meta)
+        for j in range(seq.texmod_index, seq.texmod_index + seq.texmod_count):
+            if j not in range(len(texmods)):
+                continue
 
-    seen_nodes      = {}
+            texmod = texmods[j]
+            name, texmod_meta = decompile_texmod_metadata(texmod, bitmap_assets)
+            seq_meta.setdefault("texmods", {})\
+                    .setdefault(name, {})\
+                    .update(texmod_meta)
+
+    seen_nodes  = {}
     for i, node in enumerate(anode_infos):
         node_meta   = dict()
         node_type   = node.anim_type.enum_name
@@ -201,26 +144,20 @@ def decompile_atree_metadata(
             node_meta.update(is_null=True)
         elif node_type == "texture":
             if node.anim_seq_info_index in range(len(texmods)):
-                texmod = texmods[node.anim_seq_info_index]
-
-                texmod_name, texmod_meta = decompile_texmod_metadata(texmod, bitmap_assets)
-                actor_texmods_by_index[node.anim_seq_info_index] = (texmod_name, texmod_meta)
-
-                node_meta.setdefault("texmods", {})\
-                        .setdefault(texmod_name, {})\
-                        .update(texmod_meta)
+                _, texmod_meta = decompile_texmod_metadata(
+                    texmods[node.anim_seq_info_index], bitmap_assets
+                    )
+                meta.setdefault("texmods", {})[node_name] = texmod_meta
 
         elif node_type == "object":
-            obj_anims_meta = dict()
-            node_meta.update(object_anims = obj_anims_meta)
-
             for j, seq in enumerate(atree_data.atree_sequences):
                 try:
                     obj_anim = obj_anims[j + node.anim_seq_info_index]
                 except Exception:
                     continue
 
-                object_name = obj_anim.mb_desc.upper()
+                object_name = obj_anim.mb_desc.upper().strip()
+                seq_name    = seq.name.upper().strip()
                 obj_anim_meta = dict(
                     object_name = object_asset_name_map.get(
                         object_name, object_name
@@ -230,8 +167,7 @@ def decompile_atree_metadata(
                 if obj_anim.start_frame:
                     obj_anim_meta.update(start_frame = obj_anim.start_frame)
 
-                obj_anims_meta[seq.name.upper()] = obj_anim_meta
-
+                meta["sequences"][seq_name].setdefault("obj_anims", {})[node_name] = obj_anim_meta
         else:
             for j, seq_info in enumerate(node.anim_seq_infos):
                 if j not in seq_metas: continue
@@ -250,7 +186,7 @@ def decompile_atree_metadata(
                 node_meta.setdefault("flags", {})[flag] = True
 
         meta["nodes"][i] = node_meta
-        if node_meta["parent"] not in range(len(meta["nodes"])):
+        if "parent" in node_meta and node_meta["parent"] not in range(len(meta["nodes"])):
             raise ValueError("Node parent does not exist. Cannot extract node graph.")
 
 

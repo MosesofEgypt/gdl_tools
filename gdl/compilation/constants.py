@@ -37,11 +37,11 @@ ACTOR_ASSET_EXTENSIONS += ("jms",) if JMM_SUPPORT else ()
 MODEL_ASSET_EXTENSIONS = (
     "obj",
     #"dae",
-    )
+    ) + ACTOR_ASSET_EXTENSIONS
 COLLISION_ASSET_EXTENSIONS = (
     "obj",
     #"dae",
-    )
+    ) + ACTOR_ASSET_EXTENSIONS
 TEXTURE_ASSET_EXTENSIONS = (
     "tga",
     "dds",

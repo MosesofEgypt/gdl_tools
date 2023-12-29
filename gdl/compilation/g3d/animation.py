@@ -3,8 +3,10 @@ import pathlib
 
 from traceback import format_exc
 from .serialization.animation import G3DAnimation
-from .serialization.asset_cache import get_asset_checksum, verify_source_file_asset_checksum
-from .serialization.animation_cache import AnimationCache, AnimationCacheNode
+from .serialization.asset_cache import get_asset_checksum,\
+     verify_source_file_asset_checksum
+from .serialization.animation_cache import AnimationCache, Ps2AnimationCache,\
+     AnimationCacheNode
 from . import constants as c
 from . import util
 
@@ -92,12 +94,9 @@ def export_animations(
         actor_name       = atree.name.upper()
         anim_cache, name = None, None
         try:
-            node_names  = anim_tag.get_node_names(i)
-            anim_caches = atree_to_animation_caches(atree, node_names, cache_type)
-
+            node_names  = anim_tag.get_actor_node_names(i)
             for asset_type in asset_types:
-                if asset_type in c.ANIMATION_CACHE_EXTENSIONS and asset_type != cache_type:
-                    anim_caches = atree_to_animation_caches(atree, node_names, cache_type=asset_type)
+                anim_caches = atree_to_animation_caches(atree, node_names, cache_type=asset_type)
 
                 for anim_cache in anim_caches:
                     name = f"{actor_name}_{anim_cache.name}"
@@ -142,8 +141,10 @@ def atree_to_animation_caches(atree, node_names=(), cache_type=None):
     comp_angles     = tuple(atree_data.compressed_data.comp_angles)
     comp_positions  = tuple(atree_data.compressed_data.comp_positions)
     comp_scales     = tuple(atree_data.compressed_data.comp_scales)
+    obj_anims       = tuple(atree_data.obj_anim_header.obj_anims)
 
-    anim_caches = [None] * len(atree_data.atree_sequences)
+    anim_caches     = [None] * len(atree_data.atree_sequences)
+    obj_anim_caches = []
     for i, sequence in enumerate(atree_data.atree_sequences):
         anim_caches[i] = anim_cache = anim_cache_class()
 
@@ -185,7 +186,51 @@ def atree_to_animation_caches(atree, node_names=(), cache_type=None):
                     frame_data.uncomp_frame_data
                     )
 
+            # NOTE: for object animations being extracted to a non-cache
+            #       format, we convert it into a series of nodes, one for
+            #       each frame. the scale of each node is set to 0, except
+            #       on the frame that model is supposed to be visible.
+            if cache_type not in c.ANIMATION_CACHE_EXTENSIONS and node_type == "object":
+                try:
+                    obj_anim = obj_anims[anode_info.anim_seq_info_index]
+                except Exception:
+                    print("Warning: Could not get object animation for "
+                          f"node '{anim_node.name}' in actor '{prefix}'.")
+                    continue
+
+                obj_anim_cache = anim_cache_class()
+                # TODO: make utility functions for generating identifier names like this
+                obj_anim_cache.name         = f"{anim_node.name}{anim_cache.name}"
+                obj_anim_cache.frame_count  = anim_cache.frame_count
+                obj_anim_cache.frame_rate   = anim_cache.frame_rate
+
+                # NOTE: abusing things a bit by adding new properties to the
+                #       class, which are being consumed in the loop below
+                obj_anim_cache.obj_frame_count  = obj_anim.frame_count
+                obj_anim_cache.obj_start_frame  = obj_anim.start_frame
+
+                obj_anim_caches.append(obj_anim_cache)
+
+    # generate animations for object anims
+    for anim_cache in obj_anim_caches:
+        anim_cache.nodes = util.generate_obj_anim_nodes(
+            anim_cache.obj_frame_count, AnimationCacheNode
+            )
+        for i, node in enumerate(anim_cache.nodes[1:]):
+            frame_index     = i + obj_anim.start_frame
+            frame_count     = anim_cache.frame_count
+            keyframe_data   = [-1.0] * (3*frame_count)
+            frame_flags     = [0xFF]*((frame_count+7)//8)
+
+            keyframe_data[frame_index*3: (frame_index+1)*3] = (0.0, 0.0, 0.0)
+            if frame_count % 8:
+                frame_flags[-1] = (1<<(frame_count%8))-1
+
+            node.scale_x = node.scale_y = node.scale_z = True
+            node.frame_flags    = frame_flags
+            node.keyframe_data  = keyframe_data
+
     #for anim_cache in anim_caches:
     #    anim_cache.reduce_compressed_data()
 
-    return anim_caches
+    return anim_caches + obj_anim_caches

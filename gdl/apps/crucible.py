@@ -54,7 +54,7 @@ class CrucibleApp(Tk):
         self.target_messages_dir = StringVar(self)
 
         self.build_target        = StringVar(self, "PlayStation2")
-        self.mod_extract_format  = StringVar(self, "Wavefront OBJ")
+        self.mod_extract_format  = StringVar(self, "HCE JMS" if c.JMM_SUPPORT else "Wavefront OBJ")
         self.anim_extract_format = StringVar(self, "HCE JMM" if c.JMM_SUPPORT else "UNSUPPORTED")
         self.tex_extract_format  = StringVar(self, "PNG")
         self.meta_extract_format = StringVar(self, "YAML")

@@ -67,7 +67,7 @@ class AnimationCacheNode():
     parent              = -1
     _type_id            = 0
     _flags              = 0
-    _init_pos           = ()
+    _init_pos           = (0.0, 0.0, 0.0)
     _frame_flags        = ()
     _keyframe_data      = ()
     _initial_keyframe   = ()

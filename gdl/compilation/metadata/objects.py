@@ -94,9 +94,13 @@ def decompile_object_metadata(obj, asset_name=None, actor_name=None):
     metadata_obj = dict(
         flags    = {},
         )
+    if asset_name:
+        metadata_obj.update(asset_name = asset_name)
 
-    if asset_name: metadata_obj.update(asset_name = asset_name)
-    if actor_name: metadata_obj.update(actor = actor_name)
+    if actor_name:
+        metadata_obj.update(actor = actor_name)
+    else:
+        metadata_obj.update(standalone = True)
 
     if hasattr(obj, "lods"):
         obj_flags = obj.lods[0].flags
@@ -119,8 +123,13 @@ def decompile_bitmap_metadata(bitm, asset_name=None, actor_name=None, cache_name
         format  = bitm.format.enum_name,
         )
 
-    if asset_name: metadata_bitm.update(asset_name = asset_name)
-    if actor_name: metadata_bitm.update(actor = actor_name)
+    if asset_name:
+        metadata_bitm.update(asset_name = asset_name)
+
+    if actor_name:
+        metadata_bitm.update(actor = actor_name)
+    else:
+        metadata_bitm.update(standalone = True)
 
     if bitm.frame_count == 0 and cache_name:
         metadata_bitm.update(cache_name=True)
@@ -135,7 +144,8 @@ def decompile_bitmap_metadata(bitm, asset_name=None, actor_name=None, cache_name
             if name in image_type:
                 metadata_bitm[name] = True
     else:
-        metadata_bitm.update(mipmap_count=abs(bitm.small_lod_log2_inv - bitm.large_lod_log2_inv))
+        metadata_bitm.update(mipmap_count=abs(bitm.small_lod_log2_inv -
+                                              bitm.large_lod_log2_inv))
 
     if getattr(bitm.flags, "invalid", False):
         # set to arbitrary valid value(often time set to random garbage)

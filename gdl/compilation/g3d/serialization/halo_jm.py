@@ -15,8 +15,8 @@ if c.JMS_SUPPORT:
 
 # Converting from gauntlet coordinate system to Halo coordinates is 
 # pretty simple, and just requires swapping y and z and scaling 
-def g3d_pos_to_halo_pos(x, y, z): return x*100, z*100, y*100
-def halo_pos_to_g3d_pos(x, y, z): return x/100, z/100, y/100
+def g3d_pos_to_halo_pos(x, y, z): return x*10, z*10, y*10
+def halo_pos_to_g3d_pos(x, y, z): return x/10, z/10, y/10
 
 # converting uvw is easy. just invert the v coordinate
 def g3d_uvw_to_halo_uvw(u, v, w=0.0): return u, 1.0-v, w

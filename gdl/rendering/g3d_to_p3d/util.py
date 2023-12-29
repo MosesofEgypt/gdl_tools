@@ -101,19 +101,19 @@ def load_objects_dir_files(objects_dir):
 
     dir_info = locate_objects_dir_files(objects_dir)
 
-    if dir_info["anim_filepath"]:
+    if dir_info["anim_filepath"].is_file():
         try:
             anim_tag = anim_def.build(filepath=dir_info["anim_filepath"])
         except Exception:
             print(format_exc())
 
-    if dir_info["worlds_filepath"]:
+    if dir_info["worlds_filepath"].is_file():
         try:
             worlds_tag = worlds_def.build(filepath=dir_info["worlds_filepath"])
         except Exception:
             print(format_exc())
 
-    if dir_info["objects_filepath"]:
+    if dir_info["objects_filepath"].is_file():
         try:
             objects_tag = objects_def.build(filepath=dir_info["objects_filepath"])
         except Exception:

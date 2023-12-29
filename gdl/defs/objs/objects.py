@@ -125,7 +125,8 @@ class ObjectsTag(GdlTag):
                     if k not in range(len(obj_anims)):
                         continue
 
-                    object_name = f"{object_prefix}_{atree_seq.name}"
+                    seq_name = atree_seq.name.upper().strip()
+                    object_name = f"{object_prefix}_{seq_name}"
                     self._objanim_seqs.update({
                         object_name: dict(
                             count = abs(obj_anims[k].frame_count),

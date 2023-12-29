@@ -91,15 +91,24 @@ def merge_metadata_sets(*metadata_sets):
     all_metadata = {}
     for other_metadata in metadata_sets:
         if not isinstance(other_metadata, dict):
+            print("Warning: Expected dict at top level of metadata, "
+                  f"but got {type(other_metadata)}. Skipping.")
             continue
 
         for typ, meta in other_metadata.items():
             if not isinstance(meta, dict):
+                print("Warning: Expected only dict under metadata key "
+                      f"'{typ}', but got {type(meta)}. Skipping.")
                 continue
 
             metadata_type = all_metadata.setdefault(typ.lower(), {})
             for name, asset_meta in meta.items():
+                if not isinstance(asset_meta, dict):
+                    print("Warning: Expected only dict under metadata key "
+                          f"'{typ}.{name}', but got {type(asset_meta)}. Skipping.")
+                    continue
                 metadata_type[name.upper()] = asset_meta
+
     return all_metadata
 
 

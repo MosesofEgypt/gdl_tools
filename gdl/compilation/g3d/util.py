@@ -129,3 +129,16 @@ def map_src_anim_nodes_to_dst_anim_nodes(src_nodes, dst_nodes):
         raise ValueError("Unable to map source nodes to destination nodes.")
 
     return index_map
+
+
+def generate_obj_anim_nodes(frame_count, node_cls):
+    nodes = [node_cls()]
+    nodes[-1].name  = "ROOT"
+
+    for i in range(frame_count):
+        nodes.append(node_cls())
+        nodes[-1].name      = f"FRAME_{i:09}"
+        nodes[-1].type_name = "skeletal"
+        nodes[-1].parent    = 0
+
+    return nodes
