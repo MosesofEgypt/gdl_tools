@@ -247,9 +247,12 @@ def export_models(
     lone_object_indices = set(object_assets.keys())
     actor_asset_types   = tuple(s for s in asset_types if s in c.ACTOR_ASSET_EXTENSIONS)
     object_name_map     = {object_assets[k]["name"]: k for k in object_assets}
+    objanim_seqs        = objects_tag.objanim_seqs
 
     atrees = list(anim_tag.data.atrees) # make list for faster iteration
     obj_anim_actors = {}
+
+    model_conv_args = dict(bitmap_assets=bitmap_assets, is_arcade=is_arcade)
 
     # generate nodes, determine standalone objects(ones not in
     # an actor), and generate fake actors for object animations
@@ -262,7 +265,6 @@ def export_models(
 
         actor       = atree.name.strip().lower()
         atree_data  = atree.atree_header.atree_data
-        obj_anims   = atree_data.obj_anim_header.obj_anims
         sequences   = atree_data.atree_sequences
         anode_infos = atree_data.anode_infos
         all_actor_nodes[i], prefix = nodes, atree.atree_header.prefix.upper()
@@ -270,6 +272,8 @@ def export_models(
         for j, node in enumerate(nodes):
             obj_name    = f"{prefix}{node.name}"
             obj_index   = object_name_map.get(obj_name)
+            # shift the root bone to where the obj anim node is
+            init_pos    = tuple(node.init_pos)
 
             if node.type_name in ("skeletal", "null") and obj_index is not None:
                 lone_object_indices.discard(obj_index)
@@ -282,29 +286,23 @@ def export_models(
                         continue
 
                     obj_seq_name = f"{obj_name}_{seq_name}"
-
-                    # TODO: clean this crap up
-                    obj_frame_names = {
-                        name: index for name, index in object_name_map.items()
-                        if name.startswith(obj_seq_name)
-                        }
-
-                    if not obj_frame_names or obj_anim_index not in range(len(obj_anims)):
+                    if obj_seq_name not in objanim_seqs:
                         print(f"Could not locate object '{obj_seq_name}'")
                         continue
 
-                    obj_index   = obj_frame_names[sorted(obj_frame_names)[0]]
-                    frame_count = obj_anims[obj_anim_index].frame_count
+                    obj_seq = objanim_seqs[obj_seq_name]
+                    start, count = obj_seq["start"], obj_seq["count"]
 
                     obj_anim_actors[obj_seq_name] = dict(
-                        start = obj_index, count = frame_count, actor = actor
+                        init_pos=init_pos, start=start, count=count,
+                        node_prefix=f"{node.name}_{seq_name}", actor=obj_seq["actor"]
                         )
-                    lone_object_indices.difference_update(
-                        range(obj_index, obj_index+frame_count)
-                        )
+                    lone_object_indices.difference_update(range(start, start + count))
 
     # generate export jobs for each actor 
     for asset_type in actor_asset_types:
+        conv_args = dict(cache_type=asset_type, **model_conv_args)
+
         for i, atree in enumerate(atrees):
             name    = atree.name.upper()
             prefix  = atree.atree_header.prefix.upper()
@@ -317,34 +315,31 @@ def export_models(
             if filepath.is_file() and not overwrite:
                 continue
 
-            model_caches = []
-            for node in nodes:
+            model_caches = [None] * len(nodes)
+            for j, node in enumerate(nodes):
                 if node.type_name not in ("skeletal", "null"):
                     continue
 
                 obj_index = object_name_map.get(prefix + node.name)
-                obj       = objects.get(obj_index)
-                try:
-                    model_cache = None if obj is None else object_to_model_cache(
-                        obj, cache_type=asset_type, obj_index=obj_index,
-                        bitmap_assets=bitmap_assets, is_arcade=is_arcade
-                        )
-                except:
-                    print(format_exc())
-
-                all_model_caches[obj_index] = model_cache
-                model_caches.append(model_cache)
+                if obj_index in objects:
+                    try:
+                        all_model_caches[obj_index] = model_caches[i] = object_to_model_cache(
+                            objects[obj_index], obj_index=obj_index, **conv_args
+                            )
+                    except:
+                        print(format_exc())
 
             all_job_args.append(dict(
-                texture_assets=texture_assets, g3d_nodes=nodes,
-                model_caches=model_caches, filepaths=[filepath],
-                name=name, swap_lightmap_and_diffuse=swap_lightmap_and_diffuse,
+                g3d_nodes=nodes, model_caches=model_caches,
+                filepaths=[filepath], name=name
                 ))
 
-    # generate a fake skeletons and export jobs for each object animation
-    for asset_type in actor_asset_types:
+        # generate a fake skeletons and export jobs for each object animation
         for obj_seq_name, info in obj_anim_actors.items():
-            nodes   = util.generate_obj_anim_nodes(info["count"], G3DAnimationNode)
+            nodes   = util.generate_obj_anim_nodes(
+                info["count"], G3DAnimationNode, info["node_prefix"]
+                )
+            nodes[0].init_pos = info["init_pos"]
 
             filepath = pathlib.Path(
                 assets_dir, info["actor"], "anims", f"{obj_seq_name}.{asset_type}"
@@ -352,29 +347,30 @@ def export_models(
             if filepath.is_file() and not overwrite:
                 continue
 
-            model_caches = [None] # first node is a root placeholder(no model)
-            for obj_index in range(info["start"], info["start"]+info["count"]):
+            model_caches = [None] * info["count"]
+            for i in range(len(model_caches)):
+                j = i + info["start"]
                 try:
-                    model_cache = object_to_model_cache(
-                        objects[obj_index], cache_type=asset_type, obj_index=obj_index,
-                        bitmap_assets=bitmap_assets, is_arcade=is_arcade
+                    model_caches[i] = object_to_model_cache(
+                        objects[j], obj_index=j, **conv_args
                         )
-                    model_caches.append(model_cache)
                 except:
                     print(format_exc())
 
+            model_caches.insert(0, None) # insert 1 for root
+
             all_job_args.append(dict(
-                texture_assets=texture_assets, g3d_nodes=nodes,
-                model_caches=model_caches, filepaths=[filepath], name=obj_seq_name
+                g3d_nodes=nodes, model_caches=model_caches,
+                filepaths=[filepath], name=obj_seq_name
                 ))
 
     # generate export jobs for each standalone object
     for asset_type in asset_types:
+        conv_args = dict(cache_type=asset_type, **model_conv_args)
+
         for i in range(len(object_assets)):
-            if i not in object_assets or i not in objects:
-                continue
-            elif (i not in lone_object_indices and
-                  asset_type not in c.MODEL_CACHE_EXTENSIONS):
+            if (i not in object_assets or i not in objects or
+                not (i in lone_object_indices or asset_type in c.MODEL_CACHE_EXTENSIONS)):
                 continue
 
             asset = object_assets[i]
@@ -391,10 +387,7 @@ def export_models(
 
             try:
                 if i not in all_model_caches:
-                    all_model_caches[i] = object_to_model_cache(
-                        objects[i], cache_type=asset_type, obj_index=i,
-                        bitmap_assets=bitmap_assets, is_arcade=is_arcade
-                        )
+                    all_model_caches[i] = object_to_model_cache(objects[i], obj_index=i, **conv_args)
             except:
                 print(format_exc())
                 print(f"The above error occurred while trying to export object {i} as {asset_type}. "
@@ -424,10 +417,12 @@ def export_models(
             fake_g3d_node.name, fake_g3d_node.type_name = asset['name'], "null"
 
             all_job_args.append(dict(
-                texture_assets=texture_assets, model_caches=[model_cache],
-                name=asset['name'], filepaths=[filepath], g3d_nodes=[fake_g3d_node],
-                swap_lightmap_and_diffuse=swap_lightmap_and_diffuse,
+                model_caches=[model_cache], name=asset['name'],
+                filepaths=[filepath], g3d_nodes=[fake_g3d_node],
                 ))
+
+    for job in all_job_args:
+        job.update(texture_assets=texture_assets, swap_lightmap_and_diffuse=swap_lightmap_and_diffuse)
 
     print("Decompiling %s models in %s" % (
         len(all_job_args), "parallel" if parallel_processing else "series"
