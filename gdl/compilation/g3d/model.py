@@ -295,7 +295,7 @@ def export_models(
 
                     obj_anim_actors[obj_seq_name] = dict(
                         init_pos=init_pos, start=start, count=count,
-                        node_prefix=f"{node.name}_{seq_name}", actor=obj_seq["actor"]
+                        node_suffix=f"{node.name}_{seq_name}", actor=obj_seq["actor"]
                         )
                     lone_object_indices.difference_update(range(start, start + count))
 
@@ -337,7 +337,7 @@ def export_models(
         # generate a fake skeletons and export jobs for each object animation
         for obj_seq_name, info in obj_anim_actors.items():
             nodes   = util.generate_obj_anim_nodes(
-                info["count"], G3DAnimationNode, info["node_prefix"]
+                info["count"], G3DAnimationNode, info["node_suffix"]
                 )
             nodes[0].init_pos = info["init_pos"]
 

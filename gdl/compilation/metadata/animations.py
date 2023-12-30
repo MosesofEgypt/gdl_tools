@@ -204,7 +204,10 @@ def decompile_atree_metadata(
 
         # set default compression and remove per-node overrides that match it
         seq_meta["compress"] = compress
-        [node_comp.__delitem__(v) for v in tuple(node_comp.values()) if v != compress]
+        for i in tuple(node_comp):
+            if node_comp[i] == compress:
+                del node_comp[i]
+
         if not node_comp:
             del seq_meta["node_compression"]
 

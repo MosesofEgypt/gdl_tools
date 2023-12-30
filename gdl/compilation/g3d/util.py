@@ -131,13 +131,13 @@ def map_src_anim_nodes_to_dst_anim_nodes(src_nodes, dst_nodes):
     return index_map
 
 
-def generate_obj_anim_nodes(frame_count, node_cls, prefix):
+def generate_obj_anim_nodes(frame_count, node_cls, suffix):
     nodes = [node_cls()]
-    nodes[-1].name  = f"{prefix}ROOT"
+    nodes[-1].name  = f"ROOT_{suffix}"
 
     for i in range(frame_count):
         nodes.append(node_cls())
-        nodes[-1].name      = f"{prefix}{i:04}"
+        nodes[-1].name      = f"F{i:05}_{suffix}"
         nodes[-1].type_name = "skeletal"
         nodes[-1].parent    = 0
 
