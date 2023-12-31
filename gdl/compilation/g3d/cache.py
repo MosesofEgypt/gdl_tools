@@ -8,8 +8,7 @@ from ...defs.anim import anim_def
 from ...defs.objects import objects_def
 from ...defs.texdef import texdef_def
 from ...defs.worlds import worlds_def
-from ..metadata import objects as objects_metadata,\
-     animations as animations_metadata, util as metadata_util
+from ..metadata import util as metadata_util
 from . import animation, model, texture
 from .serialization.asset_cache import verify_source_file_asset_checksum
 from . import constants as c
@@ -34,8 +33,6 @@ def _compile_assets(
         cache_dir   = pathlib.Path(data_dir, c.IMPORT_FOLDERNAME, folder)
 
     if compile_job_type == COMPILE_JOB_TYPE_TEXTURES:
-        metadata_func   = lambda: objects_metadata.\
-                          compile_objects_metadata(assets_dir).get("bitmaps", ())
         compile_func    = texture.compile_texture
         cache_type      = (
             c.TEXTURE_CACHE_EXTENSION_PS2  if target_ps2 else
@@ -46,8 +43,6 @@ def _compile_assets(
             None
             )
     elif compile_job_type == COMPILE_JOB_TYPE_MODELS:
-        metadata_func   = lambda: objects_metadata.\
-                          compile_objects_metadata(assets_dir).get("objects", ())
         compile_func    = model.compile_model
         cache_type      = (
             c.MODEL_CACHE_EXTENSION_ARC  if target_arcade else
@@ -58,8 +53,6 @@ def _compile_assets(
             None
             )
     elif compile_job_type == COMPILE_JOB_TYPE_ANIMATIONS:
-        metadata_func   = lambda: animations_metadata.\
-                          compile_animations_metadata(assets_dir).get("actors", ())
         compile_func    = animation.compile_animation
         cache_type      = (
             c.ANIMATION_CACHE_EXTENSION_ARC  if target_arcade else
@@ -81,7 +74,7 @@ def _compile_assets(
 
     # get the metadata for all assets to import and
     # key it by name to allow matching to asset files
-    all_metadata = metadata_func()
+    all_metadata = metadata_util.compile_metadata(assets_dir)
     if compile_job_type == COMPILE_JOB_TYPE_TEXTURES:
         all_assets = util.locate_textures(assets_dir, cache_files=False)
     elif compile_job_type == COMPILE_JOB_TYPE_MODELS:
@@ -281,6 +274,16 @@ def decompile_cache_files(
             texdef_def.build(filepath=filepaths['texdef_filepath'])
         finally:
             FieldType.force_normal()
+
+    if anim_tag:
+        try:
+            anim_tag.load_texmod_sequences()
+            anim_tag.load_objanim_sequences()
+            anim_tag.load_particle_map()
+            anim_tag.load_actor_object_assets()
+        except Exception:
+            print('Could not load anim cache names. '
+                  'All animations, naming, and sorting may be broken.')
 
     if objects_tag:
         objects_tag.anim_tag   = anim_tag

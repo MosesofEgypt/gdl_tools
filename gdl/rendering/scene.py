@@ -487,7 +487,7 @@ class Scene(ShowBase):
         # TODO: load more textures since some particle effect textures rely on outside sources
         textures = self.get_resource_set_textures(textures_filepath, is_ngc)
 
-        actor_names  = anim_tag.actor_names if anim_tag else ()
+        actor_names  = anim_tag.get_actor_names() if anim_tag else ()
         object_names = set()
         if objects_tag:
             object_names = set(objects_tag.get_cache_names(by_name=True)[0])

@@ -4,12 +4,6 @@ from . import constants as c
 from . import util
 
 
-def compile_animations_metadata(data_dir=".", cache_files=False):
-    # TODO: update this to merge metadata together to allow separate animations
-    #       to have separate metadata files, allowing easier editing
-    return util.compile_metadata(data_dir=data_dir, cache_files=cache_files)
-
-
 def decompile_animations_metadata(
         anim_tag, objects_tag=None,
         asset_types=c.METADATA_CACHE_EXTENSIONS,
@@ -17,6 +11,7 @@ def decompile_animations_metadata(
         ):
     actors_metadata     = {}
     texmods_metadata    = {}
+    atrees              = list(anim_tag.data.atrees)
 
     if objects_tag:
         object_assets, bitmap_assets = objects_tag.get_cache_names()
@@ -32,7 +27,7 @@ def decompile_animations_metadata(
     texmods, particle_systems = anim_tag.data.texmods, anim_tag.data.particle_systems
 
     # decompile actors
-    for i, atree in enumerate(anim_tag.data.atrees):
+    for i, atree in enumerate(atrees):
         node_names = anim_tag.get_actor_node_names(i)
         name, meta = decompile_atree_metadata(
             atree, texmods, node_names, bitmap_assets, object_asset_name_map
@@ -42,9 +37,23 @@ def decompile_animations_metadata(
     # decompile texmods
     texmods_by_source_index = {}
     for i, texmod in enumerate(texmods):
-        if texmod.atree >= 0 or texmod.seq_index >= 0:
-            # bound to a specific atree and/or sequence in it. skip
-            continue
+        if texmod.atree >= 0 and texmod.seq_index >= 0:
+            atree       = atrees[texmod.atree]
+            actor_name  = atree.name.upper().strip()
+            actor_meta  = actors_metadata[actor_name]
+
+            seq = atree.atree_header.atree_data.atree_sequences[texmod.seq_index]
+            seq_name = seq.name.upper().strip()
+            seq_meta = meta["sequences"][seq_name]
+            for j in range(seq.texmod_index, seq.texmod_index + seq.texmod_count):
+                if j not in range(len(texmods)):
+                    continue
+
+                texmod = texmods[j]
+                name, texmod_meta = decompile_texmod_metadata(texmod, bitmap_assets)
+                seq_meta.setdefault("texmods", {})\
+                        .setdefault(name, {})\
+                        .update(texmod_meta)
 
         name, meta = decompile_texmod_metadata(texmod, bitmap_assets)
         if name in texmods_metadata:
@@ -120,19 +129,6 @@ def decompile_atree_metadata(
 
         if seq.flags.play_reversed:
             seq_meta.update(reverse = True)
-
-        if seq.texmod_index <= 0:
-            continue
-
-        for j in range(seq.texmod_index, seq.texmod_index + seq.texmod_count):
-            if j not in range(len(texmods)):
-                continue
-
-            texmod = texmods[j]
-            name, texmod_meta = decompile_texmod_metadata(texmod, bitmap_assets)
-            seq_meta.setdefault("texmods", {})\
-                    .setdefault(name, {})\
-                    .update(texmod_meta)
 
     seen_nodes  = {}
     for i, node in enumerate(anode_infos):

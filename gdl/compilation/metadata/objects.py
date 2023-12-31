@@ -2,10 +2,6 @@ from . import constants as c
 from . import util
 
 
-def compile_objects_metadata(data_dir=".", cache_files=False):
-    return util.compile_metadata(data_dir=data_dir, cache_files=cache_files)
-
-
 def decompile_objects_metadata(
         objects_tag, anim_tag=None,
         asset_types=c.METADATA_CACHE_EXTENSIONS,

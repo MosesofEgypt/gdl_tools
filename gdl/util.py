@@ -1,7 +1,10 @@
 import concurrent.futures
 import os
+import math
+import string
 import traceback
 import pathlib
+
 
 from .compilation.constants import WAD_LUMP_TYPES
 from .supyr_struct_ext import FixedBytearrayBuffer,\
@@ -64,6 +67,51 @@ def get_is_arcade_wad(filepath):
 
 
 get_is_dreamcast_wad = get_is_arcade_wad
+
+
+def index_count_to_string(index, count):
+    return index_digits_to_string(index, int(math.ceil(math.log10(count))))
+
+
+def index_digits_to_string(index, digits):
+    return ("{i:0%sd}" % digits).format(i=index)
+
+
+def generate_sequence_names(count, prefix, start_name="", start=0, step=1):
+    if count < 1 or step < 1:
+        return []
+
+    parts  = start_name.split(prefix, 1)
+    suffix = parts[1] if len(parts) == 2 else ""
+    if (suffix and len(parts[0]) == 0 and set(suffix) == set(string.digits)):
+        # start_name begins with prefix, and ends with a set of digits.
+        # use the ending digits at the starting integer
+        start = int(suffix)
+    else:
+        start_name = ""
+
+    digits = int(len(suffix)-1)
+    if count+start > 10**digits:
+        digits = int(math.ceil(math.log10(count+start)))
+
+    if not start_name:
+        start_name = prefix + index_digits_to_string(start, digits)
+
+    names = [
+        prefix + index_digits_to_string(i, digits)
+        for i in range(start, start + count*step, step)
+        ]
+    names[0] = start_name
+    return names
+
+
+def get_common_prefix(a, b):
+    return (
+        ""  if a[:1] != b[:1]  else
+        a   if b.startswith(a) else
+        b   if a.startswith(b) else
+        a[:min((i for i, c in enumerate(zip(a, b)) if c[0] != c[1]))]
+        )
 
 
 def get_is_arcade_rom(filepath):

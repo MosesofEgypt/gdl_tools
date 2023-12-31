@@ -51,7 +51,7 @@ def load_nodes_from_anim_tag(actor_name, anim_tag):
         elif parent < 0:
             root_node = p3d_node
 
-        # TODO: consider changing this to not load models if node_type != "skeletal"
+        # TODO: consider changing this to not load models if node_type != "skeletal" or "null"
         if anode_info.flags.no_object_def:
             model_name = ""
 

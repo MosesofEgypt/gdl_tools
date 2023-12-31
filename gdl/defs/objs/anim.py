@@ -1,16 +1,119 @@
 import traceback
 
 from .tag import GdlTag
-from ...compilation.util import calculate_padding
+from ...compilation import util
 
 class AnimTag(GdlTag):
+    _actor_names = None
     _node_names_by_atree = None
 
+    _texmod_seqs    = None
+    _objanim_seqs   = None
+    _actorobj_map   = None
+    _particle_map   = None
+
+    _texmod_names   = None
+
     @property
-    def actor_names(self):
-        return tuple(
-            atree.name.upper().strip() for atree in self.data.atrees
-            )
+    def texmod_seqs(self): return {k: dict(v) for k, v in (self._texmod_seqs or {}).items()}
+    @property
+    def objanim_seqs(self): return {k: dict(v) for k, v in (self._objanim_seqs or {}).items()}
+    @property
+    def actorobj_map(self): return dict(self._actorobj_map or {})
+    @property
+    def particle_map(self): return dict(self._particle_map or {})
+
+    def load_texmod_sequences(self, recache=False):
+        if self._texmod_seqs is not None and not recache:
+            return
+
+        self._texmod_seqs = {
+            i: dict(
+                atree       = texmod.atree,
+                seq_index   = texmod.seq_index,
+                tex_index   = texmod.tex_index,
+                start       = texmod.type.source_index.idx,
+                count       = abs(texmod.frame_count),
+                name        = texmod.name.upper().strip(),
+                source_name = texmod.source_name.upper().strip(),
+                )
+            for i, texmod in enumerate(self.data.texmods)
+            if texmod.type.source_index.idx >= 0
+            }
+
+    def load_objanim_sequences(self, recache=False):
+        if self._objanim_seqs is not None and not recache:
+            return
+
+        self._objanim_seqs = {}
+
+        for atree in self.data.atrees:
+            prefix     = atree.atree_header.prefix.upper().strip()
+            atree_data = atree.atree_header.atree_data
+            obj_anims  = atree_data.obj_anim_header.obj_anims
+            sequences  = atree_data.atree_sequences
+            if not obj_anims:
+                continue
+
+            for node in atree_data.anode_infos:
+                if node.anim_type.enum_name != "object":
+                    continue
+
+                node_name       = node.mb_desc.upper().strip()
+                object_prefix   = f"{prefix}{node_name}"
+                for atree_seq, obj_anim in zip(
+                        sequences, obj_anims[node.anim_seq_info_index:]
+                        ):
+                    seq_name    = atree_seq.name.upper().strip()
+                    objdef_name = obj_anim.mb_desc.upper().strip()
+                    object_name = f"{object_prefix}_{seq_name}"
+
+                    self._objanim_seqs.update({
+                        objdef_name: dict(
+                            start = obj_anim.start_frame,
+                            count = abs(obj_anim.frame_count),
+                            name  = object_name,
+                            actor = prefix
+                            )
+                        })
+
+    def load_particle_map(self, recache=False):
+        if self._particle_map is not None and not recache:
+            return
+
+        self._particle_map = {}
+
+        if not hasattr(self.data.particle_systems, "__iter__"):
+            return
+
+        for psys in self.data.particle_systems:
+            name = psys.p_texname.upper().strip()
+            if psys.enables.p_texname and name:
+                self._particle_map.setdefault(psys.id.enum_name, name)
+
+    def load_actor_object_assets(self, recache=False):
+        if self._actorobj_map is not None and not recache:
+            return
+
+        self._actorobj_map = {}
+
+        for atree in self.data.atrees:
+            prefix  = atree.atree_header.prefix.upper().strip()
+            for node in atree.atree_header.atree_data.anode_infos:
+                if (node.anim_type.enum_name not in ("skeletal", "null") or
+                    node.flags.no_object_def):
+                    continue
+
+                node_name   = node.mb_desc.upper().strip()
+                object_name = f"{prefix}{node_name}"
+                self._actorobj_map[object_name] = prefix
+
+    def get_actor_names(self, recache=False):
+        if recache or self._actor_names is None:
+            self._actor_names = tuple(
+                atree.name.upper().strip() for atree in self.data.atrees
+                )
+        return self._actor_names
 
     def get_actor_node_names(self, atree_index=None, recache=False):
         if recache or self._node_names_by_atree is None:
@@ -43,7 +146,9 @@ class AnimTag(GdlTag):
                         if has_object_def or len(instances) == 1:
                             node_names[node_i] = name
                         else:
-                            node_names[node_i] = f"{name}.{j+1:06}"
+                            node_names[node_i] = ".".join(
+                                name, util.index_count_to_string(j+1, len(instances)+1)
+                                )
 
             self._node_names_by_atree = node_names_by_atree
 
@@ -52,8 +157,65 @@ class AnimTag(GdlTag):
 
         return list(self._node_names_by_atree.get(atree_index, []))
 
-    def generate_cache_names(self):
-        self.get_actor_node_names()
+    def get_texmod_names(self, recache=False):
+        if not recache and self._texmod_names is not None:
+            return dict(self._texmod_names)
+
+        actor_names     = {i: n for i, n in enumerate(self.get_actor_names())}
+        bitmap_assets   = {}
+        global_texmods  = {}
+        local_texmods   = {}
+        '''
+        atree       = texmod.atree,
+        seq_index   = texmod.seq_index,
+        tex_index   = texmod.tex_index,
+        start       = texmod.type.source_index.idx,
+        count       = abs(texmod.frame_count),
+        name        = texmod.name.upper().strip(),
+        source_name = texmod.source_name.upper().strip()
+        '''
+        for i, seq_data in self.texmod_seqs.items():
+            texmod_seq = dict(index=i, **seq_data)
+            if seq_data["atree"] < 0:
+                global_texmods.setdefault(seq_data["start"], {})\
+                              .setdefault(seq_data["name"], [])\
+                              .append(texmod_seq)
+            else:
+                local_texmods.setdefault(seq_data["start"], {})\
+                             .setdefault(seq_data["name"], [])\
+                             .append(texmod_seq)
+
+        for start, seq_indices_by_names in global_texmods.items():
+            # for texmods that share the same texture frames, we try to find
+            # a common prefix among one of them and the source_name. from
+            # this common prefix, we generate a series of texture frame names
+            prefix = ""
+            for name in sorted(seq_indices_by_names):
+                seq_data    = seq_indices_by_names[name]
+                tex_index   = seq_data["tex_index"]
+                prefix      = prefix or util.get_common_prefix(
+                    name, seq_data["source_name"]
+                    )
+
+                # create the bitmap_name for the animation this texmod uses
+                asset = dict(
+                    asset_name=name, name=name, index=tex_index,
+                    actor=actor_names.get(seq_data["atree"], "_texmods")
+                    )
+                bitmap_assets[tex_index] = asset
+
+            asset_base  = {k: asset[k] for k in ("asset_name", "actor")}
+
+            # generate the names of the frames
+            for i, name in enumerate(util.generate_sequence_names(
+                    # default to the name if we failed to find a common prefix
+                    seq_data['count'], prefix or name, seq_data["source_name"]
+                    )):
+                i += start
+                bitmap_assets[i] = dict(name=name, index=i, **asset_base)
+
+        self._texmod_names = bitmap_assets
+        return dict(self._texmod_names)
 
     def _calculate_sequence_info_data(self, calc_indices=True):
         '''
@@ -67,6 +229,7 @@ class AnimTag(GdlTag):
         for atree in self.data.atrees:
             atree_data = atree.atree_header.atree_data
 
+            # fuck you for doing this, Midway
             atree_seq_pointer     = atree_data.atree_sequences.get_meta('POINTER')
             skeletal_array_offset = atree_data.anim_header.sequence_info_pointer
             object_array_offset   = atree_data.obj_anim_header.obj_anim_pointer
@@ -178,7 +341,7 @@ class AnimTag(GdlTag):
                         len(frame_data.initial_frame_data) * frame_data.initial_frame_data.itemsize +
                         len(frame_data.uncomp_frame_data)  * frame_data.uncomp_frame_data.itemsize
                         )
-                    frame_data_size += calculate_padding(frame_data_size, 4) # 4byte align
+                    frame_data_size += util.calculate_padding(frame_data_size, 4) # 4byte align
 
             # calculate pointers for all sequence infos and obj_anims
             anim_header.sequence_info_pointer = anim_header_size
