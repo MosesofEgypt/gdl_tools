@@ -158,7 +158,7 @@ def export_obj(model_cache, output_filepath, texture_assets={}, swap_lightmap_an
                 # TODO: write a shared function to handle this naming
                 for key in texture_assets:
                     if (bitmap_name and key.startswith(bitmap_name) and
-                        set(key.split(bitmap_name, 1)[-1][1:]).issubset("0123456789")):
+                        set(key.split(bitmap_name, 1)[-1]).lstrip("._").issubset("0123456789")):
                         bitmap_filepath = texture_assets[key]
                         break
 

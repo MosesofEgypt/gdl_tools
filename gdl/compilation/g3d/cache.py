@@ -8,7 +8,8 @@ from ...defs.anim import anim_def
 from ...defs.objects import objects_def
 from ...defs.texdef import texdef_def
 from ...defs.worlds import worlds_def
-from ..metadata import util as metadata_util
+from ..metadata import animations as animations_metadata,\
+     objects as objects_metadata, util as metadata_util
 from . import animation, model, texture
 from .serialization.asset_cache import verify_source_file_asset_checksum
 from . import constants as c

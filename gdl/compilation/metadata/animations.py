@@ -37,30 +37,26 @@ def decompile_animations_metadata(
     # decompile texmods
     texmods_by_source_index = {}
     for i, texmod in enumerate(texmods):
-        if texmod.atree >= 0 and texmod.seq_index >= 0:
+        name, meta = decompile_texmod_metadata(texmod, bitmap_assets)
+
+        if texmod.atree < 0:
+            existing_meta = texmods_metadata.setdefault(name, {})
+            existing_meta.update(meta)
+            meta = existing_meta
+        elif texmod.seq_index < 0:
+            continue
+        else:
             atree       = atrees[texmod.atree]
             actor_name  = atree.name.upper().strip()
             actor_meta  = actors_metadata[actor_name]
+            if texmod.seq_index >= 0:
+                seq      = atree.atree_header.atree_data.atree_sequences[texmod.seq_index]
+                seq_name = seq.name.upper().strip()
+                seq_meta = actor_meta["sequences"][seq_name]
 
-            seq = atree.atree_header.atree_data.atree_sequences[texmod.seq_index]
-            seq_name = seq.name.upper().strip()
-            seq_meta = meta["sequences"][seq_name]
-            for j in range(seq.texmod_index, seq.texmod_index + seq.texmod_count):
-                if j not in range(len(texmods)):
-                    continue
-
-                texmod = texmods[j]
-                name, texmod_meta = decompile_texmod_metadata(texmod, bitmap_assets)
                 seq_meta.setdefault("texmods", {})\
                         .setdefault(name, {})\
-                        .update(texmod_meta)
-
-        name, meta = decompile_texmod_metadata(texmod, bitmap_assets)
-        if name in texmods_metadata:
-            texmods_metadata[name].update(meta)
-            meta = texmods_metadata[name]
-
-        texmods_metadata[name] = meta
+                        .update(meta)
 
         # existence of frame_rate indicates it's a tex-swap animation
         if "frame_rate" in meta:

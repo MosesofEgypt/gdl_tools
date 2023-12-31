@@ -32,10 +32,11 @@ class AnimTag(GdlTag):
                 atree       = texmod.atree,
                 seq_index   = texmod.seq_index,
                 tex_index   = texmod.tex_index,
+                index       = i,
                 start       = texmod.type.source_index.idx,
                 count       = abs(texmod.frame_count),
                 name        = texmod.name.upper().strip(),
-                source_name = texmod.source_name.upper().strip(),
+                source      = texmod.source_name.upper().strip(),
                 )
             for i, texmod in enumerate(self.data.texmods)
             if texmod.type.source_index.idx >= 0
@@ -146,9 +147,9 @@ class AnimTag(GdlTag):
                         if has_object_def or len(instances) == 1:
                             node_names[node_i] = name
                         else:
-                            node_names[node_i] = ".".join(
+                            node_names[node_i] = ".".join((
                                 name, util.index_count_to_string(j+1, len(instances)+1)
-                                )
+                                ))
 
             self._node_names_by_atree = node_names_by_atree
 
@@ -161,58 +162,96 @@ class AnimTag(GdlTag):
         if not recache and self._texmod_names is not None:
             return dict(self._texmod_names)
 
-        actor_names     = {i: n for i, n in enumerate(self.get_actor_names())}
-        bitmap_assets   = {}
-        global_texmods  = {}
-        local_texmods   = {}
-        '''
-        atree       = texmod.atree,
-        seq_index   = texmod.seq_index,
-        tex_index   = texmod.tex_index,
-        start       = texmod.type.source_index.idx,
-        count       = abs(texmod.frame_count),
-        name        = texmod.name.upper().strip(),
-        source_name = texmod.source_name.upper().strip()
-        '''
-        for i, seq_data in self.texmod_seqs.items():
-            texmod_seq = dict(index=i, **seq_data)
-            if seq_data["atree"] < 0:
-                global_texmods.setdefault(seq_data["start"], {})\
-                              .setdefault(seq_data["name"], [])\
-                              .append(texmod_seq)
-            else:
-                local_texmods.setdefault(seq_data["start"], {})\
-                             .setdefault(seq_data["name"], [])\
-                             .append(texmod_seq)
+        actor_names      = {i: n for i, n in enumerate(self.get_actor_names())}
+        texmod_seqs      = self.texmod_seqs
+        bitmap_assets    = {}
+        texmods_by_index = {}
+        texmods_by_start = {}
 
-        for start, seq_indices_by_names in global_texmods.items():
+        for i in sorted(texmod_seqs):
+            # atree       = texmod.atree,
+            # seq_index   = texmod.seq_index,
+            # tex_index   = texmod.tex_index,
+            # start       = texmod.type.source_index.idx,
+            # count       = abs(texmod.frame_count),
+            # name        = texmod.name.upper().strip(),
+            # source      = texmod.source_name.upper().strip()
+            seq_data = texmod_seqs[i]
+            texmods_by_start.setdefault(seq_data["start"], {})\
+                            .setdefault(seq_data["tex_index"], [])\
+                            .append(texmod_seqs[i])
+            texmods_by_index.setdefault(seq_data["tex_index"], {})\
+                            .setdefault(seq_data["start"], [])\
+                            .append(texmod_seqs[i])
+
+        complete_sequences = []
+
+        for start, seq_datas_by_index in texmods_by_start.items():
             # for texmods that share the same texture frames, we try to find
             # a common prefix among one of them and the source_name. from
             # this common prefix, we generate a series of texture frame names
-            prefix = ""
-            for name in sorted(seq_indices_by_names):
-                seq_data    = seq_indices_by_names[name]
-                tex_index   = seq_data["tex_index"]
-                prefix      = prefix or util.get_common_prefix(
-                    name, seq_data["source_name"]
-                    )
+            source = actor = prefix = ""
 
-                # create the bitmap_name for the animation this texmod uses
-                asset = dict(
-                    asset_name=name, name=name, index=tex_index,
-                    actor=actor_names.get(seq_data["atree"], "_texmods")
-                    )
-                bitmap_assets[tex_index] = asset
+            # find defaults if some sequences are corrupt
+            for index in sorted(seq_datas_by_index):
+                for seq_data in seq_datas_by_index[index]:
+                    if seq_data["name"]:
+                        source  = source or seq_data["source"]
+                        actor   = actor  or actor_names.get(seq_data["atree"])
+                        prefix  = prefix or util.get_common_prefix(seq_data["name"], source)
 
-            asset_base  = {k: asset[k] for k in ("asset_name", "actor")}
+            for index in sorted(seq_datas_by_index):
+                for seq_data in seq_datas_by_index[index]:
+                    tmp_name  = seq_data["name"] or name
+                    # create the bitmap_name for the animation this texmod uses
+                    complete_sequences.append(dict(
+                        name   = tmp_name,
+                        start  = seq_data["start"],
+                        count  = seq_data["count"],
+                        source = (seq_data["source"] or source),
+                        actor  = (actor_names.get(seq_data["atree"]) or actor),
+                        # default to the name if we failed to find a common prefix
+                        prefix = ((util.get_common_prefix(tmp_name, source) or prefix) or tmp_name),
+                        ))
+
+        # for texmods that share the same name, we need to stitch
+        # together the frames and determine the complete sequence
+        for index, seq_datas_by_starts in texmods_by_index.items():
+
+            # NOTE: doing this sorted to ensure any frames that later sequences
+            #       explicitly name are overwritten with the canonical name
+            for start in sorted(seq_datas_by_starts):
+
+                # find defaults if sub-sequences are corrupt
+                source  = actor = name  = prefix = ""
+                for seq_data in seq_datas_by_starts[start]:
+                    name    = name   or seq_data["name"]
+                    source  = source or seq_data["source"]
+                    prefix  = prefix or util.get_common_prefix(name, source)
+                    actor   = actor  or actor_names.get(seq_data["atree"])
+
+                for seq_data in seq_datas_by_starts[start]:
+                    tmp_name = seq_data["name"] or name
+                    complete_sequences.append(dict(
+                        name   = tmp_name,
+                        start  = seq_data["start"],
+                        count  = seq_data["count"],
+                        source = (seq_data["source"] or source),
+                        actor  = (actor_names.get(seq_data["atree"]) or actor),
+                        # default to the name if we failed to find a common prefix
+                        prefix = ((util.get_common_prefix(tmp_name, source) or prefix) or tmp_name),
+                        ))
+
+        for seq in complete_sequences:
+            asset_base = dict(asset_name=seq["name"], actor=seq["actor"] or "_texmods")
 
             # generate the names of the frames
             for i, name in enumerate(util.generate_sequence_names(
-                    # default to the name if we failed to find a common prefix
-                    seq_data['count'], prefix or name, seq_data["source_name"]
+                    seq["prefix"], seq["count"], start_name=seq["source"],
                     )):
-                i += start
+                i += seq["start"]
                 bitmap_assets[i] = dict(name=name, index=i, **asset_base)
+
 
         self._texmod_names = bitmap_assets
         return dict(self._texmod_names)

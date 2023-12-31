@@ -247,7 +247,7 @@ def export_models(
     lone_object_indices = set(object_assets.keys())
     actor_asset_types   = tuple(s for s in asset_types if s in c.ACTOR_ASSET_EXTENSIONS)
     object_name_map     = {object_assets[k]["name"]: k for k in object_assets}
-    objanim_seqs        = objects_tag.objanim_seqs
+    objanim_seqs        = objects_tag.get_objanim_seqs()
 
     atrees = list(anim_tag.data.atrees) # make list for faster iteration
     obj_anim_actors = {}

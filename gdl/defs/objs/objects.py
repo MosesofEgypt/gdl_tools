@@ -126,31 +126,34 @@ class ObjectsTag(GdlTag):
         # fill in object animation frame names
         objanim_names       = {}
         object_data_by_name = { v["name"]: v for v in object_names.values()}
-        for asset_name, seq_data in self.get_objanim_seqs(recache).items():
-            if seq_data["name"] not in object_data_by_name:
+        for objdef_name, seq_data in self.get_objanim_seqs(recache).items():
+            if objdef_name not in object_data_by_name:
+                print(f"Error: Could not locate '{objdef_name}' in object defs.")
                 continue
 
-            start = object_data_by_name[seq_data["name"]]["index"]
-            count = seq_data["count"]
-            for i in range(count):
-                name = "_".join(asset_name, util.index_count_to_string(i, count))
-
-                object_names[start + i] = dict(
+            start       = object_data_by_name[objdef_name]["index"]
+            asset_name  = seq_data["name"]
+            actor       = seq_data["actor"]
+            for i, name in enumerate(util.generate_sequence_names(
+                    asset_name, seq_data["count"],
+                    )):
+                i += start
+                object_names[i] = dict(
                     name        = name,
                     asset_name  = asset_name,
-                    def_name    = object_names.get(start + i, {}).get("def_name", name),
-                    index       = start+i,
-                    actor       = seq_data.get("actor", "")
+                    def_name    = objdef_name,
+                    index       = i,
+                    actor       = actor
                     )
-                if seq_data.get("actor"):
-                    object_names[start + i].update(actor=seq_data["actor"])
 
         # fill in object names that couldn't be determined
         unnamed = 0
         actorobj_map = {} if self.anim_tag is None else self.anim_tag.actorobj_map
         for i, obj in enumerate(self.data.objects):
             if i not in object_names:
-                name = ".".join(c.UNNAMED_ASSET_NAME, util.index_count_to_string(unnamed, 10))
+                name = ".".join((
+                    c.UNNAMED_ASSET_NAME, util.index_digits_to_string(unnamed, 10)
+                    ))
                 object_names[i] = dict(
                     name        = name,
                     asset_name  = c.UNNAMED_ASSET_NAME,
@@ -183,7 +186,7 @@ class ObjectsTag(GdlTag):
             for i in range(obj_index, obj_index + obj_frames):
                 name = (
                     asset_name if i == obj_index else
-                    ".".join(name, util.index_count_to_string(i, obj_frames))
+                    ".".join((name, util.index_count_to_string(i, obj_frames)))
                     )
                 obj_def_names[i] = dict(
                     name        = name,
@@ -202,7 +205,7 @@ class ObjectsTag(GdlTag):
             return dict(self._bitmap_names)
 
         # determine which bitmaps are for particles
-        particle_bitmaps = set(self.particle_map().values())
+        particle_bitmaps = set(self.get_particle_map().values())
 
         self._bitmap_names = {}
         for b in self.data.bitmap_defs:
@@ -285,7 +288,7 @@ class ObjectsTag(GdlTag):
                 fake_index  = -(i+1) # to identify which object its from, we'll negate it
                 lightmap_names[fake_index] = dict(
                     index       = fake_index,
-                    name        = "_".join(c.LIGHTMAP_NAME, suffix),
+                    name        = "_".join((c.LIGHTMAP_NAME, suffix)),
                     asset_name  = c.LIGHTMAP_NAME,
                     )
 
@@ -331,9 +334,9 @@ class ObjectsTag(GdlTag):
                         tex_index, dict(
                             asset_name  = asset_name,
                             index       = tex_index,
-                            name        = ".".join(
+                            name        = ".".join((
                                 asset_name, util.index_count_to_string(i, len(indices))
-                                ),
+                                )),
                             )
                         )
                     if actor:
@@ -368,9 +371,9 @@ class ObjectsTag(GdlTag):
                 new_name = name
                 i = 1
                 while new_name in seen_names:
-                    new_name = ".".join(
+                    new_name = ".".join((
                         name, util.index_count_to_string(i, bitmap_count)
-                        )
+                        ))
                     i += 1
 
                 v.update(name=new_name)
@@ -384,9 +387,9 @@ class ObjectsTag(GdlTag):
                 bitmap_names[i] = dict(
                     asset_name=name,
                     index=i,
-                    name=".".join(
+                    name=".".join((
                         name, util.index_count_to_string(unnamed, bitmap_count)
-                        ),
+                        )),
                     )
                 unnamed += 1
 

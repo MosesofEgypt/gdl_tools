@@ -77,31 +77,42 @@ def index_digits_to_string(index, digits):
     return ("{i:0%sd}" % digits).format(i=index)
 
 
-def generate_sequence_names(count, prefix, start_name="", start=0, step=1):
+def sequence_suffix_from_prefix_and_name(prefix, name):
+    parts  = name.split(prefix, 1)
+    suffix = parts[1] if len(parts) == 2 else ""
+    if (suffix and len(parts[0]) == 0 and set(suffix).issubset(string.digits)):
+        # name begins with prefix, and ends with a set of digits.
+        # use the ending digits at the starting integer
+        return suffix
+    return ""
+
+def generate_sequence_names(prefix, count, start_name="", start=0, step=1):
     if count < 1 or step < 1:
         return []
 
-    parts  = start_name.split(prefix, 1)
-    suffix = parts[1] if len(parts) == 2 else ""
-    if (suffix and len(parts[0]) == 0 and set(suffix) == set(string.digits)):
-        # start_name begins with prefix, and ends with a set of digits.
-        # use the ending digits at the starting integer
+    suffix = sequence_suffix_from_prefix_and_name(prefix, start_name)
+    if suffix:
         start = int(suffix)
-    else:
-        start_name = ""
 
-    digits = int(len(suffix)-1)
-    if count+start > 10**digits:
-        digits = int(math.ceil(math.log10(count+start)))
+    digits = len(suffix)
 
-    if not start_name:
-        start_name = prefix + index_digits_to_string(start, digits)
+    stop = count * step + start
+    req_digits = int(math.ceil(math.log10(max(1, stop))))
+
+    if req_digits > digits:
+        if digits:
+            print("Warning: Sequence digits too low to handle start "
+                  f"of {start}, step of {step}, and count of {count}. "
+                  f"Increasing from {digits} to {req_digits}.")
+        digits = req_digits
 
     names = [
         prefix + index_digits_to_string(i, digits)
-        for i in range(start, start + count*step, step)
+        for i in range(start, stop, step)
         ]
-    names[0] = start_name
+    if start_name:
+        names[0] = start_name
+
     return names
 
 
