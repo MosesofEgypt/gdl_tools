@@ -116,13 +116,17 @@ def generate_sequence_names(prefix, count, start_name="", start=0, step=1):
     return names
 
 
-def get_common_prefix(a, b):
-    return (
+def get_sequence_prefix(a, b):
+    prefix = (
         ""  if a[:1] != b[:1]  else
         a   if b.startswith(a) else
         b   if a.startswith(b) else
         a[:min((i for i, c in enumerate(zip(a, b)) if c[0] != c[1]))]
         )
+    if not(prefix and set(b.split(prefix, 1)[1]).issubset(string.digits)):
+        prefix = b.rstrip(string.digits)
+
+    return prefix
 
 
 def get_is_arcade_rom(filepath):

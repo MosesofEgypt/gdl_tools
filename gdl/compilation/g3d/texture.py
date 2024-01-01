@@ -450,7 +450,7 @@ def export_textures(
 
 def bitmap_to_texture_cache(bitmap_or_lm_block, textures_file, is_ngc=False, cache_type=None):
     is_arcade   = is_dreamcast_lm = is_dreamcast = False
-    is_ps2_xbox = hasattr(bitmap_or_lm_block, "lod_k")
+    is_ps2_xbox = hasattr(bitmap_or_lm_block, "lod_k") and not is_ngc
     if not is_ps2_xbox and not is_ngc:
         is_dreamcast_lm = hasattr(bitmap_or_lm_block, "dc_lm_sig1")
         is_dreamcast    = hasattr(bitmap_or_lm_block, "image_type")

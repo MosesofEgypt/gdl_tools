@@ -175,22 +175,17 @@ def decompile_bitmap_metadata(bitm, asset_name=None, actor_name=None, cache_name
     return metadata_bitm
 
 
-def is_frame_name(name, asset_name):
-    stripped_name = name.rstrip("0123456789").upper()
-    asset_name    = asset_name.upper() + "_"
-    return stripped_name == asset_name
-
-
 def _consolidate_metadata_frames(metadata, is_bitmaps):
     all_anim_metadata = {}
     is_objects = not is_bitmaps # for clarity
 
+    # setup the parent texture/object animations
     for name in sorted(metadata):
         asset_name = metadata[name]["asset_name"]
         if asset_name in all_anim_metadata:
             continue
         elif ((is_bitmaps and name == asset_name and metadata[name].pop("animation", None)) or
-              (is_objects and is_frame_name(name, asset_name))
+              is_objects
               ):
             metadata_item = all_anim_metadata[asset_name] = metadata.pop(name)
             metadata_item.update(frames=({name: {}} if is_objects else {}))
@@ -199,7 +194,7 @@ def _consolidate_metadata_frames(metadata, is_bitmaps):
         metadata_item = metadata[name]
         asset_name    = metadata_item["asset_name"]
         anim_metadata = all_anim_metadata.get(asset_name)
-        if anim_metadata is None or not is_frame_name(name, asset_name):
+        if anim_metadata is None:
             continue
 
         metadata.pop(name)

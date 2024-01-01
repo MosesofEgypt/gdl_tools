@@ -63,17 +63,6 @@ def decompile_animations_metadata(
             texmods_by_source_index.setdefault(texmod.type.source_index.idx, {})\
                                    .setdefault(name, []).append(meta)
 
-    # for texmods that share the same texture frames, we assign all the frames
-    # to the alphabetically first in the array, and have the others reference it.
-    for source_index, metas in texmods_by_source_index.items():
-        source_name = sorted(metas)[0]
-        for texmod_name, metas_array in metas.items():
-            if texmod_name == source_name:
-                continue
-
-            for meta in metas_array:
-                meta["source_name"] = source_name
-
     # decompile particle systems
     psys_metadata = decompile_all_psys_metadata(anim_tag.data.particle_systems)
 
@@ -228,9 +217,13 @@ def decompile_texmod_metadata(texmod, bitmap_assets):
             meta.update({f"{texmod_type}_start": transform_start})
 
     elif texmod_type == "external":
-        meta.update(external=True)
+        meta.update(external=True, source_name=texmod.source_name)
     else:
-        meta.update(frame_rate=tex_swap_rate)
+        meta.update(
+            frame_rate=tex_swap_rate,
+            frame_count=texmod.frame_count,
+            source_name=texmod.source_name
+            )
         if transform_start:
             meta.update(start_frame=texmod.tex_start_frame)
 

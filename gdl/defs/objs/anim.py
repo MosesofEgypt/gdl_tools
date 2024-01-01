@@ -198,7 +198,7 @@ class AnimTag(GdlTag):
                     if seq_data["name"]:
                         source  = source or seq_data["source"]
                         actor   = actor  or actor_names.get(seq_data["atree"])
-                        prefix  = prefix or util.get_common_prefix(seq_data["name"], source)
+                        prefix  = prefix or util.get_sequence_prefix(seq_data["name"], source)
 
             for index in sorted(seq_datas_by_index):
                 for seq_data in seq_datas_by_index[index]:
@@ -211,7 +211,7 @@ class AnimTag(GdlTag):
                         source = (seq_data["source"] or source),
                         actor  = (actor_names.get(seq_data["atree"]) or actor),
                         # default to the name if we failed to find a common prefix
-                        prefix = ((util.get_common_prefix(tmp_name, source) or prefix) or tmp_name),
+                        prefix = ((util.get_sequence_prefix(tmp_name, source) or prefix) or tmp_name),
                         ))
 
         # for texmods that share the same name, we need to stitch
@@ -227,7 +227,7 @@ class AnimTag(GdlTag):
                 for seq_data in seq_datas_by_starts[start]:
                     name    = name   or seq_data["name"]
                     source  = source or seq_data["source"]
-                    prefix  = prefix or util.get_common_prefix(name, source)
+                    prefix  = prefix or util.get_sequence_prefix(name, source)
                     actor   = actor  or actor_names.get(seq_data["atree"])
 
                 for seq_data in seq_datas_by_starts[start]:
@@ -239,7 +239,7 @@ class AnimTag(GdlTag):
                         source = (seq_data["source"] or source),
                         actor  = (actor_names.get(seq_data["atree"]) or actor),
                         # default to the name if we failed to find a common prefix
-                        prefix = ((util.get_common_prefix(tmp_name, source) or prefix) or tmp_name),
+                        prefix = ((util.get_sequence_prefix(tmp_name, source) or prefix) or tmp_name),
                         ))
 
         for seq in complete_sequences:

@@ -137,9 +137,9 @@ def generate_obj_anim_nodes(frame_count, node_cls, suffix):
 
     for i in range(frame_count):
         nodes.append(node_cls())
-        nodes[-1].name      = "F" + ("_".join(
+        nodes[-1].name      = "F" + ("_".join((
             index_count_to_string(i, frame_count), suffix
-            ))
+            )))
         nodes[-1].type_name = "skeletal"
         nodes[-1].parent    = 0
 
