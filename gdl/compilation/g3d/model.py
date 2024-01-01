@@ -248,6 +248,7 @@ def export_models(
     actor_asset_types   = tuple(s for s in asset_types if s in c.ACTOR_ASSET_EXTENSIONS)
     object_name_map     = {object_assets[k]["name"]: k for k in object_assets}
     objanim_seqs        = objects_tag.get_objanim_seqs()
+    objdef_names        = { v["name"]: v for v in objects_tag.get_object_def_names().values()}
 
     atrees = list(anim_tag.data.atrees) # make list for faster iteration
     obj_anim_actors = {}
@@ -267,6 +268,10 @@ def export_models(
         atree_data  = atree.atree_header.atree_data
         sequences   = atree_data.atree_sequences
         anode_infos = atree_data.anode_infos
+        obj_anims_names = {
+            i: obj_anim.mb_desc.strip().upper() for i, obj_anim in
+            enumerate(atree_data.obj_anim_header.obj_anims)
+            }
         all_actor_nodes[i], prefix = nodes, atree.atree_header.prefix.upper()
 
         for j, node in enumerate(nodes):
@@ -280,17 +285,17 @@ def export_models(
             elif node.type_name == "object":
                 seq_index   = anode_infos[j].anim_seq_info_index
                 for k, seq in enumerate(sequences):
-                    obj_anim_index = k + seq_index
-                    seq_name = seq.name.upper().strip()
+                    seq_name    = seq.name.upper().strip()
+                    obj_seq     = objanim_seqs.get(
+                        obj_anims_names.get(k + seq_index)
+                        )
                     if not seq_name:
                         continue
-
-                    obj_seq_name = f"{obj_name}_{seq_name}"
-                    if obj_seq_name not in objanim_seqs:
+                    elif not obj_seq:
                         print(f"Could not locate object '{obj_seq_name}'")
                         continue
 
-                    obj_seq = objanim_seqs[obj_seq_name]
+                    obj_seq_name = f"{obj_name}_{seq_name}"
                     start, count = obj_seq["start"], obj_seq["count"]
 
                     obj_anim_actors[obj_seq_name] = dict(

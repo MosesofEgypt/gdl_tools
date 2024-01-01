@@ -122,6 +122,7 @@ class ObjectsTag(GdlTag):
 
         # fill in object names from definitions
         object_names = self.get_object_def_names(recache)
+        object_count = len(self.data.objects)
 
         # fill in object animation frame names
         objanim_names       = {}
@@ -148,21 +149,13 @@ class ObjectsTag(GdlTag):
 
         # fill in object names that couldn't be determined
         unnamed = 0
-        actorobj_map = {} if self.anim_tag is None else self.anim_tag.actorobj_map
         for i, obj in enumerate(self.data.objects):
             if i not in object_names:
                 name = ".".join((
-                    c.UNNAMED_ASSET_NAME, util.index_digits_to_string(unnamed, 10)
+                    c.UNNAMED_ASSET_NAME,
+                    util.index_count_to_string(unnamed, object_count)
                     ))
-                object_names[i] = dict(
-                    name        = name,
-                    asset_name  = c.UNNAMED_ASSET_NAME,
-                    index       = i,
-                    actor       = actorobj_map.get(name, "")
-                    )
-                if actorobj_map.get(name):
-                    object_names[i].update(actor=actorobj_map[name])
-
+                object_names[i] = dict(asset_name=name, name=name, index=i)
                 unnamed += 1
 
             if not object_names[i].get("actor"):
@@ -316,7 +309,7 @@ class ObjectsTag(GdlTag):
             indices = bitmap_indices_by_actor_asset\
                       .setdefault(object_names[i].get("actor", ""), {})\
                       .setdefault(object_names[i]["asset_name"], set())
-            if is_vif:
+            if is_vif and getattr(obj, "sub_objects_count", 1):
                 # populate maps to help name bitmaps
                 subobj_headers = (obj.sub_object_0, )
                 if hasattr(obj.data, "sub_objects"):
@@ -381,17 +374,18 @@ class ObjectsTag(GdlTag):
             seen_names[name] = k
 
         # fill in bitmap names that couldn't be determined
-        unnamed, name = 0, c.UNNAMED_ASSET_NAME
+        unnamed = 0
         for i, bitm in enumerate(self.data.bitmaps):
             if i not in bitmap_names:
-                bitmap_names[i] = dict(
-                    asset_name=name,
-                    index=i,
-                    name=".".join((
-                        name, util.index_count_to_string(unnamed, bitmap_count)
-                        )),
-                    )
+                name = ".".join((
+                    c.UNNAMED_ASSET_NAME,
+                    util.index_count_to_string(unnamed, bitmap_count)
+                    ))
+                bitmap_names[i] = dict(asset_name=name, name=name, index=i)
                 unnamed += 1
+
+            if not bitmap_names[i].get("actor"):
+                bitmap_names[i].pop("actor", None)
 
         self._object_assets_by_index = object_names
         self._bitmap_assets_by_index = bitmap_names

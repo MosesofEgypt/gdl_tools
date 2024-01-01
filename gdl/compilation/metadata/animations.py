@@ -120,9 +120,12 @@ def decompile_atree_metadata(
         node_type   = node.anim_type.enum_name
         node_name   = node_names[i]
         node_meta   = dict(
-            type = node_type,
-            name = node_name,
+            type  = node_type,
+            name  = node_name,
             )
+        for n, val in zip("xyz", node.init_pos):
+            if val:
+                node_meta[f"pos_{n}"] = val
 
         if node.parent_index >= 0:
             node_meta.update(parent=node.parent_index)
