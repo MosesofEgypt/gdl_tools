@@ -52,28 +52,29 @@ class AnimTag(GdlTag):
             prefix     = atree.atree_header.prefix.upper().strip()
             atree_data = atree.atree_header.atree_data
             obj_anims  = atree_data.obj_anim_header.obj_anims
-            sequences  = atree_data.atree_sequences
             if not obj_anims:
                 continue
 
+            seq_names = [seq.name.upper().strip()
+                         for seq in atree_data.atree_sequences]
             for node in atree_data.anode_infos:
                 if node.anim_type.enum_name != "object":
                     continue
 
                 node_name       = node.mb_desc.upper().strip()
                 object_prefix   = f"{prefix}{node_name}"
-                for atree_seq, obj_anim in zip(
-                        sequences, obj_anims[node.anim_seq_info_index:]
+                for seq_name, obj_anim in zip(
+                        seq_names, obj_anims[node.anim_seq_info_index:]
                         ):
-                    seq_name    = atree_seq.name.upper().strip()
                     objdef_name = obj_anim.mb_desc.upper().strip()
-                    object_name = f"{object_prefix}_{seq_name}"
+                    if not objdef_name:
+                        continue
 
                     self._objanim_seqs.update({
                         objdef_name: dict(
                             start = obj_anim.start_frame,
                             count = abs(obj_anim.frame_count),
-                            name  = object_name,
+                            name  = f"{object_prefix}_{seq_name}",
                             actor = prefix
                             )
                         })

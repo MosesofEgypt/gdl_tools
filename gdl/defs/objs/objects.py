@@ -176,10 +176,13 @@ class ObjectsTag(GdlTag):
             obj_index   = obj_def.obj_index
             obj_frames  = max(0, obj_def.frames) + 1
             asset_name  = obj_def.name.strip().upper()
+            if not asset_name:
+                continue
+
             for i in range(obj_index, obj_index + obj_frames):
                 name = (
                     asset_name if i == obj_index else
-                    ".".join((name, util.index_count_to_string(i, obj_frames)))
+                    ".".join((asset_name, util.index_count_to_string(i, obj_frames)))
                     )
                 obj_def_names[i] = dict(
                     name        = name,

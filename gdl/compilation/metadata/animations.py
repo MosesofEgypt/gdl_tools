@@ -25,6 +25,7 @@ def decompile_animations_metadata(
         object_asset_name_map = {}
 
     texmods, particle_systems = anim_tag.data.texmods, anim_tag.data.particle_systems
+    psys_instances = {}
 
     # decompile actors
     for i, atree in enumerate(atrees):
@@ -33,6 +34,11 @@ def decompile_animations_metadata(
             atree, texmods, node_names, bitmap_assets, object_asset_name_map
             )
         actors_metadata[name] = meta
+        for j, node in enumerate(meta["nodes"]):
+            if "psys_index" in node:
+                psys_instances.setdefault(node["psys_index"], {})\
+                              .setdefault(name, [])\
+                              .append(node["name"])
 
     # decompile texmods
     texmods_by_source_index = {}
@@ -64,7 +70,9 @@ def decompile_animations_metadata(
                                    .setdefault(name, []).append(meta)
 
     # decompile particle systems
-    psys_metadata = decompile_all_psys_metadata(anim_tag.data.particle_systems)
+    psys_metadata = decompile_all_psys_metadata(
+        anim_tag.data.particle_systems, psys_instances
+        )
 
     metadata_sets = {
         f"{c.TEXMODS_FOLDERNAME}/_texmods": dict(texmods = texmods_metadata),
@@ -130,9 +138,7 @@ def decompile_atree_metadata(
         if node.parent_index >= 0:
             node_meta.update(parent=node.parent_index)
 
-        if node_type == "null":
-            node_meta.update(is_null=True)
-        elif node_type == "texture":
+        if node_type == "texture":
             if node.anim_seq_info_index in range(len(texmods)):
                 _, texmod_meta = decompile_texmod_metadata(
                     texmods[node.anim_seq_info_index], bitmap_assets
@@ -158,7 +164,7 @@ def decompile_atree_metadata(
                     obj_anim_meta.update(start_frame = obj_anim.start_frame)
 
                 meta["sequences"][seq_name].setdefault("obj_anims", {})[node_name] = obj_anim_meta
-        else:
+        elif node_type == "skeletal":
             for seq_info, seq_meta in zip(node.anim_seq_infos, seq_metas):
                 seq_meta.update(
                     node_compression = {
@@ -166,6 +172,14 @@ def decompile_atree_metadata(
                         **seq_meta["node_compression"]
                         }
                     )
+        elif node_type == "null":
+            # TODO: determine if this can be determined from
+            #       whether this node ever animates or not.
+            node_meta.update(is_null=True)
+        elif node_type == "particle_system":
+            node_meta.update(psys_index=node.anim_seq_info_index)
+        else:
+            print(f"Warning: Unknown node type {node.anim_type.data} detected.")
 
         seen_nodes.setdefault(node_name, []).append(i)
 
@@ -188,6 +202,8 @@ def decompile_atree_metadata(
 
         # set default compression and remove per-node overrides that match it
         seq_meta["compress"] = compress
+        # NOTE: when reading animations, if compress isn't specified it means
+        #       to automatically determine if compression should be applied
         for i in tuple(node_comp):
             if node_comp[i] == compress:
                 del node_comp[i]
@@ -233,12 +249,17 @@ def decompile_texmod_metadata(texmod, bitmap_assets):
     return name, meta
 
 
-def decompile_all_psys_metadata(particle_systems):
+def decompile_all_psys_metadata(particle_systems, psys_instances=()):
     psys_metadata = {}
+    psys_instances = psys_instances or {}
     # decompile particle systems
     if hasattr(particle_systems, "__iter__"):
-        for psys in particle_systems:
-            psys_metadata[psys.id.enum_name] = decompile_psys_metadata(psys)
+        for i, psys in enumerate(particle_systems):
+            meta = decompile_psys_metadata(psys)
+            for actor_name, instances in psys_instances.get(i, {}).items():
+                meta.setdefault("instances", {})[actor_name] = tuple(instances)
+
+            psys_metadata[psys.id.enum_name] = meta
 
     return dict(particle_systems=psys_metadata)
 
