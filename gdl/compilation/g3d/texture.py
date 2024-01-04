@@ -9,7 +9,6 @@ from .serialization.texture_cache import TextureCache, Ps2TextureCache,\
      GamecubeTextureCache, DreamcastTextureCache, ArcadeTextureCache
 from .serialization import texture_util, ncc
 from . import constants as c
-from . import texture_buffer_packer
 from . import util
 
 
@@ -269,64 +268,23 @@ def import_textures(
                 # set invalid flag and be done with it.
                 if hasattr(flags, "invalid"):
                     flags.invalid = True
-
-                continue
-
-            if is_external or is_invalid or target_arcade or target_dreamcast:
-                continue
-
-            # populate tex0 and miptbp
-            format_name             = bitm.format.enum_name
-            bitm.tex0.tex_width     = bitm.log2_of_width
-            bitm.tex0.tex_height    = bitm.log2_of_height
-            bitm.tex0.psm.set_to(
-                c.PSM_T8   if "IDX_8" in format_name else
-                c.PSM_T4   if "IDX_4" in format_name else
-                c.PSM_CT16 if "1555"  in format_name else
-                c.PSM_CT32 if "8888"  in format_name else
-                c.PSM_CT32 # should never hit this
-                )
-            bitm.tex0.tex_cc.set_to(
-                meta.get("tex_cc", "rgba")
-                )
-            bitm.tex0.clut_pixmode.set_to(
-                c.PSM_CT16 if "1555_IDX" in format_name else c.PSM_CT32
-                )
-            bitm.tex0.tex_function.set_to(
-                meta.get("tex_function", "decal")
-                )
-            bitm.tex0.clut_smode.set_to(
-                meta.get("clut_smode", "csm1")
-                )
-            bitm.tex0.clut_loadmode.set_to(
-                meta.get("clut_loadmode", "recache")
-                )
-
-            buffer_calc = texture_buffer_packer.TextureBufferPacker(
-                width=bitm.width, height=bitm.height,
-                mipmaps=bitm.mipmap_count,
-                pixel_format=bitm.tex0.psm.enum_name,
-                palette_format=(
-                    bitm.tex0.clut_pixmode.enum_name
-                    if format_name in c.RGB_FORMATS else
-                    None
-                    ),
-                )
-            buffer_calc.pack()
-
-            bitm.size         = buffer_calc.block_count
-            bitm.tex0.cb_addr = buffer_calc.palette_address
-
-            bitm.tex0.tb_addr, bitm.tex0.tb_width = buffer_calc.get_address_and_width(0)
-            for m in range(1, 7):
-                tb_addr, tb_width = buffer_calc.get_address_and_width(m)
-                bitm.mip_tbp["tb_addr%s"  % m] = tb_addr
-                bitm.mip_tbp["tb_width%s" % m] = tb_width
+            elif target_ngc or target_xbox or target_ps2:
+                tex0 = bitm.tex0
+                tex0.tex_cc.set_to(meta.get("tex_cc", "rgba"))
+                tex0.tex_function.set_to(meta.get("tex_function", "decal"))
+                tex0.clut_smode.set_to(meta.get("clut_smode", "csm1"))
+                tex0.clut_loadmode.set_to(meta.get("clut_loadmode", "recache"))
+                tex0.clut_pixmode.set_to(
+                    c.PSM_CT16 if "1555_IDX" in format_name else c.PSM_CT32
+                    )
 
         except Exception:
             print(format_exc())
             print(f"Error occurred while processing bitmap '{name}' at index {i}.")
             continue
+
+    # populate tex0 and miptbp
+    objects_tag.calculate_tex0_and_mip_tbp()
 
     return texture_datas
 

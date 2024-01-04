@@ -7,7 +7,7 @@ from .tag import GdlTag
 from ..anim import anim_def
 from ..texdef import texdef_def
 from ...compilation import util
-from ...compilation.g3d import constants as c
+from ...compilation.g3d import constants as c, texture_buffer_packer
 
 
 class ObjectsTag(GdlTag):
@@ -418,6 +418,53 @@ class ObjectsTag(GdlTag):
             bitmap_names = self._bitmap_assets_by_index
 
         return dict(object_names), dict(bitmap_names)
+
+    def calculate_tex0_and_mip_tbp(self, indices=None):
+        if indices is None:
+            indices = range(len(self.data.bitmaps))
+        elif isinstance(indices, int):
+            indices = (indices, )
+
+        for checked, bitm in enumerate(self.data.bitmaps[i] for i in indices):
+            # only need to check the first bitmap block for its structure
+            if not(checked or hasattr(bitm, "lod_k")):
+                break
+            elif bitm.flags.external or bitm.flags.invalid:
+                continue
+
+            # populate tex0 and miptbp
+            format_name     = bitm.format.enum_name
+            tex0, mip_tbp   = bitm.tex0, bitm.mip_tbp
+            tex0.tex_width  = bitm.log2_of_width
+            tex0.tex_height = bitm.log2_of_height
+            tex0.psm.set_to(
+                c.PSM_T8   if "IDX_8" in format_name else
+                c.PSM_T4   if "IDX_4" in format_name else
+                c.PSM_CT16 if "1555"  in format_name else
+                c.PSM_CT32 if "8888"  in format_name else
+                c.PSM_CT32 # should never hit this
+                )
+
+            buffer_calc = texture_buffer_packer.TextureBufferPacker(
+                width=bitm.width, height=bitm.height,
+                mipmaps=bitm.mipmap_count,
+                pixel_format=tex0.psm.enum_name,
+                palette_format=(
+                    tex0.clut_pixmode.enum_name
+                    if format_name in c.RGB_FORMATS else
+                    None
+                    ),
+                )
+            buffer_calc.pack()
+
+            bitm.size    = buffer_calc.block_count
+            tex0.cb_addr = buffer_calc.palette_address
+
+            tex0.tb_addr, tex0.tb_width = buffer_calc.get_address_and_width(0)
+            for m in range(1, 7):
+                tb_addr, tb_width = buffer_calc.get_address_and_width(m)
+                mip_tbp["tb_addr%s"  % m] = tb_addr
+                mip_tbp["tb_width%s" % m] = tb_width
 
     def set_pointers(self, offset=0):
         header  = self.data.header
