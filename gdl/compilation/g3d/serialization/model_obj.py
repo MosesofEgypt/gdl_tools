@@ -26,9 +26,7 @@ def import_obj(model_cache, input_lines):
         elif line[0] == '#':
             # this is either a comment, or an extra piece of data
             line = line[1:].strip()
-            if line.startswith('$lod_k'):
-                model_cache.lod_ks[idx_key] = int(line[6:])
-            elif line.startswith('$lm_name'):
+            if line.startswith('$lm_name'):
                 lm_name = urllib.parse.unquote(line[9:].strip().upper())
                 idx_key = (tex_name, lm_name)
             elif line.startswith("lmvt"):
@@ -52,7 +50,6 @@ def import_obj(model_cache, input_lines):
             # this material doesnt already exist
             if idx_key not in model_cache.tri_lists:
                 model_cache.tri_lists[idx_key] = []
-                model_cache.lod_ks.setdefault(idx_key, c.DEFAULT_MOD_LOD_K)
             tris = model_cache.tri_lists[idx_key]
         elif line[0:2] == 'vt':
             line = [v.strip() for v in line[2:].split(' ') if v]
@@ -183,14 +180,12 @@ def export_obj(model_cache, output_filepath, texture_assets={}, swap_lightmap_an
             continue
 
         tex_name, lm_name = idx_key
-        lod_k = model_cache.lod_ks.get(idx_key, c.DEFAULT_MOD_LOD_K)
         if swap_lightmap_and_diffuse:
             tex_name, lm_name = lm_name, tex_name
 
         obj_str += '\n'.join((
             '',
             '#$lm_name %s' % urllib.parse.quote(lm_name),
-            '#$lod_k %s' % lod_k,
             'usemtl %s' % urllib.parse.quote(tex_name),
             'g %s' % i
             ))

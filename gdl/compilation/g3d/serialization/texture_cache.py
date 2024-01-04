@@ -41,7 +41,6 @@ class TextureCache(AssetCache):
     twiddled        = False
     large_vq        = False
     small_vq        = False
-    lod_k           = constants.DEFAULT_TEX_LOD_K
     width           = 0
     height          = 0
     mipmaps         = 0

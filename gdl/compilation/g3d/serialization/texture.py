@@ -20,7 +20,6 @@ class G3DTexture:
     width  = 0
     height = 0
     format_name = c.DEFAULT_FORMAT_NAME
-    lod_k = 0
 
     ncc_table   = None
     twiddled    = False
@@ -76,7 +75,6 @@ class G3DTexture:
         self.width  = texture_cache.width
         self.height = texture_cache.height
         self.format_name = texture_cache.format_name
-        self.lod_k = texture_cache.lod_k
 
         self.has_alpha = texture_cache.has_alpha
         self.twiddled = texture_cache.twiddled
@@ -112,8 +110,6 @@ class G3DTexture:
             texture_cache.twiddled  = self.twiddled
             texture_cache.large_vq  = self.large_vq
             texture_cache.small_vq  = self.small_vq
-        elif isinstance(texture_cache, Ps2TextureCache):
-            texture_cache.lod_k     = self.lod_k
 
         if texture_cache.palettized:
             texture_cache.palette   = bytes(self.palette)
@@ -316,7 +312,6 @@ class G3DTexture:
         # load the results into this G3DTexture
         self.width  = arby.width
         self.height = arby.height
-        self.lod_k  = c.DEFAULT_TEX_LOD_K
 
         self.has_alpha   = ("A" in arby.format)
         self.twiddled    = twiddled

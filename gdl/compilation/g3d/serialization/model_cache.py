@@ -46,9 +46,8 @@ ARC_OBJECT_HEADER_STRUCT = struct.Struct('<I')
 VIF_OBJECT_HEADER_STRUCT = struct.Struct('<I')
 #   geom_count
 
-VIF_SUBOBJ_HEADER_STRUCT = struct.Struct('<Hh ii')
+VIF_SUBOBJ_HEADER_STRUCT = struct.Struct('<H 2x ii')
 #   qword_count
-#   lod_k
 #   tex_index
 #   lm_index
 
@@ -139,7 +138,7 @@ class Ps2ModelCache(ModelCache):
             )
         geoms = []
         for i in range(geom_count):
-            qwc, lod_k, tex_idx, lm_idx = VIF_SUBOBJ_HEADER_STRUCT.unpack(
+            qwc, tex_idx, lm_idx = VIF_SUBOBJ_HEADER_STRUCT.unpack(
                 rawdata.read(VIF_SUBOBJ_HEADER_STRUCT.size)
                 )
             if tex_idx not in range(len(self.texture_names)):
@@ -153,7 +152,6 @@ class Ps2ModelCache(ModelCache):
             geoms.append(dict(
                 vif_rawdata=vif_data,
                 qword_count=qwc,
-                lod_k=lod_k,
                 tex_name=self.texture_names[tex_idx],
                 lm_name=self.texture_names[lm_idx] if lm_idx >= 0 else "",
                 ))
@@ -165,7 +163,6 @@ class Ps2ModelCache(ModelCache):
         texture_names_dict = {}
 
         for geom in self.geoms:
-            lod_k       = geom.get("lod_k", constants.DEFAULT_MOD_LOD_K)
             tex_name    = geom.get("tex_name", "")
             lm_name     = geom.get("lm_name", "")
 
@@ -187,7 +184,7 @@ class Ps2ModelCache(ModelCache):
             qwc = len(subobj_rawdata) // 16
 
             subobj_header_rawdata = VIF_SUBOBJ_HEADER_STRUCT.pack(
-                qwc, lod_k, tex_index, lm_index
+                qwc, tex_index, lm_index
                 )
             object_rawdata += subobj_header_rawdata + subobj_rawdata
 

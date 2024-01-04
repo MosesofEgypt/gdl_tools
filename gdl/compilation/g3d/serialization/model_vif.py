@@ -9,22 +9,6 @@ from . import constants as c
 from .. import util
 from . import vector_util
 
-OBJECT_HEADER_STRUCT = struct.Struct('<fIIII 12x 16s')
-#   bounding_radius
-#   vert_count
-#   tri_count
-#   geom_count
-#   flags
-#   12_padding_bytes
-#   md5_of_source_asset
-
-SUBOBJ_HEADER_STRUCT = struct.Struct('<Hh 12x 32s 32s')
-#   quadword_count
-#   lod_k
-#   12_padding_bytes
-#   texture_name
-#   lightmap_name
-
 STREAM_HEADER_STRUCT = struct.Struct('<BBBB')
 #   data_type
 #   flags
@@ -438,7 +422,6 @@ def export_g3d_to_vif(g3d_model, idx_key):
         vert_count  = written_vert_count,
         tri_count   = written_tri_count,
         qword_count = (len(vif_buffer) // 16),
-        lod_k       = g3d_model.lod_ks.get(idx_key, 0),
         tex_name    = idx_key[0].upper(),
         lm_name     = idx_key[1].upper(),
         )

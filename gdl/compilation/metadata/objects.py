@@ -108,24 +108,25 @@ def decompile_object_metadata(obj, asset_name=None, actor_name=None, bitmap_asse
     else:
         obj_flags = getattr(obj, "flags", None)
 
-    #########################################################
-    # this is temporary until lod_k can be implemented in JMS
     if bitmap_assets and hasattr(obj, "sub_object_0"):
         has_lmap = getattr(obj_flags, "lmap", False)
-        metadata_obj["lod_coeffs"] = lod_coeffs = {}
+        lod_coeffs = {}
         sub_objs = (obj.sub_object_0, *(getattr(obj.data, "sub_objects", ())))
-        for i in range(getattr(obj, "sub_objects_count", 1)):
-            tex     = bitmap_assets.get(sub_objs[i].tex_index)
-            lod_k   = sub_objs[i].lod_k
-            if not tex:
-                # shit
+        for sub_obj in enumerate(sub_objs):
+            lod_k   = getattr(sub_obj, "lod_k", None)
+            if lod_k is None:
                 continue
-            elif not has_lmap:
-                lod_coeffs[tex["name"]] = lod_k
-            elif lm:
-                lod_coeffs.setdefault(tex["name"], {})[lm["name"]] = lod_k
-    # this is temporary until lod_k can be implemented in JMS
-    #########################################################
+
+            tex_name = bitmap_assets.get(sub_obj.tex_index, {}).get("name")
+            lm_name  = bitmap_assets.get(sub_obj.lm_index, {}).get("name") if has_lmap else None
+
+            if tex_name and lm_name:
+                lod_coeffs.setdefault(tex_name, {})[lm_name] = lod_k
+            elif tex_name:
+                lod_coeffs[tex_name] = lod_k
+
+        if lod_coeffs:
+            metadata_obj["lod_coeffs"] = lod_coeffs
 
     for flag in c.OBJECT_FLAG_NAMES:
         if getattr(obj_flags, flag, False):
@@ -157,12 +158,11 @@ def decompile_bitmap_metadata(bitm, asset_name=None, actor_name=None, cache_name
     if bitm.frame_count > 0:
         metadata_bitm.update(animation=True)
     elif hasattr(bitm, "lod_k"): # v4 and higher
-        lod_k = bitm.lod_k
         # TEST CODE BASED ON THIS FORMULA
         #   K = -log2( Z0 / h )
         #   1/(2**(-K)) = h   where Z0 is 1
-        #lod_ratio = 1/(2**-lod_k)
-        metadata_bitm.update(lod_k=lod_k)
+        #lod_ratio = 1/(2**-bitm.lod_k)
+        metadata_bitm.update(lod_coeff=bitm.lod_k)
         if bitm.mipmap_count:
             metadata_bitm.update(mipmap_count=bitm.mipmap_count)
     elif hasattr(bitm, "dc_sig"): # dreamcast

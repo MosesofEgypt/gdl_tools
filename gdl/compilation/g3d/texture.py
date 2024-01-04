@@ -216,7 +216,7 @@ def import_textures(
                     bitm.ncc_table_data = texture_cache.ncc_table.export_to_rawdata()
                 elif hasattr(bitm, "lod_k"): # v4 and higher
                     bitm.mipmap_count = mipmap_count
-                    bitm.lod_k        = meta.get("lod_k", texture_cache.lod_k)
+                    bitm.lod_k        = meta.get("lod_k", c.DEFAULT_TEX_LOD_K)
                     flags.has_alpha   = texture_cache.has_alpha or "A" in texture_cache.format_name
 
             else:
@@ -478,6 +478,7 @@ def bitmap_to_texture_cache(bitmap_or_lm_block, textures_file, is_ngc=False, cac
         texture_cache           = ArcadeTextureCache()
         texture_cache.mipmaps   = (bitmap_or_lm_block.small_lod_log2_inv -
                                    bitmap_or_lm_block.large_lod_log2_inv)
+        texture_cache.format_id = bitmap_or_lm_block.format.data
         if "YIQ" in bitmap_or_lm_block.format.enum_name:
             texture_cache.ncc_table = ncc.NccTable()
             texture_cache.ncc_table.import_from_rawdata(bitmap_or_lm_block.ncc_table_data)
@@ -496,11 +497,12 @@ def bitmap_to_texture_cache(bitmap_or_lm_block, textures_file, is_ngc=False, cac
         texture_cache.small_vq  = "small_vq" in image_type
         texture_cache.twiddled  = "twiddled" in image_type
         texture_cache.mipmaps   = "mipmap" in image_type
+        texture_cache.format_id = bitmap_or_lm_block.format.data
     elif is_ngc:
         texture_cache           = GamecubeTextureCache()
-        texture_cache.lod_k     = bitmap_or_lm_block.lod_k
         # regardless of what the objects says, gamecube doesnt contain mipmaps
         texture_cache.mipmaps   = 0
+        texture_cache.format_id = bitmap_or_lm_block.format.data
     elif is_ps2_xbox:
         texture_cache = (
             TextureCache.get_cache_class_from_cache_type(cache_type)
@@ -509,12 +511,14 @@ def bitmap_to_texture_cache(bitmap_or_lm_block, textures_file, is_ngc=False, cac
             )()
         texture_cache.lod_k     = bitmap_or_lm_block.lod_k
         texture_cache.mipmaps   = bitmap_or_lm_block.mipmap_count
+        # NOTE: we're doing enum_name here instead of using the integer enum
+        #       because the v4 bitmap format is has a different mapping
+        texture_cache.format_name   = bitmap_or_lm_block.format.enum_name
     else:
         raise ValueError("Cannot determine bitmap block type.")
 
     if not is_dreamcast_lm:
         # read the note above about dreamcast lightmaps
-        texture_cache.format_id     = bitmap_or_lm_block.format.data
         texture_cache.width         = bitmap_or_lm_block.width
         texture_cache.height        = bitmap_or_lm_block.height
 

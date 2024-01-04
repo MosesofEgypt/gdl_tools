@@ -178,6 +178,7 @@ def import_models(
                 subobj_model.data         = geom["vif_rawdata"]
                 subobj_model.qword_count  = geom["qword_count"]
                 subobj_header.qword_count = geom["qword_count"] + 1
+                # TODO: update this to use the lod_coeff in meta, or c.DEFAULT_MOD_LOD_K
                 subobj_header.lod_k       = geom["lod_k"]
                 subobj_header.tex_index   = tex_meta.get("index", 0)
                 subobj_header.lm_index    = lm_meta.get("index", 0)
@@ -459,7 +460,6 @@ def object_to_model_cache(obj, cache_type=None, obj_index=0, is_arcade=False,
                                (obj.sub_object_0, *subobjs)):
             geoms.append(dict(
                 vif_rawdata = FixedBytearrayBuffer(model.data),
-                lod_k       = getattr(head, 'lod_k', default_lod_k),
                 tex_name    = bitmap_assets.get(
                     head.tex_index, def_name)['name'],
                 lm_name     = bitmap_assets.get(

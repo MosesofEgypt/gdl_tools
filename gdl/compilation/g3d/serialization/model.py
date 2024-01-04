@@ -31,7 +31,6 @@ class G3DModel():
         self.lm_uvs = []
         self.colors = []
 
-        self.lod_ks   = {c.DEFAULT_INDEX_KEY: c.DEFAULT_MOD_LOD_K}
         self.tri_lists = {c.DEFAULT_INDEX_KEY: []}
         
         self.all_dont_draws   = {}
@@ -148,7 +147,6 @@ class G3DModel():
                     continue
 
                 self.tri_lists.setdefault(idx_key, []).extend(parsed_data["tris"])
-                self.lod_ks[idx_key] = geom.get("lod_k", c.DEFAULT_MOD_LOD_K)
                 self.verts.extend(parsed_data["verts"])
                 self.norms.extend(parsed_data["norms"])
                 self.colors.extend(parsed_data["colors"])

@@ -172,6 +172,7 @@ class ObjectsTag(GdlTag):
 
         obj_def_names = {}
         actorobj_map = {} if self.anim_tag is None else self.anim_tag.actorobj_map
+        object_count = len(self.data.objects)
         for obj_def in self.data.object_defs:
             obj_index   = obj_def.obj_index
             obj_frames  = max(0, obj_def.frames) + 1
@@ -179,19 +180,28 @@ class ObjectsTag(GdlTag):
             if not asset_name:
                 continue
 
-            for i in range(obj_index, obj_index + obj_frames):
-                name = (
-                    asset_name if i == obj_index else
-                    ".".join((asset_name, util.index_count_to_string(i, obj_frames)))
+            asset_base = dict(asset_name = asset_name)
+            if actorobj_map.get(asset_name):
+                asset_base.update(actor = actorobj_map[asset_name])
+
+            if obj_frames == 1:
+                obj_def_names[obj_index] = dict(
+                    name        = asset_name,
+                    def_name    = asset_name,
+                    index       = obj_index,
+                    **asset_base
                     )
-                obj_def_names[i] = dict(
+                continue
+                
+            for i, name in enumerate(util.generate_sequence_names(
+                    asset_name.rstrip("0123456789"), obj_frames, start_name=asset_name,
+                    )):
+                obj_def_names[i + obj_index] = dict(
                     name        = name,
-                    asset_name  = asset_name,
                     def_name    = name,
-                    index       = i,
+                    index       = i + obj_index,
+                    **asset_base
                     )
-                if actorobj_map.get(name):
-                    obj_def_names[i].update(actor=actorobj_map[name])
 
         self._obj_def_names = obj_def_names
         return dict(self._obj_def_names)

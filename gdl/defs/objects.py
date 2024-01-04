@@ -203,7 +203,7 @@ bitmap_format_v0 = UEnum8("format",
 bitmap_format_v4 = UEnum8("format",
     #these formats are palettized
     (PIX_FMT_ABGR_8888_IDX_8, 3),
-    (PIX_FMT_ABGR_1555_IDX_4, 5),
+    (PIX_FMT_ABGR_1555_IDX_8, 5),
     )
 
 bitmap_flags_v0 = Bool8("flags",
