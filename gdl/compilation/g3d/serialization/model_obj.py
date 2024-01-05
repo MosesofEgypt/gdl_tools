@@ -93,7 +93,7 @@ def import_obj(model_cache, input_lines):
         del model_cache.tri_lists[c.DEFAULT_INDEX_KEY]
 
 
-def export_obj(model_cache, output_filepath, texture_assets={}, swap_lightmap_and_diffuse=False):
+def export_obj(model_cache, output_filepath, texture_assets={}):
     output_filepath = pathlib.Path(output_filepath)
     obj_dirname     = output_filepath.parent
     mtl_filename    = pathlib.PurePosixPath(
@@ -115,9 +115,6 @@ def export_obj(model_cache, output_filepath, texture_assets={}, swap_lightmap_an
         '#     Extracted by Moses',
         'mtllib %s' % mtl_filename
         ))
-    if swap_lightmap_and_diffuse and model_cache.lm_uvs and model_cache.uvs:
-        obj_str += '\n#lightmap_diffuse_swapped'
-        uv_template, lmuv_template = lmuv_template, uv_template
 
     obj_str += '\n\n'
     obj_str += '\n'.join((
@@ -180,9 +177,6 @@ def export_obj(model_cache, output_filepath, texture_assets={}, swap_lightmap_an
             continue
 
         tex_name, lm_name = idx_key
-        if swap_lightmap_and_diffuse:
-            tex_name, lm_name = lm_name, tex_name
-
         obj_str += '\n'.join((
             '',
             '#$lm_name %s' % urllib.parse.quote(lm_name),

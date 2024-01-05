@@ -17,7 +17,6 @@ class ObjectsCompiler:
     optimize_models      = True
     optimize_textures    = True
     force_recompile      = False
-    swap_lightmap_and_diffuse = False  # debug feature
 
     overwrite = False
 
@@ -164,6 +163,5 @@ class ObjectsCompiler:
     def decompile(self, **kwargs):
         kwargs.setdefault("overwrite", self.overwrite)
         kwargs.setdefault("parallel_processing", self.parallel_processing)
-        kwargs.setdefault("swap_lightmap_and_diffuse", self.swap_lightmap_and_diffuse)
 
         cache_comp.decompile_cache_files(target_dir=self.target_dir, **kwargs)

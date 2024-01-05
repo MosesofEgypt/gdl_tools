@@ -85,10 +85,7 @@ def decompile_objects_metadata(
             for actor_name in sorted(actor_bitmaps_metadata)
             }
         }
-    util.dump_metadata_sets(
-        metadata_sets, asset_types=asset_types, overwrite=overwrite,
-        data_dir=data_dir, assets_dir=assets_dir, cache_dir=cache_dir,
-        )
+    return metadata_sets
 
 
 def decompile_object_metadata(obj, asset_name=None, actor_name=None, bitmap_assets=()):

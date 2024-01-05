@@ -63,10 +63,7 @@ def decompile_model(kwargs):
         for i, model_cache in enumerate(model_caches):
             g3d_model = G3DModel()
             g3d_model.import_g3d(model_cache)
-            g3d_model.export_asset(
-                filepaths[i], texture_assets,
-                swap_lightmap_and_diffuse=kwargs["swap_lightmap_and_diffuse"]
-                )
+            g3d_model.export_asset(filepaths[i], texture_assets)
 
     elif asset_type in c.MODEL_CACHE_EXTENSIONS:
         for i, model_cache in enumerate(model_caches):
@@ -215,7 +212,6 @@ def import_models(
 def export_models(
         objects_tag, anim_tag=None, asset_types=c.MODEL_CACHE_EXTENSIONS,
         parallel_processing=False, overwrite=False,
-        swap_lightmap_and_diffuse=False,
         data_dir=".", assets_dir=None, cache_dir=None
         ):
     data_dir = pathlib.Path(data_dir)
@@ -259,6 +255,11 @@ def export_models(
     # generate nodes, determine standalone objects(ones not in
     # an actor), and generate fake actors for object animations
     for i, atree in enumerate(atrees):
+        # if we're not exporting to an actor asset type, we need to export
+        # those models in some way, so treat them as standalone objects
+        if not actor_asset_types:
+            break
+
         try:
             nodes = atree_to_g3d_nodes(atree, anim_tag.get_actor_node_names(i))
         except:
@@ -428,7 +429,7 @@ def export_models(
                 ))
 
     for job in all_job_args:
-        job.update(texture_assets=texture_assets, swap_lightmap_and_diffuse=swap_lightmap_and_diffuse)
+        job.update(texture_assets=texture_assets)
 
     print("Decompiling %s models in %s" % (
         len(all_job_args), "parallel" if parallel_processing else "series"

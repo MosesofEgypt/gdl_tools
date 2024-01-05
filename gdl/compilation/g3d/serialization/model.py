@@ -123,12 +123,10 @@ class G3DModel():
         else:
             raise NotImplementedError(f"Unknown asset type '{asset_type}'")
 
-    def export_asset(self, filepath, texture_assets, swap_lightmap_and_diffuse=False):
+    def export_asset(self, filepath, texture_assets):
         asset_type = filepath.suffix.strip(".").lower()
         if asset_type == "obj":
-            model_obj.export_obj(
-                self, filepath, texture_assets, swap_lightmap_and_diffuse
-                )
+            model_obj.export_obj(self, filepath, texture_assets)
         else:
             raise NotImplementedError(f"Unknown asset type '{asset_type}'")
 

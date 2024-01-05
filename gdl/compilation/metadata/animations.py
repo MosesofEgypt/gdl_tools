@@ -85,10 +85,7 @@ def decompile_animations_metadata(
             }
         }
 
-    util.dump_metadata_sets(
-        metadata_sets, asset_types=asset_types, overwrite=overwrite,
-        data_dir=data_dir, assets_dir=assets_dir, cache_dir=cache_dir,
-        )
+    return metadata_sets
 
 
 def decompile_atree_metadata(

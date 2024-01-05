@@ -8,7 +8,7 @@ from ...defs.anim import anim_def
 from ...defs.objects import objects_def
 from ...defs.texdef import texdef_def
 from ...defs.worlds import worlds_def
-from ..metadata import animations as animations_metadata,\
+from ..metadata import animations as anim_metadata,\
      objects as objects_metadata, util as metadata_util
 from . import animation, model, texture
 from .serialization.asset_cache import verify_source_file_asset_checksum
@@ -241,12 +241,11 @@ def compile_cache_files(
 
 
 def decompile_cache_files(
-        target_dir, overwrite=False,
+        target_dir, overwrite=False, parallel_processing=False, 
         meta_asset_types=c.METADATA_CACHE_EXTENSIONS,
         anim_asset_types=c.ANIMATION_CACHE_EXTENSIONS,
         tex_asset_types=c.TEXTURE_CACHE_EXTENSIONS,
         mod_asset_types=c.MODEL_CACHE_EXTENSIONS,
-        parallel_processing=False, swap_lightmap_and_diffuse=False,
         data_dir=None, assets_dir=None, cache_dir=None,
         **kwargs
         ):
@@ -313,42 +312,43 @@ def decompile_cache_files(
         *(data_dir if data_dir else (target_dir, c.DATA_FOLDERNAME))
         )
 
-    if meta_asset_types and objects_tag:
-        objects_metadata.decompile_objects_metadata(
-            objects_tag, anim_tag=anim_tag, overwrite=overwrite,
-            asset_types=meta_asset_types, data_dir=data_dir,
-            assets_dir=assets_dir, cache_dir=cache_dir
+    shared_args = dict(
+        overwrite=overwrite, data_dir=data_dir,
+        assets_dir=assets_dir, cache_dir=cache_dir
+        )
+    if meta_asset_types:
+        meta_args = dict(
+            objects_tag=objects_tag, anim_tag=anim_tag,
+            asset_types=meta_asset_types, **shared_args
             )
+        meta = {}
+        if objects_tag:
+            meta.update(objects_metadata.decompile_objects_metadata(**meta_args))
 
-    if meta_asset_types and anim_tag:
-        animations_metadata.decompile_animations_metadata(
-            anim_tag, objects_tag=objects_tag, overwrite=overwrite,
-            asset_types=meta_asset_types, data_dir=data_dir,
-            assets_dir=assets_dir, cache_dir=cache_dir
-            )
+        if anim_tag:
+            meta.update(anim_metadata.decompile_animations_metadata(**meta_args))
 
+        if meta:
+            metadata_util.dump_metadata_sets(
+                meta, asset_types=meta_asset_types, **shared_args
+                )
+
+    shared_args.update(parallel_processing=parallel_processing)
     if tex_asset_types and (objects_tag or texdef_tag):
         texture.export_textures(
             objects_tag=objects_tag, texdef_tag=texdef_tag,
-            overwrite=overwrite, parallel_processing=parallel_processing,
             asset_types=tex_asset_types, mipmaps=kwargs.get("mipmaps", False),
-            textures_filepath=filepaths['textures_filepath'],
-            data_dir=data_dir, assets_dir=assets_dir, cache_dir=cache_dir
+            textures_filepath=filepaths['textures_filepath'], **shared_args
             )
 
     if anim_asset_types and anim_tag:
         animation.export_animations(
-            anim_tag, overwrite=overwrite,
-            parallel_processing=parallel_processing, asset_types=anim_asset_types,
-            data_dir=data_dir, assets_dir=assets_dir, cache_dir=cache_dir,
+            anim_tag, asset_types=anim_asset_types, **shared_args
             )
 
     if mod_asset_types and objects_tag:
         model.export_models(
-            objects_tag, anim_tag=anim_tag, overwrite=overwrite,
-            parallel_processing=parallel_processing, asset_types=mod_asset_types,
-            swap_lightmap_and_diffuse=swap_lightmap_and_diffuse,
-            data_dir=data_dir, assets_dir=assets_dir, cache_dir=cache_dir
+            objects_tag, anim_tag=anim_tag, asset_types=mod_asset_types, **shared_args
             )
 
 

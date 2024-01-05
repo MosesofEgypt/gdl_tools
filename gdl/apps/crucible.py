@@ -18,18 +18,22 @@ BUILD_TARGETS = {
     "Dreamcast":    "dreamcast",
     }
 ANIM_EXTRACT_FORMATS = {
+    "": ""
     }    
 MOD_EXTRACT_FORMATS = {
     "Wavefront OBJ": "obj",
+    "": "",
     }
 TEX_EXTRACT_FORMATS = {
     "PNG": "png",
     "Targa TGA": "tga",
     "DirectDraw DDS": "dds",
+    "": "",
     }
 META_EXTRACT_FORMATS = {
     "YAML": "yaml",
     "JSON": "json",
+    "": "",
     }
 
 if c.JMM_SUPPORT:
@@ -44,8 +48,8 @@ class CrucibleApp(Tk):
     
     def __init__(self, **options):
         Tk.__init__(self, **options)
-        
-        self.title("Crucible V1.4.1")
+
+        self.title("Crucible V1.4.2")
         self.minsize(500, 0)
         self.resizable(1, 0)
 
@@ -55,11 +59,12 @@ class CrucibleApp(Tk):
 
         self.build_target        = StringVar(self, "PlayStation2")
         self.mod_extract_format  = StringVar(self, "HCE JMS" if c.JMM_SUPPORT else "Wavefront OBJ")
-        self.anim_extract_format = StringVar(self, "HCE JMM" if c.JMM_SUPPORT else "UNSUPPORTED")
+        self.anim_extract_format = StringVar(self, "HCE JMM" if c.JMM_SUPPORT else "")
         self.tex_extract_format  = StringVar(self, "PNG")
         self.meta_extract_format = StringVar(self, "YAML")
         self.use_parallel_processing = BooleanVar(self, True)
         self.optimize                = BooleanVar(self, True)
+        self.extract_cache_files     = BooleanVar(self, False)
         self.force_recompile_cache   = BooleanVar(self, False)
         self.overwrite               = BooleanVar(self, False)
 
@@ -89,7 +94,7 @@ class CrucibleApp(Tk):
             )
         self.btn_decompile_objects_all = Button(
             self.objects_frame, text="Decompile objects", width=20,
-            command=lambda *a, **kw: self._decompile_objects(cache=True, source=True)
+            command=lambda *a, **kw: self._decompile_objects()
             )
 
         self.btn_select_worlds_dir = Button(
@@ -105,7 +110,7 @@ class CrucibleApp(Tk):
             )
         self.btn_decompile_worlds_all = Button(
             self.worlds_frame, text="Decompile worlds", width=20,
-            command=lambda *a, **kw: self._decompile_objects(cache=True, source=True, world=True)
+            command=lambda *a, **kw: self._decompile_objects(world=True)
             )
 
         self.btn_select_messages_dir = Button(
@@ -138,14 +143,6 @@ class CrucibleApp(Tk):
             self.debug_actions_frame, text="Compile cache files", width=20,
             command=lambda *a, **kw: self._compile_objects(metadata=True, cache=True)
             )
-        self.btn_decompile_sources = Button(
-            self.debug_actions_frame, text="Decompile asset sources", width=20,
-            command=lambda *a, **kw: self._decompile_objects(source=True)
-            )
-        self.btn_decompile_cache = Button(
-            self.debug_actions_frame, text="Decompile asset cache", width=20,
-            command=lambda *a, **kw: self._decompile_objects(cache=True)
-            )
         # DEBUG
 
         self.build_target_label = Label(self.settings_frame, text="Platform target")
@@ -176,6 +173,10 @@ class CrucibleApp(Tk):
         self.optimize_button = Checkbutton(
             self.settings_frame, text='Optimize models and textures',
             variable=self.optimize, onvalue=1, offvalue=0
+            )
+        self.extract_cache_button = Checkbutton(
+            self.settings_frame, text='Extract G3D cache files',
+            variable=self.extract_cache_files, onvalue=1, offvalue=0
             )
         self.force_recompile_button = Checkbutton(
             self.settings_frame, text='Force full recompile',
@@ -222,8 +223,6 @@ class CrucibleApp(Tk):
         self.btn_compile_models.grid(row=0, column=2, sticky="we", columnspan=2, padx=2, pady=2)
         self.btn_compile_animations.grid(row=0, column=4, sticky="we", columnspan=2, padx=2, pady=2)
         self.btn_compile_cache.grid(row=0, column=6, sticky="we", columnspan=2, padx=2, pady=2)
-        self.btn_decompile_sources.grid(row=1, column=0, sticky="we", columnspan=4, padx=2, pady=2)
-        self.btn_decompile_cache.grid(row=1, column=4, sticky="we", columnspan=4, padx=2, pady=2)
 
         # grid the settings
         y = 0
@@ -231,8 +230,8 @@ class CrucibleApp(Tk):
                 (self.build_target_label, self.build_target_menu, self.parallel_processing_button),
                 (self.mod_format_label, self.mod_format_menu, self.force_recompile_button),
                 (self.anim_format_label, self.anim_format_menu, self.overwrite_button),
-                (self.tex_format_label, self.tex_format_menu, None),
-                (self.meta_format_label, self.meta_format_menu, None),
+                (self.tex_format_label, self.tex_format_menu, self.optimize_button),
+                (self.meta_format_label, self.meta_format_menu, self.extract_cache_button),
             ):
             lbl.grid(row=y, column=0, sticky="we", padx=2)
             menu.grid(row=y, column=1, sticky="we", padx=2)
@@ -367,7 +366,7 @@ class CrucibleApp(Tk):
 
         print('Finished. Took %s seconds.\n' % (time.time() - start))
 
-    def _decompile_objects(self, cache=False, source=False, world=False):
+    def _decompile_objects(self, world=False):
         target_dir = self.target_worlds_dir.get() if world else self.target_objects_dir.get()
         if not target_dir:
             return
@@ -382,7 +381,7 @@ class CrucibleApp(Tk):
             mod_asset_types  = []
             tex_asset_types  = []
 
-            if cache:
+            if self.extract_cache_files.get():
                 meta_asset_types.append(c.METADATA_CACHE_EXTENSION)
                 if build_target == "ngc":
                     mod_asset_types.append(c.MODEL_CACHE_EXTENSION_NGC)
@@ -404,12 +403,11 @@ class CrucibleApp(Tk):
                     mod_asset_types.append(c.MODEL_CACHE_EXTENSION_PS2)
                     tex_asset_types.append(c.TEXTURE_CACHE_EXTENSION_PS2)
                     anim_asset_types.append(c.ANIMATION_CACHE_EXTENSION_PS2)
-
-            if source:
-                meta_format = META_EXTRACT_FORMATS.get(self.meta_extract_format.get(), "yaml")
+            else:
+                meta_format = META_EXTRACT_FORMATS.get(self.meta_extract_format.get(), "")
                 anim_format = ANIM_EXTRACT_FORMATS.get(self.anim_extract_format.get(), "")
-                mod_format  = MOD_EXTRACT_FORMATS.get(self.mod_extract_format.get(), "obj")
-                tex_format  = TEX_EXTRACT_FORMATS.get(self.tex_extract_format.get(), "png")
+                mod_format  = MOD_EXTRACT_FORMATS.get(self.mod_extract_format.get(), "")
+                tex_format  = TEX_EXTRACT_FORMATS.get(self.tex_extract_format.get(), "")
                 if meta_format: meta_asset_types.append(meta_format)
                 if anim_format: anim_asset_types.append(anim_format)
                 if mod_format:  mod_asset_types.append(mod_format)
