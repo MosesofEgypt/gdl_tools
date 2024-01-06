@@ -429,7 +429,8 @@ class ObjectsTag(GdlTag):
             # only need to check the first bitmap block for its structure
             if not(checked or hasattr(bitm, "lod_k")):
                 break
-            elif bitm.flags.external or bitm.flags.invalid:
+            elif (bitm.flags.external or bitm.flags.invalid or
+                  not bitm.width or not bitm.height):
                 continue
 
             # populate tex0 and miptbp
