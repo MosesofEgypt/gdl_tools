@@ -30,19 +30,19 @@ class ObjectsCompiler:
             setattr(self, k, v)
 
     def compile_metadata(self):
-        data_dir = pathlib.Path(self.target_dir, c.DATA_FOLDERNAME)
-        if not data_dir.is_dir():
+        assets_dir = pathlib.Path(self.target_dir, c.DATA_FOLDERNAME)
+        if not assets_dir.is_dir():
             return
         elif not(self.build_ngc_files or self.build_ps2_files or
                  self.build_xbox_files or self.build_arcade_files or
                  self.build_dreamcast_files):
             return
 
-        cache_comp.compile_metadata(data_dir=data_dir, force_recompile=self.force_recompile)
+        cache_comp.compile_metadata(assets_dir=assets_dir)
 
     def compile_animations(self):
-        data_dir = pathlib.Path(self.target_dir, c.DATA_FOLDERNAME)
-        if not data_dir.is_dir():
+        assets_dir = pathlib.Path(self.target_dir, c.DATA_FOLDERNAME)
+        if not assets_dir.is_dir():
             return
         elif not(self.build_ngc_files or self.build_ps2_files or
                  self.build_xbox_files or self.build_arcade_files or
@@ -51,26 +51,26 @@ class ObjectsCompiler:
 
         kwargs = dict(
             parallel_processing=self.parallel_processing,
-            force_recompile=self.force_recompile,
+            force_recompile=self.force_recompile, assets_dir=assets_dir,
             )
         if self.build_ps2_files:
-            cache_comp.compile_animations(data_dir=data_dir, target_ps2=True, **kwargs)
+            cache_comp.compile_animations(target_ps2=True, **kwargs)
 
         if self.build_ngc_files:
-            cache_comp.compile_animations(data_dir=data_dir, target_ngc=True, **kwargs)
+            cache_comp.compile_animations(target_ngc=True, **kwargs)
 
         if self.build_xbox_files:
-            cache_comp.compile_animations(data_dir=data_dir, target_xbox=True, **kwargs)
+            cache_comp.compile_animations(target_xbox=True, **kwargs)
 
         if self.build_arcade_files:
-            cache_comp.compile_animations(data_dir=data_dir, target_arcade=True, **kwargs)
+            cache_comp.compile_animations(target_arcade=True, **kwargs)
 
         if self.build_dreamcast_files:
-            cache_comp.compile_animations(data_dir=data_dir, target_dreamcast=True, **kwargs)
+            cache_comp.compile_animations(target_dreamcast=True, **kwargs)
 
     def compile_textures(self):
-        data_dir = pathlib.Path(self.target_dir, c.DATA_FOLDERNAME)
-        if not data_dir.is_dir():
+        assets_dir = pathlib.Path(self.target_dir, c.DATA_FOLDERNAME)
+        if not assets_dir.is_dir():
             return
         elif not(self.build_ngc_files or self.build_ps2_files or
                  self.build_xbox_files or self.build_arcade_files or
@@ -78,28 +78,28 @@ class ObjectsCompiler:
             return
 
         kwargs = dict(
+            force_recompile=self.force_recompile, assets_dir=assets_dir,
             parallel_processing=self.parallel_processing,
-            force_recompile=self.force_recompile,
             optimize_format=self.optimize_textures,
             )
         if self.build_ps2_files:
-            cache_comp.compile_textures(data_dir=data_dir, target_ps2=True, **kwargs)
+            cache_comp.compile_textures(target_ps2=True, **kwargs)
 
         if self.build_ngc_files:
-            cache_comp.compile_textures(data_dir=data_dir, target_ngc=True, **kwargs)
+            cache_comp.compile_textures(target_ngc=True, **kwargs)
 
         if self.build_xbox_files:
-            cache_comp.compile_textures(data_dir=data_dir, target_xbox=True, **kwargs)
+            cache_comp.compile_textures(target_xbox=True, **kwargs)
 
         if self.build_arcade_files:
-            cache_comp.compile_textures(data_dir=data_dir, target_arcade=True, **kwargs)
+            cache_comp.compile_textures(target_arcade=True, **kwargs)
 
         if self.build_dreamcast_files:
-            cache_comp.compile_textures(data_dir=data_dir, target_dreamcast=True, **kwargs)
+            cache_comp.compile_textures(target_dreamcast=True, **kwargs)
 
     def compile_models(self):
-        data_dir = pathlib.Path(self.target_dir, c.DATA_FOLDERNAME)
-        if not data_dir.is_dir():
+        assets_dir = pathlib.Path(self.target_dir, c.DATA_FOLDERNAME)
+        if not assets_dir.is_dir():
             return
         elif not(self.build_ngc_files or self.build_ps2_files or
                  self.build_xbox_files or self.build_arcade_files or
@@ -107,24 +107,24 @@ class ObjectsCompiler:
             return
 
         kwargs = dict(
-            force_recompile=self.force_recompile,
+            force_recompile=self.force_recompile, assets_dir=assets_dir,
             parallel_processing=self.parallel_processing,
             optimize_strips=self.optimize_models,
             )
         if self.build_ps2_files:
-            cache_comp.compile_models(data_dir=data_dir, target_ps2=True, **kwargs)
+            cache_comp.compile_models(target_ps2=True, **kwargs)
 
         if self.build_ngc_files:
-            cache_comp.compile_models(data_dir=data_dir, target_ngc=True, **kwargs)
+            cache_comp.compile_models(target_ngc=True, **kwargs)
 
         if self.build_xbox_files:
-            cache_comp.compile_models(data_dir=data_dir, target_xbox=True, **kwargs)
+            cache_comp.compile_models(target_xbox=True, **kwargs)
 
         if self.build_arcade_files:
-            cache_comp.compile_models(data_dir=data_dir, target_arcade=True, **kwargs)
+            cache_comp.compile_models(target_arcade=True, **kwargs)
 
         if self.build_dreamcast_files:
-            cache_comp.compile_models(data_dir=data_dir, target_dreamcast=True, **kwargs)
+            cache_comp.compile_models(target_dreamcast=True, **kwargs)
 
     def compile(self):
         if not pathlib.Path(self.target_dir).is_dir():
@@ -153,7 +153,7 @@ class ObjectsCompiler:
         for kwargs in comp_kwargs:
             name = kwargs.pop("name")
             compilation_outputs[name] = cache_comp.compile_cache_files(
-                **kwargs, data_dir=self.target_dir,
+                **kwargs, objects_dir=self.target_dir,
                 serialize_cache_files=self.serialize_cache_files,
                 build_texdef_cache=(self.build_texdef_cache and name == "PS2")
                 )
@@ -164,4 +164,4 @@ class ObjectsCompiler:
         kwargs.setdefault("overwrite", self.overwrite)
         kwargs.setdefault("parallel_processing", self.parallel_processing)
 
-        cache_comp.decompile_cache_files(target_dir=self.target_dir, **kwargs)
+        cache_comp.decompile_cache_files(objects_dir=self.target_dir, **kwargs)

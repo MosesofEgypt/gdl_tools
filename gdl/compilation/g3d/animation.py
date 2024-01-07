@@ -57,9 +57,11 @@ def decompile_animation(kwargs):
 
 
 def import_animations(
-        anim_tag, objects_tag,
-        data_dir=".", cache_dir=None
+        anim_tag, objects_tag, target_ps2=False, target_ngc=False,
+        target_xbox=False, target_dreamcast=False, target_arcade=False,
+        cache_dir=".",
         ):
+    cache_dir = pathlib.Path(cache_dir)
     # TODO: implement this
     pass
 
@@ -67,9 +69,12 @@ def import_animations(
 def export_animations(
         anim_tag, asset_types=c.ANIMATION_CACHE_EXTENSIONS,
         overwrite=False, parallel_processing=True,
-        data_dir=".", assets_dir=None, cache_dir=None
+        assets_dir=".", cache_dir=None
         ):
-    data_dir = pathlib.Path(data_dir)
+    assets_dir = pathlib.Path(assets_dir)
+    if not cache_dir:
+        cache_dir   = assets_dir.joinpath(c.IMPORT_FOLDERNAME)
+
     if isinstance(asset_types, str):
         asset_types = (asset_types, )
 
@@ -77,9 +82,6 @@ def export_animations(
         if asset_type not in (*c.ANIMATION_CACHE_EXTENSIONS,
                               *c.ANIMATION_ASSET_EXTENSIONS):
             raise ValueError("Unknown animation type '%s'" % asset_type)
-
-    if not assets_dir: assets_dir  = data_dir
-    if not cache_dir:  cache_dir   = data_dir.joinpath(c.IMPORT_FOLDERNAME)
 
     cache_types = sorted(set(
         typ for typ in asset_types

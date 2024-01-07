@@ -8,6 +8,13 @@ from . import constants as c
 from ..util import *
 
 
+def locate_metadata(data_dir, cache_files=False):
+    return locate_assets(data_dir,
+        c.METADATA_CACHE_EXTENSIONS if cache_files else
+        c.METADATA_ASSET_EXTENSIONS
+        )
+
+
 def load_metadata(filepath):
     filepath    = pathlib.Path(filepath)
     asset_type  = filepath.suffix.strip(".").lower()
@@ -25,13 +32,13 @@ def load_metadata(filepath):
 
 def dump_metadata_sets(metadata_sets, overwrite=False,
                        asset_types=c.METADATA_CACHE_EXTENSIONS,
-                       data_dir=".", assets_dir=None, cache_dir=None):
-    data_dir = pathlib.Path(data_dir)
+                       assets_dir=".", cache_dir=None):
+    assets_dir = pathlib.Path(assets_dir)
+    if not cache_dir:
+        cache_dir   = assets_dir.joinpath(c.IMPORT_FOLDERNAME)
+
     if isinstance(asset_types, str):
         asset_types = (asset_types, )
-
-    if not assets_dir: assets_dir  = data_dir
-    if not cache_dir:  cache_dir   = data_dir.joinpath(c.IMPORT_FOLDERNAME)
 
     for asset_type in asset_types:
         if asset_type in c.METADATA_CACHE_EXTENSIONS:
@@ -75,7 +82,8 @@ def clear_metadata_files(dir, extensions):
     extensions = set(s.lower() for s in extensions)
     for root, dirs, files in os.walk(dir):
         for filename in files:
-            if filename.lower() in extensions:
+            ext = pathlib.Path(filename).suffix.lstrip(".")
+            if ext.lower() in extensions:
                 filepath = pathlib.Path(root, filename)
                 try:
                     filepath.unlink(missing_ok=True)
@@ -112,8 +120,8 @@ def merge_metadata_sets(*metadata_sets):
     return all_metadata
 
 
-def compile_metadata(data_dir, cache_files=False):
-    all_assets = locate_metadata(data_dir, cache_files=cache_files)
+def compile_metadata(assets_dir, cache_files=False):
+    all_assets = locate_metadata(assets_dir, cache_files=cache_files)
     all_metadata = {}
 
     for metadata_name in sorted(all_assets):

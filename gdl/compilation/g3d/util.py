@@ -39,12 +39,6 @@ def locate_animations(data_dir, cache_files=False):
         c.ANIMATION_ASSET_EXTENSIONS
         )
 
-def locate_metadata(data_dir, cache_files=False):
-    return locate_assets(data_dir,
-        c.METADATA_CACHE_EXTENSIONS if cache_files else
-        c.METADATA_ASSET_EXTENSIONS
-        )
-
 def invert_map(mapping):
     if isinstance(mapping, dict):
         return {v: k for k, v in mapping.items()}

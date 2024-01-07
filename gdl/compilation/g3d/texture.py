@@ -91,11 +91,12 @@ def import_texture(bitmap_block, metadata, texture_cache):
         flags.animation = is_animation
 
     bitm.frame_count = len(meta.get("frames", ()))
-    if isinstance(texture_cache, GamecubeTextureCache):
-        # gamecube autogenerates mipmaps at runtime
+
+    # gamecube autogenerates mipmaps at runtime
+    if not texture_cache or isinstance(texture_cache, GamecubeTextureCache):
         mipmap_count = meta.get("mipmap_count", 0)
     else:
-        mipmap_count = max(0, len(texture_cache.textures) - 1) if texture_cache else 0
+        mipmap_count = max(0, len(texture_cache.textures) - 1)
 
     if is_animation or is_external or is_invalid:
         # no bitmap to import; only import metadata
@@ -104,10 +105,6 @@ def import_texture(bitmap_block, metadata, texture_cache):
         except Exception:
             print(format_exc())
             print("Warning: Could not set bitmap format.")
-
-        if hasattr(bitm, "lod_k"): # v4 and higher
-            bitm.mipmap_count = meta.get("mipmap_count", 0)
-            bitm.lod_k        = meta.get("lod_k", c.DEFAULT_TEX_LOD_K)
 
         if hasattr(bitm, "tex_palette_index"): # v12 and higher
             bitm.tex_palette_index = meta.get("tex_palette_index", 0)
@@ -131,8 +128,6 @@ def import_texture(bitmap_block, metadata, texture_cache):
         elif target_arcade:
             bitm.ncc_table_data = texture_cache.ncc_table.export_to_rawdata()
         elif hasattr(bitm, "lod_k"): # v4 and higher
-            bitm.mipmap_count = mipmap_count
-            bitm.lod_k        = meta.get("lod_k", c.DEFAULT_TEX_LOD_K)
             flags.has_alpha   = texture_cache.has_alpha or "A" in texture_cache.format_name
 
     else:
@@ -171,6 +166,8 @@ def import_texture(bitmap_block, metadata, texture_cache):
         bitm.log2_of_width  = int(math.log(max(bitm.width, 1), 2))
         bitm.log2_of_height = int(math.log(max(bitm.height, 1), 2))
         bitm.width_64       = max(1, (bitm.width + 63) // 64)
+        bitm.mipmap_count   = mipmap_count
+        bitm.lod_k          = meta.get("lod_k", c.DEFAULT_TEX_LOD_K)
 
     if not(is_animation or (bitm.width and bitm.height)):
         # texture size is zero(missing bitmap?).
@@ -194,10 +191,9 @@ def import_texture(bitmap_block, metadata, texture_cache):
 def import_textures(
         objects_tag, target_ngc=False, target_ps2=False,
         target_xbox=False, target_dreamcast=False, target_arcade=False,
-        data_dir=".", cache_dir=None
+        cache_dir="."
         ):
-    if not cache_dir:
-        cache_dir = pathlib.Path(data_dir).joinpath(c.IMPORT_FOLDERNAME)
+    cache_dir = pathlib.Path(cache_dir)
 
     # locate all assets
     all_asset_filepaths = util.locate_textures(
@@ -224,9 +220,8 @@ def import_textures(
     # for returning to the caller for easy iteration
     texture_datas = []
 
-    # maps each bitmap name to the index its at.
+    # maps each bitmap name to the bitmap and bitmap_def its associated with
     bitmap_name_map = {}
-    bitmap_def_name_map = {}
 
     # tracks the next free pointer in the textures.rom
     tex_pointer = 0
@@ -293,8 +288,6 @@ def import_textures(
             bitm = bitmaps[bitm_index]
             bitm.tex_pointer = tex_pointer
 
-            bitmap_name_map[name] = bitm_index
-
             texture_data = import_texture(bitm, meta, texture_cache)
             texture_datas.append(texture_data)
 
@@ -302,14 +295,16 @@ def import_textures(
                 # the only names stored to the texdef names are the non-sequence bitmaps
                 objects_tag.texdef_names[tex_pointer] = trimmed_name
 
+            bitm_def = None
             if meta.get("cache_name") or getattr(bitm.flags, "external", 0):
-                bitmap_def_name_map[name] = len(bitmap_defs)
                 bitmap_defs.append()
-                bitmap_def           = bitmap_defs[-1]
-                bitmap_def.name      = trimmed_name
-                bitmap_def.width     = bitm.width
-                bitmap_def.height    = bitm.height
-                bitmap_def.tex_index = bitm_index
+                bitm_def           = bitmap_defs[-1]
+                bitm_def.name      = trimmed_name
+                bitm_def.width     = bitm.width
+                bitm_def.height    = bitm.height
+                bitm_def.tex_index = bitm_index
+
+            bitmap_name_map[name] = (bitm, bitm_def)
 
             tex_pointer += len(texture_data)
 
@@ -320,41 +315,36 @@ def import_textures(
 
     # copy dimensions from first sequence bitmap into anim bitmaps
     for name, meta in tuple(all_bitm_meta.items()):
-        anim_index, src_index   = bitmap_name_map.get(name), None
-        if "frames" not in meta or anim_index is None:
+        if "frames" not in meta:
             continue
 
-        anim_bitm = bitmaps[anim_index]
+        anim_bitm, anim_bitm_def    = bitmap_name_map.get(name, (None, None))
+        if not anim_bitm:
+            continue
+
+        src_bitm = None
         for f_name in sorted(meta["frames"]):
-            src_index = src_index or bitmap_name_map.get(f_name, src_index)
+            src_bitm = src_bitm or bitmap_name_map.get(f_name, [None])[0]
 
-        if src_index is not None:
-            src_bitm    = bitmaps[src_index]
-            anim_bitm.width         = src_bitm.width
-            anim_bitm.height        = src_bitm.height
-            anim_bitm.tex_pointer   = src_bitm.tex_pointer
-            anim_bitm.format.data   = src_bitm.format.data
-            anim_bitm.flags.data   |= src_bitm.flags.data
-            if hasattr(anim_bitm, "mipmap_count"):
-                anim_bitm.mipmap_count  = src_bitm.mipmap_count
+        if src_bitm:
+            meta.update(
+                width=src_bitm.width, height=src_bitm.height,
+                format=src_bitm.format.enum_name, **{
+                    n: src_bitm.flags[n] for n in src_bitm.flags.NAME_MAP
+                    }
+                )
+            import_texture(anim_bitm, meta, None)
 
-            if hasattr(anim_bitm, "width_64"):
-                anim_bitm.width_64          = src_bitm.width_64
-                anim_bitm.log2_of_width     = src_bitm.log2_of_width
-                anim_bitm.log2_of_height    = src_bitm.log2_of_height
-                anim_bitm.tex0.clut_pixmode.data = src_bitm.tex0.clut_pixmode.data
-            elif hasattr(anim_bitm, "large_lod_log2_inv"):
-                anim_bitm.large_lod_log2_inv    = src_bitm.large_lod_log2_inv
-                anim_bitm.small_lod_log2_inv    = src_bitm.small_lod_log2_inv
-            elif hasattr(anim_bitm, "image_type"):
-                anim_bitm.image_type    = src_bitm.image_type
-                anim_bitm.size          = src_bitm.size
+            anim_bitm.tex_pointer = src_bitm.tex_pointer
+            if hasattr(src_bitm, "lod_k"):
+                anim_bitm.lod_k             = src_bitm.lod_k
+                anim_bitm.mipmap_count      = src_bitm.mipmap_count
+            elif hasattr(src_bitm, "image_type"):
+                anim_bitm.image_type.data   = src_bitm.image_type.data
 
-        if name in bitmap_def_name_map:
-            bitmap_def = bitmap_defs[bitmap_def_name_map[name]]
-            bitmap_def.width  = anim_bitm.width
-            bitmap_def.height = anim_bitm.height
-            
+        if anim_bitm_def:
+            anim_bitm_def.width  = anim_bitm.width
+            anim_bitm_def.height = anim_bitm.height
 
     # populate tex0 and miptbp
     objects_tag.calculate_tex0_and_mip_tbp()
@@ -366,9 +356,12 @@ def export_textures(
         objects_tag=None, texdef_tag=None,
         asset_types=c.TEXTURE_CACHE_EXTENSIONS, textures_filepath="",
         parallel_processing=False, overwrite=False, mipmaps=False,
-        data_dir=".", assets_dir=None, cache_dir=None,
+        assets_dir=".", cache_dir=None,
         ):
-    data_dir = pathlib.Path(data_dir)
+    assets_dir = pathlib.Path(assets_dir)
+    if not cache_dir:
+        cache_dir   = assets_dir.joinpath(c.IMPORT_FOLDERNAME)
+
     if isinstance(asset_types, str):
         asset_types = (asset_types, )
 
@@ -376,8 +369,6 @@ def export_textures(
         if asset_type not in (*c.TEXTURE_CACHE_EXTENSIONS, *c.TEXTURE_ASSET_EXTENSIONS):
             raise ValueError(f"Unknown texture type '{asset_type}'")
 
-    if not assets_dir: assets_dir  = data_dir
-    if not cache_dir:  cache_dir   = data_dir.joinpath(c.IMPORT_FOLDERNAME)
 
     if objects_tag:
         tag_dir         = pathlib.Path(objects_tag.filepath).parent

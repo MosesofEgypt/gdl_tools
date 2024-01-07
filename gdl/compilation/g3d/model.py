@@ -2,7 +2,7 @@ import pathlib
 
 from traceback import format_exc
 from ...supyr_struct_ext import FixedBytearrayBuffer
-from ..metadata import objects as objects_metadata
+from ..metadata import util as metadata_util
 from .serialization import halo_jm
 from .serialization.animation import G3DAnimationNode
 from .serialization.model import G3DModel
@@ -75,10 +75,9 @@ def decompile_model(kwargs):
 def import_models(
         objects_tag, target_ps2=False, target_ngc=False,
         target_xbox=False, target_dreamcast=False, target_arcade=False,
-        data_dir=".", cache_dir=None
+        cache_dir="."
         ):
-    if not cache_dir:
-        cache_dir = pathlib.Path(data_dir).joinpath(c.IMPORT_FOLDERNAME)
+    cache_dir = pathlib.Path(cache_dir)
 
     model_caches_by_name = {}
     all_asset_filepaths = util.locate_models(
@@ -107,9 +106,7 @@ def import_models(
     del object_defs[:]
 
     # get the metadata for all models to import
-    metadata = objects_metadata.compile_objects_metadata(
-        cache_dir
-        ).get("objects", ())
+    metadata = metadata_util.compile_metadata(cache_dir).get("objects", ())
     objects_metadata_by_name = {
         meta["name"]: meta for meta in metadata if "name" in meta
         }
@@ -212,9 +209,12 @@ def import_models(
 def export_models(
         objects_tag, anim_tag=None, asset_types=c.MODEL_CACHE_EXTENSIONS,
         parallel_processing=False, overwrite=False,
-        data_dir=".", assets_dir=None, cache_dir=None
+        assets_dir=".", cache_dir=None
         ):
-    data_dir = pathlib.Path(data_dir)
+    assets_dir = pathlib.Path(assets_dir)
+    if not cache_dir:
+        cache_dir   = assets_dir.joinpath(c.IMPORT_FOLDERNAME)
+
     if isinstance(asset_types, str):
         asset_types = (asset_types, )
 
@@ -223,9 +223,6 @@ def export_models(
                               *c.MODEL_ASSET_EXTENSIONS,
                               *c.ACTOR_ASSET_EXTENSIONS):
             raise ValueError("Unknown model type '%s'" % asset_type)
-
-    if not assets_dir: assets_dir  = data_dir
-    if not cache_dir:  cache_dir   = data_dir.joinpath(c.IMPORT_FOLDERNAME)
 
     is_arcade   = False
     for bitm in objects_tag.data.bitmaps:

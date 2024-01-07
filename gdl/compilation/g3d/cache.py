@@ -16,7 +16,6 @@ from . import constants as c
 from . import util
 
 
-COMPILE_JOB_TYPE_ANIMATIONS = 'animation'
 COMPILE_JOB_TYPE_TEXTURES   = 'texture'
 COMPILE_JOB_TYPE_MODELS     = 'model'
 
@@ -26,14 +25,13 @@ def _compile_assets(
         force_recompile=False, parallel_processing=False,
         target_ps2=False, target_ngc=False, target_xbox=False,
         target_dreamcast=False, target_arcade=False, 
-        data_dir=".", assets_dir=None, cache_dir=None, **kwargs
+        objects_dir=".", assets_dir=None, cache_dir=None, **kwargs
         ):
-    if not assets_dir:
-        assets_dir  = pathlib.Path(data_dir, folder)
-    if not cache_dir:
-        cache_dir   = pathlib.Path(data_dir, c.IMPORT_FOLDERNAME, folder)
+    if not assets_dir: assets_dir = pathlib.Path(objects_dir, c.DATA_FOLDERNAME)
+    if not cache_dir:  cache_dir  = pathlib.Path(assets_dir, c.IMPORT_FOLDERNAME)
 
     if compile_job_type == COMPILE_JOB_TYPE_TEXTURES:
+        metadata_key    = "bitmaps"
         compile_func    = texture.compile_texture
         cache_type      = (
             c.TEXTURE_CACHE_EXTENSION_PS2  if target_ps2 else
@@ -44,6 +42,7 @@ def _compile_assets(
             None
             )
     elif compile_job_type == COMPILE_JOB_TYPE_MODELS:
+        metadata_key    = "objects"
         compile_func    = model.compile_model
         cache_type      = (
             c.MODEL_CACHE_EXTENSION_ARC  if target_arcade else
@@ -51,16 +50,6 @@ def _compile_assets(
             c.MODEL_CACHE_EXTENSION_XBOX if target_xbox else
             c.MODEL_CACHE_EXTENSION_NGC  if target_ngc else
             c.MODEL_CACHE_EXTENSION_PS2  if target_ps2 else
-            None
-            )
-    elif compile_job_type == COMPILE_JOB_TYPE_ANIMATIONS:
-        compile_func    = animation.compile_animation
-        cache_type      = (
-            c.ANIMATION_CACHE_EXTENSION_ARC  if target_arcade else
-            c.ANIMATION_CACHE_EXTENSION_DC   if target_dreamcast else
-            c.ANIMATION_CACHE_EXTENSION_XBOX if target_xbox else
-            c.ANIMATION_CACHE_EXTENSION_NGC  if target_ngc else
-            c.ANIMATION_CACHE_EXTENSION_PS2  if target_ps2 else
             None
             )
     else:
@@ -76,16 +65,15 @@ def _compile_assets(
     # get the metadata for all assets to import and
     # key it by name to allow matching to asset files
     all_metadata = metadata_util.compile_metadata(assets_dir)
+    metadata = all_metadata.get(metadata_key, {})
     if compile_job_type == COMPILE_JOB_TYPE_TEXTURES:
         all_assets = util.locate_textures(assets_dir, cache_files=False)
     elif compile_job_type == COMPILE_JOB_TYPE_MODELS:
         all_assets = util.locate_models(assets_dir, cache_files=False)
-    elif compile_job_type == COMPILE_JOB_TYPE_ANIMATIONS:
-        all_assets = util.locate_animations(assets_dir, cache_files=False)
 
     all_job_args = []
     for name in sorted(all_assets):
-        meta = all_metadata.get(name)
+        meta = metadata.get(name)
         if not meta:
             # not listed in metadata. don't compile it
             continue
@@ -109,7 +97,7 @@ def _compile_assets(
             print(format_exc())
             print(f"Error: Could not create {compile_job_type} compilation job: '{asset_filepath}'")
 
-    print(f"Compiling %s {metadata_key} in %s" % (
+    print(f"Executing %s {compile_job_type} compile jobs in %s" % (
         len(all_job_args), "parallel" if parallel_processing else "series"
         ))
     util.process_jobs(
@@ -126,10 +114,11 @@ def compile_models(*args, **kwargs):
 
 
 def compile_metadata(objects_dir=".", assets_dir=None, cache_dir=None):
-    data_dir = pathlib.Path(objects_dir, c.DATA_FOLDERNAME)
+    if not assets_dir:
+        assets_dir  = pathlib.Path(objects_dir, c.DATA_FOLDERNAME)
 
-    if not assets_dir: assets_dir  = data_dir
-    if not cache_dir:  cache_dir   = data_dir.joinpath(c.IMPORT_FOLDERNAME)
+    if not cache_dir:
+        cache_dir   = assets_dir.joinpath(c.IMPORT_FOLDERNAME)
 
     # delete any metadata files found in the folder
     metadata_util.clear_cache_files(cache_dir)
@@ -137,8 +126,8 @@ def compile_metadata(objects_dir=".", assets_dir=None, cache_dir=None):
     all_metadata = metadata_util.compile_metadata(assets_dir, cache_files=False)
 
     filepath = pathlib.Path(cache_dir, "metadata." + c.METADATA_CACHE_EXTENSION)
-    filepath.mkdir(parents=True, exist_ok=True)
-    metadata_util.dump_metadata(all_metadata, filepath, overwrite)
+    filepath.parent.mkdir(parents=True, exist_ok=True)
+    metadata_util.dump_metadata(all_metadata, filepath, overwrite=True)
 
 
 def compile_cache_files(
@@ -148,7 +137,6 @@ def compile_cache_files(
         build_objects_cache=True, build_anim_cache=True,
         objects_dir=".", cache_dir=None
         ):
-    objects_dir = pathlib.Path(objects_dir)
     ext = (
         c.NGC_EXTENSION if target_ngc else
         c.ARC_EXTENSION if target_arcade else
@@ -163,7 +151,10 @@ def compile_cache_files(
     build_texdef_cache &= build_objects_cache
 
     # TODO: add support for compiling worlds
-    data_dir    = objects_dir.joinpath(c.DATA_FOLDERNAME)
+    objects_dir = pathlib.Path(objects_dir)
+    if not cache_dir:
+        cache_dir = objects_dir.joinpath(c.DATA_FOLDERNAME, c.IMPORT_FOLDERNAME)
+
     objects_tag = objects_def.build() if build_objects_cache else None
     anim_tag    = anim_def.build()    if build_anim_cache else None
     texdef_tag  = None
@@ -182,6 +173,12 @@ def compile_cache_files(
     anim_tag.filepath = objects_dir.joinpath(
         f"{c.ANIM_FILENAME}.{anim_worlds_ext}"
         )
+    shared_args = dict(
+        target_ngc=target_ngc, target_ps2=target_ps2,
+        target_xbox=target_xbox, target_dreamcast=target_dreamcast,
+        target_arcade=target_arcade
+        )
+    shared_import_args = dict(cache_dir=cache_dir, **shared_args)
 
     if objects_tag:
         objects_tag.filepath = objects_dir.joinpath(
@@ -192,23 +189,13 @@ def compile_cache_files(
             )
 
         print("Importing textures...")
-        texture_datas = texture.import_textures(
-            objects_tag, target_ngc=target_ngc, target_ps2=target_ps2,
-            target_xbox=target_xbox, target_dreamcast=target_dreamcast,
-            target_arcade=target_arcade, data_dir=data_dir, cache_dir=cache_dir
-            )
+        texture_datas = texture.import_textures(objects_tag, **shared_import_args)
         print("Importing models...")
-        model.import_models(
-            objects_tag, target_ngc=target_ngc, target_ps2=target_ps2,
-            target_xbox=target_xbox, target_dreamcast=target_dreamcast,
-            target_arcade=target_arcade, data_dir=data_dir, cache_dir=cache_dir
-            )
+        model.import_models(objects_tag, **shared_import_args)
 
     if anim_tag:
         print("Importing animations...")
-        animation.import_animations(
-            anim_tag, objects_tag, data_dir=data_dir, cache_dir=cache_dir
-            )
+        animation.import_animations(anim_tag, objects_tag, cache_dir=cache_dir)
 
     if build_texdef_cache:
         texdef_tag = compile_texdef_cache_from_objects(objects_tag)
@@ -226,11 +213,7 @@ def compile_cache_files(
             texdef_tag.serialize(temp=False)
 
         if texture_datas:
-            serialize_textures_cache(
-                objects_tag, texture_datas, target_ngc=target_ngc,
-                target_ps2=target_ps2, target_xbox=target_xbox,
-                target_dreamcast=target_dreamcast, target_arcade=target_arcade
-                )
+            serialize_textures_cache(objects_tag, texture_datas, **shared_args)
 
     return dict(
         objects_tag = objects_tag,
@@ -241,16 +224,18 @@ def compile_cache_files(
 
 
 def decompile_cache_files(
-        target_dir, overwrite=False, parallel_processing=False, 
+        objects_dir=".", assets_dir=None, cache_dir=None,
+        overwrite=False, parallel_processing=False,  mipmaps=False,
         meta_asset_types=c.METADATA_CACHE_EXTENSIONS,
         anim_asset_types=c.ANIMATION_CACHE_EXTENSIONS,
         tex_asset_types=c.TEXTURE_CACHE_EXTENSIONS,
         mod_asset_types=c.MODEL_CACHE_EXTENSIONS,
-        data_dir=None, assets_dir=None, cache_dir=None,
-        **kwargs
         ):
 
-    filepaths = util.locate_objects_dir_files(target_dir)
+    filepaths = util.locate_objects_dir_files(objects_dir)
+    assets_dir = pathlib.Path(
+        *(assets_dir if assets_dir else (objects_dir, c.DATA_FOLDERNAME))
+        )
 
     # load objects, texdefs, worlds, and animations
     objects_tag = (
@@ -308,13 +293,8 @@ def decompile_cache_files(
         except Exception:
             print('Could not load actor object assets. Objects may not be sorted well.')
 
-    data_dir = pathlib.Path(
-        *(data_dir if data_dir else (target_dir, c.DATA_FOLDERNAME))
-        )
-
     shared_args = dict(
-        overwrite=overwrite, data_dir=data_dir,
-        assets_dir=assets_dir, cache_dir=cache_dir
+        overwrite=overwrite, assets_dir=assets_dir, cache_dir=cache_dir
         )
     if meta_asset_types:
         meta_args = dict(
@@ -337,7 +317,7 @@ def decompile_cache_files(
     if tex_asset_types and (objects_tag or texdef_tag):
         texture.export_textures(
             objects_tag=objects_tag, texdef_tag=texdef_tag,
-            asset_types=tex_asset_types, mipmaps=kwargs.get("mipmaps", False),
+            asset_types=tex_asset_types, mipmaps=mipmaps,
             textures_filepath=filepaths['textures_filepath'], **shared_args
             )
 

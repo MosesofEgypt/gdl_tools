@@ -2,7 +2,7 @@ import os
 import pathlib
 
 from ..util import *
-from . import constants
+from . import constants as c
 
 
 def calculate_padding(buffer_len, stride):
@@ -39,21 +39,21 @@ def locate_target_platform_files(
 
             is_arcade = is_ps2 = is_dreamcast = True
 
-            if ext not in constants.DC_ROMDISK_FILE_EXTENSIONS:
+            if ext not in c.DC_ROMDISK_FILE_EXTENSIONS:
                 is_dreamcast = False
             elif ext == "wad" and not get_is_dreamcast_wad(filepath):
                 is_dreamcast = False
             elif ext == "rom" and not get_is_dreamcast_rom(filepath):
                 is_dreamcast = False
 
-            if ext not in constants.ARC_HDD_FILE_EXTENSIONS:
+            if ext not in c.ARC_HDD_FILE_EXTENSIONS:
                 is_arcade = False
             elif ext == "wad" and not get_is_arcade_wad(filepath):
                 is_arcade = False
             elif ext == "rom" and not get_is_arcade_rom(filepath):
                 is_arcade = False
 
-            if ext not in constants.PS2_WAD_FILE_EXTENSIONS:
+            if ext not in c.PS2_WAD_FILE_EXTENSIONS:
                 is_ps2 = False
             elif ext == "wad" and (is_dreamcast or is_arcade):
                 is_ps2 = False
@@ -86,8 +86,8 @@ def locate_objects_dir_files(objects_dir):
             # NOTE: dreamcast uses .rom for everything like arcade, though arcade
             #       doesn't have the texdef file, whereas dreamcast does.
             #       also gamecube only uses .ngc for objects and textures.
-            if ext not in (constants.PS2_EXTENSION, constants.NGC_EXTENSION,
-                           constants.ARC_EXTENSION, constants.DC_EXTENSION):
+            if ext not in (c.PS2_EXTENSION, c.NGC_EXTENSION,
+                           c.ARC_EXTENSION, c.DC_EXTENSION):
                 continue
             elif key not in filepaths:
                 continue
