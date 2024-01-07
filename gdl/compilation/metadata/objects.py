@@ -96,9 +96,7 @@ def decompile_object_metadata(obj, asset_name=None, actor_name=None, bitmap_asse
         metadata_obj.update(asset_name = asset_name)
 
     if actor_name:
-        metadata_obj.update(actor = actor_name)
-    else:
-        metadata_obj.update(standalone = True)                
+        metadata_obj.update(actor = actor_name)              
 
     if hasattr(obj, "lods"):
         obj_flags = obj.lods[0].flags
@@ -146,8 +144,6 @@ def decompile_bitmap_metadata(bitm, asset_name=None, actor_name=None, cache_name
 
     if actor_name:
         metadata_bitm.update(actor = actor_name)
-    else:
-        metadata_bitm.update(standalone = True)
 
     if bitm.frame_count == 0 and cache_name:
         metadata_bitm.update(cache_name=True)

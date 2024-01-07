@@ -27,8 +27,8 @@ def _compile_assets(
         target_dreamcast=False, target_arcade=False, 
         objects_dir=".", assets_dir=None, cache_dir=None, **kwargs
         ):
-    if not assets_dir: assets_dir = pathlib.Path(objects_dir, c.DATA_FOLDERNAME)
-    if not cache_dir:  cache_dir  = pathlib.Path(assets_dir, c.IMPORT_FOLDERNAME)
+    assets_dir = assets_dir or pathlib.Path(objects_dir, c.DATA_FOLDERNAME)
+    cache_dir  = cache_dir or pathlib.Path(assets_dir, c.IMPORT_FOLDERNAME)
 
     if compile_job_type == COMPILE_JOB_TYPE_TEXTURES:
         metadata_key    = "bitmaps"
@@ -113,19 +113,23 @@ def compile_models(*args, **kwargs):
     return _compile_assets(COMPILE_JOB_TYPE_MODELS, *args, **kwargs)
 
 
-def compile_metadata(objects_dir=".", assets_dir=None, cache_dir=None):
-    if not assets_dir:
-        assets_dir  = pathlib.Path(objects_dir, c.DATA_FOLDERNAME)
-
-    if not cache_dir:
-        cache_dir   = assets_dir.joinpath(c.IMPORT_FOLDERNAME)
-
-    # delete any metadata files found in the folder
-    metadata_util.clear_cache_files(cache_dir)
+def compile_metadata(
+        objects_dir=".", assets_dir=None, cache_dir=None,
+        clear_cache=False
+        ):
+    assets_dir  = assets_dir or pathlib.Path(objects_dir, c.DATA_FOLDERNAME)
+    cache_dir   = cache_dir or assets_dir.joinpath(c.IMPORT_FOLDERNAME)
 
     all_metadata = metadata_util.compile_metadata(assets_dir, cache_files=False)
+    if not all_metadata:
+        print("Warning: No metadata found. Skipping compiling and clearing cache.")
+        return
 
-    filepath = pathlib.Path(cache_dir, "metadata." + c.METADATA_CACHE_EXTENSION)
+    # delete any metadata files found in the folder if we have new metadata
+    if clear_cache:
+        metadata_util.clear_cache_files(cache_dir)
+
+    filepath = pathlib.Path(cache_dir, f"metadata.{c.METADATA_CACHE_EXTENSION}")
     filepath.parent.mkdir(parents=True, exist_ok=True)
     metadata_util.dump_metadata(all_metadata, filepath, overwrite=True)
 
@@ -152,8 +156,7 @@ def compile_cache_files(
 
     # TODO: add support for compiling worlds
     objects_dir = pathlib.Path(objects_dir)
-    if not cache_dir:
-        cache_dir = objects_dir.joinpath(c.DATA_FOLDERNAME, c.IMPORT_FOLDERNAME)
+    cache_dir   = cache_dir or objects_dir.joinpath(c.DATA_FOLDERNAME, c.IMPORT_FOLDERNAME)
 
     objects_tag = objects_def.build() if build_objects_cache else None
     anim_tag    = anim_def.build()    if build_anim_cache else None
@@ -338,33 +341,35 @@ def serialize_textures_cache(
         target_dreamcast=False, target_arcade=False
         ):
     if not output_filepath:
-        objects_dir = pathlib.Path(objects_tag.filepath).parent
         extension   = (
-            c.PS2_EXTENSION if target_ps2 else
-            c.XBOX_EXTENSION if target_xbox else
-            c.NGC_EXTENSION if target_ngc else
-            c.ARC_EXTENSION if target_arcade else
-            c.DC_EXTENSION if target_dreamcast else
+            c.PS2_EXTENSION     if target_ps2 else
+            c.XBOX_EXTENSION    if target_xbox else
+            c.NGC_EXTENSION     if target_ngc else
+            c.ARC_EXTENSION     if target_arcade else
+            c.DC_EXTENSION      if target_dreamcast else
             None
             )
         if extension is None:
             raise ValueError("No target platform specified")
 
-        output_filepath = objects_dir.joinpath(f"{c.TEXTURES_FILENAME}.{extension}")
+        output_filepath = pathlib.Path(objects_tag.filepath).parent.joinpath(
+            f"{c.TEXTURES_FILENAME}.{extension}"
+            )
 
-    temppath = output_filepath + ".temp"
+    suffix = output_filepath.suffix
+    output_filepath = pathlib.Path(output_filepath)
+    temp_filepath   = output_filepath.with_suffix(f"{suffix}.temp")
+    backup_filepath = output_filepath.with_suffix(f"{suffix}.backup")
     # open the textures.ps2 file and serialize the texture data into it
-    with open(temppath, 'w+b') as f:
+    with temp_filepath.open('wb+') as f:
         for texture_data, bitmap in zip(texture_datas, objects_tag.data.bitmaps):
-            if bitmap.frame_count or getattr(bitmap.flags, "external", False):
-                continue
-            elif texture_data is None:
-                continue
+            if (texture_data and not bitmap.frame_count and
+                not getattr(bitmap.flags, "external", False)
+                ):
+                f.seek(bitmap.tex_pointer)
+                f.write(texture_data)
 
-            f.seek(bitmap.tex_pointer)
-            f.write(texture_data)
-
-    backup_and_rename_temp(output_filepath, temppath)
+    backup_and_rename_temp(output_filepath, temp_filepath, backup_filepath)
 
 
 def compile_texdef_cache_from_objects(objects_tag):
@@ -374,6 +379,7 @@ def compile_texdef_cache_from_objects(objects_tag):
         except Exception:
             print('Could not load texdefs. Names generated will be best guesses.')
 
+    objects_tag.generate_cache_names()
     _, bitmap_names = objects_tag.get_cache_names()
     named_bitmap_indices = {
         b.tex_index for b in objects_tag.data.bitmap_defs if b.name
@@ -401,9 +407,7 @@ def compile_texdef_cache_from_objects(objects_tag):
             # dreamcast doesnt save external textures to texdef
             continue
 
-        texdef_bitmaps.append(
-            case = ("dreamcast" if is_dreamcast else "ps2")
-            )
+        texdef_bitmaps.append(case=("dreamcast" if is_dreamcast else "ps2"))
         texdef_bitmap_defs.append()
 
         texdef_bitmap     = texdef_bitmaps[-1]

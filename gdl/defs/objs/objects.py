@@ -33,6 +33,9 @@ class ObjectsTag(GdlTag):
     @property
     def texdef_names_by_pixels_pointer(self):
         return self._texdef_names_by_pixels_pointer or {}
+    @texdef_names_by_pixels_pointer.setter
+    def texdef_names_by_pixels_pointer(self, val):
+        self._texdef_names_by_pixels_pointer = dict(val)
 
     def load_anim_tag(self, filepath=None, recache=False):
         if (self.anim_tag and not recache) or self._anim_tag_load_attempted:

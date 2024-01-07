@@ -212,8 +212,7 @@ def export_models(
         assets_dir=".", cache_dir=None
         ):
     assets_dir = pathlib.Path(assets_dir)
-    if not cache_dir:
-        cache_dir   = assets_dir.joinpath(c.IMPORT_FOLDERNAME)
+    cache_dir  = cache_dir or assets_dir.joinpath(c.IMPORT_FOLDERNAME)
 
     if isinstance(asset_types, str):
         asset_types = (asset_types, )

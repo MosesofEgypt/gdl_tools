@@ -8,6 +8,12 @@ from . import constants as c
 from ..util import *
 
 
+def get_frame_count(meta):
+    return 0 if not isinstance(meta, dict) else (
+        meta.get("frame_count", len(meta.get("frames", ())))
+        )
+
+
 def locate_metadata(data_dir, cache_files=False):
     return locate_assets(data_dir,
         c.METADATA_CACHE_EXTENSIONS if cache_files else
@@ -43,13 +49,7 @@ def dump_metadata_sets(metadata_sets, overwrite=False,
     for asset_type in asset_types:
         if asset_type in c.METADATA_CACHE_EXTENSIONS:
             dump_dir = cache_dir
-            name_parts = set()
-            for metadata_set in metadata_sets.values():
-                name_parts.update(k.lower() for k in metadata_set.keys())
-
-            metadata = {
-                "_".join(sorted(name_parts)): merge_metadata_sets(*metadata_sets.values())
-                }
+            metadata = {"metadata": merge_metadata_sets(*metadata_sets.values())}
         else:
             dump_dir = assets_dir
             metadata = metadata_sets
@@ -120,8 +120,8 @@ def merge_metadata_sets(*metadata_sets):
     return all_metadata
 
 
-def compile_metadata(assets_dir, cache_files=False):
-    all_assets = locate_metadata(assets_dir, cache_files=cache_files)
+def compile_metadata(data_dir, cache_files=False):
+    all_assets = locate_metadata(data_dir, cache_files=cache_files)
     all_metadata = {}
 
     for metadata_name in sorted(all_assets):

@@ -27,6 +27,7 @@ TEXTURE_CACHE_FLAG_LARGE_VQ  = 1 << 3
 
 
 TEXTURE_CACHE_HEADER_STRUCT = struct.Struct('<HBB HH')
+# 8 bytes
 #   flags
 #   format_id
 #   mipmaps
@@ -100,6 +101,7 @@ class TextureCache(AssetCache):
                )
 
         self.format_id = format_id
+        self.mipmaps   = mipmaps
         self.width     = width
         self.height    = height
 
@@ -127,7 +129,7 @@ class TextureCache(AssetCache):
             )
 
         tex_header_rawdata = TEXTURE_CACHE_HEADER_STRUCT.pack(
-            tex_flags, self.format_id, max(0, self.mipmaps - 1),
+            tex_flags, self.format_id, max(0, len(self.textures) - 1),
             self.width, self.height
             )
 
@@ -366,10 +368,9 @@ class GamecubeTextureCache(TextureCache):
         return palette_bytes
 
     def serialize_textures(self, *, pixel_interop_edits=True):
-        max_mipmaps = max(0, len(self.textures) - 1)
-        if self.mipmaps > max_mipmaps:
-            print(f"Warning: Reducing mipmaps from {self.mipmaps} to {max_mipmaps}")
-            self.mipmaps = max_mipmaps
+        if self.mipmaps > 0:
+            print(f"Warning: Reducing mipmaps from {self.mipmaps} to 0")
+            self.mipmaps = 0
 
         orig_textures = self.textures
         try:

@@ -9,6 +9,7 @@ CACHE_CHECKSUM_ALGORITHM = "md5"
 CACHE_FLAG_EXTRACTED = 1 << 0
 
 CACHE_HEADER_STRUCT = struct.Struct('<8s II 4s H 10s 16s')
+# 48 bytes
 #   signature
 #   version
 #   flags
