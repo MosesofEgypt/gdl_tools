@@ -224,6 +224,10 @@ def import_textures(
     # for returning to the caller for easy iteration
     texture_datas = []
 
+    # maps each bitmap name to the index its at.
+    bitmap_name_map = {}
+    bitmap_def_name_map = {}
+
     # tracks the next free pointer in the textures.rom
     tex_pointer = 0
 
@@ -246,13 +250,14 @@ def import_textures(
             template.pop(k, None)
 
         # NOTE: doing this sorted so we can set "cache_name" on the first one
-        for i, frame_name in enumerate(sorted(frames)):
+        for i, f_name in enumerate(sorted(frames)):
             # NOTE: using setdefault in case another texmod uses a frame within
             #       this sequence as the start frame and needs its name cached.
-            all_bitm_meta.setdefault(frame_name, dict(template))
-            all_bitm_meta[frame_name].update(frames[frame_name])
-            if i == 0:
-                all_bitm_meta[frame_name].update(cache_name=True)
+            f_meta = all_bitm_meta.setdefault(f_name, dict(template))
+            f_meta.update(
+                frames = frames[f_name],
+                cache_name = bool(f_meta.get("cache_name") or i == 0)
+                )
 
     # loop over the bitmaps in the order they need to be compiled
     # into the cache file, set the pointers for the texture data,
@@ -288,6 +293,8 @@ def import_textures(
             bitm = bitmaps[bitm_index]
             bitm.tex_pointer = tex_pointer
 
+            bitmap_name_map[name] = bitm_index
+
             texture_data = import_texture(bitm, meta, texture_cache)
             texture_datas.append(texture_data)
 
@@ -296,6 +303,7 @@ def import_textures(
                 objects_tag.texdef_names[tex_pointer] = trimmed_name
 
             if meta.get("cache_name") or getattr(bitm.flags, "external", 0):
+                bitmap_def_name_map[name] = len(bitmap_defs)
                 bitmap_defs.append()
                 bitmap_def           = bitmap_defs[-1]
                 bitmap_def.name      = trimmed_name
@@ -310,7 +318,43 @@ def import_textures(
             print(f"Error occurred while processing bitmap '{name}' at index {bitm_index}.")
             continue
 
-    # TODO: copy dimensions from first sequence bitmap into anim bitmaps
+    # copy dimensions from first sequence bitmap into anim bitmaps
+    for name, meta in tuple(all_bitm_meta.items()):
+        anim_index, src_index   = bitmap_name_map.get(name), None
+        if "frames" not in meta or anim_index is None:
+            continue
+
+        anim_bitm = bitmaps[anim_index]
+        for f_name in sorted(meta["frames"]):
+            src_index = src_index or bitmap_name_map.get(f_name, src_index)
+
+        if src_index is not None:
+            src_bitm    = bitmaps[src_index]
+            anim_bitm.width         = src_bitm.width
+            anim_bitm.height        = src_bitm.height
+            anim_bitm.tex_pointer   = src_bitm.tex_pointer
+            anim_bitm.format.data   = src_bitm.format.data
+            anim_bitm.flags.data   |= src_bitm.flags.data
+            if hasattr(anim_bitm, "mipmap_count"):
+                anim_bitm.mipmap_count  = src_bitm.mipmap_count
+
+            if hasattr(anim_bitm, "width_64"):
+                anim_bitm.width_64          = src_bitm.width_64
+                anim_bitm.log2_of_width     = src_bitm.log2_of_width
+                anim_bitm.log2_of_height    = src_bitm.log2_of_height
+                anim_bitm.tex0.clut_pixmode.data = src_bitm.tex0.clut_pixmode.data
+            elif hasattr(anim_bitm, "large_lod_log2_inv"):
+                anim_bitm.large_lod_log2_inv    = src_bitm.large_lod_log2_inv
+                anim_bitm.small_lod_log2_inv    = src_bitm.small_lod_log2_inv
+            elif hasattr(anim_bitm, "image_type"):
+                anim_bitm.image_type    = src_bitm.image_type
+                anim_bitm.size          = src_bitm.size
+
+        if name in bitmap_def_name_map:
+            bitmap_def = bitmap_defs[bitmap_def_name_map[name]]
+            bitmap_def.width  = anim_bitm.width
+            bitmap_def.height = anim_bitm.height
+            
 
     # populate tex0 and miptbp
     objects_tag.calculate_tex0_and_mip_tbp()
