@@ -78,14 +78,16 @@ def import_texture(name, bitmap_block, metadata, texture_cache):
     flags        = bitm.flags
     is_arcade    = hasattr(bitm, "large_lod_log2_inv")
     is_dreamcast = hasattr(bitm, "image_type")
-    is_ps2_gen   = hasattr(bitm, "lod_k") # v4 and higher
+    is_ps2_v12   = hasattr(bitm, "tex_palette_index") # v12 and higher
     is_invalid   = bool(meta.get("flags", {}).get("invalid"))
     is_external  = bool(meta.get("flags", {}).get("external"))
     is_animation = bool(metadata_util.get_frame_count(meta))
 
     texture_data  = b''
     if texture_cache:
-        texture_data = texture_cache.serialize(pixel_interop_edits=False)
+        texture_data = texture_cache.serialize_texture_data(
+            pixel_interop_edits=False
+            )
 
     if hasattr(flags, "animation"):
         flags.animation = is_animation
@@ -106,12 +108,14 @@ def import_texture(name, bitmap_block, metadata, texture_cache):
             print(format_exc())
             print("Warning: Could not set bitmap format.")
 
-        if hasattr(bitm, "tex_palette_index"): # v12 and higher
-            bitm.tex_palette_index = meta.get("tex_palette_index", 0)
-            bitm.tex_palette_count = meta.get("tex_palette_count", 0)
-            bitm.tex_shift_index   = meta.get("tex_shift_index", 0)
-
         flags.data  = 0
+
+        if is_ps2_v12:
+            bitm.tex_palette_index  = meta.get("tex_palette_index", 0)
+            bitm.tex_palette_count  = meta.get("tex_palette_count", 0)
+            bitm.tex_shift_index    = meta.get("tex_shift_index", 0)
+            flags.has_alpha = "A" in texture_cache.format_name
+
         bitm.width  = meta.get("width", 0)
         bitm.height = meta.get("height", 0)
 
@@ -124,8 +128,8 @@ def import_texture(name, bitmap_block, metadata, texture_cache):
             bitm.size = len(texture_data)
         elif is_arcade:
             bitm.ncc_table_data = texture_cache.ncc_table.export_to_rawdata()
-        elif is_ps2_gen:
-            flags.has_alpha   = texture_cache.has_alpha or "A" in texture_cache.format_name
+        elif is_ps2_v12:
+            flags.has_alpha = texture_cache.has_alpha or "A" in texture_cache.format_name
 
     else:
         print(f"Warning: Could not locate bitmap file for '{name}'")

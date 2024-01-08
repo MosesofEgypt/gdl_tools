@@ -134,6 +134,12 @@ class TextureCache(AssetCache):
             )
 
         cache_header_rawdata = super().serialize()
+        return (
+            cache_header_rawdata + tex_header_rawdata +
+            self.serialize_texture_data()
+            )
+
+    def serialize_texture_data(self, pixel_interop_edits=True):
         palette_data = self.serialize_palette(pixel_interop_edits=pixel_interop_edits)
         texture_data = self.serialize_textures(pixel_interop_edits=pixel_interop_edits)
 
@@ -141,8 +147,7 @@ class TextureCache(AssetCache):
         padding = b'\x00' * util.calculate_padding(
             len(texture_data) + len(palette_data), self.texture_chunk_size
             )
-        return (cache_header_rawdata + tex_header_rawdata +
-                palette_data + texture_data + padding)
+        return palette_data + texture_data + padding
 
     def parse_palette(self, rawdata, *, pixel_interop_edits=True):
         palette = rawdata.read(self.palette_size)
